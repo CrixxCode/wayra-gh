@@ -31,6 +31,7 @@ export interface DemoRequestResponse extends DemoRequestPayload {
   converted_at?: string | null;
   password_reset_sent?: boolean;
   email_delivery_enabled?: boolean;
+  email_delivery_error?: string;
   source_ip?: string | null;
   user_agent?: string;
   updated_at?: string;

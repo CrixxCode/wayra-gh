@@ -61,6 +61,7 @@ class DemoRequestCreateSerializer(serializers.ModelSerializer):
 
 class DemoRequestSerializer(DemoRequestCreateSerializer):
     email_delivery_enabled = serializers.SerializerMethodField()
+    email_delivery_error = serializers.SerializerMethodField()
 
     class Meta(DemoRequestCreateSerializer.Meta):
         fields = DemoRequestCreateSerializer.Meta.fields + [
@@ -69,6 +70,7 @@ class DemoRequestSerializer(DemoRequestCreateSerializer):
             "converted_at",
             "password_reset_sent",
             "email_delivery_enabled",
+            "email_delivery_error",
             "source_ip",
             "user_agent",
             "updated_at",
@@ -77,6 +79,9 @@ class DemoRequestSerializer(DemoRequestCreateSerializer):
 
     def get_email_delivery_enabled(self, obj):
         return email_backend_delivers_to_inbox()
+
+    def get_email_delivery_error(self, obj):
+        return str(getattr(obj, "_email_delivery_error", "") or "")
 
 
 class DemoRequestStatusSerializer(serializers.ModelSerializer):

@@ -14,6 +14,7 @@ from django.template.loader import render_to_string
 from apps.hotel_settings.models import HotelSettings
 from accounts.email_utils import (
     build_password_reset_url,
+    describe_email_send_failure,
     email_backend_configuration_error,
     email_backend_delivers_to_inbox,
 )
@@ -732,18 +733,20 @@ class PasswordResetRequestSerializer(serializers.Serializer):
                 email,
                 configuration_error,
             )
-            return {"found": True, "sent": False}
+            return {"found": True, "sent": False, "error_detail": configuration_error}
 
         try:
             sent_count = msg.send(fail_silently=False)
-        except Exception:
+        except Exception as exc:
+            error_detail = describe_email_send_failure(exc)
             logger.exception(
-                "Password reset email could not be sent for user_id=%s email=%s",
+                "Password reset email could not be sent for user_id=%s email=%s: %s",
                 user.pk,
                 email,
+                error_detail,
             )
             # Avoid exposing internals and keep API response stable.
-            return {"found": True, "sent": False}
+            return {"found": True, "sent": False, "error_detail": error_detail}
 
         return {"found": True, "sent": bool(sent_count) and email_backend_delivers_to_inbox()}
 

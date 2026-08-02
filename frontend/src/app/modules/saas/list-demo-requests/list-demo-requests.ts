@@ -307,6 +307,13 @@ export class ListDemoRequests implements OnInit {
   private setAccessEmailMessage(request: DemoRequestResponse): void {
     if (request.status !== 'CONVERTED' || !request.converted_user) return;
 
+    const emailDeliveryError = String(request.email_delivery_error || '').trim();
+    if (emailDeliveryError) {
+      this.actionMessageType = 'warning';
+      this.actionMessage = emailDeliveryError;
+      return;
+    }
+
     if (request.email_delivery_enabled === false) {
       this.actionMessageType = 'warning';
       this.actionMessage =

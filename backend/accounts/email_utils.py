@@ -1,3 +1,5 @@
+from email.utils import parseaddr
+
 from django.conf import settings
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.urls import reverse
@@ -12,6 +14,7 @@ NON_INBOX_EMAIL_BACKENDS = {
 }
 
 RESEND_EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+RESEND_TEST_DOMAIN = "resend.dev"
 
 
 def resend_api_key_is_configured() -> bool:
@@ -20,11 +23,43 @@ def resend_api_key_is_configured() -> bool:
     return bool(direct_key or anymail_key)
 
 
+def default_from_email_domain() -> str:
+    from_email = str(getattr(settings, "DEFAULT_FROM_EMAIL", "") or "").strip()
+    parsed_email = parseaddr(from_email)[1]
+    if "@" not in parsed_email:
+        return ""
+    return parsed_email.rsplit("@", 1)[1].lower()
+
+
 def email_backend_configuration_error() -> str:
     backend = str(getattr(settings, "EMAIL_BACKEND", "") or "").strip()
     if backend == RESEND_EMAIL_BACKEND and not resend_api_key_is_configured():
         return "RESEND_API_KEY is required when using Resend."
+    if backend == RESEND_EMAIL_BACKEND and default_from_email_domain() == RESEND_TEST_DOMAIN:
+        return (
+            "DEFAULT_FROM_EMAIL usa onboarding@resend.dev, que solo sirve para pruebas al "
+            "correo dueno de la cuenta. Verifica un dominio en Resend y usa un remitente "
+            "de ese dominio."
+        )
     return ""
+
+
+def describe_email_send_failure(exc: Exception) -> str:
+    raw_message = str(exc)
+    if "You can only send testing emails to your own email address" in raw_message:
+        return (
+            "Resend rechazo el envio porque onboarding@resend.dev solo permite pruebas al "
+            "correo dueno de la cuenta. Verifica un dominio en Resend y configura "
+            "DEFAULT_FROM_EMAIL con un correo de ese dominio."
+        )
+    if "verify a domain" in raw_message or "domain" in raw_message and "verified" in raw_message:
+        return (
+            "Resend rechazo el envio porque el remitente no pertenece a un dominio "
+            "verificado. Verifica un dominio en Resend y actualiza DEFAULT_FROM_EMAIL."
+        )
+    if "API key" in raw_message or "api_key" in raw_message:
+        return "Resend rechazo el envio por un problema con RESEND_API_KEY."
+    return "No fue posible enviar el correo con Resend. Revisa los logs del backend."
 
 
 def email_backend_delivers_to_inbox() -> bool:

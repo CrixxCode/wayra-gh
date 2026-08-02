@@ -95,10 +95,12 @@ class DemoRequestViewSet(
                 {"detail": "La solicitud debe estar convertida antes de reenviar el enlace de acceso."}
             )
 
-        password_reset_sent = self.send_password_setup_email(demo_request.converted_user)
+        email_result = self.send_password_setup_email_result(demo_request.converted_user)
+        password_reset_sent = bool(email_result.get("sent"))
         demo_request.password_reset_sent = password_reset_sent
         demo_request.save(update_fields=["password_reset_sent", "updated_at"])
         demo_request.refresh_from_db()
+        demo_request._email_delivery_error = email_result.get("error_detail", "")
 
         return Response(DemoRequestSerializer(demo_request).data, status=status.HTTP_200_OK)
 
@@ -168,7 +170,8 @@ class DemoRequestViewSet(
         user.save()
         UserRole.objects.create(user=user, role=admin_role, is_active=True)
 
-        password_reset_sent = self.send_password_setup_email(user)
+        email_result = self.send_password_setup_email_result(user)
+        password_reset_sent = bool(email_result.get("sent"))
 
         locked_request.status = DemoRequest.Status.CONVERTED
         locked_request.converted_hotel_settings = hotel
@@ -185,10 +188,14 @@ class DemoRequestViewSet(
                 "updated_at",
             ]
         )
+        locked_request._email_delivery_error = email_result.get("error_detail", "")
 
         return locked_request
 
     def send_password_setup_email(self, user) -> bool:
+        return bool(self.send_password_setup_email_result(user).get("sent"))
+
+    def send_password_setup_email_result(self, user) -> dict:
         base_url = str(self.request.data.get("base_url") or "").strip() or None
         serializer = PasswordResetRequestSerializer(
             data={"email": user.email},
@@ -196,4 +203,7 @@ class DemoRequestViewSet(
         )
         serializer.is_valid(raise_exception=True)
         result = serializer.save()
-        return bool(result.get("sent"))
+        return {
+            "sent": bool(result.get("sent")),
+            "error_detail": str(result.get("error_detail") or ""),
+        }
