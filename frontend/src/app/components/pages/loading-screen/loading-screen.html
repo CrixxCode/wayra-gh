@@ -1,0 +1,13 @@
+<div
+  *ngIf="visible"
+  class="loading-overlay fixed inset-0 z-[9999] flex items-center justify-center"
+>
+  <div class="loading-backdrop" aria-hidden="true"></div>
+  <section class="loading-card" aria-label="Estado de sesion">
+    <div class="loading-glow" [style.background]="color"></div>
+    <img src="logo-black.png" alt="Logo del sistema" class="loading-logo" />
+    <h1>Wayra</h1>
+    <p class="loading-message">{{ message }}</p>
+    <div class="loader" [style.borderTopColor]="color" aria-label="Cargando..."></div>
+  </section>
+</div>

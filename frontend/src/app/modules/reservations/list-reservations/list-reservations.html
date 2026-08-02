@@ -1,0 +1,460 @@
+<p-confirmDialog key="reservationDelete" styleClass="app-confirm-dialog"></p-confirmDialog>
+
+<div class="reservations-page">
+  <header class="page-header">
+    <div>
+      <h1>Reservas</h1>
+      <p>Gestiona todas las reservas, check-ins y check-outs del hotel.</p>
+    </div>
+
+    <button type="button" class="btn btn-dark" (click)="openCreateOverlay()">
+      <i class="fa-solid fa-plus"></i>
+      Nueva reserva
+    </button>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total reservas</span>
+        <span class="stat-icon blue"><i class="fa-regular fa-calendar-check"></i></span>
+      </div>
+      <div class="stat-value">{{ totalReservations }}</div>
+      <div class="stat-note">registradas</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>En curso</span>
+        <span class="stat-icon green"><i class="fa-solid fa-arrows-rotate"></i></span>
+      </div>
+      <div class="stat-value">{{ inProgressCount }}</div>
+      <div class="stat-note">huespedes activos</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Check-ins hoy</span>
+        <span class="stat-icon violet"><i class="fa-solid fa-right-to-bracket"></i></span>
+      </div>
+      <div class="stat-value">{{ checkInsTodayCount }}</div>
+      <div class="stat-note">llegadas del dia</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Check-outs hoy</span>
+        <span class="stat-icon orange"><i class="fa-solid fa-right-from-bracket"></i></span>
+      </div>
+      <div class="stat-value">{{ checkOutsTodayCount }}</div>
+      <div class="stat-note">salidas programadas</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Ingresos del mes</span>
+        <span class="stat-icon emerald"><i class="fa-solid fa-sack-dollar"></i></span>
+      </div>
+      <div class="stat-value stat-money">{{ monthlyRevenueLabel }}</div>
+      <div class="stat-note">segun reservas activas</div>
+    </article>
+  </section>
+
+  <section class="filters-card">
+    <div class="filters-grid">
+      <label class="search-field search-wrap gh-search-wrap">
+        <span>Buscar</span>
+        <div class="search-control gh-search-control">
+          <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+          <input class="gh-search-input" type="text" [(ngModel)]="search" (input)="onSearchInput()" placeholder="Reserva, cliente o documento..." />
+        </div>
+      </label>
+
+      <label>
+        <span>Estado</span>
+        <select [(ngModel)]="statusFilter" (change)="applyFilters()">
+          <option *ngFor="let tab of statusTabs" [ngValue]="tab.key">{{ tab.label }}</option>
+        </select>
+      </label>
+
+      <label>
+        <span>Origen</span>
+        <select [(ngModel)]="originFilter" (change)="applyFilters()">
+          <option value="ALL">Todos</option>
+          <option *ngFor="let origin of origins; trackBy: trackById" [value]="origin.code">{{ origin.name }}</option>
+        </select>
+      </label>
+
+      <div class="filter-actions-inline">
+        <button type="button" class="icon-action" (click)="refreshReservations()" title="Actualizar">
+          <i class="fa-solid fa-rotate"></i>
+        </button>
+
+        <button type="button" class="icon-action" (click)="exportCsv()" title="Exportar">
+          <i class="fa-solid fa-download"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="filters-actions main-filter-actions">
+      <div class="view-toggle">
+        <button type="button" [class.active]="viewMode === 'table'" (click)="setViewMode('table')" title="Vista tabla">
+          <i class="fa-solid fa-list"></i>
+        </button>
+        <button type="button" [class.active]="viewMode === 'grid'" (click)="setViewMode('grid')" title="Vista cuadricula">
+          <i class="fa-solid fa-grip"></i>
+        </button>
+        <button type="button" [class.active]="viewMode === 'calendar'" (click)="setViewMode('calendar')" title="Vista calendario">
+          <i class="fa-regular fa-calendar"></i>
+        </button>
+      </div>
+
+      <div class="action-group"></div>
+    </div>
+
+    <div class="status-tabs">
+      <button
+        type="button"
+        *ngFor="let tab of statusTabs"
+        [class.active]="statusFilter === tab.key"
+        (click)="selectStatus(tab.key)">
+        {{ tab.label }}
+        <span>{{ getStatusCount(tab.key) }}</span>
+      </button>
+    </div>
+  </section>
+
+  <section class="filters-card" *ngIf="!loading && deletedReservationsCount > 0">
+    <div class="filters-actions">
+      <p class="state-note">
+        Hay {{ deletedReservationsCount }} reserva(s) eliminadas logicamente.
+      </p>
+      <div class="action-group">
+        <button type="button" class="btn btn-light" (click)="showDeletedReservations = !showDeletedReservations">
+          <i class="fa-solid" [class.fa-eye]="!showDeletedReservations" [class.fa-eye-slash]="showDeletedReservations"></i>
+          {{ showDeletedReservations ? 'Ocultar eliminadas' : 'Ver eliminadas' }}
+        </button>
+      </div>
+    </div>
+
+    <article class="table-card" *ngIf="showDeletedReservations">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th># Reserva</th>
+              <th>Huesped</th>
+              <th>Estancia</th>
+              <th>Estado</th>
+              <th>Origen</th>
+              <th>Accion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let reservation of deletedReservations; trackBy: trackByReservation">
+              <td>{{ getReservationCode(reservation) }}</td>
+              <td>{{ reservation.client_full_name || 'Cliente sin nombre' }}</td>
+              <td>{{ getStayLabel(reservation) }}</td>
+              <td>{{ getStatusStyle(reservation).label }}</td>
+              <td>{{ getOriginLabel(reservation) }}</td>
+              <td>
+                <div class="row-actions">
+                  <button type="button" class="row-btn" title="Restaurar" (click)="restoreReservation(reservation)">
+                    <i class="fa-solid fa-rotate-left"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+  <section class="state-message" *ngIf="loading || errorMessage || (!loading && filteredReservations.length === 0)">
+    <p *ngIf="loading">Cargando reservas...</p>
+    <p *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p *ngIf="!loading && !errorMessage && filteredReservations.length === 0">No se encontraron reservas para los filtros seleccionados.</p>
+  </section>
+
+  <section class="table-card" *ngIf="!loading && !errorMessage && filteredReservations.length > 0 && viewMode === 'table'">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th># Reserva</th>
+            <th>Huesped</th>
+            <th>Habitacion</th>
+            <th>Estancia</th>
+            <th>Origen</th>
+            <th>Total</th>
+            <th>Pago</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr
+            *ngFor="let reservation of filteredReservations; trackBy: trackByReservation"
+            class="clickable-row"
+            (click)="openDetail(reservation)">
+            <td>
+              <p class="table-main">{{ getReservationCode(reservation) }}</p>
+              <small>{{ reservation.promo_code || 'Sin promo' }}</small>
+            </td>
+
+            <td>
+              <p class="table-main">{{ reservation.client_full_name || 'Cliente sin nombre' }}</p>
+              <small>{{ reservation.client_document_number || 'Sin documento' }}</small>
+            </td>
+
+            <td>
+              <p class="table-main">{{ getRoomSummary(reservation) }}</p>
+              <small>{{ getRoomSubtitle(reservation) }}</small>
+            </td>
+
+            <td>
+              <p class="table-main">{{ getStayLabel(reservation) }}</p>
+              <small>{{ getNightsLabel(reservation) }}</small>
+            </td>
+
+            <td>{{ getOriginLabel(reservation) }}</td>
+
+            <td>
+              <p class="table-main">{{ getAmountLabel(reservation) }}</p>
+              <small>{{ reservation.total_guests || 0 }} huesped(es)</small>
+            </td>
+
+            <td>
+              <span class="chip" [ngStyle]="{ 'background-color': getPaymentTone(reservation).bg, color: getPaymentTone(reservation).color }">
+                {{ getPaymentLabel(reservation) }}
+              </span>
+            </td>
+
+            <td>
+              <span
+                class="chip chip-status"
+                [ngStyle]="{ 'background-color': getStatusStyle(reservation).chipBg, color: getStatusStyle(reservation).chipColor }">
+                <span class="status-dot" [ngStyle]="{ 'background-color': getStatusStyle(reservation).dotColor }"></span>
+                {{ getStatusStyle(reservation).label }}
+              </span>
+            </td>
+
+            <td>
+              <div class="row-actions">
+                <button type="button" class="row-btn" title="Ver detalle" (click)="$event.stopPropagation(); openDetail(reservation)">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+                <button
+                  type="button"
+                  class="row-btn checkin"
+                  *ngIf="canCheckInReservation(reservation)"
+                  [disabled]="isCheckInLoading(reservation)"
+                  title="Registrar check-in"
+                  (click)="$event.stopPropagation(); performCheckInFromList(reservation)">
+                  <i [class]="isCheckInLoading(reservation) ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-right-to-bracket'"></i>
+                </button>
+                <button type="button" class="row-btn" *ngIf="canEditReservation(reservation)" title="Editar" (click)="$event.stopPropagation(); openUpdateOverlay(reservation)">
+                  <i class="fa-regular fa-pen-to-square"></i>
+                </button>
+                <button type="button" class="row-btn danger" title="Eliminar" (click)="$event.stopPropagation(); confirmDelete(reservation)">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="grid-board" *ngIf="!loading && !errorMessage && filteredReservations.length > 0 && viewMode === 'grid'">
+    <article
+      class="reservation-card"
+      *ngFor="let reservation of filteredReservations; trackBy: trackByReservation"
+      [ngClass]="getCardStatusClass(reservation)"
+      (click)="openDetail(reservation)">
+      <header class="card-head">
+        <div>
+          <h2>{{ getReservationCode(reservation) }}</h2>
+          <p class="card-date">{{ getCardDateLabel(reservation) }}</p>
+        </div>
+        <span class="chip card-status-chip" [ngClass]="getCardStatusClass(reservation)">
+          {{ getCardStatusLabel(reservation) }}
+        </span>
+      </header>
+
+      <div class="card-body">
+        <p class="card-line card-line-main">
+          <i class="pi pi-user"></i>
+          <span>{{ reservation.client_full_name || 'Cliente sin nombre' }}</span>
+        </p>
+
+        <p class="card-line">
+          <i class="pi pi-home"></i>
+          <span>{{ getCardRoomLine(reservation) }}</span>
+        </p>
+
+        <p class="card-line">
+          <i class="pi pi-calendar"></i>
+          <span>{{ getCardStayCompact(reservation) }}</span>
+        </p>
+
+        <div class="money-row">
+          <strong>{{ getAmountLabel(reservation) }}</strong>
+          <span class="pending-balance" *ngIf="getCardPendingAmount(reservation) > 0">
+            Saldo: {{ formatAmount(getCardPendingAmount(reservation)) }}
+          </span>
+        </div>
+
+        <div class="card-tags">
+          <span class="tag neutral" *ngIf="getOriginLabel(reservation) !== 'Sin origen'">{{ getOriginLabel(reservation) }}</span>
+          <span class="tag promo" *ngIf="reservation.promo_code">{{ reservation.promo_code }}</span>
+        </div>
+      </div>
+
+      <footer class="card-actions">
+        <button
+          type="button"
+          class="btn card-action-btn"
+          [ngClass]="getCardActionClass(reservation)"
+          [disabled]="isCheckInLoading(reservation)"
+          (click)="$event.stopPropagation(); handleCardPrimaryAction(reservation)">
+          <i [class]="getCardActionIcon(reservation)"></i>
+          {{ getCardActionLabel(reservation) }}
+        </button>
+      </footer>
+    </article>
+
+    <article class="waiting-card" aria-label="Esperando nuevas reservas">
+      <span class="waiting-icon"><i class="fa-regular fa-calendar-plus"></i></span>
+      <h3>Esperando nuevas reservas</h3>
+      <p>Las reservas de canales externos apareceran automaticamente aqui.</p>
+    </article>
+
+    <article class="insight-card">
+      <div class="insight-copy">
+        <span>Hospitality insight</span>
+        <h3>Optimiza tu ocupacion</h3>
+        <p>Revisa el comportamiento reciente de tus reservas y anticipa decisiones operativas.</p>
+        <button type="button" (click)="openReports()">Explorar reportes <i class="fa-solid fa-arrow-right"></i></button>
+      </div>
+    </article>
+  </section>
+
+  <section class="calendar-card" *ngIf="!loading && !errorMessage && filteredReservations.length > 0 && viewMode === 'calendar'">
+    <header class="calendar-head">
+      <div class="calendar-nav">
+        <button type="button" class="icon-btn" (click)="previousCalendarRange()" title="Periodo anterior">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <button type="button" class="icon-btn" (click)="nextCalendarRange()" title="Siguiente periodo">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+        <strong>{{ getCalendarPeriodLabel() }}</strong>
+      </div>
+
+      <button type="button" class="btn btn-light" (click)="goCalendarToday()">Hoy</button>
+    </header>
+
+    <div class="calendar-legend">
+      <span *ngFor="let tab of statusTabs" [ngClass]="'legend-' + tab.key.toLowerCase().replace('_', '-')">{{ tab.label }}</span>
+    </div>
+
+    <p class="state-message-inline" *ngIf="detailsLoading">Cargando detalle de reservas para el calendario...</p>
+    <p class="state-message-inline" *ngIf="!detailsLoading && !hasCalendarData">No hay reservas con habitaciones en este periodo.</p>
+
+    <div class="calendar-grid" *ngIf="hasCalendarData">
+      <div class="calendar-header-row">
+        <div class="room-col heading">Habitacion</div>
+        <div class="days-col">
+          <div class="day-cell" *ngFor="let day of calendarDays; trackBy: trackByCalendarDay" [class.today]="day.isToday">
+            <small>{{ day.weekLabel }}</small>
+            <strong>{{ day.dayLabel }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="calendar-row" *ngFor="let row of calendarRows; trackBy: trackByCalendarRow">
+        <div class="room-col">
+          <p>{{ row.roomNumber }}</p>
+          <small>{{ row.roomType }}</small>
+        </div>
+
+        <div class="bars-col">
+          <div class="slot-grid">
+            <span *ngFor="let day of calendarDays; trackBy: trackByCalendarDay"></span>
+          </div>
+
+          <button
+            type="button"
+            class="reservation-bar"
+            *ngFor="let bar of row.bars"
+            [ngStyle]="getCalendarBarStyle(bar)"
+            (click)="openDetailById(bar.reservationId)">
+            <span>{{ bar.guestName }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pagination-bar" *ngIf="!loading && !errorMessage && totalPages > 1">
+    <button type="button" class="btn btn-light" (click)="previousPage()" [disabled]="!hasPreviousPage">
+      <i class="fa-solid fa-chevron-left"></i>
+      Anterior
+    </button>
+
+    <p>
+      Pagina {{ currentPage }} de {{ totalPages }} - {{ totalReservations }} reserva(s)
+    </p>
+
+    <button type="button" class="btn btn-light" (click)="nextPage()" [disabled]="!hasNextPage">
+      Siguiente
+      <i class="fa-solid fa-chevron-right"></i>
+    </button>
+  </section>
+
+  <app-create-reservation
+    *ngIf="showCreateOverlay"
+    [clients]="clients"
+    [origins]="origins"
+    [documentTypes]="documentTypes"
+    [reservationPolicies]="reservationPolicies"
+    [paymentMethods]="paymentMethods"
+    [depositStatuses]="depositStatuses"
+    [rooms]="rooms"
+    [rates]="rates"
+    [packages]="packages"
+    [initialRoomId]="createPrefillRoomId"
+    [initialCheckInMode]="createPrefillCheckInMode"
+    (closed)="closeCreateOverlay()"
+    (created)="onReservationCreated()">
+  </app-create-reservation>
+
+  <app-update-reservation
+    *ngIf="showUpdateOverlay && reservationToEdit"
+    [reservation]="reservationToEdit"
+    [clients]="clients"
+    [origins]="origins"
+    [reservationPolicies]="reservationPolicies"
+    [rooms]="rooms"
+    [rates]="rates"
+    [packages]="packages"
+    (closed)="closeUpdateOverlay()"
+    (updated)="onReservationUpdated()">
+  </app-update-reservation>
+
+  <app-detail-reservation
+    *ngIf="selectedReservationId"
+    [reservationId]="selectedReservationId"
+    [preloaded]="selectedReservationDetail"
+    [paymentMethods]="paymentMethods"
+    [depositStatuses]="depositStatuses"
+    (closed)="closeDetail()"
+    (editRequested)="openUpdateFromDetail($event)"
+    (flowChanged)="onReservationFlowChanged($event)">
+  </app-detail-reservation>
+</div>
+
+

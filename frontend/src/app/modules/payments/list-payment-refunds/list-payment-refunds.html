@@ -1,0 +1,266 @@
+<div class="refunds-page">
+  <header class="page-header">
+    <div>
+      <h1>Gestion de Reembolsos</h1>
+      <p>Consulta y seguimiento de reembolsos registrados sobre pagos y facturas.</p>
+    </div>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total reembolsos</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-money-bill-transfer"></i></span>
+      </div>
+      <div class="stat-value">{{ totalRefunds }}</div>
+      <div class="stat-note">Registros historicos</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Activos</span>
+        <span class="stat-icon green"><i class="fa-solid fa-circle-check"></i></span>
+      </div>
+      <div class="stat-value">{{ activeRefundsCount }}</div>
+      <div class="stat-note">Reembolsos vigentes</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Pendientes</span>
+        <span class="stat-icon gold"><i class="fa-solid fa-clock"></i></span>
+      </div>
+      <div class="stat-value">{{ pendingRefundsCount }}</div>
+      <div class="stat-note">Por aprobacion o proceso</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Procesados</span>
+        <span class="stat-icon gray"><i class="fa-solid fa-file-circle-check"></i></span>
+      </div>
+      <div class="stat-value">{{ processedRefundsCount }}</div>
+      <div class="stat-note">Impacto contable aplicado</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total procesado</span>
+        <span class="stat-icon purple"><i class="fa-solid fa-wallet"></i></span>
+      </div>
+      <div class="stat-value stat-money">{{ processedRefundAmountLabel }}</div>
+      <div class="stat-note">Solo estado procesado</div>
+    </article>
+  </section>
+
+  <section class="filters-card">
+    <div class="filters-grid">
+      <label class="search-field search-wrap">
+        <span>Buscar</span>
+        <div class="search-control">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input
+            type="text"
+            [(ngModel)]="search"
+            (input)="applyFilters()"
+            placeholder="Buscar por factura, pago, motivo o referencia..."
+          />
+        </div>
+      </label>
+
+      <label class="filter-field">
+        <span>Estado</span>
+        <select [(ngModel)]="statusFilter" (change)="applyFilters()">
+          <option *ngFor="let option of statusOptions" [ngValue]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Actividad</span>
+        <select [(ngModel)]="activityFilter" (change)="applyFilters()">
+          <option *ngFor="let option of activityOptions" [ngValue]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Fecha</span>
+        <select [(ngModel)]="dateFilter" (change)="applyFilters()">
+          <option *ngFor="let option of dateOptions" [ngValue]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+
+      <div class="filter-actions-inline">
+        <button type="button" class="icon-action" (click)="refreshData()" [disabled]="loading" title="Actualizar">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+
+        <button type="button" class="icon-action icon-action-dark" (click)="exportCsv()" title="Exportar">
+          <i class="fa-solid fa-download"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="view-toolbar">
+      <div class="view-toggle" role="group" aria-label="Modo de vista">
+        <button
+          type="button"
+          [class.active]="viewMode === 'cards'"
+          [attr.aria-pressed]="viewMode === 'cards'"
+          (click)="setViewMode('cards')">
+          <i class="fa-solid fa-grip"></i>
+          Tarjetas
+        </button>
+        <button
+          type="button"
+          [class.active]="viewMode === 'table'"
+          [attr.aria-pressed]="viewMode === 'table'"
+          (click)="setViewMode('table')">
+          <i class="fa-solid fa-table-list"></i>
+          Tabla
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="state-message" *ngIf="loading || errorMessage || infoMessage || filteredRefunds.length === 0">
+    <p *ngIf="loading">Cargando reembolsos...</p>
+    <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p class="info" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
+    <p *ngIf="!loading && !errorMessage && !infoMessage && filteredRefunds.length === 0">
+      No hay reembolsos para los filtros seleccionados.
+    </p>
+  </section>
+
+  <section class="table-card" *ngIf="!loading && !errorMessage && filteredRefunds.length > 0 && viewMode === 'table'">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Factura</th>
+            <th>Pago</th>
+            <th>Metodo</th>
+            <th>Fecha</th>
+            <th>Monto</th>
+            <th>Estado</th>
+            <th>Motivo</th>
+            <th>Referencia</th>
+            <th>Accion</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let refund of filteredRefunds; trackBy: trackByRefund">
+            <td>
+              <span class="table-main">{{ getInvoiceLabel(refund) }}</span>
+            </td>
+            <td>Pago #{{ refund.payment }}</td>
+            <td>{{ getMethodLabel(refund) }}</td>
+            <td>{{ getDateLabel(refund) }}</td>
+            <td>
+              <span class="amount-cell">{{ getAmountLabel(refund) }}</span>
+            </td>
+            <td>
+              <span
+                class="status-chip"
+                [ngStyle]="{
+                  'background-color': getStatusTone(refund).bg,
+                  color: getStatusTone(refund).color
+                }">
+                <span class="dot" [ngStyle]="{ 'background-color': getStatusTone(refund).dot }"></span>
+                {{ getStatusLabel(refund) }}
+              </span>
+            </td>
+            <td>{{ refund.reason || '--' }}</td>
+            <td>{{ refund.reference || '--' }}</td>
+            <td>
+              <button
+                type="button"
+                class="row-btn primary-action"
+                *ngIf="canApprove(refund) || approvingRefundId === refund.id"
+                (click)="approveRefund(refund)"
+                [disabled]="approvingRefundId === refund.id">
+                <i class="fa-solid fa-check"></i>
+                {{ approvingRefundId === refund.id ? 'Aprobando...' : 'Aprobar' }}
+              </button>
+              <span class="row-note" *ngIf="!canApprove(refund) && approvingRefundId !== refund.id">--</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="refund-grid" *ngIf="!loading && !errorMessage && filteredRefunds.length > 0 && viewMode === 'cards'">
+    <article
+      class="refund-card"
+      *ngFor="let refund of filteredRefunds; trackBy: trackByRefund"
+      [class.inactive-card]="!refund.is_active">
+      <header class="refund-head">
+        <div>
+          <span class="invoice-number">{{ getInvoiceLabel(refund) }}</span>
+          <small>{{ getDateLabel(refund) }}</small>
+        </div>
+
+        <span
+          class="status-chip"
+          [ngStyle]="{
+            'background-color': getStatusTone(refund).bg,
+            color: getStatusTone(refund).color
+          }">
+          <span class="dot" [ngStyle]="{ 'background-color': getStatusTone(refund).dot }"></span>
+          {{ getStatusLabel(refund) }}
+        </span>
+      </header>
+
+      <div class="refund-body">
+        <div class="refund-title-block">
+          <span class="refund-avatar">{{ getRefundInitials(refund) }}</span>
+          <div>
+            <h3>Pago #{{ refund.payment }}</h3>
+            <p>{{ getMethodLabel(refund) }}</p>
+          </div>
+        </div>
+
+        <div class="meta-list">
+          <span>
+            <i class="fa-solid fa-file-invoice"></i>
+            {{ getInvoiceLabel(refund) }}
+          </span>
+          <span>
+            <i class="fa-solid fa-hashtag"></i>
+            {{ refund.reference || 'Sin referencia' }}
+          </span>
+          <span>
+            <i class="fa-regular fa-note-sticky"></i>
+            {{ refund.reason || 'Sin motivo registrado' }}
+          </span>
+        </div>
+      </div>
+
+      <footer class="refund-foot">
+        <div>
+          <small>Total reembolso</small>
+          <strong>{{ getAmountLabel(refund) }}</strong>
+        </div>
+
+        <button
+          type="button"
+          class="row-btn primary-action"
+          *ngIf="canApprove(refund) || approvingRefundId === refund.id"
+          (click)="approveRefund(refund)"
+          [disabled]="approvingRefundId === refund.id">
+          <i class="fa-solid fa-check"></i>
+          {{ approvingRefundId === refund.id ? 'Aprobando...' : 'Aprobar' }}
+        </button>
+
+        <span class="row-note" *ngIf="!canApprove(refund) && approvingRefundId !== refund.id">
+          {{ refund.is_active ? 'Sin accion' : 'Inactivo' }}
+        </span>
+      </footer>
+    </article>
+  </section>
+
+  <p class="results-note" *ngIf="!loading && !errorMessage && filteredRefunds.length > 0">
+    Mostrando {{ filteredRefunds.length }} de {{ totalRefunds }} reembolsos registrados
+  </p>
+</div>

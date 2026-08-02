@@ -1,0 +1,79 @@
+<div class="aside-container">
+
+  <div class="aside-brand" data-tour="brand">
+    <img [src]="brandLogo" [alt]="brandName" class="brand-logo" />
+    <span class="brand-title">{{ brandName }}</span>
+  </div>
+
+  <div class="menu-scroll" data-tour="navigation-menu">
+    <ul class="menu-root">
+      @for (item of menu; track item.id) {
+        @if (isGroup(item)) {
+          <li class="menu-block">
+            <button
+              type="button"
+              class="menu-parent"
+              [class.is-open]="isOpen(item.id)"
+              [attr.data-tour-group]="item.label"
+              (click)="toggleGroup(item.id)"
+            >
+              <span class="left">
+                <span class="icon-pill">
+                  <i [class]="item.icon || 'fa-solid fa-circle'"></i>
+                </span>
+                <span class="label">{{ item.label }}</span>
+              </span>
+
+              <span class="right">
+                <i class="fa-solid fa-chevron-down chevron" [class.rotate]="isOpen(item.id)"></i>
+              </span>
+            </button>
+
+            <div class="submenu-wrap" [class.open]="isOpen(item.id)">
+              <ul class="submenu-list">
+                @for (child of item.children; track child.id) {
+                  <li>
+                    <a
+                      class="submenu-item"
+                      [routerLink]="child.route"
+                      routerLinkActive="active"
+                      [routerLinkActiveOptions]="{ exact: true }"
+                      [attr.data-tour-route]="child.route || null"
+                    >
+                      <span class="submenu-label">{{ child.label }}</span>
+                    </a>
+                  </li>
+                }
+              </ul>
+            </div>
+
+          </li>
+        }
+        @else {
+          <li class="menu-block">
+            <a
+              class="menu-link"
+              [routerLink]="item.route"
+              routerLinkActive="active"
+              [routerLinkActiveOptions]="{ exact: true }"
+              [attr.data-tour-route]="item.route || null"
+            >
+              <span class="left">
+                <span class="icon-pill">
+                  <i [class]="item.icon || 'fa-solid fa-circle'"></i>
+                </span>
+                <span class="label">{{ item.label }}</span>
+              </span>
+            </a>
+          </li>
+        }
+      }
+    </ul>
+  </div>
+
+  <div class="aside-footer-clock">
+    <p class="clock-label">Hora local</p>
+    <p class="clock-time">{{ currentTime }}</p>
+    <p class="clock-date">{{ currentDate }}</p>
+  </div>
+</div>

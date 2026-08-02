@@ -1,0 +1,106 @@
+<div class="maintenance-order-overlay" (click)="closeDrawer()">
+  <aside class="maintenance-order-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div class="drawer-title-block">
+        <p class="drawer-type">{{ getRoomLabel() }}</p>
+        <h2>{{ maintenanceOrderData?.title || 'Orden de mantenimiento' }}</h2>
+        <div class="chip-row">
+          <span
+            class="status-chip"
+            [ngStyle]="{
+              'background-color': getStatusTone().bg,
+              color: getStatusTone().color
+            }">
+            {{ getStatusLabel() }}
+          </span>
+          <span
+            class="status-chip"
+            [ngStyle]="{
+              'background-color': getPriorityTone().bg,
+              color: getPriorityTone().color
+            }">
+            {{ getPriorityLabel() }}
+          </span>
+        </div>
+      </div>
+
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="drawer-body">
+      <section class="hero-card">
+        <div>
+          <span>Reportado</span>
+          <strong>{{ formatDateTime(maintenanceOrderData?.reported_at) }}</strong>
+        </div>
+        <div>
+          <span>Finalizacion estimada</span>
+          <strong>{{ formatDateTime(maintenanceOrderData?.estimated_completed_at) }}</strong>
+        </div>
+        <div>
+          <span>Finalizacion real</span>
+          <strong>{{ formatDateTime(maintenanceOrderData?.completed_at) }}</strong>
+        </div>
+      </section>
+
+      <section>
+        <h3>Resumen</h3>
+        <div class="info-list">
+          <div>
+            <span>Habitacion</span>
+            <strong>{{ getRoomLabel() }}</strong>
+          </div>
+          <div>
+            <span>Codigo</span>
+            <strong>{{ getOrderCode() }}</strong>
+          </div>
+          <div>
+            <span>Prioridad</span>
+            <strong>{{ getPriorityLabel() }}</strong>
+          </div>
+          <div>
+            <span>Estado</span>
+            <strong>{{ getStatusLabel() }}</strong>
+          </div>
+          <div>
+            <span>Reportado</span>
+            <strong>{{ formatDateTime(maintenanceOrderData?.reported_at) }}</strong>
+          </div>
+          <div>
+            <span>Finalizacion estimada</span>
+            <strong>{{ formatDateTime(maintenanceOrderData?.estimated_completed_at) }}</strong>
+          </div>
+          <div>
+            <span>Finalizacion real</span>
+            <strong>{{ formatDateTime(maintenanceOrderData?.completed_at) }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Descripcion tecnica</h3>
+        <p class="description">{{ maintenanceOrderData?.description || 'Sin descripcion registrada.' }}</p>
+      </section>
+
+      <section>
+        <h3>Trazabilidad</h3>
+        <div class="info-list">
+          <div>
+            <span>ID</span>
+            <strong>#{{ maintenanceOrderData?.id || '--' }}</strong>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="drawer-footer">
+      <button type="button" class="btn btn-light" (click)="requestStatusAdvance()">{{ getProgressActionLabel() }}</button>
+      <button type="button" class="btn btn-danger" (click)="requestDelete()">Eliminar</button>
+    </footer>
+  </aside>
+</div>

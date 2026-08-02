@@ -1,0 +1,88 @@
+<section class="credit-note-form-card">
+  <header class="form-head">
+    <div>
+      <h3>{{ title }}</h3>
+      <p>Factura {{ invoiceNumber || ('#' + (invoiceId || '--')) }}</p>
+    </div>
+
+    <button type="button" class="form-close" (click)="close()" [disabled]="saving" title="Cerrar">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </header>
+
+  <form [formGroup]="creditNoteForm" (ngSubmit)="submit()" class="credit-note-form">
+    <div class="row-main">
+      <label>
+        <span>Estado</span>
+        <select formControlName="status" [class.input-error]="creditNoteForm.get('status')?.touched && creditNoteForm.get('status')?.invalid">
+          <option [ngValue]="null">Seleccionar...</option>
+          <option *ngFor="let status of statuses; trackBy: trackById" [ngValue]="status.id">
+            {{ status.name }}
+          </option>
+        </select>
+        <small class="field-error" *ngIf="creditNoteForm.get('status')?.touched && creditNoteForm.get('status')?.invalid">
+          Debes seleccionar un estado.
+        </small>
+      </label>
+
+      <label>
+        <span>Numero</span>
+        <input
+          type="text"
+          maxlength="50"
+          formControlName="credit_note_number"
+          placeholder="Ej: NC-2026-0001"
+          [class.input-error]="creditNoteForm.get('credit_note_number')?.touched && creditNoteForm.get('credit_note_number')?.invalid" />
+        <small class="field-error" *ngIf="creditNoteForm.get('credit_note_number')?.touched && creditNoteForm.get('credit_note_number')?.hasError('required')">
+          Debes indicar el numero de nota.
+        </small>
+        <small class="field-error" *ngIf="creditNoteForm.get('credit_note_number')?.touched && creditNoteForm.get('credit_note_number')?.hasError('maxlength')">
+          El numero no puede superar 50 caracteres.
+        </small>
+      </label>
+
+      <label>
+        <span>Monto</span>
+        <input
+          type="number"
+          min="1"
+          step="1000"
+          formControlName="amount"
+          placeholder="Ej: 150000"
+          [class.input-error]="creditNoteForm.get('amount')?.touched && (creditNoteForm.get('amount')?.invalid || ((creditNoteForm.get('amount')?.value || 0) > (maxAvailableAmount || 0) && (maxAvailableAmount || 0) > 0))" />
+        <small class="field-error" *ngIf="creditNoteForm.get('amount')?.touched && creditNoteForm.get('amount')?.hasError('required')">Ingresa el monto de la nota.</small>
+        <small class="field-error" *ngIf="creditNoteForm.get('amount')?.touched && creditNoteForm.get('amount')?.hasError('min')">El monto debe ser mayor a 0.</small>
+        <small class="field-error" *ngIf="creditNoteForm.get('amount')?.touched && (creditNoteForm.get('amount')?.value || 0) > (maxAvailableAmount || 0) && (maxAvailableAmount || 0) > 0">
+          El monto no puede superar {{ maxAmountLabel }}.
+        </small>
+      </label>
+    </div>
+
+    <label>
+      <span>Razon</span>
+      <textarea
+        formControlName="reason"
+        rows="3"
+        placeholder="Describe el motivo de la nota de credito"
+        [class.input-error]="creditNoteForm.get('reason')?.touched && creditNoteForm.get('reason')?.invalid"></textarea>
+      <small class="field-error" *ngIf="creditNoteForm.get('reason')?.touched && creditNoteForm.get('reason')?.invalid">
+        Debes indicar la razon de la nota.
+      </small>
+    </label>
+
+    <label>
+      <span>Notas</span>
+      <textarea formControlName="notes" rows="2" placeholder="Observaciones internas (opcional)"></textarea>
+    </label>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-dark" [disabled]="saving">{{ actionLabel }}</button>
+      <button type="button" class="btn btn-light" (click)="close()" [disabled]="saving">Cancelar</button>
+    </div>
+  </form>
+
+  <p class="feedback hint" *ngIf="!errorMessage">
+    Monto maximo disponible para esta factura: {{ maxAmountLabel }}
+  </p>
+  <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+</section>

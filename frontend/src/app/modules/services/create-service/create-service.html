@@ -1,0 +1,83 @@
+<div class="service-overlay" (click)="closeDrawer()">
+  <article class="service-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div>
+        <h1>Nuevo servicio</h1>
+        <p>Crea un item para el catalogo y define tipo, precio y estado.</p>
+      </div>
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form [formGroup]="serviceForm" (ngSubmit)="submit()" class="drawer-body">
+      <section>
+        <h2>Datos principales</h2>
+        <div class="grid two">
+          <label class="full">
+            <span>Nombre del servicio *</span>
+            <input type="text" formControlName="name" placeholder="Ej: Desayuno americano" [class.input-error]="name?.touched && name?.invalid" />
+            <small class="field-error" *ngIf="name?.touched && name?.hasError('required')">El nombre es obligatorio.</small>
+            <small class="field-error" *ngIf="name?.touched && name?.hasError('maxlength')">El nombre no puede superar 150 caracteres.</small>
+          </label>
+
+          <label>
+            <span>Tipo de servicio *</span>
+            <select formControlName="service_type" [class.input-error]="service_type?.touched && service_type?.invalid">
+              <option [ngValue]="null">Selecciona tipo</option>
+              <option *ngFor="let serviceType of serviceTypes; trackBy: trackById" [ngValue]="serviceType.id">
+                {{ serviceType.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="service_type?.touched && service_type?.invalid">Selecciona un tipo.</small>
+          </label>
+
+          <label>
+            <span>Precio base *</span>
+            <input
+              type="number"
+              min="0"
+              step="1000"
+              formControlName="base_price"
+              placeholder="Ej: 45000"
+              [class.input-error]="base_price?.touched && base_price?.invalid" />
+            <small class="field-error" *ngIf="base_price?.touched && base_price?.hasError('required')">El precio base es obligatorio.</small>
+            <small class="field-error" *ngIf="base_price?.touched && base_price?.hasError('min')">El precio debe ser mayor o igual a 0.</small>
+          </label>
+
+          <label class="full">
+            <span>Descripcion</span>
+            <textarea
+              rows="4"
+              formControlName="description"
+              placeholder="Describe el alcance del servicio..."
+              [class.input-error]="serviceForm.get('description')?.touched && serviceForm.get('description')?.invalid"></textarea>
+            <small class="field-error" *ngIf="serviceForm.get('description')?.touched && serviceForm.get('description')?.hasError('maxlength')">
+              La descripcion no puede superar 1500 caracteres.
+            </small>
+          </label>
+
+          <label class="full switch-row">
+            <input type="checkbox" formControlName="is_active" />
+            <span>Disponible para venta inmediata</span>
+          </label>
+        </div>
+      </section>
+
+      <p class="feedback warning" *ngIf="!hotelSettingsId">
+        Configura primero el hotel en "Configuracion" para asociar correctamente los servicios.
+      </p>
+      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-light" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn-dark" [disabled]="saving || !hotelSettingsId">
+          {{ saving ? 'Guardando...' : 'Guardar servicio' }}
+        </button>
+      </footer>
+    </form>
+  </article>
+</div>

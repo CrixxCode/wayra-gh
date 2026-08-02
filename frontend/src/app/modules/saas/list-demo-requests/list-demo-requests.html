@@ -1,0 +1,208 @@
+<div class="demo-requests-page">
+  <header class="page-header">
+    <div>
+      <h1>Solicitudes de demo</h1>
+      <p>Revisa los hoteles interesados y da seguimiento al primer usuario propuesto para cada cuenta.</p>
+    </div>
+
+    <div class="header-actions">
+      <a routerLink="/saas-panel" class="gh-btn gh-btn-light">
+        <i class="fa-solid fa-chart-line"></i>
+        Panel SaaS
+      </a>
+      <a routerLink="/dashboard" class="gh-btn gh-btn-light">
+        <i class="fa-solid fa-arrow-left"></i>
+        Volver
+      </a>
+    </div>
+  </header>
+
+  <section class="state-message" *ngIf="loading || loadError || actionMessage || !isPlatformAdmin">
+    <p *ngIf="loading">Cargando solicitudes de demo...</p>
+    <p class="error" *ngIf="!loading && loadError">{{ loadError }}</p>
+    <p
+      *ngIf="!loading && !loadError && actionMessage"
+      [class.success]="actionMessageType === 'success'"
+      [class.warning]="actionMessageType === 'warning'">
+      {{ actionMessage }}
+    </p>
+    <p class="warning" *ngIf="!loading && !loadError && !isPlatformAdmin">
+      Esta vista solo esta disponible para administradores globales de la plataforma.
+    </p>
+  </section>
+
+  <ng-container *ngIf="!loading && !loadError && isPlatformAdmin">
+    <section class="stats-grid">
+      <article class="stat-card" *ngFor="let card of statCards">
+        <div class="stat-head">
+          <span>{{ card.label }}</span>
+          <span class="stat-icon" [ngClass]="card.tone">
+            <i [class]="card.icon"></i>
+          </span>
+        </div>
+        <div class="stat-value">{{ card.value }}</div>
+        <div class="stat-note">{{ card.note }}</div>
+      </article>
+    </section>
+
+    <section class="gh-filters-card">
+      <div class="gh-filters-grid demo-requests-filters-grid">
+        <label class="search-field search-wrap gh-search-wrap">
+          <span>Buscar</span>
+          <div class="search-control gh-search-control">
+            <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+            <input
+              class="gh-search-input"
+              type="text"
+              [(ngModel)]="search"
+              (keyup.enter)="applyFilters()"
+              placeholder="Hotel, ciudad, usuario, correo o telefono"
+            />
+          </div>
+        </label>
+
+        <label class="gh-filter-field">
+          <span>Estado</span>
+          <select class="gh-filter-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
+            <option value="ALL">Todos</option>
+            <option *ngFor="let option of statusOptions" [value]="option.value">{{ option.label }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="gh-filters-actions">
+        <p class="state-note">
+          Mostrando {{ showingFrom }} - {{ showingTo }} de {{ totalItems }} solicitudes.
+        </p>
+
+        <div class="gh-action-group">
+          <button type="button" class="gh-btn gh-btn-light" (click)="applyFilters()">
+            <i class="fa-solid fa-filter"></i>
+            Aplicar
+          </button>
+          <button type="button" class="gh-btn gh-btn-light" (click)="loadRequests()">
+            <i class="fa-solid fa-rotate-right"></i>
+            Actualizar
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="table-card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Hotel</th>
+              <th>Primer usuario</th>
+              <th>Contacto</th>
+              <th>Habitaciones</th>
+              <th>Fecha</th>
+              <th>Estado</th>
+              <th>Accion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="requests.length === 0">
+              <td colspan="7" class="table-empty">No hay solicitudes con los filtros actuales.</td>
+            </tr>
+
+            <tr *ngFor="let request of requests; trackBy: trackByRequest">
+              <td>
+                <div class="primary-cell">
+                  <p class="primary-title">{{ request.hotel_name }}</p>
+                  <p class="primary-meta">{{ request.hotel_type }} - {{ request.city }}</p>
+                  <a *ngIf="request.website" [href]="request.website" target="_blank" rel="noopener noreferrer">
+                    {{ request.website }}
+                  </a>
+                </div>
+              </td>
+              <td>
+                <div class="primary-cell">
+                  <p class="primary-title">{{ request.requester_first_name }} {{ request.requester_last_name }}</p>
+                  <p class="primary-meta">{{ request.requester_username }} - {{ request.requester_job_title }}</p>
+                </div>
+              </td>
+              <td>
+                <div class="contact-cell">
+                  <a [href]="'mailto:' + request.requester_email">{{ request.requester_email }}</a>
+                  <a [href]="'tel:' + request.requester_phone">{{ request.requester_phone }}</a>
+                  <span *ngIf="request.message">{{ request.message }}</span>
+                </div>
+              </td>
+              <td>{{ request.rooms }}</td>
+              <td>{{ formatDate(request.created_at) }}</td>
+              <td>
+                <span class="status-chip" [ngClass]="getStatusClass(request.status)">
+                  {{ getStatusLabel(request.status) }}
+                </span>
+                <p class="conversion-note" *ngIf="request.converted_hotel_settings && request.converted_user">
+                  Hotel #{{ request.converted_hotel_settings }} - Usuario creado
+                  <span *ngIf="request.email_delivery_enabled === false"> - correo no configurado</span>
+                  <span *ngIf="request.email_delivery_enabled !== false && request.password_reset_sent"> - enlace enviado</span>
+                  <span *ngIf="request.email_delivery_enabled !== false && !request.password_reset_sent"> - enlace pendiente</span>
+                </p>
+              </td>
+              <td>
+                <div class="row-actions">
+                  <select
+                    class="status-select"
+                    [ngModel]="request.status"
+                    [disabled]="updatingId === request.id || resendingId === request.id || linkingId === request.id"
+                    (ngModelChange)="updateStatus(request, $event)">
+                    <option *ngFor="let option of statusOptions" [value]="option.value">{{ option.label }}</option>
+                  </select>
+
+                  <button
+                    *ngIf="canResendAccessEmail(request)"
+                    type="button"
+                    class="link-action"
+                    [disabled]="updatingId === request.id || resendingId === request.id || linkingId === request.id"
+                    (click)="copyAccessLink(request)">
+                    <i class="fa-solid fa-link"></i>
+                    <span>{{ linkingId === request.id ? 'Copiando...' : 'Copiar enlace' }}</span>
+                  </button>
+
+                  <button
+                    *ngIf="canResendAccessEmail(request)"
+                    type="button"
+                    class="link-action"
+                    [disabled]="updatingId === request.id || resendingId === request.id || linkingId === request.id"
+                    (click)="resendAccessEmail(request)">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>{{ resendingId === request.id ? 'Enviando...' : 'Reenviar enlace' }}</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="table-footer">
+        <span>Mostrando {{ showingFrom }} - {{ showingTo }} de {{ totalItems }} solicitudes</span>
+
+        <div class="pager">
+          <button type="button" (click)="changePage(currentPage - 1)" [disabled]="currentPage === 1">
+            Anterior
+          </button>
+
+          <button
+            type="button"
+            *ngFor="let page of pages"
+            (click)="changePage(page)"
+            [class.active]="currentPage === page">
+            {{ page }}
+          </button>
+
+          <button
+            type="button"
+            (click)="changePage(currentPage + 1)"
+            [disabled]="currentPage === totalPages || totalPages === 0">
+            Siguiente
+          </button>
+        </div>
+      </footer>
+    </section>
+  </ng-container>
+</div>

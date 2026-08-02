@@ -1,0 +1,240 @@
+<p-toast></p-toast>
+<p-confirmDialog key="userDelete" styleClass="app-confirm-dialog"></p-confirmDialog>
+
+<p-dialog [(visible)]="visibleRegisterDialog" [modal]="true" [position]="'right'" [dismissableMask]="true"
+  [showHeader]="false" [style]="{ width: '470px', maxWidth: '100vw', height: '100vh', margin: '0' }"
+  [contentStyle]="{ padding: '0', overflow: 'hidden' }" styleClass="user-drawer-dialog"
+  [draggable]="false" [resizable]="false" (onHide)="closeRegisterDialog()">
+  <app-user-register (close)="closeRegisterDialog()"></app-user-register>
+</p-dialog>
+
+<p-dialog [(visible)]="visibleViewDialog" [modal]="true" [position]="'right'" [dismissableMask]="true"
+  [showHeader]="false" [style]="{ width: '450px', maxWidth: '100vw', height: '100vh', margin: '0' }"
+  [contentStyle]="{ padding: '0', overflow: 'hidden' }" styleClass="user-drawer-dialog user-profile-dialog"
+  [draggable]="false" [resizable]="false" (onHide)="visibleViewDialog = false">
+  <app-user-profile [user]="selectedUser" (close)="visibleViewDialog = false" (edit)="onEditFromView()"></app-user-profile>
+</p-dialog>
+
+<p-dialog [(visible)]="visibleEditDialog" [modal]="true" [position]="'right'" [dismissableMask]="true"
+  [showHeader]="false" [style]="{ width: '470px', maxWidth: '100vw', height: '100vh', margin: '0' }"
+  [contentStyle]="{ padding: '0', overflow: 'hidden' }" styleClass="user-drawer-dialog"
+  [draggable]="false" [resizable]="false" (onHide)="onEditDialogHide()">
+  <app-user-update [user]="selectedUser" (updated)="onUserUpdated()" (close)="visibleEditDialog = false"></app-user-update>
+</p-dialog>
+
+<div class="users-page">
+  <header class="page-header">
+    <div>
+      <h1>Usuarios</h1>
+      <p>Gestiona cuentas de acceso, roles y estado de disponibilidad</p>
+    </div>
+
+    <button type="button" class="btn btn-dark" (click)="openRegisterDialog()">
+      <i class="fa-solid fa-plus"></i>
+      Nuevo usuario
+    </button>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card" *ngFor="let card of statCards">
+      <div class="stat-head">
+        <span>{{ card.label }}</span>
+        <span class="stat-icon" [ngStyle]="{ 'background-color': card.bg, color: card.color }">
+          <i [class]="card.icon"></i>
+        </span>
+      </div>
+
+      <div class="stat-value">{{ card.value }}</div>
+      <div class="stat-note">{{ card.sub }}</div>
+    </article>
+  </section>
+
+  <section class="gh-filters-card">
+    <div class="gh-filters-grid">
+      <label class="search-field search-wrap gh-search-wrap">
+        <span>Buscar</span>
+        <div class="search-control gh-search-control">
+          <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+          <input class="gh-search-input" type="text" placeholder="Buscar usuario, nombre o correo..." [(ngModel)]="globalFilter"
+            (input)="onFilterChange()" />
+        </div>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Estado</span>
+        <select class="gh-filter-select" [(ngModel)]="statusFilter" (change)="onFilterChange()">
+          <option value="ALL">Todos</option>
+          <option value="ACTIVE">Activos</option>
+          <option value="INACTIVE">Inactivos</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Rol</span>
+        <select class="gh-filter-select" [(ngModel)]="roleFilter" (change)="onFilterChange()">
+          <option value="ALL">Todos</option>
+          <option value="WITH_ROLE">Con rol</option>
+          <option value="WITHOUT_ROLE">Sin rol</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="gh-filters-actions gh-filters-actions-single">
+      <div class="gh-action-group">
+        <button type="button" class="gh-btn gh-btn-light" (click)="loadUsers()">
+          <i class="fa-solid fa-rotate-right"></i>
+          Actualizar
+        </button>
+        <button type="button" class="gh-btn gh-btn-light" (click)="exportCsv()">
+          <i class="fa-solid fa-file-export"></i>
+          Exportar
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="gh-filters-card" *ngIf="!loading && deletedUsersCount > 0">
+    <div class="gh-filters-actions">
+      <p class="state-note">
+        Hay {{ deletedUsersCount }} usuario(s) eliminados logicamente.
+      </p>
+      <div class="gh-action-group">
+        <button type="button" class="gh-btn gh-btn-light" (click)="showDeletedUsers = !showDeletedUsers">
+          <i class="fa-solid" [class.fa-eye]="!showDeletedUsers" [class.fa-eye-slash]="showDeletedUsers"></i>
+          {{ showDeletedUsers ? 'Ocultar eliminados' : 'Ver eliminados' }}
+        </button>
+      </div>
+    </div>
+
+    <article class="table-card" *ngIf="showDeletedUsers">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Usuario</th>
+              <th>Nombre</th>
+              <th>Correo</th>
+              <th>Rol</th>
+              <th>Estado operativo</th>
+              <th>Accion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let user of deletedUsers">
+              <td>&#64;{{ user.username }}</td>
+              <td>{{ user.first_name }} {{ user.last_name }}</td>
+              <td>{{ user.email || 'Sin correo' }}</td>
+              <td>{{ getRoleLabel(user) }}</td>
+              <td>{{ isActive(user) ? 'Activo' : 'Inactivo' }}</td>
+              <td>
+                <div class="row-actions">
+                  <button type="button" class="row-btn" title="Restaurar" (click)="restoreUser(user)">
+                    <i class="fa-solid fa-rotate-left"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <section class="table-card">
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Contacto</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngIf="loading">
+            <td colspan="5" class="table-empty">Cargando usuarios...</td>
+          </tr>
+
+          <tr *ngIf="!loading && visibleUsers.length === 0">
+            <td colspan="5" class="table-empty">No se encontraron usuarios</td>
+          </tr>
+
+          <tr *ngFor="let user of visibleUsers" (click)="onView(user)">
+            <td>
+              <div class="user-cell">
+                <ng-container *ngIf="resolveAvatar(user.avatar) as avatarUrl; else initialsAvatar">
+                  <img [src]="avatarUrl" alt="Avatar" class="avatar avatar-img" />
+                </ng-container>
+                <ng-template #initialsAvatar>
+                  <div class="avatar">{{ getUserInitials(user) }}</div>
+                </ng-template>
+
+                <div>
+                  <p class="user-name">{{ user.first_name }} {{ user.last_name }}</p>
+                  <p class="user-id">&#64;{{ user.username }}</p>
+                </div>
+              </div>
+            </td>
+
+            <td>
+              <p class="contact-main">{{ user.email }}</p>
+              <p class="contact-sub">{{ isActive(user) ? 'Acceso activo' : 'Acceso deshabilitado' }}</p>
+            </td>
+
+            <td>
+              <span class="chip" [class.chip-neutral]="!getRoleLabel(user) || getRoleLabel(user) === 'Sin rol'">
+                {{ getRoleLabel(user) }}
+                <span *ngIf="getExtraRolesCount(user) > 0">+{{ getExtraRolesCount(user) }}</span>
+              </span>
+            </td>
+
+            <td>
+              <span class="chip chip-status" [ngClass]="{ 'chip-ok': isActive(user), 'chip-off': !isActive(user) }">
+                <span class="status-dot"></span>
+                {{ isActive(user) ? 'Activo' : 'Inactivo' }}
+              </span>
+            </td>
+
+            <td (click)="$event.stopPropagation()">
+              <div class="row-actions">
+                <button type="button" class="row-btn" (click)="onView(user)" title="Ver detalle">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+
+                <button type="button" class="row-btn" title="Editar" (click)="onEdit(user)">
+                  <i class="fa-regular fa-pen-to-square"></i>
+                </button>
+
+                <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(user)">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="table-footer">
+      <span>
+        Mostrando {{ getPageStart() }} - {{ getPageEnd() }} de {{ filteredUsers.length }} usuarios
+      </span>
+
+      <div class="pager">
+        <button type="button" (click)="previousPage()" [disabled]="first === 0">Anterior</button>
+
+        <button type="button" *ngFor="let page of getPages()" (click)="goToPage(page)" [class.active]="currentPage === page">
+          {{ page }}
+        </button>
+
+        <button type="button" (click)="nextPage()" [disabled]="first + rows >= filteredUsers.length">Siguiente</button>
+      </div>
+    </footer>
+  </section>
+</div>
+
+

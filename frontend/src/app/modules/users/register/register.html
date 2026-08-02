@@ -1,0 +1,236 @@
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="drawer-form">
+  <header class="drawer-head">
+    <div>
+      <h2>Nuevo usuario</h2>
+      <p>Completa la informacion base para registrar una nueva cuenta</p>
+    </div>
+
+    <button type="button" class="head-close" (click)="onCancel()" title="Cerrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+  </header>
+
+  <div class="drawer-body">
+    <section>
+      <h3>Perfil</h3>
+      <div class="avatar-block">
+        <div class="avatar-preview" *ngIf="avatarPreview; else noAvatar">
+          <img [src]="avatarPreview" alt="Vista previa del avatar" />
+        </div>
+
+        <ng-template #noAvatar>
+          <div class="avatar-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+        </ng-template>
+
+        <label class="file-field">
+          <span>Avatar (URL)</span>
+          <input formControlName="avatar" type="url" placeholder="https://mi-dominio.com/avatar.jpg" />
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <h3>Datos personales</h3>
+      <div class="grid two">
+        <label>
+          <span>Nombre *</span>
+          <input formControlName="first_name" type="text" [class.input-error]="form.get('first_name')?.touched && form.get('first_name')?.invalid" />
+          <small class="field-error" *ngIf="form.get('first_name')?.touched && form.get('first_name')?.invalid">El nombre es obligatorio.</small>
+        </label>
+
+        <label>
+          <span>Apellidos *</span>
+          <input formControlName="last_name" type="text" [class.input-error]="form.get('last_name')?.touched && form.get('last_name')?.invalid" />
+          <small class="field-error" *ngIf="form.get('last_name')?.touched && form.get('last_name')?.invalid">Los apellidos son obligatorios.</small>
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <h3>Cuenta</h3>
+      <div class="grid one">
+        <label>
+          <span>Nombre de usuario *</span>
+          <input formControlName="username" type="text" [class.input-error]="form.get('username')?.touched && form.get('username')?.invalid" />
+          <small class="field-error" *ngIf="form.get('username')?.touched && form.get('username')?.invalid">El usuario es obligatorio.</small>
+        </label>
+
+        <label>
+          <span>Correo electronico *</span>
+          <input formControlName="email" type="email" [class.input-error]="form.get('email')?.touched && form.get('email')?.invalid" />
+          <small class="field-error" *ngIf="form.get('email')?.touched && form.get('email')?.hasError('required')">El correo es obligatorio.</small>
+          <small class="field-error" *ngIf="form.get('email')?.touched && form.get('email')?.hasError('email')">Ingresa un correo valido.</small>
+        </label>
+
+        <label>
+          <span>Rol *</span>
+          <select
+            formControlName="role"
+            [class.input-error]="form.get('role')?.touched && form.get('role')?.invalid"
+          >
+            <option [ngValue]="null">
+              {{ rolesLoading ? 'Cargando roles...' : 'Selecciona un rol' }}
+            </option>
+            <option *ngFor="let role of roles" [ngValue]="role.id">
+              {{ role.name }}
+            </option>
+          </select>
+          <small class="field-error" *ngIf="form.get('role')?.touched && form.get('role')?.invalid">
+            Debes seleccionar un rol.
+          </small>
+        </label>
+
+        <label>
+          <span>Cargo *</span>
+          <select
+            formControlName="job_title_option"
+            [disabled]="!form.get('role')?.value || jobTitlesLoading"
+            [class.input-error]="form.get('job_title_option')?.touched && form.get('job_title_option')?.invalid"
+          >
+            <option [ngValue]="null">
+              {{
+                !form.get('role')?.value
+                  ? 'Primero selecciona un rol'
+                  : (jobTitlesLoading ? 'Cargando cargos...' : 'Selecciona un cargo')
+              }}
+            </option>
+            <option *ngFor="let jobTitle of jobTitles" [ngValue]="jobTitle.id">
+              {{ jobTitle.name }}
+            </option>
+          </select>
+          <small class="field-error" *ngIf="form.get('job_title_option')?.touched && form.get('job_title_option')?.invalid">
+            Debes seleccionar un cargo.
+          </small>
+        </label>
+
+        <label>
+          <span>Contrasena *</span>
+          <input formControlName="password" type="password" [class.input-error]="form.get('password')?.touched && form.get('password')?.invalid" />
+          <small class="field-error" *ngIf="form.get('password')?.touched && form.get('password')?.invalid">La contrasena es obligatoria.</small>
+        </label>
+
+        <label *ngIf="canSelectHotel">
+          <span>Hotel {{ isSuperAdmin ? '*' : '' }}</span>
+          <div class="hotel-select-group">
+            <select formControlName="hotel_settings" [class.input-error]="form.get('hotel_settings')?.touched && form.get('hotel_settings')?.invalid">
+              <option [ngValue]="null">{{ hotelsLoading ? 'Cargando hoteles...' : 'Selecciona un hotel' }}</option>
+              <option *ngFor="let hotel of hotels" [ngValue]="hotel.id">
+                {{ hotel.hotel_name || ('Hotel #' + hotel.id) }}
+              </option>
+            </select>
+            <button type="button" class="btn-create-hotel" (click)="openHotelCreateModal()" title="Crear nuevo hotel">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Crear hotel
+            </button>
+          </div>
+          <small class="field-error" *ngIf="form.get('hotel_settings')?.touched && form.get('hotel_settings')?.invalid">
+            Debes seleccionar un hotel.
+          </small>
+        </label>
+
+        <label class="switch">
+          <span>Usuario activo</span>
+          <input formControlName="is_active" type="checkbox" />
+        </label>
+      </div>
+    </section>
+  </div>
+
+  <footer class="drawer-foot">
+    <button type="button" class="btn btn-light" (click)="onCancel()">Cancelar</button>
+    <button type="submit" [disabled]="loading" class="btn btn-dark">
+      {{ loading ? 'Registrando...' : 'Registrar' }}
+    </button>
+  </footer>
+</form>
+
+<!-- Modal para crear hotel -->
+<div class="hotel-modal-overlay" *ngIf="showHotelCreateModal" (click)="closeHotelCreateModal()">
+  <div class="hotel-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Crear nuevo hotel</h3>
+      <button type="button" class="modal-close" (click)="closeHotelCreateModal()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <form [formGroup]="hotelCreateForm" (ngSubmit)="createHotel()" class="modal-body">
+      <div class="form-group">
+        <label>
+          <span>Nombre del Hotel *</span>
+          <input 
+            formControlName="hotel_name" 
+            type="text"
+            placeholder="Ej: Hotel Paradise"
+            [class.input-error]="hotelCreateForm.get('hotel_name')?.touched && hotelCreateForm.get('hotel_name')?.invalid"
+          />
+          <small class="field-error" *ngIf="hotelCreateForm.get('hotel_name')?.touched && hotelCreateForm.get('hotel_name')?.invalid">
+            El nombre del hotel es obligatorio.
+          </small>
+        </label>
+      </div>
+
+      <div class="form-row">
+        <label>
+          <span>Ciudad</span>
+          <input 
+            formControlName="city" 
+            type="text"
+            placeholder="Ej: Riohacha"
+          />
+        </label>
+
+        <label>
+          <span>País</span>
+          <input 
+            formControlName="country" 
+            type="text"
+            placeholder="Ej: Colombia"
+          />
+        </label>
+      </div>
+
+      <div class="form-row">
+        <label>
+          <span>Teléfono</span>
+          <input 
+            formControlName="primary_phone" 
+            type="tel"
+            placeholder="Ej: +57 5 1234567"
+          />
+        </label>
+
+        <label>
+          <span>Correo</span>
+          <input 
+            formControlName="general_email" 
+            type="email"
+            placeholder="Ej: info@hotel.com"
+          />
+        </label>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" (click)="closeHotelCreateModal()" [disabled]="hotelCreating">
+          Cancelar
+        </button>
+        <button type="submit" class="btn btn-dark" [disabled]="hotelCreating">
+          {{ hotelCreating ? 'Creando...' : 'Crear hotel' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

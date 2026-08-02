@@ -1,0 +1,340 @@
+﻿<div class="reservation-overlay" (click)="closeDrawer()">
+  <article class="reservation-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div class="head-main">
+        <span class="drawer-kicker">Reservas</span>
+        <h1>Nueva reserva</h1>
+        <p>Registra la reserva, asigna habitaciones y agrega los huespedes.</p>
+      </div>
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form [formGroup]="reservationForm" (ngSubmit)="submit()" class="drawer-body">
+      <section>
+        <h2>Informacion base</h2>
+
+        <div class="grid two">
+          <label>
+            <div class="field-head">
+              <span>Cliente *</span>
+              <button type="button" class="field-action" (click)="openCreateClientModal()">
+                <i class="fa-solid fa-user-plus"></i>
+                Agregar cliente
+              </button>
+            </div>
+            <select formControlName="client" [class.input-error]="isControlInvalid('client')">
+              <option [ngValue]="null">Selecciona cliente</option>
+              <option *ngFor="let client of availableClients; trackBy: trackById" [ngValue]="client.id">
+                {{ getClientOptionLabel(client) }}
+              </option>
+            </select>
+            <small class="field-help">Si el cliente no existe, registralo desde "Agregar cliente".</small>
+            <small class="field-error" *ngIf="getControlError('client') as error">{{ error }}</small>
+          </label>
+
+          <label>
+            <span>Origen *</span>
+            <select formControlName="origin" [class.input-error]="isControlInvalid('origin')">
+              <option [ngValue]="null">Selecciona origen</option>
+              <option *ngFor="let origin of origins; trackBy: trackById" [ngValue]="origin.id">
+                {{ origin.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="getControlError('origin') as error">{{ error }}</small>
+          </label>
+
+          <label>
+            <span>Codigo promo</span>
+            <input type="text" formControlName="promo_code" placeholder="Ej: SUMMER2026" />
+          </label>
+
+          <label>
+            <span>Paquete</span>
+            <select formControlName="package">
+              <option [ngValue]="null">Sin paquete</option>
+              <option *ngFor="let item of getAvailablePackagesForDates(); trackBy: trackById" [ngValue]="item.id">
+                {{ getPackageOptionLabel(item) }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <span>Check-in esperado *</span>
+            <input type="date" formControlName="expected_check_in" [class.input-error]="isControlInvalid('expected_check_in')" />
+            <small class="field-error" *ngIf="getControlError('expected_check_in') as error">{{ error }}</small>
+          </label>
+
+          <label>
+            <span>Check-out esperado *</span>
+            <input type="date" formControlName="expected_check_out" [class.input-error]="isControlInvalid('expected_check_out')" />
+            <small class="field-error" *ngIf="getControlError('expected_check_out') as error">{{ error }}</small>
+          </label>
+
+          <label>
+            <span>Descuento total</span>
+            <input type="number" formControlName="total_discount" min="0" step="0.01" placeholder="0" />
+          </label>
+
+          <label class="full">
+            <span>Notas internas</span>
+            <textarea
+              rows="3"
+              formControlName="notes"
+              placeholder="Observaciones para recepcion y operaciones..."
+              [class.input-error]="isControlInvalid('notes')"></textarea>
+            <small class="field-error" *ngIf="getControlError('notes') as error">{{ error }}</small>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Abono inicial (opcional)</h2>
+
+        <div class="grid two">
+          <label>
+            <span>Monto del abono</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              formControlName="initial_deposit_amount"
+              [class.input-error]="isInitialDepositFieldInvalid('amount')"
+              placeholder="0" />
+            <small class="field-help">Si lo dejas en 0, la reserva se crea sin abono inicial.</small>
+            <small class="field-error" *ngIf="getInitialDepositFieldError('amount') as error">{{ error }}</small>
+          </label>
+
+          <label>
+            <span>Metodo de pago <span *ngIf="hasInitialDepositAmount">*</span></span>
+            <select
+              formControlName="initial_deposit_payment_method"
+              [class.input-error]="isInitialDepositFieldInvalid('payment_method')">
+              <option [ngValue]="null">Selecciona metodo</option>
+              <option *ngFor="let method of availablePaymentMethods; trackBy: trackById" [ngValue]="method.id">
+                {{ method.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="getInitialDepositFieldError('payment_method') as error">{{ error }}</small>
+          </label>
+
+          <label>
+            <span>Fecha del abono</span>
+            <input type="date" formControlName="initial_deposit_date" />
+          </label>
+
+          <label>
+            <span>Referencia</span>
+            <input type="text" formControlName="initial_deposit_reference" placeholder="Comprobante o transaccion" />
+          </label>
+
+          <label class="full">
+            <span>Notas del abono</span>
+            <textarea rows="2" formControlName="initial_deposit_notes" placeholder="Detalle opcional del abono..."></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Habitaciones de la reserva</h2>
+          <button type="button" class="btn btn-ghost" (click)="addRoomLine()">
+            <i class="fa-solid fa-plus"></i>
+            Agregar habitacion
+          </button>
+        </div>
+
+        <div formArrayName="room_lines" class="room-lines">
+          <article
+            class="room-line"
+            *ngFor="let roomControl of roomLines.controls; let idx = index; trackBy: trackByRoomLine"
+            [formGroupName]="idx">
+            <div class="line-grid room-grid">
+              <label>
+                <span>Habitacion</span>
+                <select formControlName="room" [class.input-error]="isRoomFieldInvalid(idx, 'room')">
+                  <option [ngValue]="null">Sin asignar</option>
+                  <option *ngFor="let room of availableRooms; trackBy: trackById" [ngValue]="room.id">
+                    Hab. {{ room.number }}
+                  </option>
+                </select>
+                <small class="field-error" *ngIf="getRoomFieldError(idx, 'room') as error">{{ error }}</small>
+              </label>
+
+              <label>
+                <span>Capacidad</span>
+                <input type="text" [value]="getRoomCapacityLabel(idx)" readonly />
+              </label>
+            </div>
+
+            <div class="line-actions">
+              <button type="button" class="row-btn danger" (click)="removeRoomLine(idx)" title="Eliminar fila">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </article>
+        </div>
+        <small class="field-help">
+          La tarifa se toma automaticamente del tipo de habitacion y la ocupacion (adultos/ninos) se calcula segun la fecha de nacimiento de los huespedes.
+        </small>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Politicas de la reserva</h2>
+          <button type="button" class="btn btn-ghost" (click)="addPolicyLine()">
+            <i class="fa-solid fa-plus"></i>
+            Agregar politica
+          </button>
+        </div>
+
+        <div formArrayName="policy_lines" class="policy-lines">
+          <article
+            class="policy-line"
+            *ngFor="let policyControl of policyLines.controls; let idx = index; trackBy: trackByPolicyLine"
+            [formGroupName]="idx">
+            <div class="line-grid policy-grid">
+              <label>
+                <span>Politica</span>
+                <select formControlName="policy">
+                  <option [ngValue]="null">Sin asignar</option>
+                  <option *ngFor="let policy of availableReservationPolicies; trackBy: trackById" [ngValue]="policy.id">
+                    {{ policy.name }}
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                <span>Tipo</span>
+                <input type="text" [value]="getPolicyTypeLabel(policyControl.get('policy')?.value)" readonly />
+              </label>
+
+              <label>
+                <span>Penalidad</span>
+                <input type="text" [value]="getPolicyPenaltyLabel(policyControl.get('policy')?.value)" readonly />
+              </label>
+
+              <label>
+                <span>Horas antes check-in</span>
+                <input type="text" [value]="getPolicyHoursLabel(policyControl.get('policy')?.value)" readonly />
+              </label>
+            </div>
+
+            <div class="line-actions">
+              <button type="button" class="row-btn danger" (click)="removePolicyLine(idx)" title="Eliminar politica">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </article>
+        </div>
+
+        <small class="field-help" *ngIf="selectedPoliciesCount > 0">{{ selectedPoliciesCount }} politica(s) seleccionada(s)</small>
+        <small class="field-help" *ngIf="selectedPoliciesCount === 0">Opcional. Agrega politicas si aplica.</small>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Huespedes de la reserva</h2>
+          <button type="button" class="btn btn-ghost" (click)="addGuestLine()">
+            <i class="fa-solid fa-plus"></i>
+            Agregar huesped
+          </button>
+        </div>
+
+        <div formArrayName="guest_lines" class="guest-lines">
+          <article
+            class="guest-line"
+            *ngFor="let guestControl of guestLines.controls; let idx = index; trackBy: trackByGuestLine"
+            [formGroupName]="idx">
+            <div class="line-grid guest-grid">
+              <label>
+                <span>Tipo doc *</span>
+                <select formControlName="document_type" [class.input-error]="isGuestFieldInvalid(idx, 'document_type')">
+                  <option [ngValue]="null">Selecciona</option>
+                  <option *ngFor="let documentType of availableDocumentTypes; trackBy: trackById" [ngValue]="documentType.id">
+                    {{ documentType.code }} - {{ documentType.name }}
+                  </option>
+                </select>
+                <small class="field-error" *ngIf="getGuestFieldError(idx, 'document_type') as error">{{ error }}</small>
+              </label>
+
+              <label>
+                <span>Documento *</span>
+                <input
+                  type="text"
+                  formControlName="document_number"
+                  placeholder="Numero documento"
+                  [class.input-error]="isGuestFieldInvalid(idx, 'document_number')" />
+                <small class="field-error" *ngIf="getGuestFieldError(idx, 'document_number') as error">{{ error }}</small>
+              </label>
+
+              <label>
+                <span>Nombres *</span>
+                <input type="text" formControlName="first_name" placeholder="Nombres" [class.input-error]="isGuestFieldInvalid(idx, 'first_name')" />
+                <small class="field-error" *ngIf="getGuestFieldError(idx, 'first_name') as error">{{ error }}</small>
+              </label>
+
+              <label>
+                <span>Apellidos *</span>
+                <input type="text" formControlName="last_name" placeholder="Apellidos" [class.input-error]="isGuestFieldInvalid(idx, 'last_name')" />
+                <small class="field-error" *ngIf="getGuestFieldError(idx, 'last_name') as error">{{ error }}</small>
+              </label>
+
+              <label>
+                <span>Fecha nacimiento</span>
+                <input type="date" formControlName="birth_date" />
+              </label>
+
+              <label>
+                <span>Nacionalidad</span>
+                <input type="text" formControlName="nationality" placeholder="Pais" />
+              </label>
+
+              <label>
+                <span>Grupo sanguineo</span>
+                <input type="text" formControlName="blood_type" placeholder="O+, AB-..." />
+              </label>
+
+              <label>
+                <span>Contacto emergencia</span>
+                <input type="text" formControlName="emergency_contact_name" placeholder="Nombre contacto" />
+              </label>
+
+              <label>
+                <span>Telefono emergencia</span>
+                <input type="text" formControlName="emergency_contact_phone" placeholder="Telefono" />
+              </label>
+            </div>
+
+            <div class="line-actions">
+              <button type="button" class="row-btn danger" (click)="removeGuestLine(idx)" title="Eliminar huesped">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <p class="feedback warning" *ngIf="warningMessage">{{ warningMessage }}</p>
+      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving">
+          {{ saving ? 'Guardando...' : 'Guardar reserva' }}
+        </button>
+      </footer>
+    </form>
+  </article>
+
+  <app-create-client
+    *ngIf="showCreateClientModal"
+    [asModal]="true"
+    (closed)="closeCreateClientModal()"
+    (created)="onClientCreated($event)">
+  </app-create-client>
+</div>

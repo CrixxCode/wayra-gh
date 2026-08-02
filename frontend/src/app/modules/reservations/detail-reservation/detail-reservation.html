@@ -1,0 +1,462 @@
+<div class="detail-overlay" (click)="closeDrawer()">
+  <aside class="detail-drawer" [ngClass]="drawerStatusClass" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+
+      <ng-container *ngIf="!loading && reservation; else loadingTitle">
+        <div class="head-top">
+          <div class="reservation-code">{{ reservationCodeLabel }}</div>
+          <span class="status-chip" [ngStyle]="{ 'background-color': statusStyle.chipBg, color: statusStyle.chipColor }">
+            <span class="status-dot" [ngStyle]="{ 'background-color': statusStyle.dotColor }"></span>
+            {{ statusStyle.label }}
+          </span>
+        </div>
+
+        <div class="guest-line">
+          <div class="guest-avatar">{{ guestInitials }}</div>
+          <div class="guest-block">
+            <h2>{{ reservation.client_full_name || 'Cliente sin nombre' }}</h2>
+            <p>{{ guestSecondaryLabel }}</p>
+          </div>
+        </div>
+
+        <div class="kpis">
+          <article>
+            <strong>{{ firstRoomLabel }}</strong>
+            <span>{{ firstRoomCategoryLabel }}</span>
+          </article>
+          <article>
+            <strong>{{ totalNights }}</strong>
+            <span>noches</span>
+          </article>
+          <article>
+            <strong>{{ formatCurrency(totalAmount) }}</strong>
+            <span>total</span>
+          </article>
+          <article class="payment-kpi">
+            <strong class="payment-inline" [ngStyle]="{ 'background-color': paymentTone.bg, color: paymentTone.color }">
+              {{ paymentLabel }}
+            </strong>
+            <span>pago</span>
+          </article>
+        </div>
+      </ng-container>
+
+      <ng-template #loadingTitle>
+        <div class="loading-title">Cargando detalle...</div>
+      </ng-template>
+    </header>
+
+    <div class="drawer-body">
+      <p class="state-msg" *ngIf="loading">Consultando informacion de la reserva...</p>
+      <p class="state-msg error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+
+      <ng-container *ngIf="!loading && reservation">
+        <section>
+          <h3>Contacto del huesped</h3>
+          <div class="info-list">
+            <div class="info-row">
+              <div class="info-label">
+                <i class="pi pi-phone"></i>
+                <span>Telefono</span>
+              </div>
+              <strong>{{ reservation.client_phone || 'No registra' }}</strong>
+            </div>
+            <div class="info-row">
+              <div class="info-label">
+                <i class="pi pi-envelope"></i>
+                <span>Email</span>
+              </div>
+              <strong>{{ reservation.client_email || 'No registra' }}</strong>
+            </div>
+            <div class="info-row">
+              <div class="info-label">
+                <i class="pi pi-users"></i>
+                <span>Huespedes</span>
+              </div>
+              <strong>{{ guestCountLabel }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h3>Detalles de la estancia</h3>
+          <div class="info-list">
+            <div class="info-row">
+              <div class="info-label">
+                <i class="pi pi-home"></i>
+                <span>Habitacion</span>
+              </div>
+              <strong>{{ firstRoomLabel }}</strong>
+            </div>
+            <div class="info-row">
+              <div class="info-label">
+                <i class="pi pi-sign-in icon-checkin"></i>
+                <span>Check-In</span>
+              </div>
+              <strong>{{ formatDate(reservation.expected_check_in) }}</strong>
+            </div>
+            <div class="info-row" [class.warn-row]="visualStatus === 'POR_SALIR_HOY'">
+              <div class="info-label">
+                <i class="pi pi-sign-out icon-checkout"></i>
+                <span>Check-Out</span>
+              </div>
+              <strong [class.warn]="visualStatus === 'POR_SALIR_HOY'">{{ stayCheckoutLabel }}</strong>
+            </div>
+            <div class="info-row">
+              <div class="info-label">
+                <i class="pi pi-clock"></i>
+                <span>Duracion</span>
+              </div>
+              <strong>{{ totalNights }} noche(s)</strong>
+            </div>
+            <div class="info-row">
+              <div class="info-label">
+                <i class="pi pi-globe"></i>
+                <span>Origen</span>
+              </div>
+              <strong>{{ reservation.origin_name || 'Sin origen' }}</strong>
+            </div>
+            <div class="info-row">
+              <div class="info-label">
+                <i class="pi pi-briefcase"></i>
+                <span>Paquete</span>
+              </div>
+              <strong>{{ reservation.package_display_name || reservation.package_catalog_name || reservation.package_name || 'Sin paquete' }}</strong>
+            </div>
+            <div class="info-row">
+              <div class="info-label">
+                <i class="pi pi-calendar"></i>
+                <span>Creada el</span>
+              </div>
+              <strong>{{ formatDate(reservation.created_at || null) }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-headline">
+            <h3>Huespedes asociados</h3>
+            <button type="button" class="btn-link" *ngIf="hasGuests" (click)="openGuestsModal()">Ver mas</button>
+          </div>
+
+          <div class="guest-summary-table" *ngIf="hasGuests; else noGuests">
+            <table>
+              <thead>
+                <tr>
+                  <th>Huesped</th>
+                  <th>Documento</th>
+                  <th>Nacionalidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let guest of guestSummaryRows; trackBy: trackById">
+                  <td>{{ guest.full_name || ((guest.first_name || '') + ' ' + (guest.last_name || '')).trim() || 'Sin nombre' }}</td>
+                  <td>{{ getGuestDocumentLabel(guest) }}</td>
+                  <td>{{ guest.nationality || 'No registra' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="guest-summary-note" *ngIf="hiddenGuestsCount > 0">
+            {{ hiddenGuestsCount }} huesped(es) adicional(es) en detalle completo.
+          </div>
+
+          <ng-template #noGuests>
+            <p class="state-msg">Esta reserva no tiene huespedes asociados.</p>
+          </ng-template>
+        </section>
+
+        <section>
+          <h3>Facturacion</h3>
+          <div class="billing-table">
+            <div class="billing-row">
+              <span>{{ roomChargeLabel }}</span>
+              <strong>{{ formatCurrency(roomChargeAmount) }}</strong>
+            </div>
+            <div class="billing-row" *ngIf="packageSubtotal > 0">
+              <span>Paquetes</span>
+              <strong>{{ formatCurrency(packageSubtotal) }}</strong>
+            </div>
+            <div class="billing-row" *ngIf="discountAmount > 0">
+              <span>Descuento</span>
+              <strong>-{{ formatCurrency(discountAmount) }}</strong>
+            </div>
+            <div class="billing-row total">
+              <span>Total</span>
+              <strong>{{ formatCurrency(totalAmount) }}</strong>
+            </div>
+          </div>
+
+          <div class="billing-status">
+            <span>Estado del pago</span>
+            <strong class="payment-inline" [ngStyle]="{ 'background-color': paymentTone.bg, color: paymentTone.color }">
+              {{ paymentLabel }}
+            </strong>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-headline">
+            <h3>Politicas asociadas</h3>
+            <button type="button" class="btn-link btn-link-subtle" *ngIf="hasPolicies" (click)="openPoliciesModal()">
+              Ver politicas
+            </button>
+          </div>
+
+          <ng-template #noPolicies>
+            <p class="state-msg">Esta reserva no tiene politicas asociadas.</p>
+          </ng-template>
+        </section>
+      </ng-container>
+    </div>
+
+    <footer class="drawer-footer" *ngIf="!loading && reservation">
+      <ng-container *ngIf="showCancelInfoMessage; else flowActions">
+        <div class="cancelled-note">Reserva cancelada. No hay acciones operativas disponibles.</div>
+      </ng-container>
+
+      <ng-template #flowActions>
+        <button
+          type="button"
+          class="btn btn-primary"
+          *ngIf="canRunPrimaryAction"
+          (click)="runPrimaryAction()"
+          [disabled]="actionLoading">
+          {{ primaryActionLabel }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          *ngIf="showEditAction"
+          (click)="requestEdit()"
+          [disabled]="actionLoading">
+          Editar reserva
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger-outline"
+          *ngIf="showCancelAction"
+          (click)="cancelReservation()"
+          [disabled]="actionLoading">
+          {{ actionLoading ? 'Procesando...' : 'Cancelar reserva' }}
+        </button>
+        <button type="button" class="btn btn-secondary" (click)="closeDrawer()" [disabled]="actionLoading">
+          Cerrar
+        </button>
+      </ng-template>
+    </footer>
+  </aside>
+</div>
+
+<div
+  class="checkout-inventory-overlay"
+  *ngIf="showCheckoutInventoryModal"
+  (click)="closeCheckoutInventoryModal(); $event.stopPropagation()">
+  <article class="checkout-inventory-modal" (click)="$event.stopPropagation()">
+    <header class="checkout-inventory-head">
+      <div>
+        <h3>Revision de inventario en check-out</h3>
+        <p>{{ reservationCodeLabel }} - registra cantidades finales por item.</p>
+      </div>
+      <button
+        type="button"
+        class="checkout-inventory-close"
+        title="Cerrar"
+        (click)="closeCheckoutInventoryModal()"
+        [disabled]="actionLoading">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="checkout-inventory-body">
+      <p class="state-msg" *ngIf="checkoutInventoryLoading">Cargando inventario de las habitaciones...</p>
+      <p class="state-msg error" *ngIf="!checkoutInventoryLoading && checkoutInventoryError">{{ checkoutInventoryError }}</p>
+
+      <ng-container *ngIf="!checkoutInventoryLoading && hasCheckoutInventoryLines">
+        <div class="checkout-inventory-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Habitacion</th>
+                <th>Item</th>
+                <th>Referencia</th>
+                <th>Revisado</th>
+                <th>Diferencia</th>
+                <th>Notas</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let line of checkoutInventoryLines; trackBy: trackByCheckoutInventoryLine">
+                <td>{{ line.roomLabel }}</td>
+                <td>{{ line.itemLabel }}</td>
+                <td>{{ line.expectedQuantity }}</td>
+                <td>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    class="checkout-qty-input"
+                    [ngModel]="line.reviewedQuantity"
+                    (ngModelChange)="updateCheckoutInventoryQuantity(line, $event)" />
+                </td>
+                <td>
+                  <span class="difference-badge" [ngClass]="getCheckoutDifferenceClass(line)">
+                    {{ getCheckoutDifferenceLabel(line) }}
+                  </span>
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    class="checkout-notes-input"
+                    placeholder="Observaciones"
+                    [ngModel]="line.notes"
+                    (ngModelChange)="updateCheckoutInventoryNotes(line, $event)" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+
+      <p class="state-msg" *ngIf="!checkoutInventoryLoading && !hasCheckoutInventoryLines">
+        No hay items de inventario activos asociados a las habitaciones de esta reserva.
+      </p>
+    </div>
+
+    <footer class="checkout-inventory-footer">
+      <button type="button" class="btn btn-secondary" (click)="closeCheckoutInventoryModal()" [disabled]="actionLoading">
+        Cancelar
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        (click)="submitCheckOutWithInventoryReview()"
+        [disabled]="actionLoading || checkoutInventoryLoading">
+        {{ actionLoading ? 'Procesando...' : 'Confirmar check-out' }}
+      </button>
+    </footer>
+  </article>
+</div>
+
+<div class="guest-modal-overlay" *ngIf="showGuestsModal" (click)="closeGuestsModal(); $event.stopPropagation()">
+  <article class="guest-modal" (click)="$event.stopPropagation()">
+    <header class="guest-modal-head">
+      <div>
+        <h3>Huespedes de la reserva</h3>
+        <p>{{ reservationCodeLabel }} · {{ guests.length }} registro(s)</p>
+      </div>
+      <button type="button" class="guest-modal-close" title="Cerrar" (click)="closeGuestsModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="guest-modal-body" *ngIf="hasGuests; else noGuestsModal">
+      <div class="guest-modal-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Huesped</th>
+              <th>Documento</th>
+              <th>Nacimiento</th>
+              <th>Nacionalidad</th>
+              <th>Sangre</th>
+              <th>Emergencia</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let guest of guests; trackBy: trackById">
+              <td>{{ guest.full_name || ((guest.first_name || '') + ' ' + (guest.last_name || '')).trim() || 'Sin nombre' }}</td>
+              <td>{{ getGuestDocumentLabel(guest) }}</td>
+              <td>{{ formatDate(guest.birth_date || null) }}</td>
+              <td>{{ guest.nationality || 'No registra' }}</td>
+              <td>{{ guest.blood_type || 'No registra' }}</td>
+              <td>
+                {{
+                  (guest.emergency_contact_name || guest.emergency_contact_phone)
+                    ? ((guest.emergency_contact_name || 'Sin nombre') + ' · ' + (guest.emergency_contact_phone || 'Sin telefono'))
+                    : 'No registra'
+                }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <ng-template #noGuestsModal>
+      <div class="guest-modal-empty">No hay huespedes asociados para esta reserva.</div>
+    </ng-template>
+
+    <footer class="guest-modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="closeGuestsModal()">Cerrar</button>
+    </footer>
+  </article>
+</div>
+
+<div class="policy-modal-overlay" *ngIf="showPoliciesModal" (click)="closePoliciesModal(); $event.stopPropagation()">
+  <article class="policy-modal" (click)="$event.stopPropagation()">
+    <header class="policy-modal-head">
+      <div>
+        <h3>Politicas de la reserva</h3>
+        <p>{{ reservationCodeLabel }} - {{ policies.length }} registro(s)</p>
+      </div>
+      <button type="button" class="policy-modal-close" title="Cerrar" (click)="closePoliciesModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="policy-modal-body" *ngIf="hasPolicies; else noPolicyModal">
+      <div class="policy-modal-grid">
+        <article class="policy-card" *ngFor="let policy of policies; trackBy: trackById">
+          <div class="policy-card-head">
+            <strong>{{ policy.name }}</strong>
+            <span>{{ getPolicyTypeLabel(policy) }}</span>
+          </div>
+
+          <div class="policy-card-meta">
+            <div>
+              <label>Tipo de penalidad</label>
+              <p>{{ getPenaltyTypeLabel(policy) }}</p>
+            </div>
+            <div>
+              <label>Valor</label>
+              <p>{{ formatPolicyPenalty(policy) }}</p>
+            </div>
+            <div>
+              <label>Ventana</label>
+              <p>{{ getPolicyHoursLabel(policy) }}</p>
+            </div>
+          </div>
+
+          <div class="policy-card-description">
+            {{ policy.description || 'Sin descripcion registrada.' }}
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <ng-template #noPolicyModal>
+      <div class="policy-modal-empty">No hay politicas asociadas para esta reserva.</div>
+    </ng-template>
+
+    <footer class="policy-modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="closePoliciesModal()">Cerrar</button>
+    </footer>
+  </article>
+</div>

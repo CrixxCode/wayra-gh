@@ -1,0 +1,694 @@
+<div class="wayra-landing relative overflow-x-clip bg-slate-50 text-slate-700">
+  <header class="wayra-header sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
+    <div class="mx-auto flex h-20 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      <a class="group inline-flex items-center gap-3" href="#inicio" (click)="scrollToSection($event, 'inicio')">
+        <img src="/logo-black.png" alt="Wayra" class="h-9 w-auto sm:h-10" />
+        <span class="wayra-heading text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl">Wayra</span>
+      </a>
+
+      <nav class="hidden items-center gap-7 lg:flex" aria-label="Navegacion principal">
+        <a
+          *ngFor="let link of navLinks; trackBy: trackByIndex"
+          class="wayra-link text-sm font-semibold text-slate-600"
+          href="#{{ link.sectionId }}"
+          (click)="scrollToSection($event, link.sectionId)">
+          {{ link.label }}
+        </a>
+      </nav>
+
+      <div class="hidden items-center gap-3 lg:flex">
+        <a
+          class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-100"
+          routerLink="/login"
+          (click)="closeMobileMenu()">
+          Iniciar sesion
+        </a>
+        <button
+          type="button"
+          class="rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:-translate-y-0.5 hover:bg-slate-800"
+          (click)="openDemoModal($event)">
+          Solicitar demo
+        </button>
+      </div>
+
+      <button
+        type="button"
+        class="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 text-slate-700 transition hover:bg-slate-100 lg:hidden"
+        (click)="toggleMobileMenu()"
+        [attr.aria-expanded]="mobileMenuOpen"
+        aria-controls="wayra-mobile-menu"
+        aria-label="Abrir menu">
+        <i class="text-base" [ngClass]="mobileMenuOpen ? 'pi pi-times' : 'pi pi-bars'"></i>
+      </button>
+    </div>
+
+    <div
+      *ngIf="mobileMenuOpen"
+      id="wayra-mobile-menu"
+      class="border-t border-slate-200 bg-white px-4 py-4 shadow-2xl shadow-slate-900/10 lg:hidden">
+      <nav class="flex flex-col gap-2" aria-label="Navegacion movil">
+        <a
+          *ngFor="let link of navLinks; trackBy: trackByIndex"
+          class="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+          href="#{{ link.sectionId }}"
+          (click)="scrollToSection($event, link.sectionId)">
+          {{ link.label }}
+        </a>
+        <button
+          type="button"
+          class="mt-2 rounded-xl bg-slate-900 px-4 py-2.5 text-center text-sm font-semibold text-white"
+          (click)="openDemoModal($event)">
+          Solicitar demo
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section id="inicio" class="wayra-section-bg wayra-bg-hero wayra-v-center relative overflow-hidden py-12 sm:py-16">
+      <div class="mx-auto grid w-full max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-12 lg:gap-12 lg:px-8">
+        <article class="wayra-reveal wayra-hero-copy mx-auto w-full max-w-3xl rounded-3xl border border-slate-200/30 p-5 backdrop-blur-sm lg:col-span-7 lg:mx-0 lg:max-w-none lg:p-8">
+          <span
+            class="inline-flex items-center rounded-full border border-sky-200/40 bg-slate-950/35 px-3 py-1 text-xs font-bold uppercase tracking-wider text-sky-100">
+            SaaS de gestion hotelera
+          </span>
+
+          <h1 class="wayra-heading mt-5 text-4xl font-extrabold leading-tight text-white sm:text-5xl lg:text-6xl">
+            Digitaliza la administracion hotelera de forma simple y profesional.
+          </h1>
+
+          <p class="mt-5 max-w-2xl text-base leading-8 text-slate-100 sm:text-lg">
+            Gestiona reservas, habitaciones, pagos, inventario y reportes desde un solo lugar. Wayra ayuda a hoteles,
+            hostales y alojamientos turisticos a operar con mas control, menos errores y mejor experiencia para el
+            huesped.
+          </p>
+
+          <div class="mt-8 flex flex-wrap gap-3">
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-6 py-3 text-sm font-bold text-white shadow-xl shadow-slate-900/20 transition hover:-translate-y-0.5 hover:bg-slate-800"
+              (click)="openDemoModal($event)">
+              Solicitar demo
+              <i class="pi pi-arrow-right text-xs"></i>
+            </button>
+            <a
+              class="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-100"
+              href="#funcionalidades"
+              (click)="scrollToSection($event, 'funcionalidades')">
+              Ver funcionalidades
+            </a>
+            <a
+              class="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-6 py-3 text-sm font-bold text-emerald-700 transition hover:-translate-y-0.5 hover:bg-emerald-100"
+              routerLink="/login"
+              (click)="closeMobileMenu()">
+              Ingresar a la plataforma
+            </a>
+          </div>
+
+          <div class="mt-9 grid gap-3 sm:grid-cols-3">
+            <article
+              *ngFor="let stat of heroStats; trackBy: trackByIndex"
+              class="wayra-reveal wayra-reveal-delay-1 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-lg shadow-slate-900/5">
+              <div class="mb-2 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white">
+                <i [class]="stat.icon"></i>
+              </div>
+              <p class="text-sm font-extrabold text-slate-900">{{ stat.value }}</p>
+              <p class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-500">{{ stat.label }}</p>
+              <p class="mt-2 text-xs leading-5 text-slate-600">{{ stat.detail }}</p>
+            </article>
+          </div>
+        </article>
+
+        <aside class="wayra-reveal wayra-reveal-delay-2 mx-auto w-full max-w-xl lg:col-span-5 lg:mx-0 lg:max-w-none" aria-label="Vista de la plataforma Wayra">
+          <div class="wayra-panel rounded-3xl border border-slate-200/70 bg-white p-5 shadow-2xl shadow-slate-900/10 sm:p-6">
+            <header class="flex items-center justify-between border-b border-slate-200 pb-4">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Panel operativo</p>
+                <h2 class="wayra-heading mt-1 text-lg font-extrabold text-slate-900">Control diario del hotel</h2>
+              </div>
+              <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">En linea</span>
+            </header>
+
+            <figure class="wayra-photo-frame relative mt-4 overflow-hidden rounded-2xl">
+              <img
+                src="/landing/landing-1.png"
+                alt="Recepcion hotelera con operacion digital"
+                class="h-52 w-full object-cover sm:h-56" />
+              <figcaption class="wayra-photo-caption absolute inset-x-0 bottom-0 p-3">
+                <p class="text-xs font-bold uppercase tracking-wider text-sky-200">Operacion conectada</p>
+                <p class="mt-1 text-sm font-semibold text-white">
+                  Recepcion, caja e inventario sincronizados en tiempo real.
+                </p>
+              </figcaption>
+            </figure>
+
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+              <article class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs font-semibold text-slate-500">Ocupacion actual</p>
+                <p class="mt-1 text-2xl font-extrabold text-slate-900">78%</p>
+                <p class="text-xs text-emerald-700">Actualizacion en tiempo real</p>
+              </article>
+              <article class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs font-semibold text-slate-500">Cobros del dia</p>
+                <p class="mt-1 text-2xl font-extrabold text-slate-900">$ 12.4M</p>
+                <p class="text-xs text-sky-700">Pagos y facturas conciliados</p>
+              </article>
+            </div>
+
+            <div class="mt-4 space-y-2">
+              <div class="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2">
+                <span class="text-sm font-semibold text-slate-600">Reservas confirmadas</span>
+                <span class="text-sm font-bold text-slate-900">42</span>
+              </div>
+              <div class="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2">
+                <span class="text-sm font-semibold text-slate-600">Habitaciones listas</span>
+                <span class="text-sm font-bold text-slate-900">36</span>
+              </div>
+              <div class="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2">
+                <span class="text-sm font-semibold text-slate-600">Alertas de inventario</span>
+                <span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">5 activas</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="problemas" class="wayra-section-neutral py-16 sm:py-20">
+      <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-3xl text-center">
+          <p class="text-xs font-bold uppercase tracking-widest text-slate-500">Problemas frecuentes</p>
+          <h2 class="wayra-heading mt-3 text-3xl font-extrabold text-slate-900 sm:text-4xl">
+            Los retos operativos que frenan el crecimiento hotelero
+          </h2>
+          <p class="mt-4 text-base leading-7 text-slate-600">
+            Cuando la operacion depende de procesos manuales, la gestion pierde velocidad, control y capacidad de
+            respuesta.
+          </p>
+        </div>
+
+        <div class="mb-10 mt-8 grid items-center gap-4 lg:grid-cols-12">
+          <article class="h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-900/5 lg:col-span-5">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Impacto operativo</p>
+            <h3 class="wayra-heading mt-3 text-xl font-extrabold text-slate-900">
+              Sin procesos centralizados, cada turno trabaja con informacion distinta.
+            </h3>
+            <p class="mt-3 text-sm leading-6 text-slate-600">
+              Esto genera retrasos en check-in, errores de cobro y poca visibilidad para tomar decisiones al cierre de
+              cada jornada.
+            </p>
+          </article>
+
+          <figure class="wayra-photo-frame wayra-photo-frame--wide relative overflow-hidden rounded-2xl lg:col-span-7">
+            <img
+              src="/landing/landing-2.png"
+              alt="Recepcion hotelera con alta carga operativa"
+              class="h-64 w-full object-cover sm:h-80" />
+            <figcaption class="wayra-photo-caption absolute inset-x-0 bottom-0 p-4 sm:p-5">
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-200">Reto diario de recepcion</p>
+              <p class="mt-2 text-sm font-semibold text-white sm:text-base">
+                El objetivo es pasar de la improvisacion a una operacion estandarizada y medible.
+              </p>
+            </figcaption>
+          </figure>
+        </div>
+
+        <div class="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <article
+            *ngFor="let item of painPoints; trackBy: trackByIndex"
+            class="wayra-reveal h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-900/5 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-900/10">
+            <div class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-rose-100 text-rose-700">
+              <i [class]="item.icon"></i>
+            </div>
+            <h3 class="wayra-heading mt-4 text-lg font-bold text-slate-900">{{ item.title }}</h3>
+            <p class="mt-2 text-sm leading-6 text-slate-600">{{ item.description }}</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="solucion" class="wayra-section-bg wayra-bg-solucion wayra-v-center py-12 sm:py-16">
+      <div class="mx-auto grid w-full max-w-7xl items-center gap-8 px-4 sm:px-6 lg:grid-cols-12 lg:gap-12 lg:px-8">
+        <article class="mx-auto w-full max-w-xl rounded-3xl border border-slate-200/20 bg-slate-950/55 p-6 backdrop-blur-sm lg:col-span-5 lg:mx-0 lg:max-w-none">
+          <p class="text-xs font-bold uppercase tracking-widest text-slate-200">La solucion Wayra</p>
+          <h2 class="wayra-heading mt-3 text-3xl font-extrabold text-white sm:text-4xl">
+            Menos procesos manuales, mas control para tu hotel
+          </h2>
+          <p class="mt-5 text-base leading-8 text-slate-100">
+            Wayra conecta areas operativas y administrativas para que toda la informacion viva en una sola plataforma,
+            con trazabilidad y procesos claros para cada equipo.
+          </p>
+
+          <div class="mt-6 rounded-2xl border border-emerald-300/45 bg-emerald-500/15 p-5">
+            <p class="text-sm font-semibold text-emerald-50">
+              Gestiona reservas, habitaciones, pagos y reportes desde un solo lugar.
+            </p>
+          </div>
+        </article>
+
+        <div class="mx-auto w-full max-w-3xl space-y-4 lg:col-span-7 lg:mx-0 lg:max-w-none">
+          <article
+            *ngFor="let step of solutionSteps; let i = index; trackBy: trackByIndex"
+            class="wayra-reveal h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-900/5">
+            <div class="flex items-start gap-4">
+              <span class="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-extrabold text-white">
+                {{ i + 1 }}
+              </span>
+              <div>
+                <h3 class="wayra-heading text-lg font-bold text-slate-900">{{ step.title }}</h3>
+                <p class="mt-2 text-sm leading-6 text-slate-600">{{ step.description }}</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="funcionalidades" class="wayra-section-neutral py-16 sm:py-20">
+      <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-3xl text-center">
+          <p class="text-xs font-bold uppercase tracking-widest text-slate-500">Funcionalidades principales</p>
+          <h2 class="wayra-heading mt-3 text-3xl font-extrabold text-slate-900 sm:text-4xl">
+            Todo lo necesario para operar y administrar tu alojamiento
+          </h2>
+        </div>
+
+        <div class="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <article
+            *ngFor="let feature of features; trackBy: trackByIndex"
+            class="wayra-reveal h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-900/5 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-900/10">
+            <div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
+              <i [class]="feature.icon"></i>
+            </div>
+            <h3 class="wayra-heading mt-4 text-lg font-bold text-slate-900">{{ feature.title }}</h3>
+            <p class="mt-2 text-sm leading-6 text-slate-600">{{ feature.description }}</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="beneficios" class="wayra-surface py-16 sm:py-20">
+      <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-3xl text-center">
+          <p class="text-xs font-bold uppercase tracking-widest text-slate-500">Beneficios para tu negocio</p>
+          <h2 class="wayra-heading mt-3 text-3xl font-extrabold text-slate-900 sm:text-4xl">
+            Impacto real en eficiencia, control y servicio
+          </h2>
+        </div>
+
+        <div class="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <article
+            *ngFor="let benefit of benefits; trackBy: trackByIndex"
+            class="wayra-reveal h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-900/5 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-900/10">
+            <div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+              <i [class]="benefit.icon"></i>
+            </div>
+            <h3 class="wayra-heading mt-4 text-lg font-bold text-slate-900">{{ benefit.title }}</h3>
+            <p class="mt-2 text-sm leading-6 text-slate-600">{{ benefit.description }}</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="publico" class="wayra-section-neutral py-16 sm:py-20">
+      <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-3xl text-center">
+          <p class="text-xs font-bold uppercase tracking-widest text-slate-500">Publico objetivo</p>
+          <h2 class="wayra-heading mt-3 text-3xl font-extrabold text-slate-900 sm:text-4xl">
+            Disenado para operaciones hoteleras reales
+          </h2>
+        </div>
+
+        <div class="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <article
+            *ngFor="let audience of audiences; trackBy: trackByIndex"
+            class="wayra-reveal h-full rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-lg shadow-slate-900/5 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-900/10">
+            <div class="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+              <i [class]="audience.icon"></i>
+            </div>
+            <h3 class="wayra-heading mt-4 text-lg font-bold text-slate-900">{{ audience.title }}</h3>
+            <p class="mt-2 text-sm leading-6 text-slate-600">{{ audience.detail }}</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="cta" class="wayra-section-bg wayra-bg-cta wayra-v-center py-12 sm:py-16">
+      <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="wayra-cta mx-auto w-full max-w-5xl rounded-3xl border border-slate-200/20 px-6 py-12 text-center shadow-2xl shadow-slate-900/25 backdrop-blur-sm sm:px-10">
+          <p class="text-xs font-bold uppercase tracking-widest text-sky-200">Comienza con Wayra</p>
+          <h2 class="wayra-heading mt-4 text-3xl font-extrabold text-white sm:text-4xl">
+            Lleva la gestion de tu hotel a un nivel mas profesional
+          </h2>
+          <p class="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-200 sm:text-base">
+            Solicita una demo y descubre como centralizar reservas, habitaciones, pagos y reportes en un flujo simple,
+            confiable y escalable.
+          </p>
+
+          <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-slate-900 transition hover:-translate-y-0.5 hover:bg-slate-100"
+              (click)="openDemoModal($event)">
+              Solicitar demo
+              <i class="pi pi-arrow-up-right text-xs"></i>
+            </button>
+            <a
+              class="inline-flex items-center gap-2 rounded-xl border border-slate-300/80 bg-transparent px-6 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-white/10"
+              href="#funcionalidades"
+              (click)="scrollToSection($event, 'funcionalidades')">
+              Conocer funcionalidades
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bg-slate-950 py-12 text-slate-300">
+    <div class="mx-auto grid w-full max-w-7xl gap-10 px-4 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
+      <div class="md:col-span-2">
+        <a class="inline-flex items-center gap-3" href="#inicio" (click)="scrollToSection($event, 'inicio')">
+          <img src="/logo-white.png" alt="Wayra" class="h-10 w-auto" />
+          <span class="wayra-heading text-xl font-extrabold text-white">Wayra</span>
+        </a>
+        <p class="mt-4 max-w-xl text-sm leading-7 text-slate-400">
+          Plataforma SaaS para centralizar la operacion hotelera y mejorar el control administrativo de hoteles,
+          hostales y alojamientos turisticos.
+        </p>
+      </div>
+
+      <div>
+        <h3 class="wayra-heading text-sm font-bold uppercase tracking-widest text-slate-100">Navegacion</h3>
+        <div class="mt-4 space-y-2">
+          <a
+            *ngFor="let link of navLinks; trackBy: trackByIndex"
+            class="block text-sm text-slate-400 transition hover:text-white"
+            href="#{{ link.sectionId }}"
+            (click)="scrollToSection($event, link.sectionId)">
+            {{ link.label }}
+          </a>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="wayra-heading text-sm font-bold uppercase tracking-widest text-slate-100">Acciones</h3>
+        <div class="mt-4 space-y-2">
+          <button
+            type="button"
+            class="block text-left text-sm text-slate-400 transition hover:text-white"
+            (click)="openDemoModal($event)">
+            Solicitar demo
+          </button>
+          <a class="block text-sm text-slate-400 transition hover:text-white" routerLink="/login" (click)="closeMobileMenu()">
+            Iniciar sesion
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="mx-auto mt-10 w-full max-w-7xl border-t border-slate-800 px-4 pt-6 text-xs text-slate-500 sm:px-6 lg:px-8">
+      <p>Wayra SaaS hotelero. Todos los derechos reservados. {{ year }}</p>
+    </div>
+  </footer>
+
+  <div
+    *ngIf="demoModalOpen"
+    class="wayra-demo-overlay fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/70 px-4 py-6 backdrop-blur-sm"
+    (click)="closeDemoModal()">
+    <section
+      class="wayra-demo-modal w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-950/30"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="demo-modal-title"
+      (click)="$event.stopPropagation()">
+      <header class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 sm:px-6">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-widest text-sky-700">Solicitud de demo</p>
+          <h2 id="demo-modal-title" class="wayra-heading mt-1 text-2xl font-extrabold text-slate-900">
+            Conoce Wayra para tu hotel
+          </h2>
+        </div>
+        <button
+          type="button"
+          class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+          aria-label="Cerrar solicitud de demo"
+          (click)="closeDemoModal()">
+          <i class="pi pi-times"></i>
+        </button>
+      </header>
+
+      <ng-container *ngIf="!demoSubmitted; else demoConfirmation">
+        <div class="grid gap-2 border-b border-slate-200 bg-slate-50 px-5 py-4 sm:grid-cols-2 sm:px-6">
+          <button
+            type="button"
+            class="wayra-demo-step"
+            [class.wayra-demo-step-active]="demoStep === 'hotel'"
+            (click)="goToHotelStep()">
+            <span>1</span>
+            Informacion del hotel
+          </button>
+          <button
+            type="button"
+            class="wayra-demo-step"
+            [class.wayra-demo-step-active]="demoStep === 'requester'"
+            [disabled]="demoForm.controls.hotel.invalid"
+            (click)="goToRequesterStep()">
+            <span>2</span>
+            Primer usuario del hotel
+          </button>
+        </div>
+
+        <form [formGroup]="demoForm" (ngSubmit)="submitDemoRequest()">
+          <ng-container *ngIf="demoStep === 'hotel'">
+            <div formGroupName="hotel" class="px-5 py-6 sm:px-6">
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="wayra-demo-field md:col-span-2" for="demo-hotel-name">
+                  <span>Nombre del hotel</span>
+                  <input
+                    id="demo-hotel-name"
+                    type="text"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('hotel', 'hotelName')"
+                    formControlName="hotelName"
+                    autocomplete="organization" />
+                  <small *ngIf="isInvalid('hotel', 'hotelName')" class="field-error">
+                    Ingresa el nombre del hotel.
+                  </small>
+                </label>
+
+                <label class="wayra-demo-field" for="demo-hotel-type">
+                  <span>Tipo de alojamiento</span>
+                  <select
+                    id="demo-hotel-type"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('hotel', 'hotelType')"
+                    formControlName="hotelType">
+                    <option value="" disabled>Selecciona un tipo</option>
+                    <option *ngFor="let type of hotelTypes; trackBy: trackByIndex" [value]="type">{{ type }}</option>
+                  </select>
+                  <small *ngIf="isInvalid('hotel', 'hotelType')" class="field-error">
+                    Selecciona el tipo de alojamiento.
+                  </small>
+                </label>
+
+                <label class="wayra-demo-field" for="demo-city">
+                  <span>Ciudad</span>
+                  <input
+                    id="demo-city"
+                    type="text"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('hotel', 'city')"
+                    formControlName="city"
+                    autocomplete="address-level2" />
+                  <small *ngIf="isInvalid('hotel', 'city')" class="field-error">Ingresa la ciudad.</small>
+                </label>
+
+                <label class="wayra-demo-field" for="demo-rooms">
+                  <span>Numero de habitaciones</span>
+                  <input
+                    id="demo-rooms"
+                    type="number"
+                    min="1"
+                    inputmode="numeric"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('hotel', 'rooms')"
+                    formControlName="rooms" />
+                  <small *ngIf="isInvalid('hotel', 'rooms')" class="field-error">
+                    Ingresa una cantidad valida.
+                  </small>
+                </label>
+
+                <label class="wayra-demo-field" for="demo-website">
+                  <span>Sitio web o red social</span>
+                  <input
+                    id="demo-website"
+                    type="text"
+                    class="wayra-demo-input"
+                    formControlName="website"
+                    autocomplete="url" />
+                </label>
+              </div>
+
+              <div class="mt-6 flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+                  (click)="closeDemoModal()">
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                  (click)="goToRequesterStep()">
+                  Continuar
+                  <i class="pi pi-arrow-right text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="demoStep === 'requester'">
+            <div formGroupName="requester" class="px-5 py-6 sm:px-6">
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="wayra-demo-field" for="demo-first-name">
+                  <span>Nombre</span>
+                  <input
+                    id="demo-first-name"
+                    type="text"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('requester', 'firstName')"
+                    formControlName="firstName"
+                    autocomplete="given-name" />
+                  <small *ngIf="isInvalid('requester', 'firstName')" class="field-error">
+                    Ingresa el nombre del primer usuario.
+                  </small>
+                </label>
+
+                <label class="wayra-demo-field" for="demo-last-name">
+                  <span>Apellidos</span>
+                  <input
+                    id="demo-last-name"
+                    type="text"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('requester', 'lastName')"
+                    formControlName="lastName"
+                    autocomplete="family-name" />
+                  <small *ngIf="isInvalid('requester', 'lastName')" class="field-error">
+                    Ingresa los apellidos del primer usuario.
+                  </small>
+                </label>
+
+                <label class="wayra-demo-field" for="demo-username">
+                  <span>Usuario de acceso</span>
+                  <input
+                    id="demo-username"
+                    type="text"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('requester', 'username')"
+                    formControlName="username"
+                    autocomplete="username" />
+                  <small *ngIf="isInvalid('requester', 'username')" class="field-error">
+                    Ingresa un usuario de acceso.
+                  </small>
+                </label>
+
+                <label class="wayra-demo-field" for="demo-job-title">
+                  <span>Cargo</span>
+                  <input
+                    id="demo-job-title"
+                    type="text"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('requester', 'jobTitle')"
+                    formControlName="jobTitle"
+                    autocomplete="organization-title" />
+                  <small *ngIf="isInvalid('requester', 'jobTitle')" class="field-error">Ingresa el cargo.</small>
+                </label>
+
+                <label class="wayra-demo-field" for="demo-email">
+                  <span>Correo de acceso</span>
+                  <input
+                    id="demo-email"
+                    type="email"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('requester', 'email')"
+                    formControlName="email"
+                    autocomplete="email" />
+                  <small *ngIf="isInvalid('requester', 'email')" class="field-error">
+                    Ingresa un correo valido.
+                  </small>
+                </label>
+
+                <label class="wayra-demo-field" for="demo-phone">
+                  <span>Telefono de contacto</span>
+                  <input
+                    id="demo-phone"
+                    type="tel"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('requester', 'phone')"
+                    formControlName="phone"
+                    autocomplete="tel" />
+                  <small *ngIf="isInvalid('requester', 'phone')" class="field-error">
+                    Ingresa un telefono de contacto.
+                  </small>
+                </label>
+
+                <label class="wayra-demo-field md:col-span-2" for="demo-message">
+                  <span>Comentarios para la demo</span>
+                  <textarea
+                    id="demo-message"
+                    rows="4"
+                    class="wayra-demo-input wayra-demo-textarea"
+                    formControlName="message"></textarea>
+                </label>
+              </div>
+
+              <p *ngIf="demoSubmitError" class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                {{ demoSubmitError }}
+              </p>
+
+              <div class="mt-6 flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+                  [disabled]="demoSubmitting"
+                  (click)="goToHotelStep()">
+                  <i class="pi pi-arrow-left text-xs"></i>
+                  Atras
+                </button>
+                <button
+                  type="submit"
+                  class="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+                  [disabled]="demoSubmitting">
+                  {{ demoSubmitting ? 'Guardando...' : 'Enviar solicitud' }}
+                  <i class="text-xs" [ngClass]="demoSubmitting ? 'pi pi-spin pi-spinner' : 'pi pi-send'"></i>
+                </button>
+              </div>
+            </div>
+          </ng-container>
+        </form>
+      </ng-container>
+
+      <ng-template #demoConfirmation>
+        <div class="px-5 py-10 text-center sm:px-6">
+          <div class="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+            <i class="pi pi-check text-xl"></i>
+          </div>
+          <h3 class="wayra-heading mt-5 text-2xl font-extrabold text-slate-900">Solicitud registrada</h3>
+          <p class="mx-auto mt-3 max-w-xl text-sm leading-7 text-slate-600">
+            Recibimos la informacion de {{ demoRequestSummary }} y del primer usuario del hotel. El equipo de Wayra
+            revisara los datos para coordinar la demo.
+          </p>
+          <button
+            type="button"
+            class="mt-7 inline-flex items-center justify-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+            (click)="closeDemoModal()">
+            Cerrar
+          </button>
+        </div>
+      </ng-template>
+    </section>
+  </div>
+</div>
+
+

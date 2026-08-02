@@ -1,0 +1,342 @@
+<div class="room-inventory-page">
+  <header class="page-header">
+    <div>
+      <h1>Inventario por Habitacion</h1>
+      <p>Administra los items asignados a cada habitacion y su nivel minimo operativo.</p>
+    </div>
+
+    <button type="button" class="btn btn-dark" (click)="openCreateDrawer()" [disabled]="!rooms.length || !items.length">
+      <i class="fa-solid fa-plus"></i>
+      Nueva asignacion
+    </button>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total asignaciones</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-layer-group"></i></span>
+      </div>
+      <div class="stat-value">{{ totalAssignments }}</div>
+      <div class="stat-note">{{ roomsWithInventoryCount }} habitaciones con inventario</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Activos</span>
+        <span class="stat-icon green"><i class="fa-solid fa-circle-check"></i></span>
+      </div>
+      <div class="stat-value">{{ activeAssignments }}</div>
+      <div class="stat-note">registros en operacion</div>
+    </article>
+
+    <article class="stat-card warning">
+      <div class="stat-head">
+        <span>Bajo minimo</span>
+        <span class="stat-icon gold"><i class="fa-solid fa-triangle-exclamation"></i></span>
+      </div>
+      <div class="stat-value">{{ lowCoverageAssignments }}</div>
+      <div class="stat-note">requieren reposicion</div>
+    </article>
+
+    <article class="stat-card danger">
+      <div class="stat-head">
+        <span>Sin stock</span>
+        <span class="stat-icon purple"><i class="fa-solid fa-box-open"></i></span>
+      </div>
+      <div class="stat-value">{{ outOfStockAssignments }}</div>
+      <div class="stat-note">habitaciones desabastecidas</div>
+    </article>
+
+    <article class="stat-card info">
+      <div class="stat-head">
+        <span>Unidades</span>
+        <span class="stat-icon cyan"><i class="fa-solid fa-cubes-stacked"></i></span>
+      </div>
+      <div class="stat-value">{{ totalAssignedUnits }}</div>
+      <div class="stat-note">items asignados</div>
+    </article>
+  </section>
+
+  <section class="gh-filters-card">
+    <div class="gh-filters-grid room-inventory-filters-grid">
+      <label class="search-field search-wrap gh-search-wrap">
+        <span>Buscar</span>
+        <div class="search-control gh-search-control">
+          <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+          <input
+            class="gh-search-input"
+            type="text"
+            [(ngModel)]="search"
+            (input)="applyFilters()"
+            placeholder="Buscar por habitacion, item, sku o notas..." />
+        </div>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Estado</span>
+        <select class="gh-filter-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
+          <option *ngFor="let statusOption of statusOptions" [ngValue]="statusOption.value">{{ statusOption.label }}</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Cobertura</span>
+        <select class="gh-filter-select" [(ngModel)]="coverageFilter" (change)="applyFilters()">
+          <option *ngFor="let coverageOption of coverageOptions" [ngValue]="coverageOption.value">
+            {{ coverageOption.label }}
+          </option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Habitacion</span>
+        <select class="gh-filter-select" [(ngModel)]="selectedRoomFilter" (change)="applyFilters()">
+          <option *ngFor="let roomTab of roomTabs; trackBy: trackByRoomTab" [value]="roomTab.key">
+            {{ roomTab.label }}
+          </option>
+        </select>
+      </label>
+    </div>
+
+    <div class="gh-filters-actions">
+      <div class="gh-view-toggle">
+        <button type="button" title="Vista en tarjetas" [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')">
+          <i class="fa-solid fa-grip"></i>
+        </button>
+        <button type="button" title="Vista en tabla" [class.active]="viewMode === 'table'" (click)="setViewMode('table')">
+          <i class="fa-solid fa-table-list"></i>
+        </button>
+      </div>
+
+      <div class="gh-action-group">
+        <button type="button" class="gh-btn gh-btn-light" (click)="refreshRoomInventory()" [disabled]="loading">
+          <i class="fa-solid fa-rotate-right"></i>
+          Actualizar
+        </button>
+
+        <button type="button" class="gh-btn gh-btn-light" (click)="exportCsv()">
+          <i class="fa-solid fa-file-export"></i>
+          Exportar
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="gh-filters-card" *ngIf="!loading && deletedRoomInventoryCount > 0">
+    <div class="gh-filters-actions">
+      <p class="state-note">
+        Hay {{ deletedRoomInventoryCount }} asignacion(es) eliminadas logicamente.
+      </p>
+      <div class="gh-action-group">
+        <button type="button" class="gh-btn gh-btn-light" (click)="showDeletedRoomInventory = !showDeletedRoomInventory">
+          <i class="fa-solid" [class.fa-eye]="!showDeletedRoomInventory" [class.fa-eye-slash]="showDeletedRoomInventory"></i>
+          {{ showDeletedRoomInventory ? 'Ocultar eliminadas' : 'Ver eliminadas' }}
+        </button>
+      </div>
+    </div>
+
+    <article class="table-card" *ngIf="showDeletedRoomInventory">
+      <div class="table-scroll">
+        <table class="room-inventory-table">
+          <thead>
+            <tr>
+              <th>Codigo</th>
+              <th>Habitacion</th>
+              <th>Item</th>
+              <th>Cantidad</th>
+              <th>Minimo</th>
+              <th>Estado operativo</th>
+              <th>Accion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let record of deletedRoomInventory; trackBy: trackByRecord">
+              <td class="code-cell">{{ getRecordCode(record) }}</td>
+              <td>{{ getRoomLabel(record) }}</td>
+              <td>{{ getItemLabel(record) }}</td>
+              <td>{{ getStockLabel(record) }}</td>
+              <td>{{ getMinimumLabel(record) }}</td>
+              <td>{{ record.is_active ? 'Activo' : 'Inactivo' }}</td>
+              <td>
+                <div class="table-actions">
+                  <button type="button" class="row-btn" title="Restaurar" (click)="restoreRoomInventoryRecord(record)">
+                    <i class="fa-solid fa-rotate-left"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <section class="state-message" *ngIf="loading || errorMessage || infoMessage || filteredRoomInventory.length === 0">
+    <p *ngIf="loading">Cargando inventario por habitacion...</p>
+    <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p class="warning" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
+    <p *ngIf="!loading && !errorMessage && filteredRoomInventory.length === 0">
+      No hay registros para los filtros seleccionados.
+    </p>
+  </section>
+
+  <section class="catalog-sections" *ngIf="!loading && !errorMessage && filteredRoomInventory.length > 0">
+    <ng-container *ngIf="viewMode === 'cards'; else tableView">
+      <div class="rooms-grid">
+        <article class="room-summary-card" *ngFor="let group of groupedRoomInventory; trackBy: trackByGroup" (click)="openRoomDetail(group)">
+          <div class="room-summary-cover" [ngStyle]="{ background: getGroupTone(group).cover }">
+            <span
+              class="room-coverage-chip"
+              [ngStyle]="{
+                'background-color': getRoomCoverageTone(group).bg,
+                color: getRoomCoverageTone(group).color
+              }">
+              {{ getRoomCoverageLabel(group) }}
+            </span>
+          </div>
+
+          <div class="room-summary-body">
+            <h3>{{ group.label }}</h3>
+            <p>{{ getRoomItemsPreview(group) }}</p>
+
+            <div class="room-summary-metrics">
+              <div>
+                <span>Items</span>
+                <strong>{{ getRoomTotalItems(group) }}</strong>
+              </div>
+              <div>
+                <span>Activos</span>
+                <strong>{{ getRoomActiveItems(group) }}</strong>
+              </div>
+              <div>
+                <span>Bajo min.</span>
+                <strong>{{ getRoomLowCoverageItems(group) }}</strong>
+              </div>
+              <div>
+                <span>Unidades</span>
+                <strong>{{ getRoomTotalUnits(group) }}</strong>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </ng-container>
+
+    <ng-template #tableView>
+      <article class="table-card">
+        <div class="table-scroll">
+          <table class="room-inventory-table">
+            <thead>
+              <tr>
+                <th>Codigo</th>
+                <th>Habitacion</th>
+                <th>Item</th>
+                <th>Categoria</th>
+                <th>Cantidad</th>
+                <th>Minimo</th>
+                <th>Cobertura</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let record of filteredRoomInventory; trackBy: trackByRecord" (click)="openDetail(record)">
+                <td class="code-cell">{{ getRecordCode(record) }}</td>
+                <td>{{ getRoomLabel(record) }}</td>
+                <td>
+                  <div class="item-cell">
+                    <span class="item-avatar">
+                      <i class="fa-solid fa-cube"></i>
+                    </span>
+                    <div class="item-copy">
+                      <strong>{{ getItemLabel(record) }}</strong>
+                      <small>{{ getItemSkuLabel(record) }}</small>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span
+                    class="table-type"
+                    [ngStyle]="{
+                      'background-color': getTypeBadgeTone(record).bg,
+                      color: getTypeBadgeTone(record).color
+                    }">
+                    <span class="dot" [ngStyle]="{ 'background-color': getTypeBadgeTone(record).dot }"></span>
+                    {{ getItemTypeLabel(record) }}
+                  </span>
+                </td>
+                <td>{{ getStockLabel(record) }}</td>
+                <td>{{ getMinimumLabel(record) }}</td>
+                <td>
+                  <div class="table-coverage">
+                    <span
+                      class="coverage-pill"
+                      [ngStyle]="{
+                        'background-color': getCoverageTone(record).bg,
+                        color: getCoverageTone(record).color
+                      }">
+                      {{ getCoverageLabel(record) }}
+                    </span>
+                    <div class="table-stock-meter">
+                      <span
+                        [ngStyle]="{
+                          width: getStockProgressPercent(record) + '%',
+                          'background-color': getStockBarColor(record)
+                        }"></span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span
+                    class="table-status"
+                    [ngStyle]="{
+                      'background-color': getStatusTone(record).bg,
+                      color: getStatusTone(record).color
+                    }">
+                    <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(record).dot }"></span>
+                    {{ record.is_active ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </td>
+                <td>
+                  <div class="table-actions" (click)="$event.stopPropagation()">
+                    <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(record)">
+                      <i class="fa-regular fa-eye"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="row-btn"
+                      [title]="record.is_active ? 'Desactivar' : 'Activar'"
+                      (click)="toggleRoomInventoryStatus(record)">
+                      <i [class]="record.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+                    </button>
+                    <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(record)">
+                      <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </ng-template>
+  </section>
+
+  <app-create-room-inventory
+    *ngIf="showCreateDrawer"
+    [rooms]="rooms"
+    [items]="items"
+    [existingAssignments]="roomInventory"
+    (closed)="closeCreateDrawer()"
+    (created)="onRoomInventoryCreated()">
+  </app-create-room-inventory>
+
+  <app-detail-room-inventory
+    *ngIf="selectedRoomGroup"
+    [roomGroup]="selectedRoomGroup"
+    (closed)="closeDetail()"
+    (statusRequested)="toggleRoomInventoryStatus($event)"
+    (deleteRequested)="confirmDelete($event)">
+  </app-detail-room-inventory>
+</div>

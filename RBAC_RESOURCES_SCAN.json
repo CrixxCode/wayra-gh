@@ -1,0 +1,406 @@
+{
+  "scan_metadata": {
+    "timestamp": "2026-05-04",
+    "total_files_scanned": 12,
+    "total_viewsets": 35,
+    "total_unique_read_scopes": 30,
+    "total_unique_write_scopes": 29,
+    "total_unique_resources": 60
+  },
+  "files": [
+    {
+      "file_path": "backend/accounts/views.py",
+      "viewsets": [
+        {
+          "class_name": "UserViewSet",
+          "required_scopes_read": "users.read",
+          "required_scopes_write": "users.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "RoleViewSet",
+          "required_scopes_read": "roles.read",
+          "required_scopes_write": "roles.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "ResourceViewSet",
+          "required_scopes_read": "resources.read",
+          "required_scopes_write": "resources.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        }
+      ]
+    },
+    {
+      "file_path": "backend/apps/clients/views.py",
+      "viewsets": [
+        {
+          "class_name": "ClientViewSet",
+          "required_scopes_read": "clients.read",
+          "required_scopes_write": "clients.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        }
+      ]
+    },
+    {
+      "file_path": "backend/apps/master_data/views.py",
+      "viewsets": [
+        {
+          "class_name": "MasterDataViewSet",
+          "required_scopes_read": "master_data.read",
+          "required_scopes_write": "master_data.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        }
+      ]
+    },
+    {
+      "file_path": "backend/apps/hotel_settings/views.py",
+      "viewsets": [
+        {
+          "class_name": "HotelSettingsViewSet",
+          "required_scopes_read": "hotel_settings.read",
+          "required_scopes_write": "hotel_settings.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "HotelFloorViewSet",
+          "required_scopes_read": "hotel_settings.read",
+          "required_scopes_write": "hotel_settings.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "ReservationPolicyViewSet",
+          "required_scopes_read": "reservation-policies.read",
+          "required_scopes_write": "reservation-policies.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        }
+      ]
+    },
+    {
+      "file_path": "backend/apps/rooms/views.py",
+      "viewsets": [
+        {
+          "class_name": "RoomTypeViewSet",
+          "required_scopes_read": "room_type.read",
+          "required_scopes_write": "room_type.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "RateViewSet",
+          "required_scopes_read": "rates.read",
+          "required_scopes_write": "rates.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "AmenityViewSet",
+          "required_scopes_read": "amenities.read",
+          "required_scopes_write": "amenities.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "RoomViewSet",
+          "required_scopes_read": "rooms.read",
+          "required_scopes_write": "rooms.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "MaintenanceOrderViewSet",
+          "required_scopes_read": "maintenance_orders.read",
+          "required_scopes_write": "maintenance_orders.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "CleaningTaskViewSet",
+          "required_scopes_read": "cleaning_tasks.read",
+          "required_scopes_write": "cleaning_tasks.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        }
+      ]
+    },
+    {
+      "file_path": "backend/apps/reservations/views.py",
+      "viewsets": [
+        {
+          "class_name": "ReservationViewSet",
+          "required_scopes_read": "reservations.read",
+          "required_scopes_write": "reservations.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "ReservationRoomViewSet",
+          "required_scopes_read": "reservation_rooms.read",
+          "required_scopes_write": "reservation_rooms.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "ReservationGuestViewSet",
+          "required_scopes_read": "reservation_guests.read",
+          "required_scopes_write": "reservation_guests.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "ReservationDepositViewSet",
+          "required_scopes_read": "reservation_deposits.read",
+          "required_scopes_write": "reservation_deposits.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "ReservationInventoryCheckViewSet",
+          "required_scopes_read": "reservation_inventory_checks.read",
+          "required_scopes_write": "reservation_inventory_checks.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "ReservationInventoryCheckLineViewSet",
+          "required_scopes_read": "reservation_inventory_check_lines.read",
+          "required_scopes_write": "reservation_inventory_check_lines.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        }
+      ]
+    },
+    {
+      "file_path": "backend/apps/billing/views.py",
+      "viewsets": [
+        {
+          "class_name": "ChargeViewSet",
+          "required_scopes_read": "charges.read",
+          "required_scopes_write": "charges.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "InvoiceViewSet",
+          "required_scopes_read": "invoices.read",
+          "required_scopes_write": "invoices.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "InvoiceChargeViewSet",
+          "required_scopes_read": "invoices.read",
+          "required_scopes_write": "invoices.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "PaymentViewSet",
+          "required_scopes_read": "payments.read",
+          "required_scopes_write": "payments.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "PaymentRefundViewSet",
+          "required_scopes_read": "payments.read",
+          "required_scopes_write": "payments.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "CreditNoteViewSet",
+          "required_scopes_read": "credit-notes.read",
+          "required_scopes_write": "credit-notes.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        }
+      ]
+    },
+    {
+      "file_path": "backend/apps/finance/views.py",
+      "viewsets": [
+        {
+          "class_name": "ExpenseViewSet",
+          "required_scopes_read": "expenses.read",
+          "required_scopes_write": "expenses.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "FinancialControlConfigViewSet",
+          "required_scopes_read": "financial_control.read",
+          "required_scopes_write": "financial_control.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "OperationalAlertViewSet",
+          "required_scopes_read": "financial_control.read",
+          "required_scopes_write": "financial_control.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        }
+      ]
+    },
+    {
+      "file_path": "backend/apps/reports/views.py",
+      "viewsets": [
+        {
+          "class_name": "ReportsViewSet",
+          "required_scopes_read": "reports.read",
+          "required_scopes_write": null,
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        }
+      ]
+    },
+    {
+      "file_path": "backend/apps/notifications/views.py",
+      "viewsets": [
+        {
+          "class_name": "NotificationViewSet",
+          "required_scopes_read": "notifications.read",
+          "required_scopes_write": "notifications.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        }
+      ]
+    },
+    {
+      "file_path": "backend/apps/inventory/views.py",
+      "viewsets": [
+        {
+          "class_name": "ItemViewSet",
+          "required_scopes_read": "items.read",
+          "required_scopes_write": "items.write",
+          "additional_scopes": ["items.read_deleted"],
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "InventoryMovementViewSet",
+          "required_scopes_read": "inventory-movements.read",
+          "required_scopes_write": "inventory-movements.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        },
+        {
+          "class_name": "RoomInventoryViewSet",
+          "required_scopes_read": "room-inventory.read",
+          "required_scopes_write": "room-inventory.write",
+          "has_get_required_scopes": true,
+          "permission_classes": ["HasResourcePermission"]
+        }
+      ]
+    }
+  ],
+  "all_resources": {
+    "read_scopes": [
+      "users.read",
+      "roles.read",
+      "resources.read",
+      "clients.read",
+      "master_data.read",
+      "hotel_settings.read",
+      "reservation-policies.read",
+      "room_type.read",
+      "rates.read",
+      "amenities.read",
+      "rooms.read",
+      "maintenance_orders.read",
+      "cleaning_tasks.read",
+      "reservations.read",
+      "reservation_rooms.read",
+      "reservation_guests.read",
+      "reservation_deposits.read",
+      "reservation_inventory_checks.read",
+      "reservation_inventory_check_lines.read",
+      "charges.read",
+      "invoices.read",
+      "payments.read",
+      "credit-notes.read",
+      "expenses.read",
+      "financial_control.read",
+      "reports.read",
+      "notifications.read",
+      "items.read",
+      "inventory-movements.read",
+      "room-inventory.read"
+    ],
+    "write_scopes": [
+      "users.write",
+      "roles.write",
+      "resources.write",
+      "clients.write",
+      "master_data.write",
+      "hotel_settings.write",
+      "reservation-policies.write",
+      "room_type.write",
+      "rates.write",
+      "amenities.write",
+      "rooms.write",
+      "maintenance_orders.write",
+      "cleaning_tasks.write",
+      "reservations.write",
+      "reservation_rooms.write",
+      "reservation_guests.write",
+      "reservation_deposits.write",
+      "reservation_inventory_checks.write",
+      "reservation_inventory_check_lines.write",
+      "charges.write",
+      "invoices.write",
+      "payments.write",
+      "credit-notes.write",
+      "expenses.write",
+      "financial_control.write",
+      "notifications.write",
+      "items.write",
+      "inventory-movements.write",
+      "room-inventory.write"
+    ],
+    "special_scopes": [
+      "items.read_deleted"
+    ]
+  },
+  "implementation_patterns": {
+    "standard_pattern": {
+      "permission_classes": ["HasResourcePermission"],
+      "required_scopes": ["resource.read"],
+      "methods_implemented": [
+        "get_required_scopes()",
+        "get_permissions()"
+      ],
+      "notes": "Dinámicamente cambia scopes según el método HTTP (POST/PUT/PATCH/DELETE → .write)"
+    }
+  },
+  "features": {
+    "scope_normalization": {
+      "enabled": true,
+      "variants": ["snake_case", "kebab-case"],
+      "example": "users_read == users-read == users.read"
+    },
+    "wildcard_support": {
+      "enabled": true,
+      "wildcard": "*",
+      "grants_access_to": "todos los recursos"
+    },
+    "deleted_records": {
+      "enabled": true,
+      "affected_viewsets": ["ItemViewSet"],
+      "pattern": "scope.read_deleted"
+    },
+    "admin_bypass": {
+      "enabled": true,
+      "bypasses_rbac": "Global admins tienen acceso a todo"
+    }
+  }
+}

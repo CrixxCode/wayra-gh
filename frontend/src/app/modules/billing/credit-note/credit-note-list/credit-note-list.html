@@ -1,0 +1,136 @@
+<div class="credit-overlay" (click)="close()">
+  <article class="credit-modal" (click)="$event.stopPropagation()">
+    <header class="credit-head">
+      <div class="credit-title">
+        <span>Gestion de ajustes</span>
+        <h2>{{ modalTitle }}</h2>
+      </div>
+
+      <button type="button" class="btn btn-close" (click)="close()" title="Cerrar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <section class="credit-toolbar">
+      <div class="credit-summary">
+        <div>
+          <span>Activas</span>
+          <strong>{{ activeCreditNotes.length }}</strong>
+        </div>
+        <div>
+          <span>Total acreditado</span>
+          <strong>{{ formatCurrency(totalCreditAmount) }}</strong>
+        </div>
+        <div>
+          <span>Disponible</span>
+          <strong>{{ formatCurrency(availableCreditAmount) }}</strong>
+        </div>
+      </div>
+
+      <div class="head-actions">
+        <button type="button" class="btn btn-light" (click)="refresh()" [disabled]="loading || refreshing">
+          <i class="fa-solid fa-rotate-right"></i>
+          {{ refreshing ? 'Actualizando...' : 'Actualizar' }}
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-dark"
+          (click)="openCreateForm()"
+          [disabled]="!invoice || availableCreditAmount <= 0">
+          <i class="fa-solid fa-plus"></i>
+          Nueva nota
+        </button>
+      </div>
+    </section>
+
+    <section class="state-card" *ngIf="loading || errorMessage || infoMessage">
+      <p *ngIf="loading">Cargando notas de credito...</p>
+      <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+      <p class="info" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
+    </section>
+
+    <section class="notes-list" *ngIf="!loading && creditNotes.length > 0">
+      <article class="note-card" *ngFor="let note of creditNotes; trackBy: trackByNote">
+        <header class="note-head">
+          <div>
+            <strong>{{ note.credit_note_number }}</strong>
+            <small>{{ formatDate(note.issue_date || note.created_at) }}</small>
+          </div>
+
+          <span
+            class="status-chip"
+            [ngStyle]="{
+              'background-color': getStatusTone(note).bg,
+              color: getStatusTone(note).color
+            }">
+            <span class="dot" [ngStyle]="{ 'background-color': getStatusTone(note).dot }"></span>
+            {{ getStatusLabel(note) }}
+          </span>
+        </header>
+
+        <div class="note-body">
+          <p class="reason">{{ note.reason }}</p>
+          <p class="notes" *ngIf="note.notes">{{ note.notes }}</p>
+        </div>
+
+        <footer class="note-foot">
+          <div class="amount-block">
+            <small>Monto</small>
+            <strong>{{ formatCurrency(+note.amount) }}</strong>
+          </div>
+
+          <div class="row-actions">
+            <button
+              type="button"
+              class="row-btn"
+              *ngIf="note.is_active"
+              (click)="openEditForm(note)">
+              <i class="fa-regular fa-pen-to-square"></i>
+              Editar
+            </button>
+
+            <button
+              type="button"
+              class="row-btn danger"
+              *ngIf="note.is_active"
+              [disabled]="togglingNoteId === note.id"
+              (click)="deactivateNote(note)">
+              <i class="fa-regular fa-circle-xmark"></i>
+              {{ togglingNoteId === note.id ? 'Procesando...' : 'Anular' }}
+            </button>
+
+            <span class="inactive-chip" *ngIf="!note.is_active">Inactiva</span>
+          </div>
+        </footer>
+      </article>
+    </section>
+
+    <section class="empty-state" *ngIf="!loading && creditNotes.length === 0">
+      <p>Esta factura no tiene notas de credito registradas.</p>
+      <button
+        type="button"
+        class="btn btn-dark"
+        (click)="openCreateForm()"
+        [disabled]="!invoice || availableCreditAmount <= 0">
+        <i class="fa-solid fa-plus"></i>
+        Crear primera nota
+      </button>
+    </section>
+  </article>
+
+  <div class="form-overlay" *ngIf="showFormModal" (click)="closeFormModal()">
+    <article class="form-modal" (click)="$event.stopPropagation()">
+      <app-credit-note-form
+        [invoiceId]="invoice?.id || null"
+        [invoiceNumber]="invoice?.invoice_number || null"
+        [statuses]="statuses"
+        [maxAvailableAmount]="maxAmountForForm"
+        [mode]="editingNote ? 'update' : 'create'"
+        [note]="editingNote"
+        (saved)="onSaved($event)"
+        (cancelled)="closeFormModal()">
+      </app-credit-note-form>
+    </article>
+  </div>
+</div>

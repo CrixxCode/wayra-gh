@@ -1,0 +1,148 @@
+<div class="expense-overlay" (click)="closeDrawer()">
+  <article class="expense-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div>
+        <h1>Nuevo egreso</h1>
+        <p>Registra salidas de caja para control financiero y trazabilidad operativa.</p>
+      </div>
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form [formGroup]="expenseForm" (ngSubmit)="submit()" class="drawer-body">
+      <section>
+        <h2>Datos del egreso</h2>
+        <div class="grid two">
+          <label>
+            <span>Categoria *</span>
+            <select formControlName="expense_category" [class.input-error]="expense_category?.touched && expense_category?.invalid">
+              <option [ngValue]="null">Selecciona categoria</option>
+              <option *ngFor="let category of expenseCategories; trackBy: trackById" [ngValue]="category.id">
+                {{ category.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="expense_category?.touched && expense_category?.invalid">Selecciona una categoria.</small>
+          </label>
+
+          <label>
+            <span>Tipo de egreso *</span>
+            <select formControlName="expense_type" [class.input-error]="expense_type?.touched && expense_type?.invalid">
+              <option [ngValue]="null">Selecciona tipo</option>
+              <option *ngFor="let option of expenseTypeOptions" [ngValue]="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="expense_type?.touched && expense_type?.invalid">Selecciona el tipo de egreso.</small>
+          </label>
+
+          <label>
+            <span>Comportamiento *</span>
+            <select formControlName="cost_behavior" [class.input-error]="cost_behavior?.touched && cost_behavior?.invalid">
+              <option [ngValue]="null">Selecciona comportamiento</option>
+              <option *ngFor="let option of costBehaviorOptions" [ngValue]="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="cost_behavior?.touched && cost_behavior?.invalid">Selecciona el comportamiento de costo/gasto.</small>
+          </label>
+
+          <label>
+            <span>Monto *</span>
+            <input
+              type="number"
+              min="1"
+              step="1000"
+              formControlName="amount"
+              placeholder="Ej: 120000"
+              [class.input-error]="amount?.touched && amount?.invalid" />
+            <small class="field-error" *ngIf="amount?.touched && amount?.hasError('required')">El monto es obligatorio.</small>
+            <small class="field-error" *ngIf="amount?.touched && amount?.hasError('min')">El monto debe ser mayor a 0.</small>
+          </label>
+
+          <label class="full">
+            <span>Concepto *</span>
+            <input
+              type="text"
+              formControlName="concept"
+              placeholder="Ej: Compra de insumos de limpieza"
+              [class.input-error]="concept?.touched && concept?.invalid" />
+            <small class="field-error" *ngIf="concept?.touched && concept?.hasError('required')">El concepto es obligatorio.</small>
+            <small class="field-error" *ngIf="concept?.touched && concept?.hasError('maxlength')">Maximo 150 caracteres.</small>
+          </label>
+
+          <label>
+            <span>Fecha *</span>
+            <input
+              type="date"
+              formControlName="expense_date"
+              [class.input-error]="expense_date?.touched && expense_date?.invalid" />
+            <small class="field-error" *ngIf="expense_date?.touched && expense_date?.invalid">Selecciona una fecha valida.</small>
+          </label>
+
+          <label>
+            <span>Metodo de pago</span>
+            <select formControlName="payment_method">
+              <option [ngValue]="null">Sin metodo</option>
+              <option *ngFor="let method of paymentMethods; trackBy: trackById" [ngValue]="method.id">
+                {{ method.name }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <span>Proveedor</span>
+            <input
+              type="text"
+              formControlName="supplier_name"
+              placeholder="Nombre proveedor"
+              [class.input-error]="expenseForm.get('supplier_name')?.touched && expenseForm.get('supplier_name')?.invalid" />
+            <small class="field-error" *ngIf="expenseForm.get('supplier_name')?.touched && expenseForm.get('supplier_name')?.hasError('maxlength')">
+              Maximo 150 caracteres.
+            </small>
+          </label>
+
+          <label>
+            <span>Referencia</span>
+            <input
+              type="text"
+              formControlName="reference"
+              placeholder="Factura, comprobante o recibo"
+              [class.input-error]="expenseForm.get('reference')?.touched && expenseForm.get('reference')?.invalid" />
+            <small class="field-error" *ngIf="expenseForm.get('reference')?.touched && expenseForm.get('reference')?.hasError('maxlength')">
+              Maximo 100 caracteres.
+            </small>
+          </label>
+
+          <label class="full">
+            <span>Descripcion</span>
+            <textarea rows="4" formControlName="description" placeholder="Detalle adicional del egreso..."></textarea>
+          </label>
+
+          <label class="full switch-row">
+            <input type="checkbox" formControlName="is_active" />
+            <span>Egreso activo para reportes y cierres financieros</span>
+          </label>
+        </div>
+      </section>
+
+      <p class="feedback warning" *ngIf="!hotelSettingsId">
+        No se encontro una configuracion activa de hotel. Configurala para poder registrar egresos.
+      </p>
+      <p class="feedback warning" *ngIf="!expenseCategories.length">
+        No hay categorias de egreso activas en master data.
+      </p>
+      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-light" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn-dark" [disabled]="saving || !hotelSettingsId || !expenseCategories.length">
+          {{ saving ? 'Guardando...' : 'Guardar egreso' }}
+        </button>
+      </footer>
+    </form>
+  </article>
+</div>

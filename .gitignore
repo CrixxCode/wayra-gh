@@ -1,0 +1,36 @@
+# Python / Django
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.sqlite3
+.pytest_cache/
+.mypy_cache/
+
+# Virtual envs
+env/
+.venv/
+venv/
+
+# Backend sensitive/local artifacts
+backups/
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/db.sqlite3
+backend/media/
+backend/staticfiles/
+backend/schema.yml
+backend/*.log
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/cache/
+frontend/coverage/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

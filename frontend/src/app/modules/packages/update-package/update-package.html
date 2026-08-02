@@ -1,0 +1,137 @@
+<div class="package-overlay" (click)="closeDrawer()">
+  <article class="package-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div>
+        <h1>Editar paquete</h1>
+        <p *ngIf="packageData">Ajusta la configuracion de "{{ packageData.name }}".</p>
+        <p *ngIf="!packageData">Actualiza la informacion del paquete seleccionado.</p>
+      </div>
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form [formGroup]="packageForm" (ngSubmit)="submit()" class="drawer-body">
+      <section>
+        <h2>Informacion base</h2>
+        <div class="grid two">
+          <label class="full">
+            <span>Nombre del paquete *</span>
+            <input type="text" formControlName="name" placeholder="Ej: Escapada romantica premium" [class.input-error]="name?.touched && name?.invalid" />
+            <small class="field-error" *ngIf="name?.touched && name?.hasError('required')">El nombre es obligatorio.</small>
+            <small class="field-error" *ngIf="name?.touched && name?.hasError('maxlength')">El nombre no puede superar 150 caracteres.</small>
+          </label>
+
+          <label class="full">
+            <span>Descripcion</span>
+            <textarea
+              rows="4"
+              formControlName="description"
+              placeholder="Describe beneficios y enfoque del paquete..."
+              [class.input-error]="packageForm.get('description')?.touched && packageForm.get('description')?.invalid"></textarea>
+            <small class="field-error" *ngIf="packageForm.get('description')?.touched && packageForm.get('description')?.hasError('maxlength')">
+              La descripcion no puede superar 2000 caracteres.
+            </small>
+          </label>
+
+          <label>
+            <span>Precio base *</span>
+            <input
+              type="number"
+              min="0"
+              step="1000"
+              formControlName="base_price"
+              placeholder="Ej: 390000"
+              [class.input-error]="base_price?.touched && base_price?.invalid" />
+            <small class="field-error" *ngIf="base_price?.touched && base_price?.hasError('required')">El precio base es obligatorio.</small>
+            <small class="field-error" *ngIf="base_price?.touched && base_price?.hasError('min')">El precio debe ser mayor o igual a 0.</small>
+          </label>
+
+          <label class="switch-row">
+            <input type="checkbox" formControlName="is_active" />
+            <span>Disponible para venta inmediata</span>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Categoria (tipo de habitacion)</h2>
+        <div class="category-grid">
+          <button
+            type="button"
+            class="category-option"
+            [class.selected]="isRoomTypeSelected(roomType.id)"
+            *ngFor="let roomType of roomTypes; trackBy: trackById"
+            (click)="selectRoomType(roomType.id)">
+            {{ roomType.name }}
+          </button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Vigencia</h2>
+        <div class="grid two">
+          <label>
+            <span>Valido desde</span>
+            <input type="date" formControlName="start_date" [class.input-error]="packageForm.get('start_date')?.touched && packageForm.get('start_date')?.value && packageForm.get('end_date')?.value && packageForm.get('end_date')?.value < packageForm.get('start_date')?.value" />
+          </label>
+          <label>
+            <span>Valido hasta</span>
+            <input type="date" formControlName="end_date" [class.input-error]="packageForm.get('end_date')?.touched && packageForm.get('start_date')?.value && packageForm.get('end_date')?.value && packageForm.get('end_date')?.value < packageForm.get('start_date')?.value" />
+            <small
+              class="field-error"
+              *ngIf="packageForm.get('end_date')?.touched && packageForm.get('start_date')?.value && packageForm.get('end_date')?.value && packageForm.get('end_date')?.value < packageForm.get('start_date')?.value">
+              La fecha final no puede ser menor que la fecha inicial.
+            </small>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Servicios incluidos ({{ selectedServiceIds.length }} seleccionados)</h2>
+
+        <label class="search-field search-wrap gh-search-wrap">
+          <span>Buscar</span>
+          <div class="search-control gh-search-control">
+            <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+            <input
+              class="gh-search-input"
+              type="text"
+              [(ngModel)]="serviceSearch"
+              [ngModelOptions]="{ standalone: true }"
+              placeholder="Buscar servicio..."
+            />
+          </div>
+        </label>
+
+        <div class="services-grid" *ngIf="availableServices.length > 0">
+          <button
+            type="button"
+            class="service-option"
+            *ngFor="let service of availableServices; trackBy: trackById"
+            [class.selected]="isServiceSelected(service.id)"
+            (click)="toggleService(service.id)">
+            <span>{{ service.name }}</span>
+            <small>{{ service.service_type_name || service.service_type_code || 'General' }}</small>
+          </button>
+        </div>
+
+        <p class="empty-note" *ngIf="availableServices.length === 0">
+          No hay servicios activos disponibles para asociar.
+        </p>
+      </section>
+
+      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-light" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn-dark" [disabled]="saving">
+          {{ saving ? 'Guardando...' : 'Guardar cambios' }}
+        </button>
+      </footer>
+    </form>
+  </article>
+</div>

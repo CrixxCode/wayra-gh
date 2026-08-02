@@ -1,0 +1,166 @@
+:host {
+  display: block;
+}
+
+.app-header-shell {
+  background: var(--gh-page-bg) !important;
+  border-bottom: 1px solid #e7ebf2 !important;
+  color: #111827;
+}
+
+.app-header-shell .header-menu-btn {
+  background: transparent;
+  color: #111827;
+  border: 1px solid transparent;
+}
+
+.app-header-shell .header-menu-btn:hover {
+  background: #eef2f8;
+  border-color: #e1e7f0;
+}
+
+.header-left {
+  gap: 12px;
+}
+
+.hotel-context-selector {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.hotel-context-selector > span {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.hotel-context-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 230px;
+  color: var(--gh-brand);
+}
+
+.hotel-context-control > i:first-child {
+  position: absolute;
+  left: 12px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hotel-context-control select {
+  width: 100%;
+  height: 40px;
+  appearance: none;
+  border: 1px solid #d9e1ed;
+  border-radius: 11px;
+  background: #fff;
+  color: #172033;
+  padding: 0 36px 0 36px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+.hotel-context-control select:focus {
+  border-color: var(--gh-brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gh-brand) 14%, transparent);
+}
+
+.hotel-context-control select:disabled {
+  cursor: default;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.hotel-context-control .selector-chevron {
+  position: absolute;
+  right: 12px;
+  color: #64748b;
+  font-size: 0.7rem;
+  pointer-events: none;
+}
+
+.app-header-shell .header-notification-btn {
+  color: #111827;
+}
+
+.app-header-shell .header-tour-btn {
+  color: #111827;
+  border: 1px solid transparent;
+}
+
+.app-header-shell .header-tour-btn:hover {
+  background: #eef2f8;
+  border-color: #e1e7f0;
+}
+
+.app-header-shell .header-notification-btn:hover {
+  background: #eef2f8;
+  color: #111827;
+}
+
+.app-header-shell .header-user-name {
+  color: #0b1220 !important;
+  font-size: 0.86rem;
+  line-height: 1.1;
+  font-weight: 600 !important;
+}
+
+.app-header-shell .header-user-role {
+  color: #303846 !important;
+  font-size: 0.76rem !important;
+  line-height: 1.15;
+  font-weight: 500;
+}
+
+.app-header-shell .header-avatar {
+  width: 38px !important;
+  height: 38px !important;
+  border-color: #d9e1ed !important;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+.app-header-shell .header-chevron {
+  color: #111827 !important;
+  font-size: 0.86rem;
+}
+
+@media (min-width: 768px) {
+  .app-header-shell .header-menu-btn {
+    visibility: hidden;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-header-shell {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .app-header-shell .header-user-name {
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hotel-context-selector > span,
+  .app-header-shell .header-user-name,
+  .app-header-shell .header-user-role,
+  .app-header-shell .header-chevron {
+    display: none;
+  }
+
+  .hotel-context-control {
+    min-width: 150px;
+    max-width: 48vw;
+  }
+}

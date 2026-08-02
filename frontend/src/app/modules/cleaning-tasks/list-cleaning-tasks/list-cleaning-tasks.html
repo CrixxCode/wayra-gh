@@ -1,0 +1,406 @@
+<div class="cleaning-tasks-page">
+  <header class="page-header">
+    <div>
+      <h1>Tareas de Limpieza</h1>
+      <p>Gestiona tareas por habitacion con estado operativo y trazabilidad de ejecucion.</p>
+    </div>
+
+    <button type="button" class="btn btn-dark" (click)="openCreateDrawer()" [disabled]="!canCreateTask">
+      <i class="fa-solid fa-plus"></i>
+      Nueva tarea
+    </button>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total tareas</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-list-check"></i></span>
+      </div>
+      <div class="stat-value">{{ totalTasks }}</div>
+      <div class="stat-note">registros operativos</div>
+    </article>
+
+    <article class="stat-card warning">
+      <div class="stat-head">
+        <span>Pendientes</span>
+        <span class="stat-icon gold"><i class="fa-regular fa-clock"></i></span>
+      </div>
+      <div class="stat-value">{{ pendingTasks }}</div>
+      <div class="stat-note">por iniciar</div>
+    </article>
+
+    <article class="stat-card info">
+      <div class="stat-head">
+        <span>En proceso</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-spinner"></i></span>
+      </div>
+      <div class="stat-value">{{ inProgressTasks }}</div>
+      <div class="stat-note">en ejecucion</div>
+    </article>
+
+    <article class="stat-card danger">
+      <div class="stat-head">
+        <span>Atrasadas</span>
+        <span class="stat-icon red"><i class="fa-solid fa-triangle-exclamation"></i></span>
+      </div>
+      <div class="stat-value">{{ overdueTasks }}</div>
+      <div class="stat-note">requieren atencion</div>
+    </article>
+
+    <article class="stat-card success">
+      <div class="stat-head">
+        <span>Completadas</span>
+        <span class="stat-icon green"><i class="fa-solid fa-circle-check"></i></span>
+      </div>
+      <div class="stat-value">{{ completedTasks }}</div>
+      <div class="stat-note">cerradas correctamente</div>
+    </article>
+  </section>
+
+  <section class="gh-filters-card">
+    <div class="gh-filters-grid cleaning-task-filters-grid">
+      <label class="search-field search-wrap gh-search-wrap">
+        <span>Buscar</span>
+        <div class="search-control gh-search-control">
+          <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+          <input
+            class="gh-search-input"
+            type="text"
+            [(ngModel)]="search"
+            (input)="applyFilters()"
+            placeholder="Buscar por habitacion, tipo, estado o notas..." />
+        </div>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Estado</span>
+        <select class="gh-filter-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
+          <option *ngFor="let statusOption of statusFilterOptions" [value]="statusOption.value">
+            {{ statusOption.label }}
+          </option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Tipo</span>
+        <select class="gh-filter-select" [(ngModel)]="selectedTypeFilter" (change)="applyFilters()">
+          <option *ngFor="let typeOption of typeFilterOptions" [value]="typeOption.value">{{ typeOption.label }}</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Habitacion</span>
+        <select class="gh-filter-select" [(ngModel)]="selectedRoomFilter" (change)="applyFilters()">
+          <option *ngFor="let roomOption of roomFilterOptions" [value]="roomOption.value">{{ roomOption.label }}</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="gh-filters-actions">
+      <div class="gh-view-toggle">
+        <button type="button" title="Vista en tarjetas" [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')">
+          <i class="fa-solid fa-grip"></i>
+        </button>
+        <button type="button" title="Vista en tabla" [class.active]="viewMode === 'table'" (click)="setViewMode('table')">
+          <i class="fa-solid fa-table-list"></i>
+        </button>
+      </div>
+
+      <div class="gh-action-group">
+        <button type="button" class="gh-btn gh-btn-light" (click)="refreshCleaningTasks()" [disabled]="loading">
+          <i class="fa-solid fa-rotate-right"></i>
+          Actualizar
+        </button>
+
+        <button type="button" class="gh-btn gh-btn-light" (click)="exportCsv()">
+          <i class="fa-solid fa-file-export"></i>
+          Exportar
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="gh-filters-card" *ngIf="!loading && deletedCleaningTasksCount > 0">
+    <div class="gh-filters-actions">
+      <p class="state-note">
+        Hay {{ deletedCleaningTasksCount }} tarea(s) eliminadas logicamente.
+      </p>
+      <div class="gh-action-group">
+        <button
+          type="button"
+          class="gh-btn gh-btn-light"
+          (click)="showDeletedCleaningTasks = !showDeletedCleaningTasks">
+          <i
+            class="fa-solid"
+            [class.fa-eye]="!showDeletedCleaningTasks"
+            [class.fa-eye-slash]="showDeletedCleaningTasks"></i>
+          {{ showDeletedCleaningTasks ? 'Ocultar eliminadas' : 'Ver eliminadas' }}
+        </button>
+      </div>
+    </div>
+
+    <article class="table-card" *ngIf="showDeletedCleaningTasks">
+      <div class="table-scroll">
+        <table class="cleaning-task-table">
+          <thead>
+            <tr>
+              <th>Codigo</th>
+              <th>Habitacion</th>
+              <th>Tipo</th>
+              <th>Estado</th>
+              <th>Programada</th>
+              <th>Accion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let task of deletedCleaningTasks; trackBy: trackByTask">
+              <td class="code-cell">{{ getTaskCode(task) }}</td>
+              <td>{{ getRoomLabel(task) }}</td>
+              <td>{{ getTaskTypeLabel(task) }}</td>
+              <td>{{ getStatusLabel(task) }}</td>
+              <td>{{ formatDate(task.scheduled_for) }}</td>
+              <td>
+                <div class="table-actions">
+                  <button type="button" class="row-btn" title="Restaurar" (click)="restoreCleaningTask(task)">
+                    <i class="fa-solid fa-rotate-left"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <section class="state-message" *ngIf="loading || errorMessage || infoMessage || filteredCleaningTasks.length === 0">
+    <p *ngIf="loading">Cargando tareas de limpieza...</p>
+    <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p class="warning" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
+    <p *ngIf="!loading && !errorMessage && filteredCleaningTasks.length === 0">
+      No hay tareas para los filtros seleccionados.
+    </p>
+  </section>
+
+  <section class="catalog-sections" *ngIf="!loading && !errorMessage && filteredCleaningTasks.length > 0">
+    <ng-container *ngIf="viewMode === 'cards'; else tableView">
+      <article class="category-block" *ngFor="let group of groupedCleaningTasks; trackBy: trackByGroup">
+        <header class="category-head">
+          <div class="category-title">
+            <span
+              class="category-icon"
+              [ngStyle]="{
+                'background-color': getGroupTone(group).iconBg,
+                color: getGroupTone(group).iconColor
+              }">
+              <i [class]="getGroupTone(group).icon"></i>
+            </span>
+            <h2>{{ group.label }}</h2>
+            <span class="category-count">{{ group.items.length }}</span>
+          </div>
+
+          <p class="category-note">
+            <i class="fa-regular fa-star"></i>
+            Se resaltan tareas urgentes o proximas
+          </p>
+        </header>
+
+        <div class="cleaning-task-grid">
+          <article class="cleaning-task-card" *ngFor="let task of group.items; trackBy: trackByTask" (click)="openDetail(task)">
+            <div class="cleaning-task-cover" [ngStyle]="{ background: getGroupTone(group).cover }">
+              <div class="cover-badges">
+                <span
+                  class="cover-type"
+                  [ngStyle]="{
+                    'background-color': getTypeBadgeTone(task).bg,
+                    color: getTypeBadgeTone(task).color
+                  }">
+                  {{ getTaskTypeLabel(task) }}
+                </span>
+
+                <span class="cover-badge" *ngIf="isHighlighted(group.key, task.id)">
+                  {{ isOverdue(task) ? 'Atrasada' : 'Prioritaria' }}
+                </span>
+              </div>
+
+              <span
+                class="status-chip"
+                [ngStyle]="{
+                  'background-color': getStatusTone(task).bg,
+                  color: getStatusTone(task).color
+                }">
+                {{ getStatusLabel(task) }}
+              </span>
+            </div>
+
+            <div class="cleaning-task-body">
+              <h3>{{ getRoomLabel(task) }}</h3>
+              <p>{{ getNotesLabel(task) }}</p>
+
+              <div class="meta-row">
+                <span>
+                  <i class="fa-solid fa-hashtag"></i>
+                  {{ getTaskCode(task) }}
+                </span>
+                <span>
+                  <i class="fa-regular fa-calendar"></i>
+                  {{ formatDate(task.scheduled_for) }}
+                </span>
+              </div>
+
+              <div class="progress-row">
+                <strong>{{ getStatusLabel(task) }}</strong>
+                <small>Finaliza: {{ formatDateTime(task.completed_at) }}</small>
+              </div>
+
+              <div class="card-foot">
+                <span
+                  class="status-chip status-inline"
+                  [ngStyle]="{
+                    'background-color': getStatusTone(task).bg,
+                    color: getStatusTone(task).color
+                  }">
+                  <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(task).dot }"></span>
+                  {{ getStatusLabel(task) }}
+                </span>
+
+                <div class="card-actions" (click)="$event.stopPropagation()">
+                  <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(task)">
+                    <i class="fa-regular fa-eye"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="row-btn"
+                    [title]="getProgressActionLabel(task)"
+                    (click)="advanceTaskStatus(task)">
+                    <i [class]="getProgressActionIcon(task)"></i>
+                  </button>
+                  <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(task)">
+                    <i class="fa-regular fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </article>
+    </ng-container>
+
+    <ng-template #tableView>
+      <article class="table-card">
+        <div class="table-scroll">
+          <table class="cleaning-task-table">
+            <thead>
+              <tr>
+                <th>Codigo</th>
+                <th>Habitacion</th>
+                <th>Tipo</th>
+                <th>Estado</th>
+                <th>Programada</th>
+                <th>Finalizada</th>
+                <th>Notas</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let task of filteredCleaningTasks; trackBy: trackByTask" (click)="openDetail(task)">
+                <td class="code-cell">{{ getTaskCode(task) }}</td>
+                <td>{{ getRoomLabel(task) }}</td>
+                <td>
+                  <span
+                    class="table-type"
+                    [ngStyle]="{
+                      'background-color': getTypeBadgeTone(task).bg,
+                      color: getTypeBadgeTone(task).color
+                    }">
+                    <span class="dot" [ngStyle]="{ 'background-color': getTypeBadgeTone(task).dot }"></span>
+                    {{ getTaskTypeLabel(task) }}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    class="table-status"
+                    [ngStyle]="{
+                      'background-color': getStatusTone(task).bg,
+                      color: getStatusTone(task).color
+                    }">
+                    <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(task).dot }"></span>
+                    {{ getStatusLabel(task) }}
+                  </span>
+                </td>
+                <td>{{ formatDate(task.scheduled_for) }}</td>
+                <td>{{ formatDateTime(task.completed_at) }}</td>
+                <td class="notes-cell">{{ getNotesLabel(task) }}</td>
+                <td>
+                  <div class="table-actions" (click)="$event.stopPropagation()">
+                    <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(task)">
+                      <i class="fa-regular fa-eye"></i>
+                    </button>
+                    <button type="button" class="row-btn" [title]="getProgressActionLabel(task)" (click)="advanceTaskStatus(task)">
+                      <i [class]="getProgressActionIcon(task)"></i>
+                    </button>
+                    <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(task)">
+                      <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </ng-template>
+  </section>
+
+  <app-create-cleaning-task
+    *ngIf="showCreateDrawer"
+    [rooms]="rooms"
+    [taskTypes]="taskTypes"
+    [statuses]="statuses"
+    (closed)="closeCreateDrawer()"
+    (created)="onCleaningTaskCreated()">
+  </app-create-cleaning-task>
+
+  <app-detail-cleaning-task
+    *ngIf="selectedCleaningTask"
+    [cleaningTaskData]="selectedCleaningTask"
+    (closed)="closeDetail()"
+    (statusRequested)="advanceTaskStatus($event)"
+    (deleteRequested)="confirmDelete($event)">
+  </app-detail-cleaning-task>
+
+  <div
+    class="completion-comment-overlay"
+    *ngIf="showCompletionCommentModal"
+    (click)="closeCompletionCommentModal()">
+    <article class="completion-comment-modal" (click)="$event.stopPropagation()">
+      <header class="completion-comment-head">
+        <h3>Completar limpieza</h3>
+        <p>{{ getCompletionTaskCode() }} - {{ getCompletionRoomLabel() }}</p>
+      </header>
+
+      <div class="completion-comment-body">
+        <label for="completion-comment-textarea">Comentario de cierre</label>
+        <textarea
+          id="completion-comment-textarea"
+          rows="4"
+          maxlength="2000"
+          [(ngModel)]="completionComment"
+          [disabled]="statusUpdateLoading"
+          placeholder="Opcional: observaciones finales de la limpieza"></textarea>
+        <small>Se agregara a las notas operativas de la tarea.</small>
+        <p class="error" *ngIf="completionCommentError">{{ completionCommentError }}</p>
+      </div>
+
+      <footer class="completion-comment-footer">
+        <button type="button" class="btn btn-light" (click)="closeCompletionCommentModal()" [disabled]="statusUpdateLoading">
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-dark" (click)="submitCompletionWithComment()" [disabled]="statusUpdateLoading">
+          {{ statusUpdateLoading ? 'Guardando...' : 'Completar' }}
+        </button>
+      </footer>
+    </article>
+  </div>
+</div>

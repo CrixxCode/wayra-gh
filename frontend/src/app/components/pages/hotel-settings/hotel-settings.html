@@ -1,0 +1,1104 @@
+<div class="hotel-settings-page">
+  <div class="hotel-settings-content mx-auto max-w-[1700px] space-y-4">
+    <header class="page-header">
+      <div class="header-copy">
+        <h1>Configuracion del Hotel</h1>
+        <p>Gestiona la informacion general, estructura y operacion del hotel.</p>
+      </div>
+    </header>
+
+    @if (isSuperAdmin) {
+      <section class="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4">
+        <div class="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+          <label class="grid gap-1">
+            <span class="text-sm font-semibold text-slate-700">Hotel a gestionar</span>
+            <select
+              [(ngModel)]="selectedHotelSettingsId"
+              (change)="onSuperAdminHotelChange()"
+              class="rounded-xl border border-blue-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500"
+            >
+              <option [ngValue]="null">Selecciona un hotel</option>
+              @for (hotel of superAdminHotelOptions; track hotel.id) {
+                <option [ngValue]="hotel.id">{{ hotel.hotel_name || ('Hotel #' + hotel.id) }}</option>
+              }
+            </select>
+          </label>
+
+          <div class="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-xl border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+              [disabled]="!canEdit || saving"
+              (click)="startSuperAdminHotelCreate()"
+            >
+              Crear hotel nuevo
+            </button>
+
+            <div class="text-xs text-slate-600 md:text-right">
+              @if (isCreatingHotel) {
+                Modo creacion: completa y guarda para crear un nuevo hotel.
+              } @else if (selectedHotelSettingsId) {
+                Editando hotel #{{ selectedHotelSettingsId }}
+              } @else {
+                Selecciona un hotel o crea uno nuevo.
+              }
+            </div>
+          </div>
+        </div>
+      </section>
+    }
+
+    <section class="stats-grid">
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Total Habitaciones</span>
+          <span class="stat-icon blue"><i class="fa-solid fa-bed"></i></span>
+        </div>
+        <div class="stat-value">{{ totalRooms }}</div>
+        <div class="stat-note">Configuradas en la estructura</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Pisos</span>
+          <span class="stat-icon violet"><i class="fa-solid fa-layer-group"></i></span>
+        </div>
+        <div class="stat-value">{{ totalFloors }}</div>
+        <div class="stat-note">Niveles registrados</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Estrellas</span>
+          <span class="stat-icon slate"><i class="fa-solid fa-star"></i></span>
+        </div>
+        <div class="stat-value">{{ form.stars || 1 }}</div>
+        <div class="stat-note">Categoria actual</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Impuesto</span>
+          <span class="stat-icon green"><i class="fa-solid fa-dollar-sign"></i></span>
+        </div>
+        <div class="stat-value">{{ taxRateDisplay }}</div>
+        <div class="stat-note">Tasa base aplicada</div>
+      </article>
+    </section>
+
+    <section class="inline-flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-sm">
+      @for (tab of tabs; track tab.key) {
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition"
+          [class.bg-slate-900]="activeTab === tab.key"
+          [class.text-white]="activeTab === tab.key"
+          [class.bg-transparent]="activeTab !== tab.key"
+          [class.text-slate-600]="activeTab !== tab.key"
+          (click)="selectTab(tab.key)"
+        >
+          <i [class]="tab.icon"></i>
+          {{ tab.label }}
+        </button>
+      }
+    </section>
+
+    @if (loading) {
+      <section class="rounded-2xl border border-gray-200 bg-white p-10 text-center text-gray-500 shadow-sm">
+        <i class="fa-solid fa-spinner fa-spin mr-2"></i>
+        Cargando configuración...
+      </section>
+    } @else {
+      @if ((activeTab !== 'policies' && !canEdit) || (activeTab === 'policies' && !canEditPolicies)) {
+        <section class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-700">
+          <i class="fa-solid fa-lock mr-2"></i>
+          Modo solo lectura: no tienes permiso para modificar esta configuración.
+        </section>
+      }
+
+      <fieldset [disabled]="isActiveTabReadOnly" class="space-y-0">
+      @if (activeTab === 'general') {
+        <section class="grid gap-4 xl:grid-cols-[1fr_2fr]">
+          <article class="space-y-4">
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div class="mb-4 flex items-start gap-3">
+                <span class="grid h-9 w-9 place-items-center rounded-full bg-amber-50 text-amber-600">
+                  <i class="fa-solid fa-camera"></i>
+                </span>
+                <div>
+                  <h3 class="text-xl font-semibold text-slate-900">Logo del Hotel</h3>
+                  <p class="text-sm text-gray-500">Usa una URL publica para el logo (PNG, JPG o SVG).</p>
+                </div>
+              </div>
+
+              <div class="mb-4 grid place-items-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-10">
+                @if (resolveLogoSrc()) {
+                  <img [src]="resolveLogoSrc()" alt="Logo del hotel" class="h-20 w-20 rounded-full object-cover" />
+                  <p class="mt-2 text-sm text-gray-500">Logo cargado por URL</p>
+                } @else {
+                  <div class="grid h-20 w-20 place-items-center rounded-full bg-amber-400 text-4xl font-semibold text-white">
+                    {{ (form.hotel_name || 'H').charAt(0).toUpperCase() }}
+                  </div>
+                  <p class="mt-2 text-sm text-gray-500">Sin logo</p>
+                }
+              </div>
+
+              <label class="grid gap-1">
+                <span class="text-sm font-medium text-slate-700">URL del logo</span>
+                <input
+                  [(ngModel)]="form.logo"
+                  type="url"
+                  placeholder="https://mi-dominio.com/logo.png"
+                  class="rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500"
+                />
+              </label>
+            </div>
+
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h4 class="mb-3 text-sm font-semibold text-slate-700">Categoría (Estrellas)</h4>
+              <div class="mb-2 flex items-center gap-2 text-2xl">
+                @for (star of [1, 2, 3, 4, 5]; track star) {
+                  <button type="button" (click)="setStars(star)" class="text-amber-400">
+                    <i [class]="(form.stars || 1) >= star ? 'fa-solid fa-star' : 'fa-regular fa-star'"></i>
+                  </button>
+                }
+              </div>
+              <p class="text-sm text-gray-500">Seleccionado: {{ form.stars || 1 }} estrella(s)</p>
+            </div>
+          </article>
+
+          <article class="space-y-4">
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div class="mb-4 flex items-start gap-3">
+                <span class="grid h-9 w-9 place-items-center rounded-full bg-amber-50 text-amber-600">
+                  <i class="fa-solid fa-hotel"></i>
+                </span>
+                <div>
+                  <h3 class="text-xl font-semibold text-slate-900">Datos del Hotel</h3>
+                  <p class="text-sm text-gray-500">Información principal del establecimiento</p>
+                </div>
+              </div>
+
+              <div class="grid gap-3">
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Nombre Comercial *</span>
+                  <input [(ngModel)]="form.hotel_name" class="rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500" />
+                </label>
+
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Razón Social / Nombre Legal</span>
+                  <input [(ngModel)]="form.legal_name" class="rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500" />
+                </label>
+
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Slogan</span>
+                  <input [(ngModel)]="form.slogan" class="rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500" />
+                </label>
+
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Descripción</span>
+                  <textarea [(ngModel)]="form.description" rows="3" class="rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500"></textarea>
+                </label>
+              </div>
+            </div>
+
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div class="mb-4 flex items-start gap-3">
+                <span class="grid h-9 w-9 place-items-center rounded-full bg-amber-50 text-amber-600">
+                  <i class="fa-solid fa-globe"></i>
+                </span>
+                <div>
+                  <h3 class="text-xl font-semibold text-slate-900">Redes Sociales</h3>
+                  <p class="text-sm text-gray-500">Perfiles en redes sociales del hotel</p>
+                </div>
+              </div>
+
+              <div class="grid gap-3 md:grid-cols-3">
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Facebook</span>
+                  <input [(ngModel)]="form.facebook" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                </label>
+
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Instagram</span>
+                  <input [(ngModel)]="form.instagram" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                </label>
+
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Twitter / X</span>
+                  <input [(ngModel)]="form.twitter_x" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                </label>
+              </div>
+            </div>
+
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div class="mb-4 flex items-start gap-3">
+                <span class="grid h-9 w-9 place-items-center rounded-full bg-amber-50 text-amber-600">
+                  <i class="fa-solid fa-palette"></i>
+                </span>
+                <div>
+                  <h3 class="text-xl font-semibold text-slate-900">Personalizacion de Colores</h3>
+                  <p class="text-sm text-gray-500">Define color principal y secundario para la interfaz.</p>
+                </div>
+              </div>
+
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Color principal</span>
+                  <div class="flex items-center gap-3">
+                    <input
+                      type="color"
+                      [(ngModel)]="themePrimaryColor"
+                      (input)="onThemeColorsChanged()"
+                      class="theme-color-input rounded-xl border border-gray-300"
+                    />
+                    <span class="text-sm font-mono text-slate-700">{{ themePrimaryColor }}</span>
+                  </div>
+                </label>
+
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Color secundario</span>
+                  <div class="flex items-center gap-3">
+                    <input
+                      type="color"
+                      [(ngModel)]="themeSecondaryColor"
+                      (input)="onThemeColorsChanged()"
+                      class="theme-color-input rounded-xl border border-gray-300"
+                    />
+                    <span class="text-sm font-mono text-slate-700">{{ themeSecondaryColor }}</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  class="rounded-xl px-4 py-2.5 text-sm font-semibold border"
+                  [ngStyle]="{
+                    'background-color': themePrimaryColor,
+                    'border-color': themeSecondaryColor,
+                    'color': themeOnPrimaryColor
+                  }"
+                >
+                  Vista previa
+                </button>
+
+                <button
+                  type="button"
+                  class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-gray-50"
+                  (click)="resetThemeColors()"
+                >
+                  Restablecer colores
+                </button>
+              </div>
+
+              <p class="mt-3 text-xs text-gray-500">
+                Los colores se guardan en este navegador (localStorage) y se aplican al instante.
+              </p>
+            </div>
+          </article>
+        </section>
+      }
+
+      @if (activeTab === 'contact') {
+        <section class="space-y-4">
+          <div class="grid gap-4 xl:grid-cols-2">
+            <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div class="mb-4 flex items-start gap-3">
+                <span class="grid h-9 w-9 place-items-center rounded-full bg-amber-50 text-amber-600">
+                  <i class="fa-solid fa-location-dot"></i>
+                </span>
+                <div>
+                  <h3 class="text-xl font-semibold text-slate-900">Dirección</h3>
+                  <p class="text-sm text-gray-500">Ubicación física del hotel</p>
+                </div>
+              </div>
+
+              <div class="grid gap-3">
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Dirección *</span>
+                  <input [(ngModel)]="form.address" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                </label>
+
+                <div class="grid gap-3 md:grid-cols-2">
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">Ciudad *</span>
+                    <input [(ngModel)]="form.city" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                  </label>
+
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">Estado / Provincia</span>
+                    <input [(ngModel)]="form.state" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                  </label>
+                </div>
+
+                <div class="grid gap-3 md:grid-cols-2">
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">País *</span>
+                    <input [(ngModel)]="form.country" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                  </label>
+
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">Código Postal</span>
+                    <input [(ngModel)]="form.postal_code" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                  </label>
+                </div>
+              </div>
+            </article>
+
+            <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div class="mb-4 flex items-start gap-3">
+                <span class="grid h-9 w-9 place-items-center rounded-full bg-amber-50 text-amber-600">
+                  <i class="fa-solid fa-phone"></i>
+                </span>
+                <div>
+                  <h3 class="text-xl font-semibold text-slate-900">Teléfonos & Correos</h3>
+                  <p class="text-sm text-gray-500">Información de contacto del hotel</p>
+                </div>
+              </div>
+
+              <div class="grid gap-3">
+                <div class="grid gap-3 md:grid-cols-2">
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">Teléfono Principal *</span>
+                    <input [(ngModel)]="form.primary_phone" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                  </label>
+
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">Teléfono Secundario</span>
+                    <input [(ngModel)]="form.secondary_phone" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                  </label>
+                </div>
+
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Correo General *</span>
+                  <input [(ngModel)]="form.general_email" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                </label>
+
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Correo de Reservaciones</span>
+                  <input [(ngModel)]="form.reservations_email" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                </label>
+
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Sitio Web</span>
+                  <input [(ngModel)]="form.website" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                </label>
+              </div>
+            </article>
+          </div>
+
+          <article class="rounded-2xl border border-gray-200 bg-white px-5 py-12 text-center text-gray-500 shadow-sm">
+            <div class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-amber-50 text-amber-600">
+              <i class="fa-solid fa-location-dot"></i>
+            </div>
+            <p class="font-medium text-slate-700">
+              {{ form.address || 'Dirección pendiente de configurar' }}
+              @if (form.city) {
+                , {{ form.city }}
+              }
+              @if (form.country) {
+                , {{ form.country }}
+              }
+            </p>
+            <p class="mt-1 text-sm text-gray-400">Integración con mapa disponible próximamente</p>
+          </article>
+        </section>
+      }
+
+      @if (activeTab === 'structure') {
+        <section class="space-y-4">
+          <div class="grid gap-4 md:grid-cols-3">
+            <article class="rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+              <p class="text-xs text-gray-500">Total de Pisos</p>
+              <p class="text-3xl font-semibold text-slate-900">{{ totalFloors }}</p>
+            </article>
+            <article class="rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+              <p class="text-xs text-gray-500">Total de Habitaciones</p>
+              <p class="text-3xl font-semibold text-slate-900">{{ totalRooms }}</p>
+            </article>
+            <article class="rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+              <p class="text-xs text-gray-500">Promedio por Piso</p>
+              <p class="text-3xl font-semibold text-slate-900">{{ averageRoomsPerFloor }}</p>
+            </article>
+          </div>
+
+          <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-5 py-4">
+              <div>
+                <h3 class="text-xl font-semibold text-slate-900">Pisos y Habitaciones</h3>
+                <p class="text-sm text-gray-500">Configura la distribución por piso</p>
+              </div>
+
+              <button
+                type="button"
+                class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                (click)="addFloor()"
+              >
+                <i class="fa-solid fa-plus"></i>
+                Agregar Piso
+              </button>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-sm">
+                <thead class="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                  <tr>
+                    <th class="px-5 py-3">Piso #</th>
+                    <th class="px-5 py-3">Nombre del Piso</th>
+                    <th class="px-5 py-3">Prefijo</th>
+                    <th class="px-5 py-3">N° Habitaciones</th>
+                    <th class="px-5 py-3">Rango</th>
+                    <th class="px-5 py-3 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  @for (floor of floors; track trackFloor($index, floor)) {
+                    <tr>
+                      <td class="px-5 py-3">
+                        <input
+                          type="number"
+                          min="1"
+                          [(ngModel)]="floor.floor_number"
+                          class="w-20 rounded-lg border border-gray-300 px-2 py-1.5 outline-none focus:border-blue-500"
+                        />
+                      </td>
+                      <td class="px-5 py-3">
+                        <input
+                          [(ngModel)]="floor.name"
+                          class="w-full min-w-44 rounded-lg border border-gray-300 px-2 py-1.5 outline-none focus:border-blue-500"
+                        />
+                      </td>
+                      <td class="px-5 py-3">
+                        <input
+                          [(ngModel)]="floor.prefix"
+                          class="w-24 rounded-lg border border-gray-300 px-2 py-1.5 outline-none focus:border-blue-500"
+                        />
+                      </td>
+                      <td class="px-5 py-3">
+                        <input
+                          type="number"
+                          min="1"
+                          [(ngModel)]="floor.room_count"
+                          class="w-24 rounded-lg border border-gray-300 px-2 py-1.5 outline-none focus:border-blue-500"
+                        />
+                      </td>
+                      <td class="px-5 py-3 font-medium text-slate-700">{{ floorRange(floor) }}</td>
+                      <td class="px-5 py-3 text-right">
+                        <button type="button" class="rounded-lg border border-red-300 px-3 py-1.5 text-red-600 hover:bg-red-50" (click)="removeFloor($index)">
+                          Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  }
+
+                  @if (floors.length === 0) {
+                    <tr>
+                      <td colspan="6" class="px-5 py-10 text-center text-gray-500">
+                        No hay pisos creados. Usa <b>Agregar Piso</b> para comenzar.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+                @if (floors.length > 0) {
+                  <tfoot class="border-t border-gray-200 bg-gray-50 font-semibold">
+                    <tr>
+                      <td class="px-5 py-3" colspan="3">TOTAL</td>
+                      <td class="px-5 py-3">{{ totalRooms }} hab.</td>
+                      <td class="px-5 py-3"></td>
+                      <td class="px-5 py-3"></td>
+                    </tr>
+                  </tfoot>
+                }
+              </table>
+            </div>
+          </article>
+
+          <article class="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-3 text-sm text-blue-700">
+            <i class="fa-solid fa-circle-info mr-2"></i>
+            La modificación de pisos y habitaciones se aplicará al guardar la configuración.
+          </article>
+        </section>
+      }
+
+      @if (activeTab === 'operation') {
+        <section class="grid gap-4 xl:grid-cols-2">
+          <article class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div class="flex items-start gap-3">
+              <span class="grid h-9 w-9 place-items-center rounded-full bg-amber-50 text-amber-600">
+                <i class="fa-regular fa-clock"></i>
+              </span>
+              <div>
+                <h3 class="text-xl font-semibold text-slate-900">Horarios de Operación</h3>
+                <p class="text-sm text-gray-500">Tiempos estándar de check-in y check-out</p>
+              </div>
+            </div>
+
+            <div class="grid gap-3 md:grid-cols-2">
+              <label class="grid gap-1">
+                <span class="text-sm font-medium text-slate-700">Hora de Check-In *</span>
+                <input type="time" [(ngModel)]="form.check_in_time" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+              </label>
+              <label class="grid gap-1">
+                <span class="text-sm font-medium text-slate-700">Hora de Check-Out *</span>
+                <input type="time" [(ngModel)]="form.check_out_time" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+              </label>
+            </div>
+
+            <label class="grid gap-1">
+              <span class="text-sm font-medium text-slate-700">Máx. Huéspedes por Habitación</span>
+              <input type="number" min="1" [(ngModel)]="form.max_guests_per_room" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+            </label>
+          </article>
+
+          <article class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div class="flex items-start gap-3">
+              <span class="grid h-9 w-9 place-items-center rounded-full bg-amber-50 text-amber-600">
+                <i class="fa-solid fa-dollar-sign"></i>
+              </span>
+              <div>
+                <h3 class="text-xl font-semibold text-slate-900">Moneda & Impuestos</h3>
+                <p class="text-sm text-gray-500">Configuración financiera base</p>
+              </div>
+            </div>
+
+            <label class="grid gap-1">
+              <span class="text-sm font-medium text-slate-700">Moneda Principal *</span>
+              <select [(ngModel)]="form.currency" class="rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500">
+                @for (currency of currencyOptions; track currency.code) {
+                  <option [value]="currency.code">{{ currency.label }}</option>
+                }
+              </select>
+            </label>
+
+            <label class="grid gap-1">
+              <span class="text-sm font-medium text-slate-700">Tasa de Impuesto (%)</span>
+              <input type="number" min="0" max="100" [(ngModel)]="form.tax_rate" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+            </label>
+          </article>
+
+          <article class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm xl:col-span-2">
+            <div class="flex items-start gap-3">
+              <span class="grid h-9 w-9 place-items-center rounded-full bg-emerald-50 text-emerald-600">
+                <i class="fa-solid fa-chart-line"></i>
+              </span>
+              <div>
+                <h3 class="text-xl font-semibold text-slate-900">Configuracion Financiera</h3>
+                <p class="text-sm text-gray-500">Parametros para dashboard financiero, impuestos y punto de equilibrio.</p>
+              </div>
+            </div>
+
+            @if (!settingsId) {
+              <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                Guarda primero la configuracion principal del hotel para registrar esta informacion.
+              </div>
+            } @else if (!canReadFinancialConfig) {
+              <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                No tienes permisos para consultar configuracion financiera.
+              </div>
+            } @else if (financialConfigLoading) {
+              <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i>
+                Cargando configuracion financiera...
+              </div>
+            } @else {
+              <fieldset class="space-y-4" [disabled]="financialConfigSaving || !canEditFinancialConfig">
+                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <label class="grid gap-1 xl:col-span-3">
+                    <span class="text-sm font-medium text-slate-700">Distrito *</span>
+                    <input
+                      [(ngModel)]="financialConfigForm.district_name"
+                      class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                    />
+                  </label>
+
+                  <label class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-slate-700">
+                    <input type="checkbox" [(ngModel)]="financialConfigForm.tourism_law_enabled" />
+                    Ley de turismo habilitada
+                  </label>
+
+                  <label class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-slate-700">
+                    <input type="checkbox" [(ngModel)]="financialConfigForm.has_iva_exemption" />
+                    Exencion de IVA
+                  </label>
+
+                  <div></div>
+
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">Tarifa renta preferencial (%)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      [(ngModel)]="financialConfigForm.tourism_law_preferential_rate"
+                      class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                    />
+                  </label>
+
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">Tarifa renta estandar (%)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      [(ngModel)]="financialConfigForm.standard_income_tax_rate"
+                      class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                    />
+                  </label>
+
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">Tarifa IVA (%)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      [(ngModel)]="financialConfigForm.iva_rate"
+                      class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                    />
+                  </label>
+
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">Tarifa ICA (x mil)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.0001"
+                      [(ngModel)]="financialConfigForm.ica_rate_per_thousand"
+                      class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                    />
+                  </label>
+
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">Tarifa FONTUR (x mil)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.0001"
+                      [(ngModel)]="financialConfigForm.fontur_rate_per_thousand"
+                      class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                    />
+                  </label>
+
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">Break-even alerta (%)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      [(ngModel)]="financialConfigForm.break_even_warning_pct"
+                      class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                    />
+                  </label>
+
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">Break-even optimo (%)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      [(ngModel)]="financialConfigForm.break_even_optimal_pct"
+                      class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                    />
+                  </label>
+                </div>
+              </fieldset>
+
+              <div class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 pt-3">
+                <button
+                  type="button"
+                  class="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  [disabled]="financialConfigSaving || !canEditFinancialConfig"
+                  (click)="resetFinancialConfigForm()"
+                >
+                  Restaurar
+                </button>
+
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  [disabled]="financialConfigSaving || !canEditFinancialConfig"
+                  (click)="saveFinancialConfig()"
+                >
+                  @if (financialConfigSaving) {
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                    Guardando...
+                  } @else {
+                    <i class="fa-regular fa-floppy-disk"></i>
+                    {{ hasFinancialConfig ? 'Actualizar configuracion financiera' : 'Crear configuracion financiera' }}
+                  }
+                </button>
+              </div>
+            }
+
+            @if (financialConfigErrorMessage) {
+              <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+                {{ financialConfigErrorMessage }}
+              </div>
+            }
+
+            @if (financialConfigSuccessMessage) {
+              <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
+                <i class="fa-solid fa-circle-check mr-2"></i>
+                {{ financialConfigSuccessMessage }}
+              </div>
+            }
+          </article>
+
+          <article class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div class="flex items-start gap-3">
+              <span class="grid h-9 w-9 place-items-center rounded-full bg-amber-50 text-amber-600">
+                <i class="fa-solid fa-globe"></i>
+              </span>
+              <div>
+                <h3 class="text-xl font-semibold text-slate-900">Idioma & Zona Horaria</h3>
+                <p class="text-sm text-gray-500">Configuración regional del sistema</p>
+              </div>
+            </div>
+
+            <div class="grid gap-3 md:grid-cols-2">
+              <label class="grid gap-1">
+                <span class="text-sm font-medium text-slate-700">Idioma del Sistema</span>
+                <select [(ngModel)]="form.system_language" class="rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500">
+                  @for (language of languageOptions; track language.code) {
+                    <option [value]="language.code">{{ language.label }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="grid gap-1">
+                <span class="text-sm font-medium text-slate-700">Zona Horaria</span>
+                <select [(ngModel)]="form.timezone" class="rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500">
+                  @for (timezone of timezoneOptions; track timezone) {
+                    <option [value]="timezone">{{ timezone }}</option>
+                  }
+                </select>
+              </label>
+            </div>
+          </article>
+
+          <article class="flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-5">
+            <div>
+              <h3 class="text-lg font-semibold text-red-700">Restaurar Valores por Defecto</h3>
+              <p class="text-sm text-red-600">Restablece la configuración de operación a valores base.</p>
+            </div>
+            <button
+              type="button"
+              class="rounded-xl border border-red-400 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100"
+              (click)="resetOperationDefaults()"
+            >
+              Restaurar
+            </button>
+          </article>
+        </section>
+      }
+
+      @if (activeTab === 'policies') {
+        <section class="grid gap-4 xl:grid-cols-[minmax(0,430px)_minmax(0,1fr)]">
+          <article class="min-w-0 space-y-4 overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div class="flex items-start gap-3">
+              <span class="grid h-9 w-9 place-items-center rounded-full bg-amber-50 text-amber-600">
+                <i class="fa-solid fa-file-contract"></i>
+              </span>
+              <div>
+                <h3 class="text-xl font-semibold text-slate-900">Formulario de Politica</h3>
+                <p class="text-sm text-gray-500">Crea o actualiza politicas de reserva</p>
+              </div>
+            </div>
+
+            @if (!canReadPolicies) {
+              <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                No tienes permiso para consultar politicas de reserva.
+              </div>
+            } @else if (!settingsId) {
+              <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                Guarda primero la configuracion del hotel para poder crear politicas.
+              </div>
+            } @else {
+              @if (policyTypes.length === 0 || penaltyTypes.length === 0) {
+                <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                  Faltan catalogos de tipos de politica o penalidad en datos maestros.
+                </div>
+              }
+
+              <div class="min-w-0 grid gap-3">
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Nombre *</span>
+                  <input
+                    [(ngModel)]="policyForm.name"
+                    class="w-full rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                    [disabled]="!canEditPolicies || policySaving"
+                  />
+                </label>
+
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Tipo de Politica *</span>
+                  <select
+                    [(ngModel)]="policyForm.policy_type"
+                    class="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500"
+                    [disabled]="!canEditPolicies || policySaving"
+                  >
+                    <option [ngValue]="null">Selecciona un tipo</option>
+                    @for (option of policyTypes; track option.id) {
+                      <option [ngValue]="option.id">{{ option.name }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Tipo de Penalidad *</span>
+                  <select
+                    [(ngModel)]="policyForm.penalty_type"
+                    class="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500"
+                    [disabled]="!canEditPolicies || policySaving"
+                  >
+                    <option [ngValue]="null">Selecciona una penalidad</option>
+                    @for (option of penaltyTypes; track option.id) {
+                      <option [ngValue]="option.id">{{ option.name }}</option>
+                    }
+                  </select>
+                </label>
+
+                <div class="min-w-0 grid gap-3 lg:grid-cols-2">
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">
+                      Valor de Penalidad
+                      @if (isPercentagePenaltySelected) {
+                        (%)
+                      }
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      [(ngModel)]="policyForm.penalty_value"
+                      class="w-full rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                      [disabled]="!canEditPolicies || policySaving"
+                    />
+                  </label>
+
+                  <label class="grid gap-1">
+                    <span class="text-sm font-medium text-slate-700">Horas antes del check-in</span>
+                    <input
+                      type="number"
+                      min="0"
+                      [(ngModel)]="policyForm.hours_before_checkin"
+                      class="w-full rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                      [disabled]="!canEditPolicies || policySaving"
+                    />
+                  </label>
+                </div>
+
+                <label class="grid gap-1">
+                  <span class="text-sm font-medium text-slate-700">Descripcion</span>
+                  <textarea
+                    rows="3"
+                    [(ngModel)]="policyForm.description"
+                    class="w-full rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                    [disabled]="!canEditPolicies || policySaving"
+                  ></textarea>
+                </label>
+
+                <label class="inline-flex flex-wrap items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="policyForm.is_active"
+                    [disabled]="!canEditPolicies || policySaving"
+                  />
+                  Politica activa
+                </label>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2 border-t border-gray-200 pt-3">
+                <button
+                  type="button"
+                  class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  [disabled]="!canEditPolicies || policySaving || !settingsId"
+                  (click)="savePolicy()"
+                >
+                  @if (policySaving) {
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                    Guardando...
+                  } @else {
+                    <i class="fa-regular fa-floppy-disk"></i>
+                    {{ policyForm.id ? 'Actualizar Politica' : 'Crear Politica' }}
+                  }
+                </button>
+
+                <button
+                  type="button"
+                  class="w-full rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-gray-50 sm:w-auto"
+                  [disabled]="policySaving"
+                  (click)="cancelPolicyEdition()"
+                >
+                  Limpiar
+                </button>
+              </div>
+            }
+          </article>
+
+          <article class="min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-5 py-4">
+              <div>
+                <h3 class="text-xl font-semibold text-slate-900">Politicas Registradas</h3>
+                <p class="text-sm text-gray-500">
+                  {{ reservationPolicies.length }} total | {{ activePoliciesCount }} activas
+                </p>
+              </div>
+              <button
+                type="button"
+                class="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                [disabled]="!canEditPolicies || policySaving"
+                (click)="newPolicy()"
+              >
+                Nueva Politica
+              </button>
+            </div>
+
+            @if (!canReadPolicies) {
+              <div class="px-5 py-8 text-sm text-gray-500">
+                No tienes permisos para consultar politicas de reserva.
+              </div>
+            } @else if (policyLoading) {
+              <div class="px-5 py-8 text-sm text-gray-500">
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i>
+                Cargando politicas...
+              </div>
+            } @else {
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                  <thead class="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                    <tr>
+                      <th class="px-5 py-3">Nombre</th>
+                      <th class="px-5 py-3">Tipo</th>
+                      <th class="px-5 py-3">Penalidad</th>
+                      <th class="px-5 py-3">Estado</th>
+                      <th class="px-5 py-3 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100">
+                    @for (policy of reservationPolicies; track trackPolicy($index, policy)) {
+                      <tr>
+                        <td class="px-5 py-3">
+                          <p class="font-medium text-slate-800">{{ policy.name }}</p>
+                          <p class="text-xs text-gray-500">{{ policy.description || 'Sin descripcion' }}</p>
+                        </td>
+                        <td class="px-5 py-3">
+                          {{ policy.policy_type_name || policy.policy_type_code || 'Sin tipo' }}
+                        </td>
+                        <td class="px-5 py-3">
+                          {{ policy.penalty_type_name || policy.penalty_type_code || 'Sin penalidad' }}:
+                          {{ policyPenaltyLabel(policy) }}
+                        </td>
+                        <td class="px-5 py-3">
+                          <span
+                            class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
+                            [class.bg-emerald-100]="policy.is_active !== false"
+                            [class.text-emerald-700]="policy.is_active !== false"
+                            [class.bg-gray-100]="policy.is_active === false"
+                            [class.text-gray-600]="policy.is_active === false"
+                          >
+                            {{ policy.is_active === false ? 'Inactiva' : 'Activa' }}
+                          </span>
+                        </td>
+                        <td class="px-5 py-3 text-right">
+                          <div class="inline-flex items-center gap-2">
+                            <button
+                              type="button"
+                              class="rounded-lg border border-blue-300 px-3 py-1.5 text-blue-600 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              [disabled]="!canEditPolicies || policySaving || policyDeletingId === policy.id"
+                              (click)="editPolicy(policy)"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              class="rounded-lg border border-red-300 px-3 py-1.5 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              [disabled]="!canEditPolicies || policySaving || policyDeletingId === policy.id"
+                              (click)="deletePolicy(policy)"
+                            >
+                              @if (policyDeletingId === policy.id) {
+                                Eliminando...
+                              } @else {
+                                Eliminar
+                              }
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+
+                    @if (reservationPolicies.length === 0) {
+                      <tr>
+                        <td colspan="5" class="px-5 py-8 text-center text-gray-500">
+                          No hay politicas de reserva registradas.
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </article>
+        </section>
+      }
+      </fieldset>
+    }
+  </div>
+
+  <div class="settings-footer sticky bottom-0 z-10 mt-4 border-t border-gray-200 bg-white/95 py-3 backdrop-blur">
+    <div class="mx-auto flex max-w-[1700px] flex-wrap items-center justify-between gap-3">
+      <p class="text-sm text-gray-500">Última actualización: {{ lastUpdatedLabel }}</p>
+
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="rounded-xl border border-red-300 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+          [disabled]="loading || saving || !canEdit || !settingsId || !canManageSelectedHotel"
+          (click)="clearAllSettings()"
+        >
+          Borrar configuracion
+        </button>
+
+        <button
+          type="button"
+          class="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          [disabled]="loading || !hasChanges || saving || !canEdit || !canManageSelectedHotel"
+          (click)="discardChanges()"
+        >
+          Descartar cambios
+        </button>
+
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          [disabled]="loading || saving || !canEdit || !canManageSelectedHotel"
+          (click)="saveSettings()"
+        >
+          @if (saving) {
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            Guardando...
+          } @else {
+            <i class="fa-regular fa-floppy-disk"></i>
+            Guardar Configuración
+          }
+        </button>
+      </div>
+    </div>
+
+    @if (errorMessage) {
+      <div class="mx-auto mt-3 max-w-[1700px] rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+        <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+        {{ errorMessage }}
+      </div>
+    }
+
+    @if (successMessage) {
+      <div class="mx-auto mt-3 max-w-[1700px] rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
+        <i class="fa-solid fa-circle-check mr-2"></i>
+        {{ successMessage }}
+      </div>
+    }
+  </div>
+</div>
+

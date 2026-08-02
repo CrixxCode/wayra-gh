@@ -1,0 +1,174 @@
+<div class="item-overlay" (click)="closeDrawer()">
+  <article class="item-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div>
+        <h1>Nuevo item</h1>
+        <p>Registra un producto de inventario con precios, unidad y niveles minimo/maximo de stock.</p>
+      </div>
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form [formGroup]="itemForm" (ngSubmit)="submit()" class="drawer-body">
+      <section>
+        <h2>Informacion general</h2>
+        <div class="grid two">
+          <label class="full">
+            <span>Nombre del item *</span>
+            <input type="text" formControlName="name" placeholder="Ej: Toalla mediana" [class.input-error]="name?.touched && name?.invalid" />
+            <small class="field-error" *ngIf="name?.touched && name?.hasError('required')">El nombre es obligatorio.</small>
+            <small class="field-error" *ngIf="name?.touched && name?.hasError('maxlength')">El nombre no puede superar 150 caracteres.</small>
+          </label>
+
+          <label>
+            <span>SKU</span>
+            <input type="text" formControlName="sku" placeholder="Ej: TWL-001" [class.input-error]="sku?.touched && sku?.invalid" />
+            <small class="field-error" *ngIf="sku?.touched && sku?.hasError('maxlength')">El SKU no puede superar 80 caracteres.</small>
+          </label>
+
+          <label>
+            <span>Tipo de item *</span>
+            <select formControlName="item_type" [class.input-error]="item_type?.touched && item_type?.invalid">
+              <option [ngValue]="null">Selecciona tipo</option>
+              <option *ngFor="let type of itemTypes; trackBy: trackById" [ngValue]="type.id">
+                {{ type.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="item_type?.touched && item_type?.invalid">Selecciona un tipo.</small>
+          </label>
+
+          <label>
+            <span>Unidad de medida *</span>
+            <select formControlName="unit_measure" [class.input-error]="unit_measure?.touched && unit_measure?.invalid">
+              <option [ngValue]="null">Selecciona unidad</option>
+              <option *ngFor="let unit of unitMeasures; trackBy: trackById" [ngValue]="unit.id">
+                {{ unit.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="unit_measure?.touched && unit_measure?.invalid">Selecciona una unidad.</small>
+          </label>
+
+          <label>
+            <span>Stock inicial *</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              formControlName="stock"
+              placeholder="Ej: 40"
+              [class.input-error]="stock?.touched && stock?.invalid" />
+            <small class="field-error" *ngIf="stock?.touched && stock?.hasError('required')">El stock es obligatorio.</small>
+            <small class="field-error" *ngIf="stock?.touched && stock?.hasError('min')">El stock debe ser mayor o igual a 0.</small>
+          </label>
+
+          <label>
+            <span>Stock minimo *</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              formControlName="minimum_stock"
+              placeholder="Ej: 10"
+              [class.input-error]="minimum_stock?.touched && minimum_stock?.invalid" />
+            <small class="field-error" *ngIf="minimum_stock?.touched && minimum_stock?.hasError('required')">
+              El stock minimo es obligatorio.
+            </small>
+            <small class="field-error" *ngIf="minimum_stock?.touched && minimum_stock?.hasError('min')">
+              El stock minimo debe ser mayor o igual a 0.
+            </small>
+          </label>
+
+          <label>
+            <span>Stock maximo *</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              formControlName="maximum_stock"
+              placeholder="Ej: 80"
+              [class.input-error]="maximum_stock?.touched && maximum_stock?.invalid" />
+            <small class="field-error" *ngIf="maximum_stock?.touched && maximum_stock?.hasError('required')">
+              El stock maximo es obligatorio.
+            </small>
+            <small class="field-error" *ngIf="maximum_stock?.touched && maximum_stock?.hasError('min')">
+              El stock maximo debe ser mayor o igual a 0.
+            </small>
+          </label>
+
+          <label>
+            <span>Costo unitario *</span>
+            <input
+              type="number"
+              min="0"
+              step="100"
+              formControlName="cost_price"
+              placeholder="Ej: 12000"
+              [class.input-error]="cost_price?.touched && cost_price?.invalid" />
+            <small class="field-error" *ngIf="cost_price?.touched && cost_price?.hasError('required')">
+              El costo es obligatorio.
+            </small>
+            <small class="field-error" *ngIf="cost_price?.touched && cost_price?.hasError('min')">
+              El costo debe ser mayor o igual a 0.
+            </small>
+          </label>
+
+          <label>
+            <span>Precio de venta *</span>
+            <input
+              type="number"
+              min="0"
+              step="100"
+              formControlName="sale_price"
+              placeholder="Ej: 18000"
+              [class.input-error]="sale_price?.touched && sale_price?.invalid" />
+            <small class="field-error" *ngIf="sale_price?.touched && sale_price?.hasError('required')">
+              El precio de venta es obligatorio.
+            </small>
+            <small class="field-error" *ngIf="sale_price?.touched && sale_price?.hasError('min')">
+              El precio de venta debe ser mayor o igual a 0.
+            </small>
+          </label>
+
+          <label class="full">
+            <span>Descripcion</span>
+            <textarea
+              rows="4"
+              formControlName="description"
+              placeholder="Describe uso o caracteristicas del item..."
+              [class.input-error]="itemForm.get('description')?.touched && itemForm.get('description')?.invalid"></textarea>
+            <small class="field-error" *ngIf="itemForm.get('description')?.touched && itemForm.get('description')?.hasError('maxlength')">
+              La descripcion no puede superar 2000 caracteres.
+            </small>
+          </label>
+
+          <label class="full switch-row">
+            <input type="checkbox" formControlName="is_active" />
+            <span>Disponible para movimientos de inventario</span>
+          </label>
+        </div>
+      </section>
+
+      <p class="feedback warning" *ngIf="!hotelSettingsId">
+        Configura primero el hotel en "Configuracion" para asociar correctamente los items.
+      </p>
+      <p class="feedback warning" *ngIf="hotelSettingsId && !itemTypes.length">
+        No hay tipos de item activos en master data.
+      </p>
+      <p class="feedback warning" *ngIf="hotelSettingsId && !unitMeasures.length">
+        No hay unidades de medida activas en master data.
+      </p>
+      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-light" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn-dark" [disabled]="saving || !hotelSettingsId || !itemTypes.length || !unitMeasures.length">
+          {{ saving ? 'Guardando...' : 'Guardar item' }}
+        </button>
+      </footer>
+    </form>
+  </article>
+</div>

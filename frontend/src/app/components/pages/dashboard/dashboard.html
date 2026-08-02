@@ -1,0 +1,286 @@
+<div class="dashboard-shell">
+  <section class="welcome-banner">
+    <div class="welcome-copy">
+      <p class="welcome-date">{{ todayLabel }}</p>
+      <h1>Bienvenido, {{ currentUserDisplayName }}</h1>
+      <p class="welcome-detail">{{ dayResume }}</p>
+    </div>
+
+    <div class="welcome-clock">
+      <p class="clock-time">{{ currentTimeLabel }}</p>
+      <p class="clock-hotel">Wayra - Recepción</p>
+      <button type="button" class="refresh-btn" (click)="refreshData()" [disabled]="isLoading">
+        <i class="fa-solid fa-rotate-right" [class.fa-spin]="isLoading"></i>
+        Actualizar
+      </button>
+    </div>
+  </section>
+
+  <section class="dashboard-state" *ngIf="isLoading || loadError">
+    <p *ngIf="isLoading">Actualizando datos del hotel...</p>
+    <p class="state-error" *ngIf="!isLoading && loadError">{{ loadError }}</p>
+  </section>
+
+  <section class="kpi-grid">
+    <article class="metric-card" *ngFor="let metric of metrics" [ngClass]="'tone-' + metric.tone">
+      <div class="metric-head">
+        <p class="metric-label">{{ metric.label }}</p>
+        <span class="metric-icon">
+          <i [class]="metric.icon"></i>
+        </span>
+      </div>
+      <p class="metric-value">{{ metric.value }}</p>
+      <div class="metric-foot">
+        <span class="metric-note">{{ metric.note }}</span>
+        <span class="metric-trend" [ngClass]="{ 'trend-negative': !metric.trendPositive }">{{ metric.trend }}</span>
+      </div>
+    </article>
+  </section>
+
+  <section class="analytics-grid">
+    <article class="panel panel-occupancy">
+      <header class="panel-header">
+        <div>
+          <h3>Ocupación de la Semana</h3>
+          <p>Habitaciones ocupadas vs disponibles</p>
+        </div>
+
+        <div class="inline-legend">
+          <span><i class="dot dot-occupied"></i>Ocupadas</span>
+          <span><i class="dot dot-free"></i>Libres</span>
+        </div>
+      </header>
+
+      <div class="chart-area chart-tall">
+        <p-chart type="bar" [data]="occupancyChartData" [options]="occupancyChartOptions"></p-chart>
+      </div>
+    </article>
+
+    <article class="panel panel-income">
+      <header class="panel-header">
+        <div>
+          <h3>Ingresos Diarios</h3>
+          <p>Últimos 7 días</p>
+        </div>
+      </header>
+
+      <div class="chart-area chart-short">
+        <p-chart type="line" [data]="incomeChartData" [options]="incomeChartOptions"></p-chart>
+      </div>
+    </article>
+  </section>
+
+  <section class="operations-grid">
+    <article class="panel rooms-panel">
+      <header class="panel-header panel-header-tight">
+        <div>
+          <h3>Estado de Habitaciones</h3>
+          <p>{{ roomPanelSummary }}</p>
+        </div>
+
+        <div class="room-filter-group">
+          <select
+            class="room-filter"
+            aria-label="Filtrar por estado"
+            [(ngModel)]="roomStateFilter"
+            (change)="applyRoomFilters()"
+          >
+            <option *ngFor="let option of roomStateFilterOptions" [ngValue]="option.value">{{ option.label }}</option>
+          </select>
+
+          <select class="room-filter" aria-label="Filtrar por piso" [(ngModel)]="roomFloorFilter" (change)="applyRoomFilters()">
+            <option [ngValue]="'ALL'">Todos los pisos</option>
+            <option *ngFor="let floor of roomFloorFilterOptions" [ngValue]="floor.id">{{ floor.label }}</option>
+          </select>
+        </div>
+      </header>
+
+      <div class="room-grid">
+        <article class="room-tile" *ngFor="let room of roomTiles" [ngClass]="'state-' + room.state">
+          <p class="room-number">{{ room.number }}</p>
+          <p class="room-kind">{{ room.kind }}</p>
+          <p class="room-detail">{{ room.detail || '-' }}</p>
+        </article>
+      </div>
+
+      <ul class="status-legend">
+        <li *ngFor="let state of roomLegend">
+          <i class="dot" [ngClass]="'dot-' + state.state"></i>
+          {{ state.label }}
+        </li>
+      </ul>
+    </article>
+
+    <article class="panel list-panel checkins-panel">
+      <header class="panel-header panel-header-tight">
+        <div>
+          <h3>Check-ins de Hoy</h3>
+          <p>{{ checkInsToday.length }} llegadas programadas</p>
+        </div>
+        <button type="button" class="panel-link" (click)="openCheckInsList()">Ver todos</button>
+      </header>
+
+      <ul class="stay-list" *ngIf="checkInsToday.length > 0">
+        <li class="stay-item" *ngFor="let stay of checkInsToday">
+          <span class="avatar" [ngClass]="'avatar-' + stay.avatarTone">{{ stay.initials }}</span>
+
+          <div class="stay-copy">
+            <p class="stay-guest">{{ stay.guest }}</p>
+            <p class="stay-detail">{{ stay.detail }}</p>
+          </div>
+
+          <div class="stay-meta">
+            <p class="stay-time">{{ stay.time }}</p>
+            <p class="stay-state" [ngClass]="{ 'is-pending': stay.status === 'Pendiente' }">{{ stay.status }}</p>
+          </div>
+        </li>
+      </ul>
+
+      <div class="empty-stay" *ngIf="checkInsToday.length === 0">
+        <span class="empty-icon"><i class="fa-regular fa-calendar-xmark"></i></span>
+        <p>Sin llegadas programadas</p>
+        <span>Todas las llegadas aparecerán aquí.</span>
+      </div>
+    </article>
+
+    <article class="panel alerts-panel">
+      <header class="panel-header panel-header-tight">
+        <div>
+          <h3>Alertas <span class="alert-count" [ngClass]="{ 'is-empty': unreadAlertsCount === 0 }">{{ unreadAlertsCount }}</span></h3>
+        </div>
+        <button type="button" class="alerts-settings" aria-label="Configurar alertas">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+      </header>
+
+      <ul class="alert-list">
+        <li class="alert-row" *ngFor="let alert of alerts" [ngClass]="{ 'alert-unread': alert.unread, 'alert-system': alert.id === 'none' }">
+          <span
+            class="alert-icon fa-solid"
+            [ngClass]="{
+              'fa-triangle-exclamation tone-warning': alert.tone === 'warning',
+              'fa-bell tone-info': alert.tone === 'info',
+              'fa-circle-check tone-success': alert.tone === 'success'
+            }"
+          ></span>
+
+          <div class="alert-copy">
+            <p>{{ alert.text }}</p>
+            <span>{{ alert.age }}</span>
+            <span class="alert-read-state" [ngClass]="alert.unread ? 'state-unread' : 'state-read'">{{ alert.unread ? 'No leída' : 'Leída' }}</span>
+          </div>
+
+          <button type="button" class="alert-action" *ngIf="alert.id !== 'none'" (click)="onAlertAction(alert)">{{ alert.action }}</button>
+        </li>
+      </ul>
+
+      <p class="alerts-empty" *ngIf="unreadAlertsCount === 0">No hay alertas activas en este momento</p>
+    </article>
+  </section>
+
+  <section class="bottom-grid">
+    <article class="panel list-panel">
+      <header class="panel-header panel-header-tight">
+        <div>
+          <h3>Check-outs de Hoy</h3>
+          <p>{{ checkOutsToday.length }} salidas programadas</p>
+        </div>
+        <button type="button" class="panel-link" (click)="openCheckOutsList()">Ver todos</button>
+      </header>
+
+      <ul class="stay-list" *ngIf="checkOutsToday.length > 0">
+        <li class="stay-item" *ngFor="let stay of checkOutsToday">
+          <span class="avatar" [ngClass]="'avatar-' + stay.avatarTone">{{ stay.initials }}</span>
+
+          <div class="stay-copy">
+            <p class="stay-guest">{{ stay.guest }}</p>
+            <p class="stay-detail">{{ stay.detail }}</p>
+          </div>
+
+          <div class="stay-meta checkout-meta">
+            <p class="checkout-amount">{{ stay.amount }}</p>
+            <p class="stay-time">{{ stay.time }}</p>
+          </div>
+        </li>
+      </ul>
+
+      <div class="empty-stay compact" *ngIf="checkOutsToday.length === 0">
+        <span class="empty-icon"><i class="fa-solid fa-door-open"></i></span>
+        <p>Sin salidas programadas</p>
+      </div>
+    </article>
+
+    <article class="panel services-panel">
+      <header class="panel-header panel-header-tight">
+        <div>
+          <h3>Servicios del Día</h3>
+          <p>Ingresos por departamento</p>
+        </div>
+
+        <p class="service-total">
+          <span>Total</span>
+          <strong>{{ serviceTotalLabel }}</strong>
+        </p>
+      </header>
+
+      <ul class="service-list">
+        <li class="service-row" *ngFor="let service of servicesToday">
+          <div class="service-main">
+            <span class="service-icon" [ngClass]="'service-' + service.tone">
+              <i [class]="service.icon"></i>
+            </span>
+
+            <div class="service-copy">
+              <p>{{ service.name }}</p>
+              <span>{{ service.transactions }} transacciones</span>
+            </div>
+          </div>
+
+          <div class="service-meta">
+            <strong>{{ service.amount }}</strong>
+            <span>{{ service.ratio }}%</span>
+          </div>
+
+          <div class="service-track">
+            <span class="service-fill" [ngClass]="'service-' + service.tone" [style.width.%]="service.ratio"></span>
+          </div>
+        </li>
+      </ul>
+    </article>
+
+    <article class="panel activity-panel">
+      <header class="panel-header panel-header-tight">
+        <div>
+          <h3>Actividad Reciente</h3>
+          <p>Últimos eventos del sistema</p>
+        </div>
+
+        <p class="live-status">
+          <i class="fa-solid fa-circle"></i>
+          En vivo
+        </p>
+      </header>
+
+      <ul class="activity-list">
+        <li class="activity-row" *ngFor="let event of activityFeed">
+          <span class="activity-icon" [ngClass]="'activity-' + event.tone">
+            <i [class]="event.icon"></i>
+          </span>
+          <p>{{ event.text }}</p>
+          <span>{{ event.time }}</span>
+        </li>
+      </ul>
+
+      <button type="button" class="activity-link" (click)="openActivityLog()">Ver registro completo <i class="fa-solid fa-chevron-right"></i></button>
+    </article>
+  </section>
+
+  <section class="actions-grid">
+    <button type="button" class="action-btn" *ngFor="let action of quickActions" [ngClass]="'action-' + action.tone" (click)="onQuickAction(action)">
+      <i [class]="action.icon"></i>
+      {{ action.label }}
+    </button>
+  </section>
+</div>
+
+

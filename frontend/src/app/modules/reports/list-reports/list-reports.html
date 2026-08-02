@@ -1,0 +1,579 @@
+<div class="reports-page">
+  <header class="page-header">
+    <div>
+      <h1>Reportes</h1>
+      <p>Analisis de desempeno del hotel: KPIs, ingresos, ocupacion y servicios.</p>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" class="gh-btn gh-btn-light" (click)="refreshReports()" [disabled]="loading">
+        <i class="fa-solid fa-rotate-right"></i>
+        Actualizar
+      </button>
+
+      <button type="button" class="gh-btn gh-btn-light" (click)="exportCurrentReportPdf()">
+        <i class="fa-solid fa-download"></i>
+        Exportar PDF
+      </button>
+    </div>
+  </header>
+
+  <section class="filters-card">
+    <div class="mode-switch">
+      <button type="button" [class.active]="filterMode === 'year'" (click)="setFilterMode('year')">
+        <i class="fa-regular fa-calendar"></i>
+        Ano
+      </button>
+      <button type="button" [class.active]="filterMode === 'range'" (click)="setFilterMode('range')">
+        <i class="fa-regular fa-calendar-days"></i>
+        Rango
+      </button>
+    </div>
+
+    <div class="filters-grid">
+      <label class="filter-field" *ngIf="filterMode === 'year'">
+        <span>Ano</span>
+        <select [(ngModel)]="selectedYear" (change)="onYearChange()">
+          <option *ngFor="let year of yearOptions; trackBy: trackByIndex" [ngValue]="year">Ano {{ year }}</option>
+        </select>
+      </label>
+
+      <label class="filter-field" *ngIf="filterMode === 'range'">
+        <span>Fecha inicial</span>
+        <input type="date" [(ngModel)]="startDate" />
+      </label>
+
+      <label class="filter-field" *ngIf="filterMode === 'range'">
+        <span>Fecha final</span>
+        <input type="date" [(ngModel)]="endDate" />
+      </label>
+    </div>
+
+    <div class="filters-actions">
+      <button type="button" class="gh-btn gh-btn-dark" (click)="applyTopFilters()" [disabled]="loading">
+        <i class="fa-solid fa-filter"></i>
+        Aplicar filtros
+      </button>
+    </div>
+  </section>
+
+  <section class="tabs-nav">
+    <button
+      type="button"
+      class="tab-btn"
+      *ngFor="let tab of tabs; trackBy: trackByTab"
+      [class.active]="activeTab === tab.key"
+      (click)="selectTab(tab.key)">
+      <i [class]="tab.icon"></i>
+      <span>{{ tab.label }}</span>
+    </button>
+  </section>
+
+  <section class="context-strip">
+    <span class="period-chip">
+      <i class="fa-regular fa-calendar"></i>
+      {{ getPeriodBadgeLabel() }}
+    </span>
+    <span class="updated-chip">
+      Datos actualizados:
+      <b>{{ lastUpdatedLabel || 'Sin registro' }}</b>
+    </span>
+  </section>
+
+  <section class="state-message" *ngIf="loading || errorMessage || infoMessage || activeTabError">
+    <p *ngIf="loading">Cargando reporte...</p>
+    <p class="error" *ngIf="!loading && (errorMessage || activeTabError)">{{ errorMessage || activeTabError }}</p>
+    <p class="info" *ngIf="!loading && !errorMessage && !activeTabError && infoMessage">{{ infoMessage }}</p>
+  </section>
+
+  <ng-container *ngIf="!loading && !errorMessage && !activeTabError">
+    <section class="stats-grid" *ngIf="activeKpiCards.length > 0">
+      <article class="stat-card" *ngFor="let card of activeKpiCards; trackBy: trackByIndex">
+        <div class="stat-head">
+          <span>{{ card.label }}</span>
+          <span class="stat-icon" [ngClass]="card.tone"><i [class]="card.icon"></i></span>
+        </div>
+        <div class="stat-value">{{ card.value }}</div>
+        <div class="stat-foot">
+          <small>{{ card.note }}</small>
+          <span class="variation-chip" [ngClass]="card.variationTone">
+            <i
+              [class]="
+                card.variationTone === 'up'
+                  ? 'fa-solid fa-arrow-up'
+                  : card.variationTone === 'down'
+                    ? 'fa-solid fa-arrow-down'
+                    : 'fa-solid fa-minus'
+              "></i>
+            {{ card.variationLabel }}
+          </span>
+        </div>
+      </article>
+    </section>
+
+    <ng-container [ngSwitch]="activeTab">
+      <section *ngSwitchCase="'executive'" class="content-section">
+        <div class="content-grid two">
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Ingresos vs Utilidad</h3>
+                <p>Evolucion mensual del periodo</p>
+              </div>
+              <div class="legend">
+                <span><i class="dot dot-blue"></i>Ingresos</span>
+                <span><i class="dot dot-green"></i>Utilidad</span>
+              </div>
+            </header>
+
+            <div class="line-chart" *ngIf="getExecutiveIncomeSeries().length > 0; else executiveChartEmpty">
+              <svg viewBox="0 0 680 220" preserveAspectRatio="none">
+                <path class="area-fill blue" [attr.d]="getAreaPath(getExecutiveIncomeSeries())"></path>
+                <path class="line-stroke blue" [attr.d]="getLinePath(getExecutiveIncomeSeries())"></path>
+                <path class="line-stroke green" [attr.d]="getLinePath(getExecutiveProfitSeries())"></path>
+              </svg>
+              <div class="x-labels">
+                <span *ngFor="let label of getExecutiveChartLabels(); trackBy: trackByIndex">{{ label }}</span>
+              </div>
+            </div>
+            <ng-template #executiveChartEmpty>
+              <p class="empty-inline">Sin datos de grafica para este periodo.</p>
+            </ng-template>
+          </article>
+
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Metodos de Pago</h3>
+                <p>Distribucion anual</p>
+              </div>
+            </header>
+
+            <div
+              class="donut"
+              [style.background]="getDonutGradient(executiveReport?.payment_methods || [])"
+              *ngIf="(executiveReport?.payment_methods || []).length > 0"></div>
+
+            <div class="legend-list">
+              <button
+                type="button"
+                class="legend-row"
+                *ngFor="let row of executiveReport?.payment_methods || []; let idx = index; trackBy: trackByIndex"
+                (click)="openPaymentMethodDetail(row)">
+                <span class="left">
+                  <i class="dot" [style.background-color]="getPaletteColor(idx)"></i>
+                  {{ row.method }}
+                </span>
+                <span class="right">
+                  {{ formatPercent(row.pct) }} - {{ formatCompactCurrency(row.amount) }}
+                </span>
+              </button>
+            </div>
+          </article>
+        </div>
+
+        <div class="content-grid two">
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Ocupacion Semanal</h3>
+                <p>Habitaciones ocupadas por semana</p>
+              </div>
+            </header>
+
+            <div class="bars-vertical" *ngIf="(executiveReport?.weekly_occupancy || []).length > 0; else weeklyEmpty">
+              <div
+                class="bar-col"
+                *ngFor="let row of executiveReport?.weekly_occupancy || []; trackBy: trackByIndex">
+                <div
+                  class="bar-fill dark"
+                  [style.height]="getBarHeight(row.occupied_rooms, getMaxValue(getWeeklyOccupancyRoomsSeries()))"></div>
+                <span>{{ row.week }}</span>
+              </div>
+            </div>
+            <ng-template #weeklyEmpty>
+              <p class="empty-inline">Sin ocupacion semanal registrada.</p>
+            </ng-template>
+          </article>
+
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Top 5 Huespedes</h3>
+                <p>Por gasto total del periodo</p>
+              </div>
+            </header>
+
+            <div class="table-wrap compact" *ngIf="(executiveReport?.top_guests || []).length > 0; else guestsEmpty">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Huesped</th>
+                    <th>Pais</th>
+                    <th>Noches</th>
+                    <th>Gasto total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    *ngFor="let guest of executiveReport?.top_guests || []; trackBy: trackByIndex"
+                    (click)="openTopGuestDetail(guest)">
+                    <td>{{ guest.guest_name }}</td>
+                    <td>{{ guest.country }}</td>
+                    <td>{{ formatInteger(guest.nights) }}</td>
+                    <td>{{ formatCurrency(guest.total_spent) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ng-template #guestsEmpty>
+              <p class="empty-inline">No hay ranking de huespedes para mostrar.</p>
+            </ng-template>
+          </article>
+        </div>
+      </section>
+
+      <section *ngSwitchCase="'revenue'" class="content-section">
+        <div class="content-grid two">
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Ingresos Mensuales</h3>
+                <p>Comparativa ingresos vs gastos por mes</p>
+              </div>
+            </header>
+
+            <div class="bars-group" *ngIf="(revenueReport?.monthly_income_vs_expenses || []).length > 0; else revenueBarsEmpty">
+              <div
+                class="group-col"
+                *ngFor="let row of revenueReport?.monthly_income_vs_expenses || []; trackBy: trackByIndex">
+                <div class="pair">
+                  <div
+                    class="bar-fill blue"
+                    [style.height]="getBarHeight(row.income, getMaxValue(getRevenueCombinedSeries()))"></div>
+                  <div
+                    class="bar-fill red"
+                    [style.height]="getBarHeight(row.expenses, getMaxValue(getRevenueCombinedSeries()))"></div>
+                </div>
+                <span>{{ row.month }}</span>
+              </div>
+            </div>
+            <ng-template #revenueBarsEmpty>
+              <p class="empty-inline">No hay datos de ingresos y gastos.</p>
+            </ng-template>
+          </article>
+
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Utilidad Neta Mensual</h3>
+                <p>Evolucion de utilidad durante el ano</p>
+              </div>
+            </header>
+
+            <div class="line-chart" *ngIf="getRevenueNetProfitSeries().length > 0; else revenueLineEmpty">
+              <svg viewBox="0 0 680 220" preserveAspectRatio="none">
+                <path class="area-fill gold" [attr.d]="getAreaPath(getRevenueNetProfitSeries())"></path>
+                <path class="line-stroke gold" [attr.d]="getLinePath(getRevenueNetProfitSeries())"></path>
+              </svg>
+              <div class="x-labels">
+                <span *ngFor="let label of getRevenueChartLabels(); trackBy: trackByIndex">{{ label }}</span>
+              </div>
+            </div>
+            <ng-template #revenueLineEmpty>
+              <p class="empty-inline">Sin datos de utilidad neta mensual.</p>
+            </ng-template>
+          </article>
+        </div>
+
+        <div class="content-grid two">
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Desglose por Metodo de Pago</h3>
+                <p>Transacciones y participacion por metodo</p>
+              </div>
+            </header>
+
+            <div class="table-wrap compact" *ngIf="(revenueReport?.payment_breakdown || []).length > 0; else payBreakdownEmpty">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Metodo</th>
+                    <th>Transacciones</th>
+                    <th>Participacion</th>
+                    <th>Monto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    *ngFor="let row of revenueReport?.payment_breakdown || []; trackBy: trackByIndex"
+                    (click)="openPaymentBreakdownDetail(row)">
+                    <td>{{ row.method }}</td>
+                    <td>{{ formatPercent(row.transactions_pct) }}</td>
+                    <td>{{ formatPercent(row.amount_pct) }}</td>
+                    <td>{{ formatCurrency(row.amount) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ng-template #payBreakdownEmpty>
+              <p class="empty-inline">No hay desglose de metodos de pago.</p>
+            </ng-template>
+          </article>
+
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Origen de Huespedes</h3>
+                <p>Participacion por pais</p>
+              </div>
+            </header>
+
+            <div
+              class="donut"
+              [style.background]="getDonutGradient(revenueReport?.guest_origin || [])"
+              *ngIf="(revenueReport?.guest_origin || []).length > 0"></div>
+
+            <div class="legend-list">
+              <button
+                type="button"
+                class="legend-row"
+                *ngFor="let row of revenueReport?.guest_origin || []; let idx = index; trackBy: trackByIndex"
+                (click)="openGuestOriginDetail(row)">
+                <span class="left">
+                  <i class="dot" [style.background-color]="getPaletteColor(idx)"></i>
+                  {{ row.country }}
+                </span>
+                <span class="right">{{ formatPercent(row.pct) }}</span>
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section *ngSwitchCase="'occupancy'" class="content-section">
+        <div class="content-grid two">
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Tasa de Ocupacion Mensual</h3>
+                <p>Porcentaje de habitaciones ocupadas por mes</p>
+              </div>
+            </header>
+
+            <div class="line-chart" *ngIf="getOccupancyRateSeries().length > 0; else occupancyLineEmpty">
+              <svg viewBox="0 0 680 220" preserveAspectRatio="none">
+                <path class="area-fill gold" [attr.d]="getAreaPath(getOccupancyRateSeries())"></path>
+                <path class="line-stroke gold" [attr.d]="getLinePath(getOccupancyRateSeries())"></path>
+              </svg>
+              <div class="x-labels">
+                <span *ngFor="let label of getOccupancyRateLabels(); trackBy: trackByIndex">{{ label }}</span>
+              </div>
+            </div>
+            <ng-template #occupancyLineEmpty>
+              <p class="empty-inline">No hay historico mensual de ocupacion.</p>
+            </ng-template>
+          </article>
+
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Por Tipo de Hab.</h3>
+                <p>Ocupacion e ingresos</p>
+              </div>
+            </header>
+
+            <div class="progress-list" *ngIf="(occupancyReport?.by_room_type || []).length > 0; else byRoomTypeEmpty">
+              <button
+                type="button"
+                class="progress-row"
+                *ngFor="let row of occupancyReport?.by_room_type || []; let idx = index; trackBy: trackByIndex"
+                (click)="openRoomTypeDetail(row)">
+                <div class="progress-meta">
+                  <strong>{{ row.room_type }}</strong>
+                  <span>{{ formatPercent(row.occupancy_pct) }}</span>
+                </div>
+                <div class="progress-track">
+                  <div
+                    class="progress-fill"
+                    [style.width]="getBarWidth(row.occupancy_pct, 100)"
+                    [style.background-color]="getPaletteColor(idx)"></div>
+                </div>
+                <small>Estancia: {{ formatNumber(row.avg_stay, 1) }} noches - Ingresos: {{ formatCompactCurrency(row.income) }}</small>
+              </button>
+            </div>
+            <ng-template #byRoomTypeEmpty>
+              <p class="empty-inline">No hay comparativo por tipo de habitacion.</p>
+            </ng-template>
+          </article>
+        </div>
+
+        <div class="content-grid two">
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Habitaciones Ocupadas por Mes</h3>
+                <p>Numero absoluto de habitaciones</p>
+              </div>
+            </header>
+
+            <div class="bars-vertical" *ngIf="(occupancyReport?.occupied_rooms_by_month || []).length > 0; else occupiedEmpty">
+              <div
+                class="bar-col"
+                *ngFor="let row of occupancyReport?.occupied_rooms_by_month || []; trackBy: trackByIndex">
+                <div
+                  class="bar-fill dark"
+                  [style.height]="getBarHeight(row.rooms, getMaxValue(getOccupiedRoomsSeries()))"></div>
+                <span>{{ row.month }}</span>
+              </div>
+            </div>
+            <ng-template #occupiedEmpty>
+              <p class="empty-inline">Sin historico de habitaciones ocupadas.</p>
+            </ng-template>
+          </article>
+
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Performance por Tipo</h3>
+                <p>Ocupacion, ingresos y estancia promedio</p>
+              </div>
+            </header>
+
+            <div class="table-wrap compact" *ngIf="(occupancyReport?.room_type_performance || []).length > 0; else performanceEmpty">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Ocupacion</th>
+                    <th>Estancia</th>
+                    <th>Ingresos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    *ngFor="let row of occupancyReport?.room_type_performance || []; trackBy: trackByIndex"
+                    (click)="openRoomTypeDetail(row)">
+                    <td>{{ row.room_type }}</td>
+                    <td>{{ formatPercent(row.occupancy_pct) }}</td>
+                    <td>{{ formatNumber(row.avg_stay, 1) }} noches</td>
+                    <td>{{ formatCurrency(row.income) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ng-template #performanceEmpty>
+              <p class="empty-inline">No hay performance por tipo de habitacion.</p>
+            </ng-template>
+          </article>
+        </div>
+      </section>
+
+      <section *ngSwitchCase="'services'" class="content-section">
+        <div class="content-grid two">
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Ingresos por Categoria</h3>
+                <p>Ordenados por monto total</p>
+              </div>
+            </header>
+
+            <div class="bars-horizontal" *ngIf="(servicesReport?.income_by_category || []).length > 0; else servicesIncomeEmpty">
+              <button
+                type="button"
+                class="h-row"
+                *ngFor="let row of servicesReport?.income_by_category || []; let idx = index; trackBy: trackByIndex"
+                (click)="openServiceCategoryDetail({ category: row.category, income: row.amount, transactions: 0, average_ticket: 0, share_pct: 0, trend_pct: null })">
+                <span class="label">{{ row.category }}</span>
+                <div class="track">
+                  <div
+                    class="fill"
+                    [style.width]="getBarWidth(row.amount, getMaxValue(getServicesIncomeSeries()))"
+                    [style.background-color]="getPaletteColor(idx)"></div>
+                </div>
+                <span class="value">{{ formatCompactCurrency(row.amount) }}</span>
+              </button>
+            </div>
+            <ng-template #servicesIncomeEmpty>
+              <p class="empty-inline">No hay ingresos por categoria.</p>
+            </ng-template>
+          </article>
+
+          <article class="panel">
+            <header class="panel-head">
+              <div>
+                <h3>Transacciones por Categoria</h3>
+                <p>Volumen de cargos registrados</p>
+              </div>
+            </header>
+
+            <div class="bars-vertical" *ngIf="(servicesReport?.transactions_by_category || []).length > 0; else servicesTxEmpty">
+              <div
+                class="bar-col"
+                *ngFor="let row of servicesReport?.transactions_by_category || []; let idx = index; trackBy: trackByIndex">
+                <div
+                  class="bar-fill"
+                  [style.height]="getBarHeight(row.transactions, getMaxValue(getServicesTransactionsSeries()))"
+                  [style.background-color]="getPaletteColor(idx)"></div>
+                <span>{{ row.category }}</span>
+              </div>
+            </div>
+            <ng-template #servicesTxEmpty>
+              <p class="empty-inline">Sin transacciones por categoria.</p>
+            </ng-template>
+          </article>
+        </div>
+
+        <article class="panel full">
+          <header class="panel-head">
+            <div>
+              <h3>Detalle por Categoria de Servicio</h3>
+              <p>Ingresos, transacciones, ticket y tendencia</p>
+            </div>
+          </header>
+
+          <div class="table-wrap" *ngIf="(servicesReport?.category_detail || []).length > 0; else servicesDetailEmpty">
+            <table>
+              <thead>
+                <tr>
+                  <th>Categoria</th>
+                  <th>Ingresos</th>
+                  <th>Transacciones</th>
+                  <th>Ticket prom.</th>
+                  <th>Participacion</th>
+                  <th>Tendencia</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  *ngFor="let row of servicesReport?.category_detail || []; trackBy: trackByIndex"
+                  (click)="openServiceCategoryDetail(row)">
+                  <td>{{ row.category }}</td>
+                  <td>{{ formatCurrency(row.income) }}</td>
+                  <td>{{ formatInteger(row.transactions) }}</td>
+                  <td>{{ formatCurrency(row.average_ticket, 1) }}</td>
+                  <td>{{ formatPercent(row.share_pct) }}</td>
+                  <td [ngClass]="resolveVariationTone(row.trend_pct)">
+                    {{ row.trend_pct === null ? 'Sin comparativo' : formatVariation(row.trend_pct, '%') }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ng-template #servicesDetailEmpty>
+            <p class="empty-inline">Sin detalle por categoria para este periodo.</p>
+          </ng-template>
+        </article>
+      </section>
+    </ng-container>
+  </ng-container>
+
+  <app-detail-report
+    *ngIf="detailData"
+    [detailData]="detailData"
+    (closed)="closeDetailDrawer()">
+  </app-detail-report>
+</div>
+

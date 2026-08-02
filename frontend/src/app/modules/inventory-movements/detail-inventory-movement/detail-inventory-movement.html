@@ -1,0 +1,102 @@
+<div class="movement-overlay" (click)="closeDrawer()">
+  <aside class="movement-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div class="drawer-title-block">
+        <p class="drawer-type">{{ getMovementTypeLabel() }}</p>
+        <h2>{{ movementData?.item_name || 'Item no definido' }}</h2>
+        <span class="status-chip" [class.is-inactive]="!movementData?.is_active">{{ getStatusLabel() }}</span>
+      </div>
+
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="drawer-body">
+      <section class="hero-card">
+        <div>
+          <span>Cantidad</span>
+          <strong>{{ getQuantityLabel() }}</strong>
+        </div>
+        <div>
+          <span>Variacion stock</span>
+          <strong>{{ getStockDeltaLabel() }}</strong>
+        </div>
+      </section>
+
+      <section>
+        <h3>Resumen</h3>
+        <div class="info-list">
+          <div>
+            <span>Tipo</span>
+            <strong>{{ getMovementTypeLabel() }}</strong>
+          </div>
+          <div>
+            <span>Direccion</span>
+            <strong
+              class="direction-pill"
+              [ngStyle]="{
+                'background-color': getDirectionTone().bg,
+                color: getDirectionTone().color
+              }">
+              {{ getDirectionLabel() }}
+            </strong>
+          </div>
+          <div>
+            <span>Stock previo</span>
+            <strong>{{ movementData?.previous_stock || 0 }}</strong>
+          </div>
+          <div>
+            <span>Stock nuevo</span>
+            <strong>{{ movementData?.new_stock || 0 }}</strong>
+          </div>
+          <div>
+            <span>Referencia</span>
+            <strong>{{ movementData?.reference || 'Sin referencia' }}</strong>
+          </div>
+          <div>
+            <span>Estado</span>
+            <strong>{{ getStatusLabel() }}</strong>
+          </div>
+          <div>
+            <span>ID movimiento</span>
+            <strong>#{{ movementData?.id || '--' }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Notas</h3>
+        <p class="description">{{ movementData?.notes || 'Sin notas registradas.' }}</p>
+      </section>
+
+      <section>
+        <h3>Trazabilidad</h3>
+        <div class="info-list">
+          <div>
+            <span>Fecha de movimiento</span>
+            <strong>{{ formatDateTime(movementData?.movement_date) }}</strong>
+          </div>
+          <div>
+            <span>Creado</span>
+            <strong>{{ formatDate(movementData?.created_at) }}</strong>
+          </div>
+          <div>
+            <span>Ultima actualizacion</span>
+            <strong>{{ formatDate(movementData?.updated_at) }}</strong>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="drawer-footer">
+      <button type="button" class="btn btn-light" (click)="requestStatusToggle()">
+        {{ movementData?.is_active ? 'Marcar inactivo' : 'Marcar activo' }}
+      </button>
+      <button type="button" class="btn btn-danger" (click)="requestDelete()">Eliminar</button>
+    </footer>
+  </aside>
+</div>

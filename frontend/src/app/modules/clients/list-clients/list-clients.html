@@ -1,0 +1,331 @@
+<p-confirmDialog key="clientDelete" styleClass="app-confirm-dialog"></p-confirmDialog>
+
+<div class="clients-page">
+  <header class="page-header">
+    <div>
+      <h1>Clientes & Huespedes</h1>
+      <p>Gestiona perfiles, estancias y estado operativo de tus clientes.</p>
+    </div>
+
+    <button type="button" class="btn btn-dark" (click)="openCreateOverlay()">
+      <i class="fa-solid fa-plus"></i>
+      Nuevo cliente
+    </button>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card" *ngFor="let card of statCards">
+      <div class="stat-head">
+        <span>{{ card.label }}</span>
+        <span class="stat-icon" [ngStyle]="{ 'background-color': card.bg, color: card.color }">
+          <i [class]="card.icon"></i>
+        </span>
+      </div>
+      <div class="stat-value">{{ card.value }}</div>
+      <div class="stat-note">{{ card.sub }}</div>
+    </article>
+  </section>
+
+  <section class="filters-card">
+    <div class="filters-grid">
+      <label class="search-field search-wrap gh-search-wrap">
+        <span>Buscar</span>
+        <div class="search-control gh-search-control">
+          <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+          <input class="gh-search-input" type="text" [(ngModel)]="search" (input)="applyFilters()" placeholder="Buscar cliente..." />
+        </div>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Estado</span>
+        <select class="gh-filter-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
+          <option value="ALL">Todos</option>
+          <option value="ACTIVO">Activo</option>
+          <option value="INACTIVO">Inactivo</option>
+          <option value="HUESPED_ACTUAL">Huesped actual</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Tipo</span>
+        <select class="gh-filter-select" [(ngModel)]="typeFilter" (change)="applyFilters()">
+          <option value="ALL">Todos</option>
+          <option value="VIP">VIP</option>
+          <option value="FRECUENTE">Frecuente</option>
+          <option value="REGULAR">Regular</option>
+        </select>
+      </label>
+
+      <div class="filter-actions-inline">
+        <button type="button" class="icon-action" (click)="loadClients()" [disabled]="loading" title="Actualizar">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+        <button type="button" class="icon-action" (click)="exportCsv()" title="Exportar">
+          <i class="fa-solid fa-download"></i>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="deleted-alert-card" *ngIf="!loading && deletedClientsCount > 0">
+    <div class="deleted-alert-head">
+      <p class="state-note">
+        <i class="fa-solid fa-circle-info"></i>
+        Hay {{ deletedClientsCount }} cliente(s) eliminados logicamente.
+      </p>
+      <div class="action-group">
+        <button type="button" class="deleted-link" (click)="showDeletedClients = !showDeletedClients">
+          <i class="fa-solid" [class.fa-eye]="!showDeletedClients" [class.fa-eye-slash]="showDeletedClients"></i>
+          {{ showDeletedClients ? 'Ocultar eliminados' : 'Ver eliminados' }}
+        </button>
+      </div>
+    </div>
+
+    <article class="table-card" *ngIf="showDeletedClients">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Correo</th>
+              <th>Tipo</th>
+              <th>Estado operativo</th>
+              <th>Accion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let client of deletedClients; trackBy: trackByClient">
+              <td>{{ client.full_name || (client.first_name + ' ' + client.last_name) }}</td>
+              <td>{{ client.email || 'Sin correo' }}</td>
+              <td>{{ getTypeLabel(client.client_type) }}</td>
+              <td>{{ getStatusLabel(client.status) }}</td>
+              <td>
+                <div class="row-actions">
+                  <button type="button" class="row-btn" title="Restaurar" (click)="restoreClient(client)">
+                    <i class="fa-solid fa-rotate-left"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <section class="table-card">
+    <header class="directory-toolbar">
+      <div>
+        <h2>Directorio de clientes</h2>
+        <p>Informacion de contacto, historial y clasificacion.</p>
+      </div>
+      <span class="directory-summary">
+        <i class="fa-regular fa-circle-info"></i>
+        {{ filteredClients.length }} cliente(s) encontrados
+      </span>
+    </header>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Contacto</th>
+            <th>Nacionalidad</th>
+            <th>Tipo</th>
+            <th>Estancias</th>
+            <th>Ultima estancia</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngIf="loading">
+            <td colspan="8" class="table-empty">Cargando clientes...</td>
+          </tr>
+
+          <tr *ngIf="!loading && paginatedClients.length === 0">
+            <td colspan="8" class="table-empty">No se encontraron clientes</td>
+          </tr>
+
+          <tr
+            *ngFor="let client of paginatedClients; trackBy: trackByClient"
+            [class.current-guest-row]="getStatusLabel(client.status) === 'Huesped actual'"
+            (click)="openDetail(client)">
+            <td>
+              <div class="client-cell">
+                <div class="avatar">{{ getInitials(client) }}</div>
+                <div>
+                  <p class="client-name">{{ client.full_name || (client.first_name + ' ' + client.last_name) }}</p>
+                  <p class="client-id">ID #{{ client.id }}</p>
+                </div>
+              </div>
+            </td>
+
+            <td>
+              <p class="contact-main">{{ client.email }}</p>
+              <p class="contact-sub">{{ client.phone || 'Sin telefono' }}</p>
+            </td>
+
+            <td>
+              <div class="country-cell">
+                <span>{{ getCountryCode(client.country) }}</span>
+                {{ client.country || 'No registra' }}
+              </div>
+            </td>
+
+            <td>
+              <span class="chip" [ngStyle]="{ 'background-color': getTypeStyles(client.client_type).bg, color: getTypeStyles(client.client_type).color }">
+                {{ getTypeLabel(client.client_type) }}
+              </span>
+            </td>
+
+            <td><strong>{{ client.total_stay_nights || 0 }}</strong> noches</td>
+            <td>{{ formatDate(client.last_stay) }}</td>
+
+            <td>
+              <span class="chip chip-status" [ngStyle]="{ 'background-color': getStatusStyles(client.status).bg, color: getStatusStyles(client.status).color }">
+                <span class="status-dot" [ngStyle]="{ 'background-color': getStatusStyles(client.status).dot }"></span>
+                {{ getStatusLabel(client.status) }}
+              </span>
+            </td>
+
+            <td (click)="$event.stopPropagation()">
+              <div class="row-actions">
+                <button type="button" class="row-btn" (click)="openDetail(client)" title="Ver detalle">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+                <button type="button" class="row-btn" title="Editar" (click)="openUpdateOverlay(client)">
+                  <i class="fa-regular fa-pen-to-square"></i>
+                </button>
+                <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(client)">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="table-footer">
+      <span>
+        Mostrando
+        {{ filteredClients.length === 0 ? 0 : ((currentPage - 1) * perPage + 1) }}
+        -
+        {{ currentPage * perPage > filteredClients.length ? filteredClients.length : currentPage * perPage }}
+        de {{ filteredClients.length }} clientes
+      </span>
+
+      <div class="pager">
+        <button (click)="changePage(currentPage - 1)" [disabled]="currentPage === 1">Anterior</button>
+
+        <button *ngFor="let page of visiblePages" (click)="changePage(page)" [class.active]="currentPage === page">
+          {{ page }}
+        </button>
+
+        <button (click)="changePage(currentPage + 1)" [disabled]="currentPage === totalPages || totalPages === 0">Siguiente</button>
+      </div>
+    </footer>
+  </section>
+
+  <div *ngIf="selectedClient" class="drawer-overlay" (click)="closeDetail()">
+    <aside class="detail-drawer" (click)="$event.stopPropagation()">
+      <header class="drawer-head">
+        <button type="button" class="drawer-close" (click)="closeDetail()" title="Cerrar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+
+        <div class="drawer-avatar">{{ getInitials(selectedClient) }}</div>
+        <h2>{{ selectedClient.full_name || (selectedClient.first_name + ' ' + selectedClient.last_name) }}</h2>
+
+        <div class="drawer-badges">
+          <span class="chip" [ngStyle]="{ 'background-color': getTypeStyles(selectedClient.client_type).bg, color: getTypeStyles(selectedClient.client_type).color }">
+            {{ getTypeLabel(selectedClient.client_type) }}
+          </span>
+
+          <span class="chip chip-status" [ngStyle]="{ 'background-color': getStatusStyles(selectedClient.status).bg, color: getStatusStyles(selectedClient.status).color }">
+            <span class="status-dot" [ngStyle]="{ 'background-color': getStatusStyles(selectedClient.status).dot }"></span>
+            {{ getStatusLabel(selectedClient.status) }}
+          </span>
+        </div>
+
+        <div class="drawer-kpis">
+          <div>
+            <strong>{{ selectedClient.total_stay_nights || 0 }}</strong>
+            <span>Estancias</span>
+          </div>
+          <div>
+            <strong>{{ getEstimatedSpent(selectedClient) }}</strong>
+            <span>Total gastado</span>
+          </div>
+          <div>
+            <strong>{{ getClientSinceYear(selectedClient) }}</strong>
+            <span>Desde</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="drawer-body">
+        <section>
+          <h3>Contacto</h3>
+          <div class="info-list">
+            <div><span>Email</span><strong>{{ selectedClient.email || 'No registra' }}</strong></div>
+            <div><span>Telefono</span><strong>{{ selectedClient.phone || 'No registra' }}</strong></div>
+            <div><span>Nacionalidad</span><strong>{{ selectedClient.country || 'No registra' }}</strong></div>
+            <div><span>Codigo</span><strong>{{ getCountryCode(selectedClient.country) }}</strong></div>
+          </div>
+        </section>
+
+        <section>
+          <h3>Documento</h3>
+          <div class="info-list">
+            <div><span>Tipo</span><strong>{{ selectedClient.document_type || 'No registra' }}</strong></div>
+            <div><span>Numero</span><strong>{{ selectedClient.document_number || 'No registra' }}</strong></div>
+          </div>
+        </section>
+
+        <section>
+          <h3>Estancias</h3>
+          <div class="info-list">
+            <div><span>Ultima estancia</span><strong>{{ formatDate(selectedClient.last_stay) }}</strong></div>
+            <div><span>Total estancias</span><strong>{{ selectedClient.total_stay_nights || 0 }} noches</strong></div>
+            <div><span>Total gastado</span><strong>{{ getEstimatedSpent(selectedClient) }}</strong></div>
+          </div>
+        </section>
+
+        <section>
+          <h3>Preferencias</h3>
+          <div class="preferences">
+            <span *ngFor="let preference of getClientPreferences(selectedClient)">{{ preference }}</span>
+          </div>
+        </section>
+      </div>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-dark" (click)="openUpdateOverlay(selectedClient)">Editar cliente</button>
+        <button type="button" class="btn btn-light">+ Nueva reserva</button>
+      </footer>
+    </aside>
+  </div>
+
+  <app-create-client
+    *ngIf="showCreateOverlay"
+    (closed)="closeCreateOverlay()"
+    (created)="onClientCreated()">
+  </app-create-client>
+
+  <app-update-client
+    *ngIf="showUpdateOverlay && clientToEdit"
+    [client]="clientToEdit"
+    (closed)="closeUpdateOverlay()"
+    (updated)="onClientUpdated()">
+  </app-update-client>
+
+</div>
+
+

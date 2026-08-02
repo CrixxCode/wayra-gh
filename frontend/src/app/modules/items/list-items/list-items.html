@@ -1,0 +1,402 @@
+<div class="items-page">
+  <header class="page-header">
+    <div>
+      <h1>Items de Inventario</h1>
+      <p>Controla stock, costos y disponibilidad de los productos operativos del hotel.</p>
+    </div>
+
+    <button type="button" class="btn btn-dark" (click)="openCreateDrawer()" [disabled]="!canCreateItem">
+      <i class="fa-solid fa-plus"></i>
+      Nuevo item
+    </button>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total items</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-boxes-stacked"></i></span>
+      </div>
+      <div class="stat-value">{{ totalItems }}</div>
+      <div class="stat-note">{{ totalStockUnits }} unidades en inventario</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Activos</span>
+        <span class="stat-icon green"><i class="fa-solid fa-circle-check"></i></span>
+      </div>
+      <div class="stat-value">{{ activeItems }}</div>
+      <div class="stat-note">habilitados para movimientos</div>
+    </article>
+
+    <article class="stat-card warning">
+      <div class="stat-head">
+        <span>Bajo minimo</span>
+        <span class="stat-icon gold"><i class="fa-solid fa-triangle-exclamation"></i></span>
+      </div>
+      <div class="stat-value">{{ lowStockItems }}</div>
+      <div class="stat-note">requieren reposicion</div>
+    </article>
+
+    <article class="stat-card danger">
+      <div class="stat-head">
+        <span>Sin stock</span>
+        <span class="stat-icon red"><i class="fa-regular fa-circle-xmark"></i></span>
+      </div>
+      <div class="stat-value">{{ outOfStockItems }}</div>
+      <div class="stat-note">agotados en inventario</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Valor en costo</span>
+        <span class="stat-icon purple"><i class="fa-solid fa-wallet"></i></span>
+      </div>
+      <div class="stat-value stat-money">{{ inventoryCostValueLabel }}</div>
+      <div class="stat-note">valor acumulado del stock</div>
+    </article>
+  </section>
+
+  <section class="gh-filters-card">
+    <div class="gh-filters-grid items-filters-grid">
+      <label class="search-field search-wrap gh-search-wrap">
+        <span>Buscar</span>
+        <div class="search-control gh-search-control">
+          <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+          <input
+            class="gh-search-input"
+            type="text"
+            [(ngModel)]="search"
+            (input)="applyFilters()"
+            placeholder="Buscar por nombre, SKU, tipo o unidad..." />
+        </div>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Estado</span>
+        <select class="gh-filter-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
+          <option *ngFor="let statusOption of statusOptions" [ngValue]="statusOption.value">{{ statusOption.label }}</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Nivel stock</span>
+        <select class="gh-filter-select" [(ngModel)]="stockFilter" (change)="applyFilters()">
+          <option *ngFor="let stockOption of stockOptions" [ngValue]="stockOption.value">{{ stockOption.label }}</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Tipo item</span>
+        <select class="gh-filter-select" [(ngModel)]="selectedTypeFilter" (change)="applyFilters()">
+          <option *ngFor="let tab of typeTabs; trackBy: trackByTab" [value]="tab.key">{{ tab.label }}</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="gh-filters-actions">
+      <div class="gh-view-toggle">
+        <button type="button" title="Vista en tarjetas" [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')">
+          <i class="fa-solid fa-grip"></i>
+        </button>
+        <button type="button" title="Vista en tabla" [class.active]="viewMode === 'table'" (click)="setViewMode('table')">
+          <i class="fa-solid fa-table-list"></i>
+        </button>
+      </div>
+
+      <div class="gh-action-group">
+        <button type="button" class="gh-btn gh-btn-light" (click)="refreshItems()" [disabled]="loading">
+          <i class="fa-solid fa-rotate-right"></i>
+          Actualizar
+        </button>
+
+        <button type="button" class="gh-btn gh-btn-light" (click)="exportCsv()">
+          <i class="fa-solid fa-file-export"></i>
+          Exportar
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="gh-filters-card" *ngIf="!loading && deletedItemsCount > 0">
+    <div class="gh-filters-actions">
+      <p class="state-note">
+        Hay {{ deletedItemsCount }} item(s) eliminados logicamente.
+      </p>
+      <div class="gh-action-group">
+        <button type="button" class="gh-btn gh-btn-light" (click)="showDeletedItems = !showDeletedItems">
+          <i class="fa-solid" [class.fa-eye]="!showDeletedItems" [class.fa-eye-slash]="showDeletedItems"></i>
+          {{ showDeletedItems ? 'Ocultar eliminados' : 'Ver eliminados' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="table-scroll" *ngIf="showDeletedItems">
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Codigo</th>
+            <th>Item</th>
+            <th>Categoria</th>
+            <th>Unidad</th>
+            <th>Estado operativo</th>
+            <th>Accion</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of deletedItems; trackBy: trackByItem">
+            <td class="code-cell">{{ getItemCode(item) }}</td>
+            <td>{{ item.name }}</td>
+            <td>{{ getItemTypeLabel(item) }}</td>
+            <td>{{ getUnitLabel(item) }}</td>
+            <td>{{ item.is_active ? 'Activo' : 'Inactivo' }}</td>
+            <td>
+              <div class="table-actions">
+                <button type="button" class="row-btn" title="Restaurar" (click)="restoreItem(item)">
+                  <i class="fa-solid fa-rotate-left"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="state-message" *ngIf="loading || errorMessage || infoMessage || filteredItems.length === 0">
+    <p *ngIf="loading">Cargando catalogo de items...</p>
+    <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p class="warning" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
+    <p *ngIf="!loading && !errorMessage && filteredItems.length === 0">No hay items para los filtros seleccionados.</p>
+  </section>
+
+  <section class="catalog-sections" *ngIf="!loading && !errorMessage && filteredItems.length > 0">
+    <ng-container *ngIf="viewMode === 'cards'; else tableView">
+      <article class="category-block" *ngFor="let group of groupedItems; trackBy: trackByGroup">
+        <header class="category-head">
+          <div class="category-title">
+            <span
+              class="category-icon"
+              [ngStyle]="{
+                'background-color': getGroupTone(group).iconBg,
+                color: getGroupTone(group).iconColor
+              }">
+              <i [class]="getGroupTone(group).icon"></i>
+            </span>
+            <h2>{{ group.label }}</h2>
+            <span class="category-count">{{ group.items.length }}</span>
+          </div>
+
+          <p class="category-note">
+            <i class="fa-regular fa-star"></i>
+            Los items con mayor stock aparecen destacados
+          </p>
+        </header>
+
+        <div class="items-grid">
+          <article class="item-card" *ngFor="let item of group.items; trackBy: trackByItem" (click)="openDetail(item)">
+            <div class="item-cover" [ngStyle]="{ background: getGroupTone(group).cover }">
+              <div class="cover-badges">
+                <span
+                  class="cover-type"
+                  [ngStyle]="{
+                    'background-color': getGroupTone(group).badgeBg,
+                    color: getGroupTone(group).badgeColor
+                  }">
+                  {{ getItemTypeLabel(item) }}
+                </span>
+
+                <span class="cover-badge" *ngIf="isHighlighted(group.key, item.id)">Top stock</span>
+              </div>
+
+              <span
+                class="stock-chip"
+                [ngStyle]="{
+                  'background-color': getStockStateTone(item).bg,
+                  color: getStockStateTone(item).color
+                }">
+                {{ getStockStateLabel(item) }}
+              </span>
+            </div>
+
+            <div class="item-body">
+              <h3>{{ item.name }}</h3>
+              <p>{{ getItemDescription(item) }}</p>
+
+              <div class="meta-row">
+                <span>
+                  <i class="fa-solid fa-barcode"></i>
+                  {{ getSkuLabel(item) }}
+                </span>
+                <span>
+                  <i class="fa-solid fa-ruler-combined"></i>
+                  {{ getUnitLabel(item) }}
+                </span>
+              </div>
+
+              <div class="stock-row">
+                <strong>{{ getStockLabel(item) }}</strong>
+                <small>Minimo: {{ getMinimumStockLabel(item) }} | Maximo: {{ getMaximumStockLabel(item) }}</small>
+              </div>
+
+              <div class="price-grid">
+                <div>
+                  <span>Costo</span>
+                  <strong>{{ getCostPriceLabel(item) }}</strong>
+                </div>
+                <div>
+                  <span>Venta</span>
+                  <strong>{{ getSalePriceLabel(item) }}</strong>
+                </div>
+                <div>
+                  <span>Margen</span>
+                  <strong>{{ getMarginLabel(item) }}</strong>
+                </div>
+              </div>
+
+              <div class="card-foot">
+                <span
+                  class="status-chip"
+                  [ngStyle]="{
+                    'background-color': getStatusTone(item).bg,
+                    color: getStatusTone(item).color
+                  }">
+                  <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(item).dot }"></span>
+                  {{ item.is_active ? 'Activo' : 'Inactivo' }}
+                </span>
+
+                <div class="card-actions" (click)="$event.stopPropagation()">
+                  <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(item)">
+                    <i class="fa-regular fa-eye"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="row-btn"
+                    [title]="item.is_active ? 'Desactivar' : 'Activar'"
+                    (click)="toggleItemStatus(item)">
+                    <i [class]="item.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+                  </button>
+                  <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(item)">
+                    <i class="fa-regular fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </article>
+    </ng-container>
+
+    <ng-template #tableView>
+      <article class="table-card">
+        <div class="table-scroll">
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Codigo</th>
+                <th>Item</th>
+                <th>Categoria</th>
+                <th>Unidad</th>
+                <th>Stock actual</th>
+                <th>Min / Max</th>
+                <th>Costo unit.</th>
+                <th>Valor total</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of filteredItems; trackBy: trackByItem" (click)="openDetail(item)">
+                <td class="code-cell">{{ getItemCode(item) }}</td>
+                <td>
+                  <div class="item-cell">
+                    <span class="item-avatar">
+                      <i class="fa-solid fa-cube"></i>
+                    </span>
+                    <div class="item-copy">
+                      <strong>{{ item.name }}</strong>
+                      <small>{{ getItemLocationLabel(item) }}</small>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span
+                    class="table-category"
+                    [ngStyle]="{
+                      'background-color': getTypeBadgeTone(item).bg,
+                      color: getTypeBadgeTone(item).color
+                    }">
+                    <span class="dot" [ngStyle]="{ 'background-color': getTypeBadgeTone(item).dot }"></span>
+                    {{ getItemTypeLabel(item) }}
+                  </span>
+                </td>
+                <td>{{ getUnitShortLabel(item) }}</td>
+                <td>
+                  <div class="table-stock-cell">
+                    <strong>{{ getStockCount(item) }}</strong>
+                    <div class="table-stock-meter">
+                      <span
+                        [ngStyle]="{
+                          width: getStockProgressPercent(item) + '%',
+                          'background-color': getStockBarColor(item)
+                        }"></span>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ getMinMaxLabel(item) }}</td>
+                <td>{{ getCostPriceLabel(item) }}</td>
+                <td>{{ getTotalStockValueLabel(item) }}</td>
+                <td>
+                  <span
+                    class="table-status"
+                    [ngStyle]="{
+                      'background-color': getTableStatusTone(item).bg,
+                      color: getTableStatusTone(item).color
+                    }">
+                    <i [class]="getTableStatusTone(item).icon"></i>
+                    {{ getTableStatusLabel(item) }}
+                  </span>
+                </td>
+                <td>
+                  <div class="table-actions" (click)="$event.stopPropagation()">
+                    <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(item)">
+                      <i class="fa-regular fa-eye"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="row-btn"
+                      [title]="item.is_active ? 'Desactivar' : 'Activar'"
+                      (click)="toggleItemStatus(item)">
+                      <i [class]="item.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+                    </button>
+                    <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(item)">
+                      <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </ng-template>
+  </section>
+
+  <app-create-item
+    *ngIf="showCreateDrawer"
+    [itemTypes]="itemTypes"
+    [unitMeasures]="unitMeasures"
+    [hotelSettingsId]="hotelSettingsId"
+    (closed)="closeCreateDrawer()"
+    (created)="onItemCreated()">
+  </app-create-item>
+
+  <app-detail-item
+    *ngIf="selectedItem"
+    [itemData]="selectedItem"
+    (closed)="closeDetail()"
+    (statusRequested)="toggleItemStatus($event)"
+    (deleteRequested)="confirmDelete($event)">
+  </app-detail-item>
+</div>

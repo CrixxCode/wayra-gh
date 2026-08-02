@@ -1,0 +1,163 @@
+<div class="promotion-overlay" (click)="closeDrawer()">
+  <article class="promotion-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div>
+        <h1>Nueva promocion</h1>
+        <p>Configura descuento, alcance y vigencia para publicar la oferta en el catalogo.</p>
+      </div>
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form [formGroup]="promotionForm" (ngSubmit)="submit()" class="drawer-body">
+      <section>
+        <h2>Informacion base</h2>
+        <div class="grid two">
+          <label class="full">
+            <span>Nombre de la promocion *</span>
+            <input
+              type="text"
+              formControlName="name"
+              placeholder="Ej: Descuento bienvenida de abril"
+              [class.input-error]="name?.touched && name?.invalid" />
+            <small class="field-error" *ngIf="name?.touched && name?.hasError('required')">El nombre es obligatorio.</small>
+            <small class="field-error" *ngIf="name?.touched && name?.hasError('maxlength')">El nombre no puede superar 150 caracteres.</small>
+          </label>
+
+          <label>
+            <span>Codigo interno</span>
+            <input type="text" formControlName="code" placeholder="Ej: APRIL-WELCOME" [class.input-error]="code?.touched && code?.invalid" />
+            <small class="field-error" *ngIf="code?.touched && code?.hasError('maxlength')">Maximo 50 caracteres.</small>
+          </label>
+
+          <label>
+            <span>Tipo de descuento *</span>
+            <select formControlName="discount_type" [class.input-error]="discount_type?.touched && discount_type?.invalid">
+              <option [ngValue]="null">Selecciona tipo</option>
+              <option *ngFor="let discountType of discountTypes; trackBy: trackById" [ngValue]="discountType.id">
+                {{ discountType.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="discount_type?.touched && discount_type?.invalid">Selecciona un tipo de descuento.</small>
+          </label>
+
+          <label>
+            <span>Valor descuento *</span>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              formControlName="discount_value"
+              placeholder="Ej: 10 o 50000"
+              [class.input-error]="discount_value?.touched && discount_value?.invalid" />
+            <small class="field-error" *ngIf="discount_value?.touched && discount_value?.hasError('required')">Ingresa el valor del descuento.</small>
+            <small class="field-error" *ngIf="discount_value?.touched && discount_value?.hasError('min')">Ingresa un valor mayor que 0.</small>
+          </label>
+
+          <label class="full">
+            <span>Descripcion</span>
+            <textarea
+              rows="4"
+              formControlName="description"
+              placeholder="Describe condiciones, restricciones y objetivo comercial..."
+              [class.input-error]="promotionForm.get('description')?.touched && promotionForm.get('description')?.invalid"></textarea>
+            <small class="field-error" *ngIf="promotionForm.get('description')?.touched && promotionForm.get('description')?.hasError('maxlength')">
+              La descripcion no puede superar 2000 caracteres.
+            </small>
+          </label>
+
+          <label class="switch-row">
+            <input type="checkbox" formControlName="is_active" />
+            <span>Promocion activa</span>
+          </label>
+
+          <label class="switch-row">
+            <input type="checkbox" formControlName="is_public" />
+            <span>Visible para clientes</span>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Alcance de la promocion</h2>
+        <div class="grid two">
+          <label class="full">
+            <span>Aplica a *</span>
+            <select formControlName="target_scope">
+              <option value="GENERAL">Promocion general</option>
+              <option value="SERVICE">Servicio especifico</option>
+              <option value="PACKAGE">Paquete especifico</option>
+            </select>
+          </label>
+
+          <label class="full" *ngIf="isServiceScope">
+            <span>Servicio *</span>
+            <select formControlName="service" [class.input-error]="service?.touched && service?.invalid">
+              <option [ngValue]="null">Selecciona servicio</option>
+              <option *ngFor="let serviceItem of availableServices; trackBy: trackById" [ngValue]="serviceItem.id">
+                {{ serviceItem.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="service?.touched && service?.invalid">Selecciona un servicio.</small>
+          </label>
+
+          <label class="full" *ngIf="isPackageScope">
+            <span>Paquete *</span>
+            <select formControlName="package" [class.input-error]="package?.touched && package?.invalid">
+              <option [ngValue]="null">Selecciona paquete</option>
+              <option *ngFor="let packageItem of availablePackages; trackBy: trackById" [ngValue]="packageItem.id">
+                {{ packageItem.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="package?.touched && package?.invalid">Selecciona un paquete.</small>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Vigencia</h2>
+        <div class="grid two">
+          <label>
+            <span>Valida desde *</span>
+            <input
+              type="date"
+              formControlName="start_date"
+              [class.input-error]="start_date?.touched && (start_date?.invalid || (start_date?.value && end_date?.value && end_date?.value < start_date?.value))" />
+            <small class="field-error" *ngIf="start_date?.touched && start_date?.invalid">La fecha inicial es obligatoria.</small>
+          </label>
+
+          <label>
+            <span>Valida hasta *</span>
+            <input
+              type="date"
+              formControlName="end_date"
+              [class.input-error]="end_date?.touched && (end_date?.invalid || (start_date?.value && end_date?.value && end_date?.value < start_date?.value))" />
+            <small class="field-error" *ngIf="end_date?.touched && end_date?.invalid">La fecha final es obligatoria.</small>
+            <small class="field-error" *ngIf="end_date?.touched && start_date?.value && end_date?.value && end_date?.value < start_date?.value">
+              La fecha final no puede ser menor que la fecha inicial.
+            </small>
+          </label>
+        </div>
+      </section>
+
+      <p class="feedback warning" *ngIf="!hotelSettingsId">
+        Configura primero el hotel en "Configuracion" para asociar correctamente las promociones.
+      </p>
+      <p class="feedback warning" *ngIf="discountTypes.length === 0">
+        No hay tipos de descuento activos para crear promociones.
+      </p>
+      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-light" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn-dark" [disabled]="saving || !hotelSettingsId || discountTypes.length === 0">
+          {{ saving ? 'Guardando...' : 'Crear promocion' }}
+        </button>
+      </footer>
+    </form>
+  </article>
+</div>

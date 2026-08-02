@@ -1,0 +1,201 @@
+﻿<div class="detail-overlay" (click)="closeDrawer()">
+  <aside class="detail-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+
+      <div class="room-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+          <path d="M3 11h18v9H3z" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          <path d="M7 20v2M17 20v2" />
+        </svg>
+      </div>
+
+      <div class="head-main">
+        <p class="head-label">Habitacion</p>
+        <h2>{{ roomNumber }}</h2>
+        <p class="head-sub">{{ roomTypeLabel }} · {{ bedLabel }} · {{ floorLabel }}</p>
+
+        <div class="head-metrics">
+          <span class="chip-status" [ngStyle]="{ 'background-color': statusTone.bg, color: statusTone.color }">
+            <span class="status-dot" [ngStyle]="{ 'background-color': statusTone.dot }"></span>
+            {{ statusLabel }}
+          </span>
+          <strong class="rate">{{ priceLabel }}/noche</strong>
+        </div>
+      </div>
+    </header>
+
+    <div class="drawer-body">
+      <div class="loading-box" *ngIf="loading">Cargando detalle...</div>
+      <div class="feedback error" *ngIf="!loading && errorMessage">{{ errorMessage }}</div>
+
+      <ng-container *ngIf="!loading && !errorMessage">
+        <section class="current-guest-section" *ngIf="showCurrentGuestCard">
+          <h3>Huesped actual</h3>
+
+          <article class="current-guest-card" *ngIf="reservationCardReady; else currentGuestState">
+            <div class="guest-identity">
+              <div class="guest-avatar-mini">
+                <i class="fa-regular fa-user"></i>
+              </div>
+
+              <div class="guest-main">
+                <strong>{{ currentGuestName }}</strong>
+                <span>{{ currentGuestAdultsLabel }}</span>
+              </div>
+            </div>
+
+            <div class="guest-info-list">
+              <div class="guest-info-row">
+                <div class="guest-info-label">
+                  <i class="fa-solid fa-phone"></i>
+                  <span>Telefono</span>
+                </div>
+                <strong>{{ currentGuestPhone }}</strong>
+              </div>
+
+              <div class="guest-info-row">
+                <div class="guest-info-label">
+                  <i class="fa-regular fa-envelope"></i>
+                  <span>Email</span>
+                </div>
+                <strong>{{ currentGuestEmail }}</strong>
+              </div>
+
+              <div class="guest-info-row">
+                <div class="guest-info-label">
+                  <i class="fa-regular fa-calendar-check"></i>
+                  <span>Check-In</span>
+                </div>
+                <strong>{{ currentGuestCheckIn }}</strong>
+              </div>
+
+              <div class="guest-info-row">
+                <div class="guest-info-label">
+                  <i class="fa-regular fa-calendar"></i>
+                  <span>Check-Out</span>
+                </div>
+                <strong>{{ currentGuestCheckOut }}</strong>
+              </div>
+
+              <div class="guest-info-row">
+                <div class="guest-info-label">
+                  <i class="fa-regular fa-clock"></i>
+                  <span>Noches</span>
+                </div>
+                <strong>{{ currentGuestNightsLabel }}</strong>
+              </div>
+
+              <div class="guest-info-row">
+                <div class="guest-info-label">
+                  <i class="fa-solid fa-dollar-sign"></i>
+                  <span>Total</span>
+                </div>
+                <strong>{{ currentGuestTotalLabel }}</strong>
+              </div>
+            </div>
+          </article>
+
+          <ng-template #currentGuestState>
+            <div class="feedback" *ngIf="reservationDetailLoading">Cargando informacion de la reserva activa...</div>
+            <div class="feedback error" *ngIf="!reservationDetailLoading && reservationDetailError">{{ reservationDetailError }}</div>
+          </ng-template>
+        </section>
+
+        <section>
+          <h3>Amenidades</h3>
+          <div class="chips-wrap" *ngIf="amenities.length; else noAmenities">
+            <span *ngFor="let amenity of amenities">
+              <i [class]="amenity.icon || 'fa-solid fa-circle-check'"></i>
+              {{ amenity.name }}
+            </span>
+          </div>
+          <ng-template #noAmenities>
+            <p class="empty-text">Sin amenidades asignadas.</p>
+          </ng-template>
+        </section>
+
+        <section *ngIf="hasMaintenance && panel?.active_maintenance as maintenance">
+          <h3>Mantenimiento</h3>
+          <article class="maintenance-box">
+            <strong>{{ maintenance.title }}</strong>
+            <p>{{ maintenance.description || 'Sin descripcion disponible.' }}</p>
+            <span>{{ maintenance.status_label || maintenance.status }}</span>
+          </article>
+        </section>
+
+        <section *ngIf="panel?.notes">
+          <h3>Notas</h3>
+          <p class="notes">{{ panel?.notes }}</p>
+        </section>
+
+        <section>
+          <h3>Estado operativo</h3>
+          <div class="info-list">
+            <div>
+              <span>Estado</span>
+              <strong>{{ statusLabel }}</strong>
+            </div>
+            <div>
+              <span>Piso</span>
+              <strong>{{ floorLabel }}</strong>
+            </div>
+            <div>
+              <span>Tarifa</span>
+              <strong>{{ priceLabel }}/noche</strong>
+            </div>
+          </div>
+        </section>
+      </ng-container>
+    </div>
+
+    <footer class="drawer-footer">
+      <div class="current-guest-actions" *ngIf="reservationCardReady">
+        <button type="button" class="btn btn-dark btn-full" (click)="openFullReservation()">
+          <i class="fa-regular fa-eye"></i>
+          Ver reserva completa
+        </button>
+
+        <button type="button" class="btn btn-light btn-room-change" *ngIf="!isLeavingToday" (click)="requestRoomChange()">
+          <i class="fa-solid fa-right-left"></i>
+          Cambio de habitacion
+        </button>
+      </div>
+
+      <div class="available-room-actions" *ngIf="showAvailableActions">
+        <button type="button" class="btn btn-dark" (click)="requestEdit()">
+          <i class="fa-regular fa-pen-to-square"></i>
+          Editar habitacion
+        </button>
+        <button type="button" class="btn btn-light" (click)="openCheckInFromRoom()">
+          <i class="fa-solid fa-right-to-bracket"></i>
+          Check-In
+        </button>
+        <button type="button" class="btn btn-light" (click)="openNewReservationFromRoom()">
+          <i class="fa-solid fa-plus"></i>
+          Nueva reserva
+        </button>
+      </div>
+
+      <button type="button" class="btn btn-light" *ngIf="canConfirmReservation" (click)="confirmReservation()" [disabled]="actionLoading">
+        {{ actionLoading ? 'Procesando...' : 'Confirmar reserva' }}
+      </button>
+      <button type="button" class="btn btn-light" *ngIf="canCheckInReservation" (click)="checkInReservation()" [disabled]="actionLoading">
+        {{ actionLoading ? 'Procesando...' : 'Registrar check-in' }}
+      </button>
+      <button type="button" class="btn btn-light" *ngIf="canCheckOutReservation" (click)="checkOutReservation()" [disabled]="actionLoading">
+        {{ actionLoading ? 'Procesando...' : 'Registrar check-out' }}
+      </button>
+
+      <button type="button" class="btn btn-danger" *ngIf="canMarkAsAvailable" (click)="markAsAvailable()" [disabled]="actionLoading">
+        {{ actionLoading ? 'Procesando...' : 'Marcar como disponible' }}
+      </button>
+    </footer>
+  </aside>
+</div>

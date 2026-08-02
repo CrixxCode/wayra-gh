@@ -1,0 +1,268 @@
+<div class="wrap">
+  <header class="page-header">
+    <div class="header-copy">
+      <h1>Master Data</h1>
+      <p>Administra catalogos maestros de tipo y estado en un solo lugar.</p>
+    </div>
+
+    <div class="actions">
+      <button class="btn ghost" (click)="loadMasterData()" [disabled]="loading">
+        <i class="fa-solid fa-rotate-right"></i>
+        Actualizar
+      </button>
+      <button class="btn ghost" (click)="openCreateGroup()">
+        <i class="fa-solid fa-layer-group"></i>
+        Nuevo grupo
+      </button>
+      <button class="btn primary" (click)="openCreate()">
+        <i class="fa-solid fa-plus"></i>
+        Nuevo valor
+      </button>
+    </div>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Registros totales</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-database"></i></span>
+      </div>
+      <div class="stat-value">{{ totalItems }}</div>
+      <div class="stat-note">Catalogo maestro</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Activos</span>
+        <span class="stat-icon green"><i class="fa-solid fa-check"></i></span>
+      </div>
+      <div class="stat-value">{{ activeItems }}</div>
+      <div class="stat-note">Disponibles para uso</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Inactivos</span>
+        <span class="stat-icon slate"><i class="fa-solid fa-pause"></i></span>
+      </div>
+      <div class="stat-value">{{ inactiveItems }}</div>
+      <div class="stat-note">No visibles en operacion</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Grupos</span>
+        <span class="stat-icon violet"><i class="fa-solid fa-layer-group"></i></span>
+      </div>
+      <div class="stat-value">{{ totalGroups }}</div>
+      <div class="stat-note">Estructuras registradas</div>
+    </article>
+
+    <article class="stat-card info">
+      <div class="stat-head">
+        <span>Resultados</span>
+        <span class="stat-icon cyan"><i class="fa-solid fa-filter"></i></span>
+      </div>
+      <div class="stat-value">{{ filteredItems.length }}</div>
+      <div class="stat-note">Segun filtros activos</div>
+    </article>
+  </section>
+
+  <div class="card filters">
+    <label class="search-field search-wrap gh-search-wrap">
+      <span>Buscar</span>
+      <div class="search-control gh-search-control">
+        <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+        <input class="gh-search-input" type="text" [(ngModel)]="search" (input)="applyFilters()" placeholder="Codigo, nombre o descripcion..." />
+      </div>
+    </label>
+
+    <label class="field">
+      <span>Grupo</span>
+      <select class="input" [(ngModel)]="selectedGroup" (change)="applyFilters()">
+        <option value="ALL">Todos</option>
+        @for (group of groups; track group.code) {
+          <option [value]="group.code">{{ group.label }} ({{ group.code }})</option>
+        }
+      </select>
+    </label>
+
+    <div class="field">
+      <span>Estado</span>
+      <div class="segmented">
+        <button class="seg" [class.active]="selectedStatus === 'ALL'" (click)="selectedStatus='ALL'; applyFilters()">Todos</button>
+        <button class="seg" [class.active]="selectedStatus === 'ACTIVE'" (click)="selectedStatus='ACTIVE'; applyFilters()">Activos</button>
+        <button class="seg" [class.active]="selectedStatus === 'INACTIVE'" (click)="selectedStatus='INACTIVE'; applyFilters()">Inactivos</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="table-toolbar">
+      <div class="table-title">Listado maestro</div>
+      <div class="table-meta">{{ filteredItems.length }} resultados</div>
+    </div>
+
+    @if (loading) {
+      <div class="state">
+        <span class="spinner"></span>
+        Cargando catalogo...
+      </div>
+    } @else if (filteredItems.length === 0) {
+      <div class="state">No hay datos para los filtros seleccionados.</div>
+    } @else {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Grupo</th>
+              <th>Codigo</th>
+              <th>Nombre</th>
+              <th>Descripcion</th>
+              <th>Orden</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of filteredItems; track item.id) {
+              <tr>
+                <td>
+                  <div class="cell-main">{{ item.group_label || item.group }}</div>
+                  <div class="cell-sub">{{ item.group }}</div>
+                </td>
+                <td>
+                  <span class="mono">{{ item.code }}</span>
+                </td>
+                <td>{{ item.name }}</td>
+                <td class="desc">{{ item.description || '-' }}</td>
+                <td>{{ item.sort_order }}</td>
+                <td>
+                  <span class="status" [class.ok]="item.is_active" [class.off]="!item.is_active">
+                    {{ getStatusLabel(item) }}
+                  </span>
+                </td>
+                <td>
+                  <div class="row-actions">
+                    <button class="row-btn" title="Editar" (click)="openEdit(item)">
+                      <i class="fa-regular fa-pen-to-square"></i>
+                    </button>
+                    <button class="row-btn danger" title="Eliminar" (click)="askDelete(item)">
+                      <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="table-footer">
+        Mostrando {{ filteredItems.length }} de {{ totalItems }} registros
+      </footer>
+    }
+  </div>
+
+  @if (showGroupQuickCreate) {
+    <div class="overlay" (click)="closeCreateGroup()"></div>
+    <div class="confirm group-create" (click)="$event.stopPropagation()">
+      <div class="c-title">Nuevo grupo</div>
+      <div class="c-sub">
+        Define el codigo del grupo. Luego se abrira el formulario de <b>Nuevo valor</b> con ese grupo preseleccionado.
+      </div>
+
+      <div class="c-body">
+        <label class="field">
+          <span>Codigo de grupo</span>
+          <input class="input mono" [(ngModel)]="newGroupCode" placeholder="Ej: PAYMENT_METHOD" />
+        </label>
+      </div>
+
+      <div class="c-actions">
+        <button class="btn ghost" (click)="closeCreateGroup()">Cancelar</button>
+        <button class="btn primary" (click)="startCreateWithNewGroup()">Continuar</button>
+      </div>
+    </div>
+  }
+
+  @if (showDrawer) {
+    <div class="overlay" (click)="closeDrawer()"></div>
+    <div class="drawer" (click)="$event.stopPropagation()">
+      <div class="drawer-head">
+        <div>
+          <div class="drawer-badge">Catalogo maestro</div>
+          <div class="drawer-title">{{ isEditing ? 'Editar valor' : 'Nuevo valor' }}</div>
+          <div class="muted">Define grupo, codigo y estado.</div>
+        </div>
+        <button class="icon-btn close-btn" (click)="closeDrawer()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="drawer-body">
+        <label class="field">
+          <span>Grupo</span>
+          <input
+            class="input"
+            [(ngModel)]="form.group"
+            list="master-data-group-options"
+            placeholder="Ej: ROOM_STATUS"
+          />
+          <datalist id="master-data-group-options">
+            @for (group of groups; track group.code) {
+              <option [value]="group.code">{{ group.label }}</option>
+            }
+          </datalist>
+          <small class="muted">Selecciona un grupo existente o escribe uno nuevo.</small>
+        </label>
+
+        <div class="grid2">
+          <label class="field">
+            <span>Codigo</span>
+            <input class="input" [(ngModel)]="form.code" placeholder="Ej: ROOM_AVAILABLE" />
+          </label>
+
+          <label class="field">
+            <span>Orden</span>
+            <input class="input" type="number" [(ngModel)]="form.sort_order" />
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Nombre</span>
+          <input class="input" [(ngModel)]="form.name" placeholder="Ej: Disponible" />
+        </label>
+
+        <label class="field">
+          <span>Descripcion</span>
+          <textarea class="input" rows="3" [(ngModel)]="form.description"></textarea>
+        </label>
+
+        <label class="field switch">
+          <span>Estado</span>
+          <button
+            type="button"
+            class="toggle"
+            [class.active]="form.is_active"
+            (click)="form.is_active = !form.is_active"
+          >
+            <span class="toggle-thumb"></span>
+            <span class="toggle-text">{{ form.is_active ? 'Activo' : 'Inactivo' }}</span>
+          </button>
+        </label>
+      </div>
+
+      <div class="drawer-foot">
+        <button class="btn ghost" (click)="closeDrawer()">Cancelar</button>
+        <button class="btn primary" [disabled]="saving" (click)="save()">
+          {{ saving ? 'Guardando...' : (isEditing ? 'Guardar cambios' : 'Crear valor') }}
+        </button>
+      </div>
+    </div>
+  }
+
+  <div class="toast" [class.show]="toastVisible" [class.ok]="toastKind==='success'" [class.bad]="toastKind==='danger'">
+    {{ toastText }}
+  </div>
+</div>

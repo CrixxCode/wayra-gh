@@ -1,0 +1,283 @@
+<div class="amenities-page">
+  <header class="page-header">
+    <div class="header-copy">
+      <h1>Amenidades</h1>
+      <p>Configura y administra amenidades reutilizables para habitaciones.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn primary" (click)="openCreate()">
+        <i class="fa-solid fa-plus"></i>
+        Nueva amenidad
+      </button>
+    </div>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-list-check"></i></span>
+      </div>
+      <div class="stat-value">{{ totalAmenities }}</div>
+      <div class="stat-note">Amenidades registradas</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Activas</span>
+        <span class="stat-icon green"><i class="fa-solid fa-check"></i></span>
+      </div>
+      <div class="stat-value">{{ activeAmenities }}</div>
+      <div class="stat-note">Disponibles en formularios</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Inactivas</span>
+        <span class="stat-icon slate"><i class="fa-solid fa-pause"></i></span>
+      </div>
+      <div class="stat-value">{{ inactiveAmenities }}</div>
+      <div class="stat-note">Ocultas para nuevas asignaciones</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>En uso</span>
+        <span class="stat-icon violet"><i class="fa-solid fa-bed"></i></span>
+      </div>
+      <div class="stat-value">{{ usedAmenities }}</div>
+      <div class="stat-note">Asignadas a habitaciones</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Sin uso</span>
+        <span class="stat-icon red"><i class="fa-solid fa-box-open"></i></span>
+      </div>
+      <div class="stat-value">{{ unusedAmenities }}</div>
+      <div class="stat-note">Pendientes por asignar</div>
+    </article>
+  </section>
+
+  <section class="filters-card">
+    <div class="filters-grid">
+      <label class="search-field search-wrap gh-search-wrap">
+        <span>Buscar</span>
+        <div class="search-control gh-search-control">
+          <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+          <input class="gh-search-input" type="text" [(ngModel)]="search" (input)="applyFilters()" placeholder="Buscar amenidad..." />
+        </div>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Estado</span>
+        <select class="gh-filter-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
+          <option value="ALL">Todos</option>
+          <option value="ACTIVE">Activas</option>
+          <option value="INACTIVE">Inactivas</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Uso</span>
+        <select
+          class="gh-filter-select"
+          [(ngModel)]="usageFilter"
+          (change)="applyFilters()"
+          [disabled]="!usageMetricsAvailable"
+        >
+          <option value="ALL">Todos</option>
+          <option value="IN_USE">En uso</option>
+          <option value="NO_USE">Sin uso</option>
+        </select>
+      </label>
+
+      <div class="filter-actions-inline">
+        <button type="button" class="icon-action" (click)="loadData()" [disabled]="loading" title="Actualizar">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+
+        <button type="button" class="icon-action" (click)="exportCsv()" title="Exportar">
+          <i class="fa-solid fa-download"></i>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="deleted-alert-card" *ngIf="!loading && deletedAmenitiesCount > 0">
+    <div class="deleted-alert-head">
+      <p class="state-note">
+        <i class="fa-solid fa-circle-info"></i>
+        Hay {{ deletedAmenitiesCount }} amenidad(es) eliminadas logicamente.
+      </p>
+      <div>
+        <button type="button" class="deleted-link" (click)="showDeletedAmenities = !showDeletedAmenities">
+          <i class="fa-solid" [class.fa-eye]="!showDeletedAmenities" [class.fa-eye-slash]="showDeletedAmenities"></i>
+          {{ showDeletedAmenities ? 'Ocultar eliminadas' : 'Ver eliminadas' }}
+        </button>
+      </div>
+    </div>
+
+    <article class="table-card" *ngIf="showDeletedAmenities">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Amenidad</th>
+              <th>Icono</th>
+              <th>Uso</th>
+              <th>Estado operativo</th>
+              <th>Accion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let amenity of deletedAmenities; trackBy: trackByAmenity">
+              <td>{{ amenity.name }}</td>
+              <td>{{ amenity.icon || '-' }}</td>
+              <td>{{ getUsageCount(amenity.id) }}</td>
+              <td>{{ amenity.is_active ? 'Activa' : 'Inactiva' }}</td>
+              <td>
+                <div class="row-actions">
+                  <button class="row-btn" title="Restaurar" (click)="restoreAmenity(amenity)">
+                    <i class="fa-solid fa-rotate-left"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <section class="table-card">
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ICONO</th>
+            <th>AMENIDAD &amp; DESCRIPCION</th>
+            <th>USO</th>
+            <th>ESTADO</th>
+            <th>CREADA</th>
+            <th>ACCIONES</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading">
+            <td colspan="6" class="table-empty">Cargando amenidades...</td>
+          </tr>
+
+          <tr *ngIf="!loading && loadWarning">
+            <td colspan="6" class="table-empty table-warning">{{ loadWarning }}</td>
+          </tr>
+
+          <tr *ngIf="!loading && !loadWarning && filteredAmenities.length === 0">
+            <td colspan="6" class="table-empty">No se encontraron amenidades.</td>
+          </tr>
+
+          <tr *ngFor="let amenity of filteredAmenities; trackBy: trackByAmenity">
+            <td>
+              <span class="amenity-icon">
+                <i [class]="amenity.icon || defaultIcon()"></i>
+              </span>
+            </td>
+            <td>
+              <div class="amenity-meta">
+                <div class="amenity-name">{{ amenity.name }}</div>
+                <div class="amenity-desc">{{ amenity.description || 'Sin descripcion' }}</div>
+              </div>
+            </td>
+            <td>
+              <span class="count-pill">{{ getUsageCount(amenity.id) }}</span>
+            </td>
+            <td>
+              <span class="status-pill" [class.off]="!amenity.is_active">
+                {{ amenity.is_active ? 'Activa' : 'Inactiva' }}
+              </span>
+            </td>
+            <td>{{ formatDate(amenity.created_at) }}</td>
+            <td>
+              <div class="row-actions">
+                <button class="row-btn" title="Editar" (click)="openEdit(amenity)">
+                  <i class="fa-regular fa-pen-to-square"></i>
+                </button>
+                <button class="row-btn danger" title="Eliminar" (click)="askDelete(amenity)">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="table-footer">
+      Mostrando {{ filteredAmenities.length }} de {{ totalAmenities }} amenidades
+    </footer>
+  </section>
+
+  <div class="overlay" *ngIf="showDrawer" (click)="closeDrawer()"></div>
+  <aside class="side-panel" *ngIf="showDrawer" (click)="$event.stopPropagation()">
+    <header class="panel-header">
+      <div>
+        <h2>{{ drawerMode === 'edit' ? 'Editar amenidad' : 'Nueva amenidad' }}</h2>
+        <p>Define nombre, icono de catalogo y estado.</p>
+      </div>
+      <button class="icon-btn" (click)="closeDrawer()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <div class="panel-body">
+      <label class="field">
+        <span>Nombre *</span>
+        <input class="input" [(ngModel)]="form.name" placeholder="Ej: WiFi premium" />
+      </label>
+
+      <label class="field">
+        <span>Descripcion</span>
+        <textarea class="input" rows="3" [(ngModel)]="form.description" placeholder="Detalle opcional para operacion"></textarea>
+      </label>
+
+      <div class="field">
+        <span>Icono *</span>
+        <div class="icons-grid">
+          <button
+            type="button"
+            class="icon-option"
+            *ngFor="let item of iconCatalog"
+            [class.active]="form.icon === item.value"
+            (click)="selectIcon(item.value)">
+            <i [class]="item.value"></i>
+            <small>{{ item.label }}</small>
+          </button>
+        </div>
+      </div>
+
+      <label class="switch-row">
+        <div>
+          <strong>Amenidad activa</strong>
+          <p>Si esta inactiva no aparecera al crear o editar habitaciones.</p>
+        </div>
+        <span class="switch-control">
+          <input type="checkbox" [(ngModel)]="form.is_active" />
+          <span class="slider"></span>
+        </span>
+      </label>
+    </div>
+
+    <footer class="panel-footer">
+      <button class="btn ghost" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+      <button class="btn primary" (click)="saveAmenity()" [disabled]="saving">
+        {{ saving ? 'Guardando...' : (drawerMode === 'edit' ? 'Guardar cambios' : 'Crear amenidad') }}
+      </button>
+    </footer>
+  </aside>
+
+  <div class="toast" [class.show]="toastVisible" [class.ok]="toastKind==='success'" [class.bad]="toastKind==='danger'">
+    {{ toastText }}
+  </div>
+</div>

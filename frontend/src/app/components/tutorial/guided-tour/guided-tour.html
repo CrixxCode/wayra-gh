@@ -1,0 +1,58 @@
+@if (active) {
+  <div class="guided-tour-layer" role="dialog" aria-modal="true" aria-labelledby="guided-tour-title">
+    <div class="guided-tour-backdrop" aria-hidden="true"></div>
+
+    @if (hasTarget) {
+      <div class="guided-tour-highlight" [ngStyle]="highlightStyle" aria-hidden="true"></div>
+    }
+
+    <article class="guided-tour-card" [ngStyle]="panelStyle">
+      <header class="guided-tour-header">
+        <span class="guided-tour-progress">{{ currentIndex + 1 }} de {{ steps.length }}</span>
+        <button
+          type="button"
+          class="guided-tour-icon-btn"
+          (click)="close()"
+          aria-label="Cerrar tutorial"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </header>
+
+      <h2 id="guided-tour-title">{{ currentStep.title }}</h2>
+      <p class="guided-tour-description">{{ currentStep.description }}</p>
+
+      @if (currentStep.detail) {
+        <p class="guided-tour-detail">{{ currentStep.detail }}</p>
+      }
+
+      <div class="guided-tour-dots" aria-label="Progreso del tutorial">
+        @for (step of steps; track step.id; let index = $index) {
+          <button
+            type="button"
+            [class.active]="index === currentIndex"
+            (click)="goToStep(index)"
+            [attr.aria-label]="'Ir al paso ' + (index + 1)"
+          ></button>
+        }
+      </div>
+
+      <footer class="guided-tour-actions">
+        <button type="button" class="guided-tour-btn ghost" (click)="close()">Salir</button>
+        <div class="guided-tour-step-actions">
+          <button
+            type="button"
+            class="guided-tour-btn light"
+            (click)="previous()"
+            [disabled]="currentIndex === 0"
+          >
+            Anterior
+          </button>
+          <button type="button" class="guided-tour-btn primary" (click)="next()">
+            {{ isLastStep ? 'Finalizar' : 'Siguiente' }}
+          </button>
+        </div>
+      </footer>
+    </article>
+  </div>
+}

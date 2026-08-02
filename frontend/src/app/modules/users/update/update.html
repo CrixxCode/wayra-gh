@@ -1,0 +1,143 @@
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="drawer-form">
+  <header class="drawer-head">
+    <div>
+      <h2>Editar usuario</h2>
+      <p>Actualiza la informacion principal de la cuenta</p>
+    </div>
+
+    <button type="button" class="head-close" (click)="cancel()" title="Cerrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+  </header>
+
+  <div class="drawer-body">
+    <section>
+      <h3>Perfil</h3>
+      <div class="avatar-block">
+        <div class="avatar-preview" *ngIf="avatarPreview; else defaultAvatar">
+          <img [src]="avatarPreview" alt="Avatar" />
+        </div>
+
+        <ng-template #defaultAvatar>
+          <div class="avatar-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+        </ng-template>
+
+        <label class="file-field">
+          <span>Avatar (URL)</span>
+          <input id="avatar" formControlName="avatar" type="url" placeholder="https://mi-dominio.com/avatar.jpg" />
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <h3>Datos personales</h3>
+      <div class="grid two">
+        <label>
+          <span>Nombre *</span>
+          <input id="first_name" formControlName="first_name" type="text" [class.input-error]="form.get('first_name')?.touched && form.get('first_name')?.invalid" />
+          <small class="field-error" *ngIf="form.get('first_name')?.touched && form.get('first_name')?.invalid">El nombre es obligatorio.</small>
+        </label>
+
+        <label>
+          <span>Apellido *</span>
+          <input id="last_name" formControlName="last_name" type="text" [class.input-error]="form.get('last_name')?.touched && form.get('last_name')?.invalid" />
+          <small class="field-error" *ngIf="form.get('last_name')?.touched && form.get('last_name')?.invalid">El apellido es obligatorio.</small>
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <h3>Cuenta</h3>
+      <div class="grid one">
+        <label>
+          <span>Nombre de usuario *</span>
+          <input id="username" formControlName="username" type="text" [class.input-error]="form.get('username')?.touched && form.get('username')?.invalid" />
+          <small class="field-error" *ngIf="form.get('username')?.touched && form.get('username')?.invalid">El usuario es obligatorio.</small>
+        </label>
+
+        <label>
+          <span>Correo electronico *</span>
+          <input id="email" formControlName="email" type="email" [class.input-error]="form.get('email')?.touched && form.get('email')?.invalid" />
+          <small class="field-error" *ngIf="form.get('email')?.touched && form.get('email')?.hasError('required')">El correo es obligatorio.</small>
+          <small class="field-error" *ngIf="form.get('email')?.touched && form.get('email')?.hasError('email')">Ingresa un correo valido.</small>
+        </label>
+
+        <label>
+          <span>Rol *</span>
+          <select
+            id="role"
+            formControlName="role"
+            [class.input-error]="form.get('role')?.touched && form.get('role')?.invalid"
+          >
+            <option [ngValue]="null">
+              {{ rolesLoading ? 'Cargando roles...' : 'Selecciona un rol' }}
+            </option>
+            <option *ngFor="let role of roles" [ngValue]="role.id">
+              {{ role.name }}
+            </option>
+          </select>
+          <small class="field-error" *ngIf="form.get('role')?.touched && form.get('role')?.invalid">
+            Debes seleccionar un rol.
+          </small>
+        </label>
+
+        <label>
+          <span>Cargo *</span>
+          <select
+            id="job_title_option"
+            formControlName="job_title_option"
+            [disabled]="!form.get('role')?.value || jobTitlesLoading"
+            [class.input-error]="form.get('job_title_option')?.touched && form.get('job_title_option')?.invalid"
+          >
+            <option [ngValue]="null">
+              {{
+                !form.get('role')?.value
+                  ? 'Primero selecciona un rol'
+                  : (jobTitlesLoading ? 'Cargando cargos...' : 'Selecciona un cargo')
+              }}
+            </option>
+            <option *ngFor="let jobTitle of jobTitles" [ngValue]="jobTitle.id">
+              {{ jobTitle.name }}
+            </option>
+          </select>
+          <small class="field-error" *ngIf="form.get('job_title_option')?.touched && form.get('job_title_option')?.invalid">
+            Debes seleccionar un cargo.
+          </small>
+        </label>
+
+        <label *ngIf="canSelectHotel">
+          <span>Hotel {{ isSuperAdmin ? '*' : '' }}</span>
+          <select id="hotel_settings" formControlName="hotel_settings" [class.input-error]="form.get('hotel_settings')?.touched && form.get('hotel_settings')?.invalid">
+            <option [ngValue]="null">{{ hotelsLoading ? 'Cargando hoteles...' : 'Selecciona un hotel' }}</option>
+            <option *ngFor="let hotel of hotels" [ngValue]="hotel.id">
+              {{ hotel.hotel_name || ('Hotel #' + hotel.id) }}
+            </option>
+          </select>
+          <small class="field-error" *ngIf="form.get('hotel_settings')?.touched && form.get('hotel_settings')?.invalid">
+            Debes seleccionar un hotel.
+          </small>
+        </label>
+
+        <label class="switch">
+          <span>Usuario activo</span>
+          <input id="is_active" formControlName="is_active" type="checkbox" />
+        </label>
+      </div>
+    </section>
+  </div>
+
+  <footer class="drawer-foot">
+    <button type="button" class="btn btn-light" (click)="cancel()">Cancelar</button>
+    <button type="submit" class="btn btn-dark" [disabled]="loading">
+      {{ loading ? 'Guardando...' : 'Guardar cambios' }}
+    </button>
+  </footer>
+</form>

@@ -1,0 +1,80 @@
+<div *ngIf="user" class="profile-drawer">
+  <header class="drawer-head">
+    <button type="button" class="head-close" (click)="closeDialog()" title="Cerrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </button>
+
+    <ng-container *ngIf="resolveAvatar(user.avatar) as avatarUrl; else noAvatar">
+      <img [src]="avatarUrl" alt="Avatar de {{ user.first_name }}" class="avatar" />
+    </ng-container>
+
+    <ng-template #noAvatar>
+      <div class="avatar avatar-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
+      </div>
+    </ng-template>
+
+    <h2>{{ user.first_name }} {{ user.last_name }}</h2>
+
+    <div class="drawer-badges">
+      <span class="chip role-chip">{{ getPrimaryRole() }}</span>
+      <span class="chip status-chip" [ngClass]="{ 'ok': isActive(), 'off': !isActive() }">
+        <span class="status-dot"></span>
+        {{ getStatusLabel() }}
+      </span>
+    </div>
+
+    <div class="drawer-kpis">
+      <div>
+        <strong>&#64;{{ user.username }}</strong>
+        <span>Usuario</span>
+      </div>
+      <div>
+        <strong>{{ getRolesCount() }}</strong>
+        <span>Roles</span>
+      </div>
+      <div>
+        <strong>{{ getJoinYear() }}</strong>
+        <span>Desde</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="drawer-body">
+    <section>
+      <h3>Contacto</h3>
+      <div class="info-list">
+        <div><span>Correo</span><strong>{{ user.email || 'No registra' }}</strong></div>
+        <div><span>Usuario</span><strong>&#64;{{ user.username }}</strong></div>
+      </div>
+    </section>
+
+    <section>
+      <h3>Permisos</h3>
+      <div class="info-list">
+        <div><span>Rol principal</span><strong>{{ getPrimaryRole() }}</strong></div>
+        <div><span>Total de roles</span><strong>{{ getRolesCount() }}</strong></div>
+        <div><span>Es staff</span><strong>{{ user.is_staff ? 'Si' : 'No' }}</strong></div>
+      </div>
+    </section>
+
+    <section>
+      <h3>Cuenta</h3>
+      <div class="info-list">
+        <div><span>Estado</span><strong>{{ getStatusLabel() }}</strong></div>
+        <div><span>Tipo de cuenta</span><strong>{{ user.is_staff ? 'Staff' : 'Estandar' }}</strong></div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="drawer-foot">
+    <button type="button" class="btn btn-dark" (click)="editUser()">Editar usuario</button>
+    <button type="button" class="btn btn-light" (click)="closeDialog()">Cerrar</button>
+  </footer>
+</div>

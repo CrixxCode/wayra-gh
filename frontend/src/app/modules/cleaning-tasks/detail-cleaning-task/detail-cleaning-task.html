@@ -1,0 +1,92 @@
+<div class="cleaning-task-overlay" (click)="closeDrawer()">
+  <aside class="cleaning-task-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div class="drawer-title-block">
+        <p class="drawer-type">{{ getRoomLabel() }}</p>
+        <h2>{{ getTaskTypeLabel() }}</h2>
+        <span
+          class="status-chip"
+          [ngStyle]="{
+            'background-color': getStatusTone().bg,
+            color: getStatusTone().color
+          }">
+          {{ getStatusLabel() }}
+        </span>
+      </div>
+
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="drawer-body">
+      <section class="hero-card">
+        <div>
+          <span>Fecha programada</span>
+          <strong>{{ formatDate(cleaningTaskData?.scheduled_for) }}</strong>
+        </div>
+        <div>
+          <span>Fecha finalizacion</span>
+          <strong>{{ formatDateTime(cleaningTaskData?.completed_at) }}</strong>
+        </div>
+      </section>
+
+      <section>
+        <h3>Resumen</h3>
+        <div class="info-list">
+          <div>
+            <span>Habitacion</span>
+            <strong>{{ getRoomLabel() }}</strong>
+          </div>
+          <div>
+            <span>Tipo</span>
+            <strong>{{ getTaskTypeLabel() }}</strong>
+          </div>
+          <div>
+            <span>Estado</span>
+            <strong>{{ getStatusLabel() }}</strong>
+          </div>
+          <div>
+            <span>Codigo</span>
+            <strong>{{ getTaskCode() }}</strong>
+          </div>
+          <div>
+            <span>Programada</span>
+            <strong>{{ formatDate(cleaningTaskData?.scheduled_for) }}</strong>
+          </div>
+          <div>
+            <span>Finalizada</span>
+            <strong>{{ formatDateTime(cleaningTaskData?.completed_at) }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Notas operativas</h3>
+        <p class="description">{{ cleaningTaskData?.notes || 'Sin notas registradas.' }}</p>
+      </section>
+
+      <section>
+        <h3>Trazabilidad</h3>
+        <div class="info-list">
+          <div>
+            <span>Creado</span>
+            <strong>{{ formatDateTime(cleaningTaskData?.created_at) }}</strong>
+          </div>
+          <div>
+            <span>ID</span>
+            <strong>#{{ cleaningTaskData?.id || '--' }}</strong>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="drawer-footer">
+      <button type="button" class="btn btn-light" (click)="requestStatusAdvance()">{{ getProgressActionLabel() }}</button>
+      <button type="button" class="btn btn-danger" (click)="requestDelete()">Eliminar</button>
+    </footer>
+  </aside>
+</div>

@@ -1,0 +1,422 @@
+<div class="maintenance-orders-page">
+  <header class="page-header">
+    <div>
+      <h1>Ordenes de Mantenimiento</h1>
+      <p>Gestiona incidencias tecnicas por habitacion con prioridad, estado y trazabilidad operativa.</p>
+    </div>
+
+    <button type="button" class="btn btn-dark" (click)="openCreateDrawer()" [disabled]="!canCreateOrder">
+      <i class="fa-solid fa-plus"></i>
+      Nueva orden
+    </button>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total ordenes</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-clipboard-list"></i></span>
+      </div>
+      <div class="stat-value">{{ totalOrders }}</div>
+      <div class="stat-note">registros de mantenimiento</div>
+    </article>
+
+    <article class="stat-card warning">
+      <div class="stat-head">
+        <span>Pendientes</span>
+        <span class="stat-icon gold"><i class="fa-regular fa-clock"></i></span>
+      </div>
+      <div class="stat-value">{{ pendingOrders }}</div>
+      <div class="stat-note">pendientes por iniciar</div>
+    </article>
+
+    <article class="stat-card info">
+      <div class="stat-head">
+        <span>En proceso</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+      </div>
+      <div class="stat-value">{{ inProgressOrders }}</div>
+      <div class="stat-note">intervenciones activas</div>
+    </article>
+
+    <article class="stat-card danger">
+      <div class="stat-head">
+        <span>Atrasadas</span>
+        <span class="stat-icon red"><i class="fa-solid fa-triangle-exclamation"></i></span>
+      </div>
+      <div class="stat-value">{{ delayedOrders }}</div>
+      <div class="stat-note">requieren atencion</div>
+    </article>
+
+    <article class="stat-card success">
+      <div class="stat-head">
+        <span>Completadas</span>
+        <span class="stat-icon green"><i class="fa-solid fa-circle-check"></i></span>
+      </div>
+      <div class="stat-value">{{ completedOrders }}</div>
+      <div class="stat-note">ordenes cerradas</div>
+    </article>
+  </section>
+
+  <section class="gh-filters-card">
+    <div class="gh-filters-grid maintenance-order-filters-grid">
+      <label class="search-field search-wrap gh-search-wrap">
+        <span>Buscar</span>
+        <div class="search-control gh-search-control">
+          <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+          <input
+            class="gh-search-input"
+            type="text"
+            [(ngModel)]="search"
+            (input)="applyFilters()"
+            placeholder="Buscar por habitacion, titulo, estado o descripcion..." />
+        </div>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Estado</span>
+        <select class="gh-filter-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
+          <option *ngFor="let statusOption of statusFilterOptions" [value]="statusOption.value">
+            {{ statusOption.label }}
+          </option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Prioridad</span>
+        <select class="gh-filter-select" [(ngModel)]="selectedPriorityFilter" (change)="applyFilters()">
+          <option *ngFor="let priorityOption of priorityFilterOptions" [value]="priorityOption.value">
+            {{ priorityOption.label }}
+          </option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Habitacion</span>
+        <select class="gh-filter-select" [(ngModel)]="selectedRoomFilter" (change)="applyFilters()">
+          <option *ngFor="let roomOption of roomFilterOptions" [value]="roomOption.value">{{ roomOption.label }}</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="gh-filters-actions">
+      <div class="gh-view-toggle">
+        <button type="button" title="Vista en tarjetas" [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')">
+          <i class="fa-solid fa-grip"></i>
+        </button>
+        <button type="button" title="Vista en tabla" [class.active]="viewMode === 'table'" (click)="setViewMode('table')">
+          <i class="fa-solid fa-table-list"></i>
+        </button>
+      </div>
+
+      <div class="gh-action-group">
+        <button type="button" class="gh-btn gh-btn-light" (click)="refreshMaintenanceOrders()" [disabled]="loading">
+          <i class="fa-solid fa-rotate-right"></i>
+          Actualizar
+        </button>
+
+        <button type="button" class="gh-btn gh-btn-light" (click)="exportCsv()">
+          <i class="fa-solid fa-file-export"></i>
+          Exportar
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="gh-filters-card" *ngIf="!loading && deletedMaintenanceOrdersCount > 0">
+    <div class="gh-filters-actions">
+      <p class="state-note">
+        Hay {{ deletedMaintenanceOrdersCount }} orden(es) eliminadas logicamente.
+      </p>
+      <div class="gh-action-group">
+        <button
+          type="button"
+          class="gh-btn gh-btn-light"
+          (click)="showDeletedMaintenanceOrders = !showDeletedMaintenanceOrders">
+          <i
+            class="fa-solid"
+            [class.fa-eye]="!showDeletedMaintenanceOrders"
+            [class.fa-eye-slash]="showDeletedMaintenanceOrders"></i>
+          {{ showDeletedMaintenanceOrders ? 'Ocultar eliminadas' : 'Ver eliminadas' }}
+        </button>
+      </div>
+    </div>
+
+    <article class="table-card" *ngIf="showDeletedMaintenanceOrders">
+      <div class="table-scroll">
+        <table class="maintenance-order-table">
+          <thead>
+            <tr>
+              <th>Codigo</th>
+              <th>Habitacion</th>
+              <th>Titulo</th>
+              <th>Prioridad</th>
+              <th>Estado</th>
+              <th>Accion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let order of deletedMaintenanceOrders; trackBy: trackByOrder">
+              <td class="code-cell">{{ getOrderCode(order) }}</td>
+              <td>{{ getRoomLabel(order) }}</td>
+              <td>{{ getTitleLabel(order) }}</td>
+              <td>{{ getPriorityLabel(order) }}</td>
+              <td>{{ getStatusLabel(order) }}</td>
+              <td>
+                <div class="table-actions">
+                  <button type="button" class="row-btn" title="Restaurar" (click)="restoreMaintenanceOrder(order)">
+                    <i class="fa-solid fa-rotate-left"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <section class="state-message" *ngIf="loading || errorMessage || infoMessage || filteredMaintenanceOrders.length === 0">
+    <p *ngIf="loading">Cargando ordenes de mantenimiento...</p>
+    <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p class="warning" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
+    <p *ngIf="!loading && !errorMessage && filteredMaintenanceOrders.length === 0">
+      No hay ordenes para los filtros seleccionados.
+    </p>
+  </section>
+
+  <section class="catalog-sections" *ngIf="!loading && !errorMessage && filteredMaintenanceOrders.length > 0">
+    <ng-container *ngIf="viewMode === 'cards'; else tableView">
+      <article class="category-block" *ngFor="let group of groupedMaintenanceOrders; trackBy: trackByGroup">
+        <header class="category-head">
+          <div class="category-title">
+            <span
+              class="category-icon"
+              [ngStyle]="{
+                'background-color': getGroupTone(group).iconBg,
+                color: getGroupTone(group).iconColor
+              }">
+              <i [class]="getGroupTone(group).icon"></i>
+            </span>
+            <h2>{{ group.label }}</h2>
+            <span class="category-count">{{ group.items.length }}</span>
+          </div>
+
+          <p class="category-note">
+            <i class="fa-regular fa-star"></i>
+            Se resaltan ordenes atrasadas o en proceso
+          </p>
+        </header>
+
+        <div class="maintenance-order-grid">
+          <article
+            class="maintenance-order-card"
+            *ngFor="let order of group.items; trackBy: trackByOrder"
+            (click)="openDetail(order)">
+            <div class="maintenance-order-cover" [ngStyle]="{ background: getGroupTone(group).cover }">
+              <div class="cover-badges">
+                <span
+                  class="cover-priority"
+                  [ngStyle]="{
+                    'background-color': getPriorityBadgeTone(order).bg,
+                    color: getPriorityBadgeTone(order).color
+                  }">
+                  {{ getPriorityLabel(order) }}
+                </span>
+
+                <span class="cover-badge" *ngIf="isHighlighted(group.key, order.id)">
+                  {{ isDelayed(order) ? 'Atrasada' : 'Prioritaria' }}
+                </span>
+              </div>
+
+              <span
+                class="status-chip"
+                [ngStyle]="{
+                  'background-color': getStatusTone(order).bg,
+                  color: getStatusTone(order).color
+                }">
+                {{ getStatusLabel(order) }}
+              </span>
+            </div>
+
+            <div class="maintenance-order-body">
+              <h3>{{ getTitleLabel(order) }}</h3>
+              <p>{{ getDescriptionLabel(order) }}</p>
+
+              <div class="meta-row">
+                <span>
+                  <i class="fa-solid fa-hotel"></i>
+                  {{ getRoomLabel(order) }}
+                </span>
+                <span>
+                  <i class="fa-solid fa-hashtag"></i>
+                  {{ getOrderCode(order) }}
+                </span>
+              </div>
+
+              <div class="progress-row">
+                <strong>{{ getStatusLabel(order) }}</strong>
+                <div class="progress-dates">
+                  <small>Estimada: {{ formatDateTime(order.estimated_completed_at) }}</small>
+                  <small>Real: {{ formatDateTime(order.completed_at) }}</small>
+                </div>
+              </div>
+
+              <div class="card-foot">
+                <span
+                  class="status-chip status-inline"
+                  [ngStyle]="{
+                    'background-color': getStatusTone(order).bg,
+                    color: getStatusTone(order).color
+                  }">
+                  <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(order).dot }"></span>
+                  {{ getStatusLabel(order) }}
+                </span>
+
+                <div class="card-actions" (click)="$event.stopPropagation()">
+                  <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(order)">
+                    <i class="fa-regular fa-eye"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="row-btn"
+                    [title]="getProgressActionLabel(order)"
+                    (click)="advanceOrderStatus(order)">
+                    <i [class]="getProgressActionIcon(order)"></i>
+                  </button>
+                  <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(order)">
+                    <i class="fa-regular fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </article>
+    </ng-container>
+
+    <ng-template #tableView>
+      <article class="table-card">
+        <div class="table-scroll">
+          <table class="maintenance-order-table">
+            <thead>
+              <tr>
+                <th>Codigo</th>
+                <th>Habitacion</th>
+                <th>Titulo</th>
+                <th>Prioridad</th>
+                <th>Estado</th>
+                <th>Reportada</th>
+                <th>Finalizacion estimada</th>
+                <th>Finalizacion real</th>
+                <th>Descripcion</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let order of filteredMaintenanceOrders; trackBy: trackByOrder" (click)="openDetail(order)">
+                <td class="code-cell">{{ getOrderCode(order) }}</td>
+                <td>{{ getRoomLabel(order) }}</td>
+                <td class="title-cell">{{ getTitleLabel(order) }}</td>
+                <td>
+                  <span
+                    class="table-priority"
+                    [ngStyle]="{
+                      'background-color': getPriorityBadgeTone(order).bg,
+                      color: getPriorityBadgeTone(order).color
+                    }">
+                    <span class="dot" [ngStyle]="{ 'background-color': getPriorityBadgeTone(order).dot }"></span>
+                    {{ getPriorityLabel(order) }}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    class="table-status"
+                    [ngStyle]="{
+                      'background-color': getStatusTone(order).bg,
+                      color: getStatusTone(order).color
+                    }">
+                    <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(order).dot }"></span>
+                    {{ getStatusLabel(order) }}
+                  </span>
+                </td>
+                <td>{{ formatDateTime(order.reported_at) }}</td>
+                <td>{{ formatDateTime(order.estimated_completed_at) }}</td>
+                <td>{{ formatDateTime(order.completed_at) }}</td>
+                <td class="description-cell">{{ getDescriptionLabel(order) }}</td>
+                <td>
+                  <div class="table-actions" (click)="$event.stopPropagation()">
+                    <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(order)">
+                      <i class="fa-regular fa-eye"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="row-btn"
+                      [title]="getProgressActionLabel(order)"
+                      (click)="advanceOrderStatus(order)">
+                      <i [class]="getProgressActionIcon(order)"></i>
+                    </button>
+                    <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(order)">
+                      <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </ng-template>
+  </section>
+
+  <app-create-maintenance-order
+    *ngIf="showCreateDrawer"
+    [rooms]="rooms"
+    [priorities]="priorities"
+    [statuses]="statuses"
+    (closed)="closeCreateDrawer()"
+    (created)="onMaintenanceOrderCreated()">
+  </app-create-maintenance-order>
+
+  <app-detail-maintenance-order
+    *ngIf="selectedMaintenanceOrder"
+    [maintenanceOrderData]="selectedMaintenanceOrder"
+    (closed)="closeDetail()"
+    (statusRequested)="advanceOrderStatus($event)"
+    (deleteRequested)="confirmDelete($event)">
+  </app-detail-maintenance-order>
+
+  <div
+    class="completion-comment-overlay"
+    *ngIf="showCompletionCommentModal"
+    (click)="closeCompletionCommentModal()">
+    <article class="completion-comment-modal" (click)="$event.stopPropagation()">
+      <header class="completion-comment-head">
+        <h3>Completar mantenimiento</h3>
+        <p>{{ getCompletionOrderCode() }} - {{ getCompletionRoomLabel() }}</p>
+      </header>
+
+      <div class="completion-comment-body">
+        <label for="maintenance-completion-comment-textarea">Comentario de cierre</label>
+        <textarea
+          id="maintenance-completion-comment-textarea"
+          rows="4"
+          maxlength="2000"
+          [(ngModel)]="completionComment"
+          [disabled]="statusUpdateLoading"
+          placeholder="Opcional: detalle final del mantenimiento realizado"></textarea>
+        <small>Se agregara a la descripcion tecnica de la orden.</small>
+        <p class="error" *ngIf="completionCommentError">{{ completionCommentError }}</p>
+      </div>
+
+      <footer class="completion-comment-footer">
+        <button type="button" class="btn btn-light" (click)="closeCompletionCommentModal()" [disabled]="statusUpdateLoading">
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-dark" (click)="submitCompletionWithComment()" [disabled]="statusUpdateLoading">
+          {{ statusUpdateLoading ? 'Guardando...' : 'Completar' }}
+        </button>
+      </footer>
+    </article>
+  </div>
+</div>

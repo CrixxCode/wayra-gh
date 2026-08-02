@@ -1,0 +1,83 @@
+<div class="login-shell">
+  <swiper-container
+    class="login-bg"
+    effect="fade"
+    autoplay-delay="4000"
+    autoplay-disable-on-interaction="false"
+    loop="true"
+    speed="1500">
+    <swiper-slide *ngFor="let bg of backgrounds">
+      <img [src]="bg" alt="Fondo hotel" />
+    </swiper-slide>
+  </swiper-container>
+
+  <div class="login-overlay" aria-hidden="true"></div>
+
+  <section class="login-card" aria-label="Inicio de sesion">
+    <header class="login-head">
+      <span class="login-chip">Acceso seguro</span>
+      <div class="login-brand">
+        <img src="/favicon.ico" alt="Logo Wayra" />
+        <div>
+          <h1>Wayra</h1>
+          <p>Gestion hotelera en una sola plataforma</p>
+        </div>
+      </div>
+      <h2>Iniciar sesion</h2>
+    </header>
+
+    <div *ngIf="errorMessage" class="login-alert" [ngClass]="{
+      'is-error': errorType === 'error',
+      'is-warn': errorType === 'warn'
+    }">
+      {{ errorMessage }}
+    </div>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+      <div class="login-field">
+        <label for="username">Usuario</label>
+        <input
+          pInputText
+          id="username"
+          formControlName="username"
+          placeholder="Ingresa tu usuario"
+          class="login-input" />
+      </div>
+
+      <div class="login-field">
+        <label for="password">Contrasena</label>
+        <p-password
+          id="password"
+          formControlName="password"
+          [feedback]="false"
+          [toggleMask]="true"
+          styleClass="login-password"
+          inputStyleClass="login-password-input"
+          placeholder="**********">
+        </p-password>
+      </div>
+
+      <div class="login-meta">
+        <div class="remember">
+          <p-checkbox binary="true" inputId="rememberMe" formControlName="rememberMe"></p-checkbox>
+          <label for="rememberMe">Recordarme</label>
+        </div>
+        <a routerLink="/forgot-password">Olvide mi contrasena</a>
+      </div>
+
+      <button
+        pButton
+        type="submit"
+        label="Ingresar"
+        class="login-submit">
+      </button>
+    </form>
+  </section>
+
+  <app-loading-screen
+    [visible]="showLoading"
+    [message]="'Bienvenido ' + loginForm.value.username"
+    color="#0f1f41">
+  </app-loading-screen>
+</div>
+

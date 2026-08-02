@@ -1,0 +1,224 @@
+<header class="app-header-shell w-full h-16 px-3 sm:px-6 flex items-center border-b">
+  <div class="flex items-center justify-between w-full">
+    <!-- IZQUIERDA: Boton hamburguesa + contexto del hotel -->
+    <div class="header-left flex items-center min-w-0">
+      <button
+        class="header-menu-btn p-2 rounded-lg inline-flex items-center justify-center"
+        (click)="menuToggle.emit()"
+        aria-label="Abrir menu lateral"
+      >
+        <i class="fa-solid fa-bars text-lg"></i>
+      </button>
+
+      <label
+        class="hotel-context-selector"
+        *ngIf="isGlobalAdmin && (hotelOptions.length > 0 || hotelSelectorLoading)"
+        data-tour="hotel-context"
+      >
+        <span>Hotel activo</span>
+        <div class="hotel-context-control">
+          <i class="fa-solid fa-hotel"></i>
+          <select
+            [(ngModel)]="selectedHotelSettingsId"
+            (change)="onHotelSelectionChange()"
+            [disabled]="hotelSelectorLoading || !isGlobalAdmin"
+            aria-label="Seleccionar hotel activo">
+            <option *ngIf="hotelSelectorLoading" [ngValue]="null">Cargando hoteles...</option>
+            <option *ngFor="let hotel of hotelOptions" [ngValue]="hotel.id">
+              {{ hotel.hotel_name }}
+            </option>
+          </select>
+          <i class="fa-solid fa-chevron-down selector-chevron"></i>
+        </div>
+      </label>
+    </div>
+
+    <!-- DERECHA: Notificaciones + menu usuario -->
+    <div class="flex items-center gap-3 sm:gap-6 relative ml-auto">
+      <button
+        type="button"
+        class="header-tour-btn p-2 rounded-lg transition-colors"
+        (click)="startGuidedTour()"
+        aria-label="Iniciar tutorial guiado"
+        title="Tutorial guiado"
+        data-tour="tour-entry"
+      >
+        <i class="fa-regular fa-circle-question text-lg"></i>
+      </button>
+
+      <div class="relative notifications-menu" data-tour="notifications">
+        <button
+          class="header-notification-btn relative p-2 rounded-lg transition-colors"
+          (click)="toggleNotifications()"
+          aria-label="Abrir notificaciones"
+        >
+          <i class="fa-regular fa-bell text-lg"></i>
+          <span
+            *ngIf="unreadCount > 0"
+            class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[11px] font-semibold flex items-center justify-center"
+          >
+            {{ unreadCount > 9 ? '9+' : unreadCount }}
+          </span>
+        </button>
+
+        <div
+          *ngIf="notificationsOpen"
+          class="absolute right-0 mt-3 w-[370px] max-w-[90vw] bg-white rounded-lg shadow-lg border border-gray-100 z-50 animate-fade-in"
+        >
+          <div class="px-4 py-3 border-b border-gray-100 flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-semibold text-gray-800">Notificaciones</p>
+              <p class="text-xs text-gray-500">{{ unreadCount }} sin leer - {{ readCount }} leidas</p>
+            </div>
+
+            <div class="inline-flex items-center gap-2">
+              <button
+                class="text-xs text-gray-500 hover:text-gray-700"
+                type="button"
+                (click)="refreshNotifications()"
+                [disabled]="notificationsLoading"
+              >
+                <i class="fa-solid fa-rotate-right" [class.fa-spin]="notificationsLoading"></i>
+              </button>
+              <button
+                class="text-xs text-[#1F2937] hover:underline disabled:text-gray-400"
+                type="button"
+                (click)="markNotificationsAsRead()"
+                [disabled]="unreadCount === 0"
+              >
+                Marcar leidas
+              </button>
+            </div>
+          </div>
+
+          <div class="max-h-80 overflow-y-auto">
+            <div *ngIf="notificationsLoading" class="px-4 py-6 text-sm text-gray-500">
+              Cargando notificaciones...
+            </div>
+
+            <div *ngIf="!notificationsLoading && notificationsError" class="px-4 py-6 text-sm text-red-600">
+              {{ notificationsError }}
+            </div>
+
+            <ul
+              *ngIf="!notificationsLoading && !notificationsError && notifications.length > 0"
+              class="divide-y divide-gray-100"
+            >
+              <li *ngFor="let notification of notifications">
+                <button
+                  type="button"
+                  class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3"
+                  (click)="openNotification(notification)"
+                >
+                  <span
+                    class="w-8 h-8 rounded-lg inline-flex items-center justify-center flex-shrink-0"
+                    [ngClass]="{
+                      'bg-amber-100 text-amber-600': notification.tone === 'warning',
+                      'bg-blue-100 text-blue-600': notification.tone === 'info',
+                      'bg-green-100 text-green-600': notification.tone === 'success'
+                    }"
+                  >
+                    <i [class]="notification.icon"></i>
+                  </span>
+
+                  <span class="min-w-0 flex-1">
+                    <span class="block text-sm font-medium text-gray-800 truncate">{{ notification.title }}</span>
+                    <span class="block text-xs text-gray-500 truncate">{{ notification.detail }}</span>
+                    <span class="block text-[11px] text-gray-400 mt-1">{{ notification.age }}</span>
+                    <span
+                      class="block text-[11px] mt-1 font-medium"
+                      [ngClass]="notification.unread ? 'text-blue-600' : 'text-gray-400'"
+                    >
+                      {{ notification.unread ? 'No leida' : 'Leida' }}
+                    </span>
+                  </span>
+
+                  <span
+                    *ngIf="notification.unread"
+                    class="mt-1 w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"
+                    aria-hidden="true"
+                  ></span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <div class="px-4 py-2 border-t border-gray-100">
+            <button
+              type="button"
+              class="w-full text-sm font-medium text-[#1F2937] hover:underline text-left"
+              (click)="openAllNotifications()"
+            >
+              Ver registro completo
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="relative user-menu" data-tour="user-menu">
+        <button
+          class="flex items-center gap-3 group"
+          (click)="toggleMenu()"
+          aria-label="Abrir menu de usuario"
+        >
+          <div class="text-right leading-tight">
+            <p class="header-user-name font-medium">{{ userName }}</p>
+            <p class="header-user-role text-sm">{{ userRole }}</p>
+          </div>
+          <img
+            [src]="userAvatar"
+            [alt]="userName || 'Usuario'"
+            class="header-avatar w-12 h-12 rounded-full border-2 group-hover:scale-105 transition-transform object-cover"
+          />
+          <i class="header-chevron fa-solid fa-chevron-down ml-2"></i>
+        </button>
+
+        <div
+          *ngIf="menuOpen"
+          class="absolute right-0 mt-3 w-56 bg-white rounded-lg shadow-lg border border-gray-100 z-50 animate-fade-in"
+        >
+          <ul class="divide-y divide-gray-100">
+            <li>
+              <button
+                class="w-full text-left px-4 py-3 hover:bg-gray-100 flex items-center gap-2"
+                (click)="openProfile()"
+              >
+                <i class="fa-regular fa-user text-gray-600 w-5"></i>
+                Mi perfil
+              </button>
+            </li>
+            <li>
+              <button
+                class="w-full text-left px-4 py-3 hover:bg-gray-100 flex items-center gap-2"
+                (click)="openSettings()"
+              >
+                <i class="fa-solid fa-gear text-gray-600 w-5"></i>
+                Configuracion general
+              </button>
+            </li>
+            <li>
+              <button
+                class="w-full text-left px-4 py-3 hover:bg-gray-100 flex items-center gap-2"
+                (click)="toggleTheme()"
+              >
+                <i [class]="darkMode ? 'fa-solid fa-sun text-gray-600 w-5' : 'fa-solid fa-moon text-gray-600 w-5'"></i>
+                {{ darkMode ? 'Modo claro' : 'Modo oscuro' }}
+              </button>
+            </li>
+            <li>
+              <button
+                class="w-full text-left px-4 py-3 hover:bg-red-50 text-red-600 flex items-center gap-2"
+                (click)="logout()"
+              >
+                <i class="fa-solid fa-right-from-bracket w-5"></i>
+                Cerrar sesion
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+<app-logout-screen *ngIf="showLogout"></app-logout-screen>
+

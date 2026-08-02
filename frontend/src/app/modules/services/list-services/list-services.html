@@ -1,0 +1,268 @@
+<div class="services-page">
+  <header class="page-header">
+    <div>
+      <h1>Servicios & Consumos</h1>
+      <p>Catalogo operativo de servicios para room service, restaurante, minibar y actividades.</p>
+    </div>
+
+    <button type="button" class="btn btn-dark" (click)="openCreateDrawer()">
+      <i class="fa-solid fa-plus"></i>
+      Nuevo servicio
+    </button>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total servicios</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-layer-group"></i></span>
+      </div>
+      <div class="stat-value">{{ totalServices }}</div>
+      <div class="stat-note">Items en catalogo</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Activos</span>
+        <span class="stat-icon green"><i class="fa-solid fa-circle-check"></i></span>
+      </div>
+      <div class="stat-value">{{ activeServices }}</div>
+      <div class="stat-note">Disponibles para venta</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Inactivos</span>
+        <span class="stat-icon red"><i class="fa-solid fa-circle-pause"></i></span>
+      </div>
+      <div class="stat-value">{{ inactiveServices }}</div>
+      <div class="stat-note">No disponibles para venta</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Categoria top</span>
+        <span class="stat-icon gold"><i class="fa-solid fa-chart-simple"></i></span>
+      </div>
+      <div class="stat-value">{{ topCategoryLabel }}</div>
+      <div class="stat-note">{{ topCategoryCount }} servicios en esa categoria</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Precio promedio</span>
+        <span class="stat-icon purple"><i class="fa-solid fa-wallet"></i></span>
+      </div>
+      <div class="stat-value stat-money">{{ averagePriceLabel }}</div>
+      <div class="stat-note">{{ categoryCount }} categorias activas</div>
+    </article>
+  </section>
+
+  <section class="filters-card">
+    <div class="filters-grid">
+      <label class="search-field search-wrap gh-search-wrap">
+        <span>Buscar</span>
+        <div class="search-control gh-search-control">
+          <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+          <input
+            class="gh-search-input"
+            type="text"
+            [(ngModel)]="search"
+            (input)="applyFilters()"
+            placeholder="Buscar por nombre, descripcion o tipo..."
+          />
+        </div>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Estado</span>
+        <select class="gh-filter-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
+          <option *ngFor="let statusOption of statusOptions" [ngValue]="statusOption.value">{{ statusOption.label }}</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Tipo</span>
+        <select class="gh-filter-select" [(ngModel)]="selectedTypeFilter" (change)="applyFilters()">
+          <option *ngFor="let tab of typeTabs; trackBy: trackByTab" [value]="tab.key">{{ tab.label }}</option>
+        </select>
+      </label>
+
+      <div class="filter-actions-inline">
+        <button type="button" class="icon-action" (click)="refreshServices()" [disabled]="loading" title="Actualizar">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+
+        <button type="button" class="icon-action" (click)="exportCsv()" title="Exportar">
+          <i class="fa-solid fa-download"></i>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="deleted-alert-card" *ngIf="!loading && deletedServicesCount > 0">
+    <div class="deleted-alert-head">
+      <p class="state-note">
+        <i class="fa-solid fa-circle-info"></i>
+        Hay {{ deletedServicesCount }} servicio(s) eliminados logicamente.
+      </p>
+      <div>
+        <button type="button" class="deleted-link" (click)="showDeletedServices = !showDeletedServices">
+          <i class="fa-solid" [class.fa-eye]="!showDeletedServices" [class.fa-eye-slash]="showDeletedServices"></i>
+          {{ showDeletedServices ? 'Ocultar eliminados' : 'Ver eliminados' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="table-scroll" *ngIf="showDeletedServices">
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Tipo</th>
+            <th>Precio base</th>
+            <th>Estado operativo</th>
+            <th>Accion</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let service of deletedServices; trackBy: trackByService">
+            <td>{{ service.name }}</td>
+            <td>{{ getServiceTypeLabel(service) }}</td>
+            <td>{{ getPriceLabel(service) }}</td>
+            <td>{{ service.is_active ? 'Activo' : 'Inactivo' }}</td>
+            <td>
+              <div class="table-actions">
+                <button type="button" class="row-btn" title="Restaurar" (click)="restoreService(service)">
+                  <i class="fa-solid fa-rotate-left"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="state-message" *ngIf="loading || errorMessage || infoMessage || groupedServices.length === 0">
+    <p *ngIf="loading">Cargando catalogo de servicios...</p>
+    <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p class="warning" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
+    <p *ngIf="!loading && !errorMessage && groupedServices.length === 0">No hay servicios para los filtros seleccionados.</p>
+  </section>
+
+  <section class="catalog-sections" *ngIf="!loading && !errorMessage && groupedServices.length > 0">
+    <article class="category-block" *ngFor="let group of groupedServices; trackBy: trackByGroup">
+      <header class="category-head">
+        <div class="category-title">
+          <span
+            class="category-icon"
+            [ngStyle]="{
+              'background-color': getGroupTone(group).iconBg,
+              color: getGroupTone(group).iconColor
+            }">
+            <i [class]="getGroupTone(group).icon"></i>
+          </span>
+          <h2>{{ group.label }}</h2>
+          <span class="category-count">{{ group.items.length }}</span>
+        </div>
+      </header>
+
+      <div class="services-grid">
+        <article
+          class="service-card"
+          *ngFor="let service of group.items; trackBy: trackByService"
+          (click)="openDetail(service)">
+          <div class="service-cover" [ngStyle]="{ background: getGroupTone(group).cover }">
+            <i [ngClass]="['cover-symbol', getGroupTone(group).icon]"></i>
+            <div class="cover-badges">
+              <span class="cover-badge" *ngIf="isPopular(group.key, service.id)">Popular</span>
+              <span
+                class="cover-type"
+                [ngStyle]="{
+                  'background-color': getGroupTone(group).badgeBg,
+                  color: getGroupTone(group).badgeColor
+                }">
+                {{ getServiceTypeLabel(service) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="service-body">
+            <h3>{{ service.name }}</h3>
+            <p>{{ getServiceDescription(service) }}</p>
+
+            <div class="price-row">
+              <strong>{{ getPriceLabel(service) }}</strong>
+              <small>por {{ getUnitLabel(service) }}</small>
+            </div>
+
+            <div class="card-foot">
+              <span
+                class="status-chip"
+                [ngStyle]="{
+                  'background-color': getStatusTone(service).bg,
+                  color: getStatusTone(service).color
+                }">
+                <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(service).dot }"></span>
+                {{ service.is_active ? 'Activo' : 'Inactivo' }}
+              </span>
+
+              <div class="card-actions" (click)="$event.stopPropagation()">
+                <button type="button" class="row-btn primary-action" title="Ver detalle" (click)="openDetail(service)">
+                  <i class="fa-regular fa-eye"></i>
+                  <span>Ver</span>
+                </button>
+                <button type="button" class="row-btn" title="Editar" (click)="openUpdateDrawer(service)">
+                  <i class="fa-regular fa-pen-to-square"></i>
+                </button>
+                <button
+                  type="button"
+                  class="row-btn"
+                  [title]="service.is_active ? 'Desactivar' : 'Activar'"
+                  (click)="toggleServiceStatus(service)">
+                  <i [class]="service.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+                </button>
+                <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(service)">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <button type="button" class="add-service-card" (click)="openCreateDrawer()">
+          <span><i class="fa-solid fa-plus"></i></span>
+          <strong>Anadir servicio</strong>
+          <small>Para {{ group.label }}</small>
+        </button>
+      </div>
+    </article>
+  </section>
+
+  <app-create-service
+    *ngIf="showCreateDrawer"
+    [serviceTypes]="serviceTypes"
+    [hotelSettingsId]="hotelSettingsId"
+    (closed)="closeCreateDrawer()"
+    (created)="onServiceCreated()">
+  </app-create-service>
+
+  <app-update-service
+    *ngIf="showUpdateDrawer && serviceToEdit"
+    [service]="serviceToEdit"
+    [serviceTypes]="serviceTypes"
+    [hotelSettingsId]="hotelSettingsId"
+    (closed)="closeUpdateDrawer()"
+    (updated)="onServiceUpdated()">
+  </app-update-service>
+
+  <app-detail-service
+    *ngIf="selectedService"
+    [service]="selectedService"
+    (closed)="closeDetail()"
+    (editRequested)="openUpdateFromDetail($event)"
+    (statusRequested)="toggleServiceStatus($event)"
+    (deleteRequested)="confirmDelete($event)">
+  </app-detail-service>
+</div>

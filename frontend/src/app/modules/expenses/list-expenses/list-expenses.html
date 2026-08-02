@@ -1,0 +1,256 @@
+<div class="expenses-page">
+  <header class="page-header">
+    <div>
+      <h1>Egresos</h1>
+      <p>Registro y control de salidas de dinero por categoria, proveedor y metodo de pago.</p>
+    </div>
+
+    <button type="button" class="btn btn-dark" (click)="openCreateDrawer()" [disabled]="!canCreateExpense">
+      <i class="fa-solid fa-plus"></i>
+      Nuevo egreso
+    </button>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total egresos</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-receipt"></i></span>
+      </div>
+      <div class="stat-value">{{ totalExpenses }}</div>
+      <div class="stat-note">registros historicos</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Activos</span>
+        <span class="stat-icon green"><i class="fa-solid fa-circle-check"></i></span>
+      </div>
+      <div class="stat-value">{{ activeExpensesCount }}</div>
+      <div class="stat-note">egresos vigentes</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total egresado</span>
+        <span class="stat-icon red"><i class="fa-solid fa-arrow-trend-down"></i></span>
+      </div>
+      <div class="stat-value stat-money">{{ totalSpentLabel }}</div>
+      <div class="stat-note">solo registros activos</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Ticket promedio</span>
+        <span class="stat-icon gray"><i class="fa-solid fa-chart-column"></i></span>
+      </div>
+      <div class="stat-value stat-money">{{ averageExpenseLabel }}</div>
+      <div class="stat-note">monto medio por egreso</div>
+    </article>
+  </section>
+
+  <section class="gh-filters-card">
+    <div class="gh-filters-grid expenses-filters-grid">
+      <label class="search-field search-wrap gh-search-wrap">
+        <span>Buscar</span>
+        <div class="search-control gh-search-control">
+          <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+          <input
+            class="gh-search-input"
+            type="text"
+            [(ngModel)]="search"
+            (input)="applyFilters()"
+            placeholder="Buscar por concepto, proveedor, categoria o referencia..." />
+        </div>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Estado</span>
+        <select class="gh-filter-select" [(ngModel)]="activityFilter" (change)="applyFilters()">
+          <option *ngFor="let option of activityOptions" [ngValue]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Categoria</span>
+        <select class="gh-filter-select" [(ngModel)]="categoryFilter" (change)="applyFilters()">
+          <option *ngFor="let option of categoryOptions" [ngValue]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Metodo</span>
+        <select class="gh-filter-select" [(ngModel)]="methodFilter" (change)="applyFilters()">
+          <option *ngFor="let option of methodOptions" [ngValue]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="gh-filters-actions">
+      <div class="gh-view-toggle">
+        <button type="button" [class.active]="viewMode === 'table'" (click)="setViewMode('table')" title="Vista tabla">
+          <i class="fa-solid fa-list"></i>
+        </button>
+        <button type="button" [class.active]="viewMode === 'grid'" (click)="setViewMode('grid')" title="Vista cuadricula">
+          <i class="fa-solid fa-grip"></i>
+        </button>
+      </div>
+
+      <div class="gh-action-group">
+        <button type="button" class="gh-btn gh-btn-light" (click)="refreshExpensesData()" [disabled]="loading">
+          <i class="fa-solid fa-rotate-right"></i>
+          Actualizar
+        </button>
+
+        <button type="button" class="gh-btn gh-btn-light" (click)="exportCsv()">
+          <i class="fa-solid fa-file-export"></i>
+          Exportar
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="state-message" *ngIf="loading || errorMessage || infoMessage || filteredExpenses.length === 0">
+    <p *ngIf="loading">Cargando egresos...</p>
+    <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p class="info" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
+    <p *ngIf="!loading && !errorMessage && !infoMessage && filteredExpenses.length === 0">
+      No hay egresos para los filtros seleccionados.
+    </p>
+  </section>
+
+  <section class="table-card" *ngIf="!loading && !errorMessage && filteredExpenses.length > 0 && viewMode === 'table'">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Codigo</th>
+            <th>Concepto</th>
+            <th>Categoria</th>
+            <th>Tipo</th>
+            <th>Comportamiento</th>
+            <th>Metodo</th>
+            <th>Fecha</th>
+            <th>Monto</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr
+            *ngFor="let expense of filteredExpenses; trackBy: trackByExpense"
+            class="clickable-row"
+            (click)="openDetail(expense)">
+            <td>
+              <p class="table-main">{{ getExpenseCode(expense) }}</p>
+              <small>{{ getRecordDateLabel(expense) }}</small>
+            </td>
+
+            <td>
+              <p class="table-main">{{ expense.concept }}</p>
+              <small>{{ expense.supplier_name || 'Sin proveedor' }}</small>
+            </td>
+
+            <td>{{ getCategoryLabel(expense) }}</td>
+            <td>{{ getExpenseTypeLabel(expense) }}</td>
+            <td>{{ getCostBehaviorLabel(expense) }}</td>
+            <td>{{ getMethodLabel(expense) }}</td>
+            <td>{{ getExpenseDateLabel(expense) }}</td>
+            <td>
+              <p class="table-main">{{ getAmountLabel(expense) }}</p>
+              <small>{{ expense.reference ? ('Ref: ' + expense.reference) : 'Sin referencia' }}</small>
+            </td>
+
+            <td>
+              <span
+                class="status-chip"
+                [ngStyle]="{
+                  'background-color': getStatusTone(expense).bg,
+                  color: getStatusTone(expense).color
+                }">
+                <span class="dot" [ngStyle]="{ 'background-color': getStatusTone(expense).dot }"></span>
+                {{ expense.is_active ? 'Activo' : 'Inactivo' }}
+              </span>
+            </td>
+
+            <td>
+              <div class="row-actions">
+                <button type="button" class="row-btn" title="Ver detalle" (click)="$event.stopPropagation(); openDetail(expense)">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="expense-grid" *ngIf="!loading && !errorMessage && filteredExpenses.length > 0 && viewMode === 'grid'">
+    <article
+      class="expense-card"
+      *ngFor="let expense of filteredExpenses; trackBy: trackByExpense"
+      (click)="openDetail(expense)">
+      <header class="expense-head">
+        <div>
+          <span class="expense-code">{{ getExpenseCode(expense) }}</span>
+          <small>{{ getExpenseDateLabel(expense) }}</small>
+        </div>
+
+        <span
+          class="status-chip"
+          [ngStyle]="{
+            'background-color': getStatusTone(expense).bg,
+            color: getStatusTone(expense).color
+          }">
+          <span class="dot" [ngStyle]="{ 'background-color': getStatusTone(expense).dot }"></span>
+          {{ expense.is_active ? 'Activo' : 'Inactivo' }}
+        </span>
+      </header>
+
+      <div class="expense-body">
+        <div class="concept-block">
+          <h3>{{ expense.concept }}</h3>
+          <p>{{ expense.supplier_name || 'Proveedor no especificado' }}</p>
+        </div>
+
+        <div class="meta-row">
+          <span>{{ getCategoryLabel(expense) }}</span>
+          <span>{{ getExpenseTypeLabel(expense) }}</span>
+          <span>{{ getCostBehaviorLabel(expense) }}</span>
+          <span>{{ getMethodLabel(expense) }}</span>
+          <span *ngIf="expense.reference">Ref: {{ expense.reference }}</span>
+        </div>
+      </div>
+
+      <footer class="expense-foot">
+        <div>
+          <small>Monto</small>
+          <strong>{{ getAmountLabel(expense) }}</strong>
+        </div>
+
+        <button type="button" class="row-btn" (click)="openDetail(expense); $event.stopPropagation()">
+          <i class="fa-regular fa-eye"></i>
+          Ver detalle
+        </button>
+      </footer>
+    </article>
+  </section>
+
+  <app-create-expense
+    *ngIf="showCreateDrawer"
+    [hotelSettingsId]="hotelSettingsId"
+    [expenseCategories]="expenseCategories"
+    [paymentMethods]="paymentMethods"
+    (cancelled)="closeCreateDrawer()"
+    (created)="onExpenseCreated($event)">
+  </app-create-expense>
+
+  <app-detail-expense
+    *ngIf="selectedExpense"
+    [expense]="selectedExpense"
+    (closed)="closeDetail()"
+    (expenseUpdated)="onExpenseUpdated($event)">
+  </app-detail-expense>
+</div>

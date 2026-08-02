@@ -1,0 +1,87 @@
+<section class="forbidden-page">
+  <div class="hero-card">
+    <div class="hero-toolbar">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+
+    <div class="hero-lock-wrap">
+      <div class="hero-lock-ring"></div>
+      <div class="hero-lock-ring ring-inner"></div>
+      <i class="pi pi-lock hero-lock"></i>
+      <span class="hero-alert">!</span>
+    </div>
+
+    <div class="hero-center">
+      <h2>403</h2>
+      <p>ACCESO DENEGADO</p>
+    </div>
+  </div>
+
+  <article class="info-card">
+    <div class="title-block">
+      <div class="title-icon">
+        <i class="pi pi-ban"></i>
+      </div>
+      <div>
+        <h1>Sin autorizacion</h1>
+        <p>
+          No tienes permisos suficientes para acceder a este recurso. Contacta al administrador del sistema si crees
+          que esto es un error.
+        </p>
+      </div>
+    </div>
+
+    <div class="meta-list">
+      <div class="meta-row">
+        <span class="meta-label"><i class="pi pi-user"></i>Usuario activo</span>
+        <span class="meta-value">{{ username }}</span>
+        <span class="meta-pill">{{ primaryRole }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label"><i class="pi pi-link"></i>Recurso solicitado</span>
+        <span class="meta-value path-value">{{ requestedPath }}</span>
+      </div>
+      <div class="meta-row meta-error">
+        <span class="meta-label"><i class="pi pi-exclamation-triangle"></i>Codigo de estado</span>
+        <span class="meta-value">403</span>
+        <span class="meta-pill pill-error">Forbidden</span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn btn-primary" (click)="goToDashboard()">
+        <i class="pi pi-home"></i>
+        Ir al Dashboard
+      </button>
+      <button type="button" class="btn btn-secondary" (click)="goBack()">
+        <i class="pi pi-arrow-left"></i>
+        Volver atras
+      </button>
+      <button type="button" class="btn btn-icon" aria-label="Acceso restringido">
+        <i class="pi pi-lock"></i>
+      </button>
+    </div>
+
+    <div class="quick-links">
+      <p>ACCESOS DISPONIBLES</p>
+      <div class="quick-links-grid">
+        <a routerLink="/dashboard">
+          <i class="fa-regular fa-house"></i>
+          Dashboard
+        </a>
+        <a routerLink="/habitaciones">
+          <i class="fa-solid fa-bed"></i>
+          Habitaciones
+        </a>
+        <a routerLink="/reservas">
+          <i class="fa-solid fa-calendar"></i>
+          Reservas
+        </a>
+      </div>
+    </div>
+  </article>
+
+  <p class="footer-note">Wayra v1.4 - Si necesitas acceso, contacta a tu administrador</p>
+</section>

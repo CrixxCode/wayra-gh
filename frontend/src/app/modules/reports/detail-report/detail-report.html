@@ -1,0 +1,32 @@
+<div class="detail-overlay" (click)="closeDrawer()">
+  <aside class="detail-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head" [ngClass]="'tone-' + (detailData?.tone || 'blue')">
+      <div class="title-block">
+        <p class="subtitle">{{ detailData?.subtitle || 'Detalle' }}</p>
+        <h2>{{ detailData?.title || 'Elemento sin titulo' }}</h2>
+      </div>
+
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <section class="drawer-body">
+      <div class="metrics-grid">
+        <article class="metric-card" *ngFor="let metric of detailData?.metrics || []">
+          <span>{{ metric.label }}</span>
+          <strong>{{ metric.value }}</strong>
+        </article>
+      </div>
+
+      <p class="detail-note" *ngIf="detailData?.note">{{ detailData?.note }}</p>
+    </section>
+
+    <footer class="drawer-footer">
+      <button type="button" class="btn btn-light" (click)="closeDrawer()">Cerrar</button>
+    </footer>
+  </aside>
+</div>

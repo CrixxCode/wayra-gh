@@ -1,0 +1,91 @@
+<div class="rate-overlay" (click)="closeDrawer()">
+  <aside class="rate-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div class="drawer-title-block">
+        <p class="drawer-type">{{ getRoomTypeLabel(rate) }}</p>
+        <h2>{{ rate?.name || 'Tarifa sin nombre' }}</h2>
+        <span class="status-chip" [class.is-inactive]="rate?.is_active === false">{{ getStatusLabel(rate) }}</span>
+      </div>
+
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="drawer-body">
+      <section class="hero-card">
+        <div>
+          <span>Tarifa por noche</span>
+          <strong>{{ getPriceLabel(rate) }}</strong>
+        </div>
+        <div>
+          <span>Vigencia</span>
+          <strong>{{ getValidityLabel(rate) }}</strong>
+        </div>
+      </section>
+
+      <section>
+        <h3>Resumen</h3>
+        <div class="info-list">
+          <div>
+            <span>Tipo de habitacion</span>
+            <strong>{{ getRoomTypeLabel(rate) }}</strong>
+          </div>
+          <div>
+            <span>Capacidad</span>
+            <strong>{{ getCapacityLabel(rate) }}</strong>
+          </div>
+          <div>
+            <span>Camas</span>
+            <strong>{{ getBedCountLabel(rate) }}</strong>
+          </div>
+          <div>
+            <span>Tipo de cama</span>
+            <strong>{{ getBedTypeLabel(rate) }}</strong>
+          </div>
+          <div>
+            <span>Estado</span>
+            <strong>{{ getStatusLabel(rate) }}</strong>
+          </div>
+          <div>
+            <span>Periodo</span>
+            <strong>{{ getRangeLabel(rate) }}</strong>
+          </div>
+          <div>
+            <span>ID</span>
+            <strong>#{{ rate?.id || '--' }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Fechas</h3>
+        <div class="info-list">
+          <div>
+            <span>Inicio</span>
+            <strong>{{ formatDate(rate?.start_date) }}</strong>
+          </div>
+          <div>
+            <span>Fin</span>
+            <strong>{{ formatDate(rate?.end_date) }}</strong>
+          </div>
+          <div>
+            <span>Creada</span>
+            <strong>{{ formatDate(rate?.created_at) }}</strong>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="drawer-footer">
+      <button type="button" class="btn btn-dark" (click)="requestEdit()">Editar tarifa</button>
+      <button type="button" class="btn btn-light" (click)="requestStatusToggle()">
+        {{ rate?.is_active === false ? 'Marcar activa' : 'Marcar inactiva' }}
+      </button>
+      <button type="button" class="btn btn-danger" (click)="requestDelete()">Eliminar</button>
+    </footer>
+  </aside>
+</div>

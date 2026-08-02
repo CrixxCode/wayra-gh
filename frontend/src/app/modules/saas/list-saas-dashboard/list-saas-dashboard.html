@@ -1,0 +1,122 @@
+<div class="saas-dashboard-page">
+  <header class="page-header">
+    <div>
+      <h1>Panel SaaS</h1>
+      <p>Vista global de lectura para supervision de hoteles, usuarios, reservas e ingresos.</p>
+    </div>
+
+    <div class="header-actions">
+      <a routerLink="/saas-solicitudes-demo" class="btn btn-light">
+        <i class="fa-solid fa-inbox"></i>
+        Solicitudes demo
+      </a>
+      <a routerLink="/saas-hoteles" class="btn btn-light">
+        <i class="fa-solid fa-hotel"></i>
+        Hoteles globales
+      </a>
+      <a routerLink="/dashboard" class="btn btn-light">
+        <i class="fa-solid fa-arrow-left"></i>
+        Volver al dashboard
+      </a>
+    </div>
+  </header>
+
+  <section class="state-message" *ngIf="loading || loadError || !isPlatformAdmin">
+    <p *ngIf="loading">Cargando panel SaaS...</p>
+    <p class="error" *ngIf="!loading && loadError">{{ loadError }}</p>
+    <p class="warning" *ngIf="!loading && !loadError && !isPlatformAdmin">
+      Esta vista solo esta disponible para administradores globales de la plataforma.
+    </p>
+  </section>
+
+  <ng-container *ngIf="!loading && !loadError && isPlatformAdmin">
+    <section class="stats-grid">
+      <article class="stat-card" *ngFor="let card of kpis; let i = index">
+        <div class="stat-head">
+          <span>{{ card.label }}</span>
+          <span class="stat-icon" [ngClass]="{
+            'blue': i === 0,
+            'green': i === 1,
+            'gold': i === 2,
+            'purple': i === 3
+          }">
+            <i [class]="card.icon"></i>
+          </span>
+        </div>
+        <div class="stat-value" [class.stat-money]="i === 3">{{ card.value }}</div>
+        <div class="stat-note">{{ card.note }}</div>
+      </article>
+    </section>
+
+    <section class="content-grid">
+      <article class="table-card">
+        <div class="section-head">
+          <h2>Estado de hoteles</h2>
+          <p>{{ healthSummary }}</p>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Hotel</th>
+                <th>Ubicacion</th>
+                <th>Contacto</th>
+                <th>Ultima actualizacion</th>
+                <th>Salud</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let hotel of hotels">
+                <td>{{ hotel.name }}</td>
+                <td>{{ hotel.location }}</td>
+                <td>
+                  <span class="status-chip" [ngClass]="{
+                    'ok': hotel.hasContact && hotel.hasReservationsEmail,
+                    'warn': !hotel.hasContact || !hotel.hasReservationsEmail
+                  }">
+                    {{ hotel.hasContact && hotel.hasReservationsEmail ? 'Completo' : 'Incompleto' }}
+                  </span>
+                </td>
+                <td>{{ hotel.lastUpdatedLabel }}</td>
+                <td>
+                  <span class="status-chip" [ngClass]="{
+                    'ok': hotel.health === 'healthy',
+                    'warn': hotel.health === 'warning',
+                    'risk': hotel.health === 'risk'
+                  }">
+                    {{ getHealthLabel(hotel.health) }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="country-card">
+        <div class="section-head">
+          <h2>Distribucion por pais</h2>
+          <p>Top de paises con hoteles activos.</p>
+        </div>
+
+        <div class="country-list" *ngIf="countries.length; else noCountries">
+          <div class="country-row" *ngFor="let row of countries">
+            <div class="country-label">
+              <strong>{{ row.country }}</strong>
+              <span>{{ row.hotels }} hoteles</span>
+            </div>
+            <div class="country-meter">
+              <div class="country-meter-fill" [style.width.%]="row.ratio"></div>
+            </div>
+            <span class="country-ratio">{{ row.ratio }}%</span>
+          </div>
+        </div>
+
+        <ng-template #noCountries>
+          <p class="empty-message">No hay informacion de paises disponible.</p>
+        </ng-template>
+      </article>
+    </section>
+  </ng-container>
+</div>

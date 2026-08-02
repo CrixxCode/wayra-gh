@@ -1,0 +1,100 @@
+<div class="package-overlay" (click)="closeDrawer()">
+  <aside class="package-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div class="drawer-title-block">
+        <p class="drawer-type">{{ packageData?.room_type_name || packageData?.room_type_code || 'General' }}</p>
+        <h2>{{ packageData?.name || 'Paquete sin nombre' }}</h2>
+
+        <div class="drawer-chips">
+          <span class="status-chip" [class.is-inactive]="!packageData?.is_active">{{ getStatusLabel() }}</span>
+          <span class="status-chip validity-chip">{{ getValidityLabel() }}</span>
+        </div>
+      </div>
+
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="drawer-body">
+      <section class="hero-card">
+        <div>
+          <span>Precio base</span>
+          <strong>{{ getPriceLabel() }}</strong>
+        </div>
+        <div>
+          <span>Servicios incluidos</span>
+          <strong>{{ packageData?.package_services?.length || 0 }}</strong>
+        </div>
+      </section>
+
+      <section>
+        <h3>Resumen</h3>
+        <div class="info-list">
+          <div>
+            <span>Categoria</span>
+            <strong>{{ packageData?.room_type_name || packageData?.room_type_code || 'General' }}</strong>
+          </div>
+          <div>
+            <span>Hotel</span>
+            <strong>{{ packageData?.hotel_name || 'No definido' }}</strong>
+          </div>
+          <div>
+            <span>Vigencia</span>
+            <strong>{{ getDateRangeLabel() }}</strong>
+          </div>
+          <div>
+            <span>ID</span>
+            <strong>#{{ packageData?.id || '--' }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Descripcion</h3>
+        <p class="description">{{ packageData?.description || 'Sin descripcion registrada.' }}</p>
+      </section>
+
+      <section>
+        <h3>Servicios del paquete</h3>
+        <div class="services-list" *ngIf="(packageData?.package_services || []).length > 0; else noServices">
+          <article class="service-row" *ngFor="let packageService of packageData?.package_services || []">
+            <div>
+              <strong>{{ packageService.service_name || ('Servicio #' + packageService.service) }}</strong>
+              <span>{{ packageService.service_type_name || 'Tipo general' }}</span>
+            </div>
+            <span class="quantity-chip">x{{ packageService.quantity || 1 }}</span>
+          </article>
+        </div>
+        <ng-template #noServices>
+          <p class="description">Este paquete no tiene servicios asociados.</p>
+        </ng-template>
+      </section>
+
+      <section>
+        <h3>Trazabilidad</h3>
+        <div class="info-list">
+          <div>
+            <span>Creado</span>
+            <strong>{{ formatDate(packageData?.created_at) }}</strong>
+          </div>
+          <div>
+            <span>Ultima actualizacion</span>
+            <strong>{{ formatDate(packageData?.updated_at) }}</strong>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="drawer-footer">
+      <button type="button" class="btn btn-light" (click)="requestStatusToggle()">
+        {{ packageData?.is_active ? 'Marcar inactivo' : 'Marcar activo' }}
+      </button>
+      <button type="button" class="btn btn-dark" (click)="requestEdit()">Editar paquete</button>
+      <button type="button" class="btn btn-danger" (click)="requestDelete()">Eliminar</button>
+    </footer>
+  </aside>
+</div>

@@ -1,0 +1,327 @@
+<div class="wrap">
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="title">
+      <div class="h1">Roles</div>
+      <div class="sub">Administra roles y asigna usuarios con una interfaz tipo “transfer list”.</div>
+    </div>
+
+    <div class="tb-actions">
+      <button class="btn ghost" (click)="loadRoles()">
+        <i class="fa-solid fa-rotate-right"></i>
+        Actualizar
+      </button>
+      <button class="btn primary" (click)="openCreateRole()">
+        <i class="fa-solid fa-plus"></i>
+        Nuevo rol
+      </button>
+    </div>
+  </div>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total roles</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-shield-halved"></i></span>
+      </div>
+      <div class="stat-value">{{ totalRoles }}</div>
+      <div class="stat-note">Roles registrados</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Con usuarios</span>
+        <span class="stat-icon green"><i class="fa-regular fa-circle-check"></i></span>
+      </div>
+      <div class="stat-value">{{ rolesWithUsersCount }}</div>
+      <div class="stat-note">Roles con al menos una asignacion</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Asignados</span>
+        <span class="stat-icon amber"><i class="fa-solid fa-users"></i></span>
+      </div>
+      <div class="stat-value">{{ selectedRoleAssignedCount }}</div>
+      <div class="stat-note">Al rol {{ selectedRole?.name || '-' }}</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Disponibles</span>
+        <span class="stat-icon violet"><i class="fa-regular fa-circle-user"></i></span>
+      </div>
+      <div class="stat-value">{{ selectedRoleAvailableCount }}</div>
+      <div class="stat-note">Sin asignar al rol</div>
+    </article>
+  </section>
+
+  <div class="layout">
+    <!-- Roles list -->
+    <aside class="card left">
+      <div class="card-head">
+        <div class="card-title">Lista de roles</div>
+        <div class="pill">{{ roles.length }}</div>
+      </div>
+
+      <div class="card-body">
+        <label class="search-field search-wrap gh-search-wrap">
+          <span>Buscar</span>
+          <div class="search-control gh-search-control">
+            <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+            <input class="gh-search-input" type="text" [(ngModel)]="roleFilter" placeholder="Buscar rol..." />
+          </div>
+        </label>
+
+        @if (loadingRoles) {
+          <div class="skeletons">
+            <div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div>
+          </div>
+        } @else {
+          <div class="role-list">
+            @for (r of filteredRoles(); track r.id) {
+              <button class="role-item" [class.active]="selectedRole?.id === r.id" (click)="selectRole(r)">
+                <div class="ri-top">
+                  <div class="ri-name">{{ r.name }}</div>
+                  <div class="badge">{{ r.slug }}</div>
+                </div>
+                <div class="ri-desc">{{ r.description || 'Sin descripción' }}</div>
+              </button>
+            }
+
+            @if (filteredRoles().length === 0) {
+              <div class="empty">
+                <div class="e-title">Sin resultados</div>
+                <div class="e-sub">Prueba con otro criterio.</div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </aside>
+
+    <!-- Detail + Transfer -->
+    <section class="card right">
+      <div class="card-head right-head">
+        @if (selectedRole) {
+          <div>
+            <div class="card-title big">{{ selectedRole.name }}</div>
+            <div class="meta">
+              <span class="badge soft">{{ selectedRole.slug }}</span>
+              <span class="dot">•</span>
+              <span class="muted">{{ selectedRole.description || 'Sin descripción' }}</span>
+            </div>
+          </div>
+
+          <div class="head-actions">
+            <button class="btn ghost" (click)="openEditRole()">
+              <i class="fa-solid fa-pen"></i>
+              Editar
+            </button>
+            <button class="btn danger" (click)="askDeleteRole()">
+              <i class="fa-solid fa-trash"></i>
+              Eliminar
+            </button>
+          </div>
+        } @else {
+          <div>
+            <div class="card-title big">Selecciona un rol</div>
+            <div class="muted">Elige un rol a la izquierda para asignar o eliminar usuarios.</div>
+          </div>
+        }
+      </div>
+
+      <div class="card-body">
+        @if (!selectedRole) {
+          <div class="hero-empty">
+            <div class="hero-icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="hero-title">Administración rápida</div>
+            <div class="hero-sub">
+              Selecciona un rol y usa el panel de transferencia para asignar o remover usuarios en segundos.
+            </div>
+          </div>
+        } @else {
+
+          <div class="transfer">
+            <!-- Available -->
+            <div class="panel">
+              <div class="panel-head">
+                <div class="panel-title">Disponibles</div>
+                <div class="panel-meta">
+                  <span class="pill soft">{{ availableUsers().length }}</span>
+                  <span class="pill">{{ selectedAvailableIds.size }} sel.</span>
+                </div>
+              </div>
+
+              <label class="search-field search-wrap gh-search-wrap">
+                <span>Buscar</span>
+                <div class="search-control gh-search-control">
+                  <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+                  <input
+                    class="gh-search-input"
+                    type="text"
+                    [(ngModel)]="qAvailable"
+                    (input)="onCatalogSearchInput()"
+                    placeholder="Buscar usuarios..."
+                  />
+                </div>
+              </label>
+
+              <div class="panel-actions">
+                <button class="btn xs ghost" (click)="selectAllAvailable()">Seleccionar todo</button>
+                <button class="btn xs ghost" (click)="clearAvailableSelection()">Limpiar</button>
+              </div>
+
+              <div class="list">
+                @for (u of availableUsers(); track u.id) {
+                  <div class="row" [class.selected]="selectedAvailableIds.has(u.id)" (click)="toggleAvailable(u.id)">
+                    <input type="checkbox" [checked]="selectedAvailableIds.has(u.id)" (click)="$event.stopPropagation()" (change)="toggleAvailable(u.id)" />
+                    <div class="row-main">
+                      <div class="row-top">
+                        <span class="mono">{{ u.username }}</span>
+                        <span class="status" [class.ok]="u.is_active" [class.off]="!u.is_active">
+                          {{ u.is_active ? 'Activo' : 'Inactivo' }}
+                        </span>
+                      </div>
+                      <div class="row-sub">
+                        <span>{{ fullName(u) }}</span>
+                        <span class="dot">•</span>
+                        <span class="muted">{{ u.email }}</span>
+                      </div>
+                    </div>
+                  </div>
+                }
+
+                @if (availableUsers().length === 0) {
+                  <div class="empty small">
+                    <div class="e-title">Sin usuarios disponibles</div>
+                    <div class="e-sub">Ajusta tu búsqueda o verifica asignaciones.</div>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Transfer controls -->
+            <div class="transfer-ctrl">
+              <button class="ctrl-btn" [disabled]="selectedAvailableIds.size===0" (click)="assignSelected()">
+                <i class="fa-solid fa-arrow-right"></i>
+                <span>Asignar</span>
+              </button>
+
+              <button class="ctrl-btn" [disabled]="selectedAssignedIds.size===0" (click)="removeSelected()">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>Quitar</span>
+              </button>
+
+              <div class="hint">
+                Selecciona usuarios y usa los botones para moverlos.
+              </div>
+            </div>
+
+            <!-- Assigned -->
+            <div class="panel">
+              <div class="panel-head">
+                <div class="panel-title">Asignados</div>
+                <div class="panel-meta">
+                  <span class="pill soft">{{ assignedUsers.length }}</span>
+                  <span class="pill">{{ selectedAssignedIds.size }} sel.</span>
+                </div>
+              </div>
+
+              <label class="search-field search-wrap gh-search-wrap">
+                <span>Buscar</span>
+                <div class="search-control gh-search-control">
+                  <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+                  <input class="gh-search-input" type="text" [(ngModel)]="qAssigned" placeholder="Filtrar asignados..." />
+                </div>
+              </label>
+
+              <div class="panel-actions">
+                <button class="btn xs ghost" (click)="selectAllAssigned()">Seleccionar todo</button>
+                <button class="btn xs ghost" (click)="clearAssignedSelection()">Limpiar</button>
+              </div>
+
+              <div class="list">
+                @if (loadingAssigned) {
+                  <div class="skeletons">
+                    <div class="sk"></div><div class="sk"></div><div class="sk"></div>
+                  </div>
+                } @else {
+                  @for (u of assignedUsersFiltered(); track u.id) {
+                    <div class="row" [class.selected]="selectedAssignedIds.has(u.id)" (click)="toggleAssigned(u.id)">
+                      <input type="checkbox" [checked]="selectedAssignedIds.has(u.id)" (click)="$event.stopPropagation()" (change)="toggleAssigned(u.id)" />
+                      <div class="row-main">
+                        <div class="row-top">
+                          <span class="mono">{{ u.username }}</span>
+                          <span class="status" [class.ok]="u.is_active" [class.off]="!u.is_active">
+                            {{ u.is_active ? 'Activo' : 'Inactivo' }}
+                          </span>
+                        </div>
+                        <div class="row-sub">
+                          <span>{{ fullName(u) }}</span>
+                          <span class="dot">•</span>
+                          <span class="muted">{{ u.email }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  }
+
+                  @if (assignedUsers.length === 0) {
+                    <div class="empty small">
+                      <div class="e-title">Sin asignaciones</div>
+                      <div class="e-sub">Este rol aún no tiene usuarios.</div>
+                    </div>
+                  }
+                }
+              </div>
+            </div>
+          </div>
+
+        }
+      </div>
+    </section>
+  </div>
+
+  <!-- Drawer: Create/Edit role -->
+  @if (showRoleDrawer) {
+    <div class="overlay" (click)="showRoleDrawer=false"></div>
+    <div class="drawer" (click)="$event.stopPropagation()">
+      <div class="drawer-head">
+        <div>
+          <div class="drawer-title">{{ isEditing ? 'Editar rol' : 'Nuevo rol' }}</div>
+          <div class="muted">Define nombre, slug y una descripción breve.</div>
+        </div>
+        <button class="icon-btn" (click)="showRoleDrawer=false">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="drawer-body">
+        <label class="field">
+          <span>Nombre</span>
+          <input class="input" [(ngModel)]="roleForm.name" placeholder="Ej: Recepción" />
+        </label>
+
+        <label class="field">
+          <span>Slug</span>
+          <input class="input" [(ngModel)]="roleForm.slug" placeholder="ej: recepcion" />
+        </label>
+
+        <label class="field">
+          <span>Descripción</span>
+          <textarea class="input" rows="3" [(ngModel)]="roleForm.description" placeholder="Qué permite este rol"></textarea>
+        </label>
+      </div>
+
+      <div class="drawer-foot">
+        <button class="btn ghost" (click)="showRoleDrawer=false">Cancelar</button>
+        <button class="btn primary" (click)="saveRole()">{{ isEditing ? 'Guardar' : 'Crear' }}</button>
+      </div>
+    </div>
+  }
+  <!-- Toast -->
+  <div class="toast" [class.show]="toastVisible" [class.ok]="toastKind==='success'" [class.bad]="toastKind==='danger'">
+    {{ toastText }}
+  </div>
+</div>
+

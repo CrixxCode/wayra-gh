@@ -1,0 +1,562 @@
+<div class="financial-control-page">
+  <header class="page-header">
+    <div class="header-copy">
+      <h1>Control Financiero</h1>
+      <p>Tablero financiero, simulador de escenarios y estados financieros del hotel.</p>
+      <div class="header-meta">
+        <span class="meta-chip">
+          <i class="fa-solid fa-hotel"></i>
+          {{ selectedConfigRecord?.hotelName || (selectedHotelSettingsId ? ('Hotel #' + selectedHotelSettingsId) : 'Sin hotel seleccionado') }}
+        </span>
+        <span class="meta-chip">
+          <i class="fa-solid fa-calendar-days"></i>
+          {{ startDate }} a {{ endDate }}
+        </span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" class="gh-btn gh-btn-dark" (click)="refreshAll()" [disabled]="isRefreshing">
+        <i class="fa-solid fa-rotate-right"></i>
+        Actualizar todo
+      </button>
+    </div>
+  </header>
+
+  <section class="gh-filters-card">
+    <div class="gh-filters-grid financial-filters-grid">
+      <label class="gh-filter-field">
+        <span>Hotel</span>
+        <select class="gh-filter-select" [(ngModel)]="selectedHotelSettingsId" (change)="onHotelFilterChange()">
+          <option [ngValue]="null" disabled>Selecciona hotel</option>
+          <option *ngFor="let cfg of configs; trackBy: trackByConfig" [ngValue]="cfg.hotelSettingsId">
+            {{ cfg.hotelName }}{{ cfg.districtName ? (' - ' + cfg.districtName) : '' }}
+          </option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Fecha inicial</span>
+        <input class="gh-filter-input" type="date" [(ngModel)]="startDate" />
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Fecha final</span>
+        <input class="gh-filter-input" type="date" [(ngModel)]="endDate" />
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Ano</span>
+        <input class="gh-filter-input" type="number" min="1900" max="2999" [(ngModel)]="statementYear" />
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Mes</span>
+        <select class="gh-filter-select" [(ngModel)]="statementMonth">
+          <option *ngFor="let month of monthOptions" [ngValue]="month.value">{{ month.label }}</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="gh-filters-actions">
+      <div class="gh-action-group">
+        <button type="button" class="gh-btn gh-btn-dark" (click)="applyPeriodFilters()" [disabled]="isRefreshing">
+          <i class="fa-solid fa-chart-line"></i>
+          Aplicar periodo
+        </button>
+        <button type="button" class="gh-btn gh-btn-light" (click)="applyStatementsFilters()" [disabled]="loadingStatements">
+          <i class="fa-solid fa-table-list"></i>
+          Consultar estados
+        </button>
+      </div>
+    </div>
+
+    <div class="inline-messages">
+      <p class="info" *ngIf="configInfoMessage">{{ configInfoMessage }}</p>
+      <p class="error" *ngIf="periodValidationError">{{ periodValidationError }}</p>
+      <p class="error" *ngIf="statementValidationError">{{ statementValidationError }}</p>
+    </div>
+  </section>
+
+  <section class="tabs-nav">
+    <button
+      type="button"
+      class="tab-btn"
+      *ngFor="let tab of tabs; trackBy: trackByTab"
+      [class.active]="activeTab === tab.key"
+      (click)="selectTab(tab.key)">
+      <i [class]="tab.icon"></i>
+      <span>{{ tab.label }}</span>
+    </button>
+  </section>
+
+  <section class="module-card config-section" *ngIf="activeTab === 'config'">
+    <div class="section-head">
+      <div>
+        <h2>Configuracion de alertas operacionales</h2>
+        <p>Define umbrales para ocupacion, disponibilidad, ingresos y reembolsos.</p>
+      </div>
+    </div>
+
+    <section class="state-message" *ngIf="!selectedHotelSettingsId">
+      <p class="info">Selecciona un hotel en los filtros para configurar los umbrales de alertas operacionales.</p>
+    </section>
+
+    <div class="config-form" *ngIf="selectedHotelSettingsId">
+      <div class="form-group-section">
+        <h3>Umbrales de ocupacion y disponibilidad</h3>
+        
+        <label class="gh-filter-field">
+          <span>Umbral ocupacion alta (%)</span>
+          <input 
+            type="number" 
+            step="0.01" 
+            min="0" 
+            max="100"
+            class="gh-filter-input" 
+            [(ngModel)]="configForm.operationalHighOccupancyThresholdPct"
+            placeholder="Ej: 85" />
+          <small>Por defecto: 85%. Genera alerta cuando ocupacion supera este valor.</small>
+        </label>
+
+        <label class="gh-filter-field">
+          <span>Habitaciones disponibles minimo</span>
+          <input 
+            type="number" 
+            step="1" 
+            min="1"
+            class="gh-filter-input" 
+            [(ngModel)]="configForm.operationalLowAvailabilityThresholdRooms"
+            placeholder="Ej: 3" />
+          <small>Por defecto: 3. Genera alerta cuando hay menos de este numero de habitaciones disponibles.</small>
+        </label>
+      </div>
+
+      <div class="form-group-section">
+        <h3>Umbrales de ingresos</h3>
+        
+        <label class="gh-filter-field">
+          <span>Caida ingresos (%)</span>
+          <input 
+            type="number" 
+            step="0.01" 
+            min="0" 
+            max="100"
+            class="gh-filter-input" 
+            [(ngModel)]="configForm.operationalRevenueDropThresholdPct"
+            placeholder="Ej: 20" />
+          <small>Por defecto: 20%. Genera alerta cuando los ingresos caen por este porcentaje.</small>
+        </label>
+
+        <label class="gh-filter-field">
+          <span>Ventana de dias para ingresos</span>
+          <input 
+            type="number" 
+            step="1" 
+            min="1"
+            class="gh-filter-input" 
+            [(ngModel)]="configForm.operationalRevenueWindowDays"
+            placeholder="Ej: 7" />
+          <small>Por defecto: 7 dias. Periodo para evaluar cambios en ingresos.</small>
+        </label>
+      </div>
+
+      <div class="form-group-section">
+        <h3>Umbrales de reembolsos</h3>
+        
+        <label class="gh-filter-field">
+          <span>Reembolsos altos (cantidad)</span>
+          <input 
+            type="number" 
+            step="1" 
+            min="1"
+            class="gh-filter-input" 
+            [(ngModel)]="configForm.operationalHighRefundsThresholdCount"
+            placeholder="Ej: 5" />
+          <small>Por defecto: 5. Genera alerta cuando la cantidad de reembolsos supera este numero.</small>
+        </label>
+
+        <label class="gh-filter-field">
+          <span>Ventana de dias para reembolsos</span>
+          <input 
+            type="number" 
+            step="1" 
+            min="1"
+            class="gh-filter-input" 
+            [(ngModel)]="configForm.operationalRefundWindowDays"
+            placeholder="Ej: 7" />
+          <small>Por defecto: 7 dias. Periodo para evaluar reembolsos.</small>
+        </label>
+      </div>
+
+      <div class="config-actions">
+        <button 
+          type="button" 
+          class="gh-btn gh-btn-dark" 
+          (click)="saveConfiguration()"
+          [disabled]="savingConfig">
+          <i class="fa-solid fa-floppy-disk"></i>
+          Guardar configuracion
+        </button>
+      </div>
+
+      <div class="inline-messages">
+        <p class="error" *ngIf="configValidationError">{{ configValidationError }}</p>
+        <p class="info" *ngIf="configSaveMessage && !configValidationError">{{ configSaveMessage }}</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="module-card" *ngIf="activeTab === 'dashboard'">
+    <div class="section-head">
+      <div>
+        <h2>Tablero financiero</h2>
+        <p>Periodo analizado: {{ dashboardVm.periodLabel || (startDate + ' a ' + endDate) }}</p>
+      </div>
+    </div>
+
+    <section class="state-message" *ngIf="loadingDashboard || dashboardError">
+      <p *ngIf="loadingDashboard">Cargando tablero financiero...</p>
+      <p class="error" *ngIf="!loadingDashboard && dashboardError">{{ dashboardError }}</p>
+    </section>
+
+    <ng-container *ngIf="!loadingDashboard && !dashboardError">
+      <section class="state-message" *ngIf="dashboardVm.summaryCards.length === 0">
+        <p class="info">No hay datos disponibles para el periodo seleccionado.</p>
+      </section>
+
+      <ng-container *ngIf="dashboardVm.summaryCards.length > 0">
+        <section class="stats-grid">
+          <article class="stat-card" *ngFor="let card of dashboardVm.summaryCards; trackBy: trackBySummaryCard">
+            <div class="stat-head">
+              <span>{{ card.label }}</span>
+              <span class="stat-icon" [ngClass]="card.tone"><i [class]="card.icon"></i></span>
+            </div>
+            <div class="stat-value">{{ card.valueLabel }}</div>
+            <div class="stat-note">{{ card.note }}</div>
+          </article>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="insight-card">
+            <div class="card-head">
+              <h3>Semaforo financiero</h3>
+              <span class="tone-badge" [ngClass]="'tone-' + dashboardVm.traffic.tone">{{ dashboardVm.traffic.label || 'Sin clasificacion' }}</span>
+            </div>
+
+            <div class="card-body">
+              <p class="muted" *ngIf="dashboardVm.traffic.reasons.length === 0">Sin observaciones para el periodo.</p>
+              <ul class="reason-list" *ngIf="dashboardVm.traffic.reasons.length > 0">
+                <li *ngFor="let reason of dashboardVm.traffic.reasons">{{ reason }}</li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="insight-card">
+            <div class="card-head">
+              <h3>Punto de equilibrio</h3>
+              <span class="tone-badge" [ngClass]="'tone-' + breakEvenStatusTone">{{ dashboardVm.breakEven.status || '-' }}</span>
+            </div>
+
+            <div class="card-body">
+              <div class="progress-label">
+                <span>Progreso</span>
+                <b>{{ formatIndicatorValue(dashboardVm.breakEven.progressPct) }}%</b>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" [style.width.%]="breakEvenProgressWidth" [ngClass]="'tone-' + breakEvenStatusTone"></div>
+              </div>
+
+                <div class="key-values">
+                <div>
+                  <small>Ingreso equilibrio</small>
+                  <strong>{{ formatCurrencyNullable(dashboardVm.breakEven.breakEvenRevenue) }}</strong>
+                </div>
+                <div>
+                  <small>Costos fijos</small>
+                  <strong>{{ formatCurrencyLabel(dashboardVm.breakEven.fixedCosts) }}</strong>
+                </div>
+                <div>
+                  <small>Costos variables</small>
+                  <strong>{{ formatCurrencyLabel(dashboardVm.breakEven.variableCosts) }}</strong>
+                </div>
+                <div>
+                  <small>Costo por hab. ocupada</small>
+                  <strong>{{ formatCurrencyLabel(dashboardVm.breakEven.cpho) }}</strong>
+                </div>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="metric-block">
+          <div class="block-head">
+            <h3>Benchmarking</h3>
+            <small>Comparativo contra el mismo periodo del ano anterior</small>
+          </div>
+          <div class="metric-grid">
+            <article class="metric-card" *ngFor="let card of dashboardVm.benchmarkCards; trackBy: trackByMetricCard">
+              <div class="metric-head">
+                <span>{{ card.label }}</span>
+                <i [class]="card.icon" [ngClass]="card.tone"></i>
+              </div>
+              <div class="metric-value">{{ card.valueLabel }}</div>
+              <div class="metric-note">{{ card.note }}</div>
+            </article>
+          </div>
+        </section>
+
+        <section class="metric-block">
+          <div class="block-head">
+            <h3>Provisiones e impuestos</h3>
+            <small>Monitoreo tributario del periodo</small>
+          </div>
+          <div class="metric-grid">
+            <article class="metric-card" *ngFor="let card of dashboardVm.taxCards; trackBy: trackByMetricCard">
+              <div class="metric-head">
+                <span>{{ card.label }}</span>
+                <i [class]="card.icon" [ngClass]="card.tone"></i>
+              </div>
+              <div class="metric-value">{{ card.valueLabel }}</div>
+              <div class="metric-note">{{ card.note }}</div>
+            </article>
+          </div>
+        </section>
+
+        <section class="table-card" *ngIf="dashboardVm.revparTrend.length > 0">
+          <div class="table-head">
+            <h3>Trend RevPAR (12 meses)</h3>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mes</th>
+                  <th>RevPAR</th>
+                  <th>Ingreso habitaciones</th>
+                  <th>Habitaciones (inventario)</th>
+                  <th>Noches habitacion disponibles</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of dashboardVm.revparTrend; trackBy: trackByTrend">
+                  <td>{{ row.month }}</td>
+                  <td>{{ formatCurrencyLabel(row.revpar) }}</td>
+                  <td>{{ formatCurrencyLabel(row.roomRevenue) }}</td>
+                  <td>{{ formatInteger(row.roomCount) }}</td>
+                  <td>{{ formatInteger(row.availableRoomNights) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </ng-container>
+    </ng-container>
+  </section>
+
+  <section class="module-card" *ngIf="activeTab === 'what_if'">
+    <div class="section-head">
+      <div>
+        <h2>Simulador What-if</h2>
+        <p>Evalua escenarios de tarifa, ocupacion y costos operativos.</p>
+      </div>
+    </div>
+
+    <div class="scenario-controls">
+      <label class="gh-filter-field">
+        <span>Variacion tarifa (%)</span>
+        <input class="gh-filter-input" type="number" step="0.01" [(ngModel)]="rateChangePct" />
+      </label>
+      <label class="gh-filter-field">
+        <span>Variacion ocupacion (%)</span>
+        <input class="gh-filter-input" type="number" step="0.01" [(ngModel)]="occupancyChangePct" />
+      </label>
+      <label class="gh-filter-field">
+        <span>Ocupacion objetivo (%)</span>
+        <input class="gh-filter-input" type="number" step="0.01" [(ngModel)]="targetOccupancyPctInput" placeholder="Opcional" />
+      </label>
+      <label class="gh-filter-field">
+        <span>Variacion costos (%)</span>
+        <input class="gh-filter-input" type="number" step="0.01" [(ngModel)]="operatingCostChangePct" />
+      </label>
+      <div class="scenario-action">
+        <button type="button" class="gh-btn gh-btn-dark" (click)="runWhatIf()" [disabled]="loadingWhatIf">
+          <i class="fa-solid fa-flask"></i>
+          Simular escenario
+        </button>
+      </div>
+    </div>
+
+    <section class="state-message" *ngIf="loadingWhatIf || whatIfError">
+      <p *ngIf="loadingWhatIf">Calculando escenario...</p>
+      <p class="error" *ngIf="!loadingWhatIf && whatIfError">{{ whatIfError }}</p>
+    </section>
+
+    <ng-container *ngIf="!loadingWhatIf && !whatIfError">
+      <section class="state-message" *ngIf="whatIfVm.baseCards.length === 0">
+        <p class="info">Aun no hay simulacion disponible para mostrar.</p>
+      </section>
+
+      <section class="scenario-results" *ngIf="whatIfVm.baseCards.length > 0">
+        <article class="scenario-column">
+          <header>
+            <h3>Base</h3>
+            <small>{{ whatIfVm.periodLabel }}</small>
+          </header>
+          <div class="metric-grid compact">
+            <article class="metric-card" *ngFor="let card of whatIfVm.baseCards; trackBy: trackByMetricCard">
+              <div class="metric-head">
+                <span>{{ card.label }}</span>
+                <i [class]="card.icon" [ngClass]="card.tone"></i>
+              </div>
+              <div class="metric-value">{{ card.valueLabel }}</div>
+              <div class="metric-note">{{ card.note }}</div>
+            </article>
+          </div>
+        </article>
+
+        <article class="scenario-column">
+          <header>
+            <h3>Proyectado</h3>
+            <small>Resultado del escenario</small>
+          </header>
+          <div class="metric-grid compact">
+            <article class="metric-card" *ngFor="let card of whatIfVm.projectedCards; trackBy: trackByMetricCard">
+              <div class="metric-head">
+                <span>{{ card.label }}</span>
+                <i [class]="card.icon" [ngClass]="card.tone"></i>
+              </div>
+              <div class="metric-value">{{ card.valueLabel }}</div>
+              <div class="metric-note">{{ card.note }}</div>
+            </article>
+          </div>
+        </article>
+
+        <article class="scenario-column">
+          <header>
+            <h3>Delta</h3>
+            <small>Impacto vs. base</small>
+          </header>
+          <div class="metric-grid compact">
+            <article class="metric-card" *ngFor="let card of whatIfVm.deltaCards; trackBy: trackByMetricCard">
+              <div class="metric-head">
+                <span>{{ card.label }}</span>
+                <i [class]="card.icon" [ngClass]="card.tone"></i>
+              </div>
+              <div class="metric-value">{{ card.valueLabel }}</div>
+              <div class="metric-note">{{ card.note }}</div>
+            </article>
+          </div>
+        </article>
+      </section>
+    </ng-container>
+  </section>
+
+  <section class="module-card" *ngIf="activeTab === 'statements'">
+    <div class="section-head">
+      <div>
+        <h2>Estados financieros</h2>
+        <p>Actual: {{ statementsVm.periodCurrent || (statementYear + '-' + statementMonth) }} | Anterior: {{ statementsVm.periodPrevious || ((statementYear - 1) + '-' + statementMonth) }}</p>
+      </div>
+    </div>
+
+    <section class="state-message" *ngIf="loadingStatements || statementsError">
+      <p *ngIf="loadingStatements">Cargando estados financieros...</p>
+      <p class="error" *ngIf="!loadingStatements && statementsError">{{ statementsError }}</p>
+    </section>
+
+    <ng-container *ngIf="!loadingStatements && !statementsError">
+      <section class="state-message" *ngIf="statementsVm.balanceRows.length === 0 && statementsVm.incomeRows.length === 0">
+        <p class="info">No hay estados financieros para el periodo seleccionado.</p>
+      </section>
+
+      <ng-container *ngIf="statementsVm.balanceRows.length > 0 || statementsVm.incomeRows.length > 0">
+        <section class="metric-grid indicators-grid" *ngIf="statementsVm.indicators.length > 0">
+          <article class="metric-card" *ngFor="let indicator of statementsVm.indicators; trackBy: trackByIndicator">
+            <div class="metric-head">
+              <span>{{ indicator.label }}</span>
+              <i class="fa-solid fa-gauge-high" [ngClass]="indicator.delta !== null && indicator.delta >= 0 ? 'green' : 'red'"></i>
+            </div>
+            <div class="metric-value">{{ formatIndicatorValue(indicator.current) }}</div>
+            <div class="metric-note">Previo: {{ formatIndicatorValue(indicator.previous) }}</div>
+            <div class="metric-note">Var: {{ formatDeltaPctLabel(indicator.deltaPct) }}</div>
+            <div class="metric-note formula" *ngIf="indicator.formula">{{ indicator.formula }}</div>
+          </article>
+        </section>
+
+        <section class="table-card" *ngIf="statementsVm.balanceRows.length > 0">
+          <div class="table-head">
+            <h3>Estado de situacion financiera</h3>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Seccion</th>
+                  <th>Cuenta</th>
+                  <th>Actual</th>
+                  <th>Anterior</th>
+                  <th>Delta</th>
+                  <th>Var %</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of statementsVm.balanceRows; trackBy: trackByStatementRow">
+                  <td class="mono">{{ row.section }}</td>
+                  <td>{{ row.account }}</td>
+                  <td>{{ formatCurrencyLabel(row.current) }}</td>
+                  <td>{{ formatCurrencyLabel(row.previous) }}</td>
+                  <td [ngClass]="{ positive: row.delta > 0, negative: row.delta < 0 }">{{ formatDeltaLabel(row.delta) }}</td>
+                  <td [ngClass]="{ positive: row.deltaPct !== null && row.deltaPct > 0, negative: row.deltaPct !== null && row.deltaPct < 0 }">
+                    {{ formatDeltaPctLabel(row.deltaPct) }}
+                  </td>
+                </tr>
+
+                <tr class="total-row" *ngFor="let row of statementsVm.balanceTotals; trackBy: trackByStatementRow">
+                  <td class="mono">{{ row.section }}</td>
+                  <td>{{ row.account }}</td>
+                  <td>{{ formatCurrencyLabel(row.current) }}</td>
+                  <td>{{ formatCurrencyLabel(row.previous) }}</td>
+                  <td [ngClass]="{ positive: row.delta > 0, negative: row.delta < 0 }">{{ formatDeltaLabel(row.delta) }}</td>
+                  <td [ngClass]="{ positive: row.deltaPct !== null && row.deltaPct > 0, negative: row.deltaPct !== null && row.deltaPct < 0 }">
+                    {{ formatDeltaPctLabel(row.deltaPct) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="table-card" *ngIf="statementsVm.incomeRows.length > 0">
+          <div class="table-head">
+            <h3>Estado de resultados integrales</h3>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cuenta</th>
+                  <th>Actual</th>
+                  <th>Anterior</th>
+                  <th>Delta</th>
+                  <th>Var %</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of statementsVm.incomeRows; trackBy: trackByStatementRow">
+                  <td>{{ row.account }}</td>
+                  <td>{{ formatCurrencyLabel(row.current) }}</td>
+                  <td>{{ formatCurrencyLabel(row.previous) }}</td>
+                  <td [ngClass]="{ positive: row.delta > 0, negative: row.delta < 0 }">{{ formatDeltaLabel(row.delta) }}</td>
+                  <td [ngClass]="{ positive: row.deltaPct !== null && row.deltaPct > 0, negative: row.deltaPct !== null && row.deltaPct < 0 }">
+                    {{ formatDeltaPctLabel(row.deltaPct) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </ng-container>
+    </ng-container>
+  </section>
+</div>

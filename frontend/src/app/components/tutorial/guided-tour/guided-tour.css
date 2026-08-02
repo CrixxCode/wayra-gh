@@ -1,0 +1,234 @@
+:host {
+  display: contents;
+}
+
+.guided-tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.guided-tour-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.58);
+  pointer-events: auto;
+}
+
+.guided-tour-highlight {
+  position: fixed;
+  z-index: 1001;
+  border: 2px solid #38bdf8;
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 9999px rgba(15, 23, 42, 0.28),
+    0 0 0 5px rgba(56, 189, 248, 0.2);
+  pointer-events: none;
+  transition: top 0.18s ease, left 0.18s ease, width 0.18s ease, height 0.18s ease;
+}
+
+.guided-tour-card {
+  position: fixed;
+  z-index: 1002;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  border: 1px solid #d7deea;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #172033;
+  box-shadow: 0 22px 54px rgba(2, 6, 23, 0.24);
+  padding: 16px;
+  pointer-events: auto;
+}
+
+.guided-tour-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.guided-tour-progress {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 0 9px;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.guided-tour-icon-btn {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d7deea;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.guided-tour-icon-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.guided-tour-card h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 750;
+}
+
+.guided-tour-description,
+.guided-tour-detail {
+  margin: 10px 0 0;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 500;
+}
+
+.guided-tour-detail {
+  border-left: 3px solid #38bdf8;
+  background: #f8fafc;
+  border-radius: 0 8px 8px 0;
+  padding: 10px 12px;
+  color: #334155;
+}
+
+.guided-tour-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.guided-tour-dots button {
+  width: 18px;
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: #cbd5e1;
+  cursor: pointer;
+}
+
+.guided-tour-dots button.active {
+  width: 28px;
+  background: #1d4ed8;
+}
+
+.guided-tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.guided-tour-step-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.guided-tour-btn {
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #334155;
+  background: #ffffff;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.guided-tour-btn.ghost {
+  border-color: transparent;
+  color: #64748b;
+}
+
+.guided-tour-btn.light {
+  border-color: #d7deea;
+  color: #334155;
+}
+
+.guided-tour-btn.primary {
+  border-color: var(--gh-brand);
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+}
+
+.guided-tour-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.guided-tour-btn.primary:hover:not(:disabled) {
+  background: var(--gh-brand-hover);
+  border-color: var(--gh-brand-hover);
+}
+
+.guided-tour-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+:is(.my-app-dark, .dark) .guided-tour-card {
+  background: #111827;
+  border-color: #334155;
+  color: #e5e7eb;
+}
+
+:is(.my-app-dark, .dark) .guided-tour-card h2 {
+  color: #f8fafc;
+}
+
+:is(.my-app-dark, .dark) .guided-tour-description {
+  color: #cbd5e1;
+}
+
+:is(.my-app-dark, .dark) .guided-tour-detail {
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
+:is(.my-app-dark, .dark) .guided-tour-icon-btn,
+:is(.my-app-dark, .dark) .guided-tour-btn {
+  background: #111827;
+  border-color: #334155;
+  color: #e5e7eb;
+}
+
+@media (max-width: 640px) {
+  .guided-tour-card {
+    padding: 14px;
+  }
+
+  .guided-tour-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .guided-tour-step-actions {
+    width: 100%;
+  }
+
+  .guided-tour-btn {
+    flex: 1;
+  }
+}

@@ -1,0 +1,113 @@
+<div class="type-overlay" (click)="closeDrawer()">
+  <aside class="type-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div class="drawer-title-block">
+        <p class="drawer-code">{{ roomType?.code || 'SIN-CODIGO' }}</p>
+        <h2>{{ roomType?.name || 'Tipo sin nombre' }}</h2>
+        <span class="status-chip" [class.is-inactive]="roomType?.is_active === false">{{ getStatusLabel() }}</span>
+      </div>
+
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="drawer-body">
+      <section class="hero-card">
+        <div>
+          <span>Tarifa activa</span>
+          <strong>{{ getRatePriceLabel() }}</strong>
+        </div>
+        <div>
+          <span>Capacidad</span>
+          <strong>{{ getCapacityLabel() }}</strong>
+        </div>
+      </section>
+
+      <section>
+        <h3>Configuracion base</h3>
+        <div class="info-list">
+          <div>
+            <span>Codigo</span>
+            <strong>{{ roomType?.code || '--' }}</strong>
+          </div>
+          <div>
+            <span>Nombre</span>
+            <strong>{{ roomType?.name || '--' }}</strong>
+          </div>
+          <div>
+            <span>Capacidad</span>
+            <strong>{{ getCapacityLabel() }}</strong>
+          </div>
+          <div>
+            <span>Cantidad de camas</span>
+            <strong>{{ getBedCountLabel() }}</strong>
+          </div>
+          <div>
+            <span>Tipo de cama</span>
+            <strong>{{ getBedTypeLabel() }}</strong>
+          </div>
+          <div>
+            <span>Orden</span>
+            <strong>{{ getSortOrderLabel() }}</strong>
+          </div>
+          <div class="full">
+            <span>Descripcion</span>
+            <strong>{{ roomType?.description || 'Sin descripcion registrada.' }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Tarifa vigente</h3>
+        <div class="info-list">
+          <div>
+            <span>Nombre tarifa</span>
+            <strong>{{ getRateNameLabel() }}</strong>
+          </div>
+          <div>
+            <span>Valor por noche</span>
+            <strong>{{ getRatePriceLabel() }}</strong>
+          </div>
+          <div class="full">
+            <span>Periodo</span>
+            <strong>{{ getRateRangeLabel() }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Metadata</h3>
+        <div class="info-list">
+          <div>
+            <span>ID</span>
+            <strong>#{{ roomType?.id || '--' }}</strong>
+          </div>
+          <div>
+            <span>Estado</span>
+            <strong>{{ getStatusLabel() }}</strong>
+          </div>
+          <div>
+            <span>Creado</span>
+            <strong>{{ formatDate(roomType?.created_at) }}</strong>
+          </div>
+          <div>
+            <span>Actualizado</span>
+            <strong>{{ formatDate(roomType?.updated_at) }}</strong>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="drawer-footer">
+      <button type="button" class="btn btn-dark" (click)="requestEdit()">Editar tipo</button>
+      <button type="button" class="btn btn-light" (click)="requestStatusToggle()">
+        {{ roomType?.is_active === false ? 'Marcar activo' : 'Marcar inactivo' }}
+      </button>
+      <button type="button" class="btn btn-danger" (click)="requestDelete()">Eliminar</button>
+    </footer>
+  </aside>
+</div>

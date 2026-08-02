@@ -1,0 +1,63 @@
+<section class="not-found-page">
+  <div class="hero-card">
+    <div class="hero-dot hero-dot-left"></div>
+    <div class="hero-dot hero-dot-right"></div>
+    <div class="hero-side hero-side-left">
+      <span></span>
+    </div>
+    <div class="hero-center">
+      <h2>404</h2>
+      <p>PAGINA NO ENCONTRADA</p>
+    </div>
+    <div class="hero-side hero-side-right">
+      <span></span>
+    </div>
+  </div>
+
+  <article class="info-card">
+    <h1>Pagina no encontrada</h1>
+    <p>
+      La pagina que buscas no existe o fue movida a otra direccion. Quizas la URL esta mal escrita o el recurso ya
+      no esta disponible.
+    </p>
+
+    <div class="path-box">
+      <div class="path-left">
+        <i class="pi pi-search"></i>
+        <span>{{ requestedPath }}</span>
+      </div>
+      <span class="path-state">No encontrado</span>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn btn-primary" (click)="goToDashboard()">
+        <i class="pi pi-home"></i>
+        Ir al Dashboard
+      </button>
+      <button type="button" class="btn btn-secondary" (click)="goBack()">
+        <i class="pi pi-arrow-left"></i>
+        Volver atras
+      </button>
+    </div>
+
+    <div class="quick-links">
+      <p>ACCESOS RAPIDOS</p>
+      <div class="quick-links-grid">
+        <a routerLink="/dashboard">
+          <i class="fa-regular fa-house"></i>
+          Dashboard
+        </a>
+        <a routerLink="/habitaciones">
+          <i class="fa-solid fa-bed"></i>
+          Habitaciones
+        </a>
+        <a routerLink="/reservas">
+          <i class="fa-solid fa-calendar"></i>
+          Reservas
+        </a>
+      </div>
+    </div>
+  </article>
+
+  <p class="footer-note">Wayra v1.4 - Si el problema persiste, contacta a soporte</p>
+</section>

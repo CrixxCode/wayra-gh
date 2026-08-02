@@ -1,0 +1,80 @@
+<div class="service-overlay" (click)="closeDrawer()">
+  <aside class="service-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div class="drawer-title-block">
+        <p class="drawer-type">{{ getTypeLabel(service) }}</p>
+        <h2>{{ service?.name || 'Servicio sin nombre' }}</h2>
+        <span class="status-chip" [class.is-inactive]="!service?.is_active">{{ getStatusLabel(service) }}</span>
+      </div>
+
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="drawer-body">
+      <section class="hero-card">
+        <div>
+          <span>Precio base</span>
+          <strong>{{ getPriceLabel(service) }}</strong>
+        </div>
+        <div>
+          <span>Hotel</span>
+          <strong>{{ service?.hotel_name || 'No definido' }}</strong>
+        </div>
+      </section>
+
+      <section>
+        <h3>Resumen</h3>
+        <div class="info-list">
+          <div>
+            <span>Tipo</span>
+            <strong>{{ getTypeLabel(service) }}</strong>
+          </div>
+          <div>
+            <span>Codigo tipo</span>
+            <strong>{{ service?.service_type_code || 'N/D' }}</strong>
+          </div>
+          <div>
+            <span>Estado</span>
+            <strong>{{ getStatusLabel(service) }}</strong>
+          </div>
+          <div>
+            <span>ID</span>
+            <strong>#{{ service?.id || '--' }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Descripcion</h3>
+        <p class="description">{{ service?.description || 'Sin descripcion registrada.' }}</p>
+      </section>
+
+      <section>
+        <h3>Trazabilidad</h3>
+        <div class="info-list">
+          <div>
+            <span>Creado</span>
+            <strong>{{ formatDate(service?.created_at) }}</strong>
+          </div>
+          <div>
+            <span>Ultima actualizacion</span>
+            <strong>{{ formatDate(service?.updated_at) }}</strong>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="drawer-footer">
+      <button type="button" class="btn btn-light" (click)="requestStatusToggle()">
+        {{ service?.is_active ? 'Marcar inactivo' : 'Marcar activo' }}
+      </button>
+      <button type="button" class="btn btn-dark" (click)="requestEdit()">Editar servicio</button>
+      <button type="button" class="btn btn-danger" (click)="requestDelete()">Eliminar</button>
+    </footer>
+  </aside>
+</div>

@@ -1,0 +1,238 @@
+<div class="payment-overlay" (click)="closeDrawer()">
+  <article class="payment-modal" (click)="$event.stopPropagation()">
+    <header class="payment-head">
+      <div class="payment-title-block">
+        <div class="payment-title-row">
+          <h2>Pago #{{ activePayment?.id || payment?.id }}</h2>
+          <span
+            class="status-chip"
+            [ngStyle]="{
+              'background-color': paymentStatusTone.bg,
+              color: paymentStatusTone.color
+            }">
+            <span class="dot" [ngStyle]="{ 'background-color': paymentStatusTone.dot }"></span>
+            {{ paymentStatusLabel }}
+          </span>
+        </div>
+        <p>Factura: {{ activePayment?.invoice_number || invoice?.invoice_number || ('FAC-' + (activePayment?.invoice || payment?.invoice || 0)) }}</p>
+      </div>
+
+      <button type="button" class="head-close" (click)="closeDrawer()" title="Cerrar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <section class="state-card" *ngIf="loading || errorMessage || infoMessage" aria-live="polite">
+      <div class="loading-row" *ngIf="loading">
+        <span class="modal-spinner" aria-hidden="true"></span>
+        <div>
+          <strong>Cargando detalle del pago...</strong>
+          <small>Calculando factura, pagos relacionados y reembolsos.</small>
+        </div>
+      </div>
+      <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+      <p class="info" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
+    </section>
+
+    <section class="detail-grid" *ngIf="activePayment">
+      <article class="detail-card">
+        <h3>Informacion del pago</h3>
+        <dl>
+          <div>
+            <dt>Monto</dt>
+            <dd>{{ formatCurrency(+activePayment.amount) }}</dd>
+          </div>
+          <div>
+            <dt>Metodo</dt>
+            <dd>{{ activePayment.payment_method_name || activePayment.payment_method_code || ('Metodo #' + activePayment.payment_method) }}</dd>
+          </div>
+          <div>
+            <dt>Fecha</dt>
+            <dd>{{ formatDateTime(activePayment.payment_date || activePayment.created_at) }}</dd>
+          </div>
+          <div>
+            <dt>Referencia</dt>
+            <dd>{{ activePayment.reference || 'Sin referencia' }}</dd>
+          </div>
+          <div class="notes">
+            <dt>Notas</dt>
+            <dd>{{ activePayment.notes || 'Sin observaciones' }}</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="detail-card">
+        <h3>Resumen de factura</h3>
+        <ng-container *ngIf="!loading; else invoiceSummaryLoading">
+          <dl>
+            <div>
+              <dt>Total factura</dt>
+              <dd>{{ formatCurrency(invoiceTotalAmount) }}</dd>
+            </div>
+            <div>
+              <dt>Pagos activos</dt>
+              <dd>{{ formatCurrency(totalPaidAmount) }}</dd>
+            </div>
+            <div>
+              <dt>Reembolsos procesados</dt>
+              <dd>{{ formatCurrency(totalProcessedRefundAmount) }}</dd>
+            </div>
+            <div>
+              <dt>Pago neto aplicado</dt>
+              <dd>{{ formatCurrency(netPaidAmount) }}</dd>
+            </div>
+            <div>
+              <dt>Saldo pendiente</dt>
+              <dd>{{ formatCurrency(pendingBalanceAmount) }}</dd>
+            </div>
+            <div>
+              <dt>Pagos registrados</dt>
+              <dd>{{ invoicePayments.length }}</dd>
+            </div>
+          </dl>
+        </ng-container>
+
+        <ng-template #invoiceSummaryLoading>
+          <div class="skeleton-stack" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </ng-template>
+      </article>
+
+      <article class="detail-card">
+        <h3>Registrar reembolso</h3>
+        <ng-container *ngIf="!loading; else refundSummaryLoading">
+          <dl class="refund-summary">
+            <div>
+              <dt>Saldo reembolsable</dt>
+              <dd>{{ formatCurrency(paymentRefundableAmount) }}</dd>
+            </div>
+            <div>
+              <dt>Reembolsos procesados</dt>
+              <dd>{{ formatCurrency(paymentProcessedRefundAmount) }}</dd>
+            </div>
+            <div>
+              <dt>Solicitudes activas</dt>
+              <dd>{{ paymentRefunds.length }}</dd>
+            </div>
+          </dl>
+        </ng-container>
+
+        <ng-template #refundSummaryLoading>
+          <div class="skeleton-stack refund-skeleton" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </ng-template>
+
+        <form class="refund-form" [formGroup]="refundForm" (ngSubmit)="registerRefund()" *ngIf="!loading && activePayment?.is_active">
+          <label>
+            <span>Monto</span>
+            <input type="number" min="1" step="0.01" formControlName="amount" />
+          </label>
+
+          <label class="field-wide">
+            <span>Motivo</span>
+            <textarea rows="2" formControlName="reason" placeholder="Ej: devolucion por cobro duplicado"></textarea>
+          </label>
+
+          <label>
+            <span>Referencia</span>
+            <input type="text" formControlName="reference" placeholder="Opcional" />
+          </label>
+
+          <label class="field-wide">
+            <span>Notas</span>
+            <textarea rows="2" formControlName="notes" placeholder="Opcional"></textarea>
+          </label>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-light" (click)="resetRefundForm()" [disabled]="submittingRefund">Limpiar</button>
+            <button type="submit" class="btn btn-primary" [disabled]="!canRegisterRefund || refundForm.invalid">
+              {{ submittingRefund ? 'Registrando...' : 'Registrar reembolso' }}
+            </button>
+          </div>
+        </form>
+
+        <p class="muted" *ngIf="loading && activePayment?.is_active">Calculando saldo disponible para reembolso...</p>
+        <p class="muted" *ngIf="!loading && !activePayment?.is_active">El pago esta inactivo. No se pueden registrar reembolsos.</p>
+        <p class="muted" *ngIf="!loading && activePayment?.is_active && paymentRefundableAmount <= 0">
+          Este pago no tiene saldo disponible para reembolso.
+        </p>
+      </article>
+    </section>
+
+    <section class="detail-card refund-history" *ngIf="activePayment">
+      <h3>Historial de reembolsos del pago</h3>
+
+      <ng-container *ngIf="!loading; else refundHistoryLoading">
+        <p class="muted" *ngIf="paymentRefunds.length === 0">No hay reembolsos registrados para este pago.</p>
+
+        <div class="refund-table-wrap" *ngIf="paymentRefunds.length > 0">
+          <table class="refund-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>Monto</th>
+                <th>Motivo</th>
+                <th>Referencia</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let refund of paymentRefunds; trackBy: trackByRefund">
+                <td>{{ formatDateTime(refund.refund_date || refund.created_at) }}</td>
+                <td>
+                  <span
+                    class="status-chip"
+                    [ngStyle]="{
+                      'background-color': getRefundStatusTone(refund).bg,
+                      color: getRefundStatusTone(refund).color
+                    }">
+                    <span class="dot" [ngStyle]="{ 'background-color': getRefundStatusTone(refund).dot }"></span>
+                    {{ getRefundStatusLabel(refund) }}
+                  </span>
+                </td>
+                <td>{{ formatCurrency(+refund.amount) }}</td>
+                <td>{{ refund.reason }}</td>
+                <td>{{ refund.reference || '--' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+
+      <ng-template #refundHistoryLoading>
+        <div class="skeleton-stack skeleton-stack-table" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </ng-template>
+    </section>
+
+    <footer class="payment-foot">
+      <button type="button" class="btn btn-light" (click)="refresh()" [disabled]="loading || updating || submittingRefund">
+        <i class="fa-solid fa-rotate-right"></i>
+        Actualizar
+      </button>
+
+      <div class="actions-right">
+        <button
+          *ngIf="activePayment?.is_active && isAdmin"
+          type="button"
+          class="btn btn-danger"
+          (click)="deactivatePayment()"
+          [disabled]="loading || updating || submittingRefund">
+          {{ updating ? 'Procesando...' : 'Inactivar pago' }}
+        </button>
+
+        <button type="button" class="btn btn-dark" (click)="closeDrawer()">Cerrar</button>
+      </div>
+    </footer>
+  </article>
+</div>

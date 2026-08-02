@@ -1,0 +1,100 @@
+<div class="cleaning-task-overlay" (click)="closeDrawer()">
+  <article class="cleaning-task-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div>
+        <h1>Nueva tarea de limpieza</h1>
+        <p>Programa la tarea, define el estado inicial y registra notas operativas.</p>
+      </div>
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form [formGroup]="cleaningTaskForm" (ngSubmit)="submit()" class="drawer-body">
+      <section>
+        <h2>Datos de la tarea</h2>
+        <div class="grid two">
+          <label class="full">
+            <span>Habitacion *</span>
+            <select formControlName="room" [class.input-error]="room?.touched && room?.invalid">
+              <option [ngValue]="null">Selecciona habitacion</option>
+              <option *ngFor="let roomOption of availableRooms; trackBy: trackById" [ngValue]="roomOption.id">
+                {{ getRoomLabel(roomOption) }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="room?.touched && room?.invalid">Selecciona una habitacion.</small>
+          </label>
+
+          <label>
+            <span>Tipo de tarea *</span>
+            <select formControlName="task_type" [class.input-error]="task_type?.touched && task_type?.invalid">
+              <option value="">Selecciona tipo</option>
+              <option *ngFor="let taskTypeOption of availableTaskTypes; trackBy: trackById" [value]="taskTypeOption.code">
+                {{ taskTypeOption.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="task_type?.touched && task_type?.invalid">Selecciona un tipo de tarea.</small>
+          </label>
+
+          <label>
+            <span>Estado *</span>
+            <select formControlName="status" [class.input-error]="status?.touched && status?.invalid">
+              <option value="">Selecciona estado</option>
+              <option *ngFor="let statusOption of availableStatuses; trackBy: trackById" [value]="statusOption.code">
+                {{ statusOption.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="status?.touched && status?.invalid">Selecciona un estado.</small>
+          </label>
+
+          <label>
+            <span>Fecha programada</span>
+            <input type="date" formControlName="scheduled_for" />
+          </label>
+
+          <label>
+            <span>Fecha de finalizacion</span>
+            <input type="datetime-local" formControlName="completed_at" [disabled]="!shouldShowCompletedAt" />
+            <small class="field-hint" *ngIf="!shouldShowCompletedAt">Se establece automaticamente al completar la tarea.</small>
+          </label>
+
+          <label class="full">
+            <span>Notas</span>
+            <textarea
+              rows="4"
+              formControlName="notes"
+              placeholder="Instrucciones para camareria o novedades de habitacion..."
+              [class.input-error]="cleaningTaskForm.get('notes')?.touched && cleaningTaskForm.get('notes')?.invalid"></textarea>
+            <small class="field-error" *ngIf="cleaningTaskForm.get('notes')?.touched && cleaningTaskForm.get('notes')?.hasError('maxlength')">
+              Las notas no pueden superar 2000 caracteres.
+            </small>
+          </label>
+        </div>
+      </section>
+
+      <p class="feedback warning" *ngIf="!availableRooms.length">
+        No hay habitaciones disponibles para este registro.
+      </p>
+      <p class="feedback warning" *ngIf="availableRooms.length && !availableTaskTypes.length">
+        No hay tipos de tarea de limpieza activos.
+      </p>
+      <p class="feedback warning" *ngIf="availableRooms.length && availableTaskTypes.length && !availableStatuses.length">
+        No hay estados de limpieza activos.
+      </p>
+      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-light" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button
+          type="submit"
+          class="btn btn-dark"
+          [disabled]="saving || !availableRooms.length || !availableTaskTypes.length || !availableStatuses.length">
+          {{ saving ? 'Guardando...' : 'Guardar tarea' }}
+        </button>
+      </footer>
+    </form>
+  </article>
+</div>

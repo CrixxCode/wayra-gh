@@ -1,0 +1,110 @@
+<div class="room-inventory-overlay" (click)="closeDrawer()">
+  <aside class="room-inventory-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div class="drawer-title-block">
+        <p class="drawer-type">Detalle de habitacion</p>
+        <h2>{{ roomLabel }}</h2>
+        <span class="status-chip">Inventario asignado</span>
+      </div>
+
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="drawer-body">
+      <section class="hero-card">
+        <div>
+          <span>Items</span>
+          <strong>{{ totalItems }}</strong>
+        </div>
+        <div>
+          <span>Unidades</span>
+          <strong>{{ totalUnits }}</strong>
+        </div>
+        <div>
+          <span>Bajo minimo</span>
+          <strong>{{ lowItems }}</strong>
+        </div>
+        <div>
+          <span>Sin stock</span>
+          <strong>{{ outItems }}</strong>
+        </div>
+      </section>
+
+      <section>
+        <h3>Resumen</h3>
+        <div class="info-list">
+          <div>
+            <span>Items activos</span>
+            <strong>{{ activeItems }}</strong>
+          </div>
+          <div>
+            <span>Ultima actualizacion</span>
+            <strong>{{ latestUpdateLabel }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Inventario de la habitacion</h3>
+        <div class="records-list" *ngIf="records.length; else emptyState">
+          <article class="record-card" *ngFor="let record of records; trackBy: trackByRecord">
+            <header class="record-head">
+              <div>
+                <strong>{{ getItemLabel(record) }}</strong>
+                <small>{{ getItemSku(record) }}</small>
+              </div>
+              <span
+                class="coverage-pill"
+                [ngStyle]="{
+                  'background-color': getCoverageTone(record).bg,
+                  color: getCoverageTone(record).color
+                }">
+                {{ getCoverageLabel(record) }}
+              </span>
+            </header>
+
+            <div class="record-metrics">
+              <div>
+                <span>Cantidad</span>
+                <strong>{{ getQuantityLabel(record) }}</strong>
+              </div>
+              <div>
+                <span>Minimo</span>
+                <strong>{{ getMinimumLabel(record) }}</strong>
+              </div>
+              <div>
+                <span>Estado</span>
+                <strong
+                  class="status-pill"
+                  [ngStyle]="{
+                    'background-color': getStatusTone(record).bg,
+                    color: getStatusTone(record).color
+                  }">
+                  {{ getStatusLabel(record) }}
+                </strong>
+              </div>
+            </div>
+
+            <p class="record-notes">{{ getNotesLabel(record) }}</p>
+
+            <div class="record-actions">
+              <button type="button" class="btn btn-light btn-sm" (click)="requestStatusToggle(record)">
+                {{ record.is_active ? 'Marcar inactivo' : 'Marcar activo' }}
+              </button>
+              <button type="button" class="btn btn-danger btn-sm" (click)="requestDelete(record)">Eliminar</button>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+  </aside>
+</div>
+
+<ng-template #emptyState>
+  <p class="empty-message">Esta habitacion no tiene items asignados.</p>
+</ng-template>

@@ -1,0 +1,35 @@
+:host {
+  display: block;
+}
+
+.layout-shell,
+.layout-header,
+.layout-content {
+  background: var(--gh-page-bg);
+}
+
+.layout-aside {
+  box-shadow: 4px 0 14px rgba(15, 23, 42, 0.16);
+}
+
+.layout-header {
+  border-bottom: 1px solid #e7ebf2;
+}
+
+.layout-content {
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .layout-content {
+    padding-left: 34px;
+    padding-right: 34px;
+  }
+}
+
+@media (max-width: 767px) {
+  .layout-content {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}

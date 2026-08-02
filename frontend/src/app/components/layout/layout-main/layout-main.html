@@ -1,0 +1,37 @@
+<main
+  class="layout-shell relative grid min-h-screen w-full grid-cols-[auto_1fr] grid-rows-[auto_1fr] overflow-hidden"
+  data-tour="layout-shell"
+>
+  <!-- OVERLAY (fondo borroso animado) -->
+  <div *ngIf="isAsideOpen() && isMobile"
+    class="fixed inset-0 bg-black/40 backdrop-blur-sm z-20 md:hidden transition-opacity duration-300 ease-in-out opacity-100"
+    (click)="toggleAside()"></div>
+
+  <!-- ASIDE con animación -->
+  <aside class="layout-aside fixed md:static top-0 left-0 h-screen
+           shadow-2xl z-30 md:z-auto
+           transition-all duration-300 ease-in-out transform
+           overflow-hidden shrink-0" data-tour="sidebar" [class.w-64]="isAsideOpen()" [class.w-0]="!isAsideOpen() && !isMobile"
+    [class.-translate-x-full]="!isAsideOpen() && isMobile" [class.translate-x-0]="isAsideOpen() && isMobile">
+
+    <!-- 👇 ESTE es el contenedor que scrollea -->
+    <div class="flex flex-col h-full overflow-y-auto aside-scroll">
+      <app-aside></app-aside>
+    </div>
+  </aside>
+
+
+  <!-- HEADER + CONTENT -->
+  <div class="layout-main-area flex flex-col h-screen overflow-hidden flex-1">
+    <header class="layout-header h-16 text-black flex items-center px-2 flex-shrink-0 z-10" data-tour="header">
+      <app-header (menuToggle)="toggleAside()" (tourStart)="guidedTour.startFlow()" class="w-full"></app-header>
+    </header>
+
+    <section class="layout-content flex-1 overflow-y-auto px-6 pb-8 text-[#111827]
+             custom-scroll" data-tour="content">
+      <app-content></app-content>
+    </section>
+  </div>
+
+  <app-guided-tour #guidedTour></app-guided-tour>
+</main>

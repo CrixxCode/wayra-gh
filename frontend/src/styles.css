@@ -1,0 +1,737 @@
+/* Global styles */
+@import "tailwindcss";
+@import "primeicons/primeicons.css";
+@import "@fortawesome/fontawesome-free/css/all.min.css";
+@import 'swiper/css';
+@import 'swiper/css/effect-fade';
+@import 'swiper/css/navigation';
+@import 'swiper/css/pagination';
+@import 'swiper/css/autoplay';
+
+/* ===== Scrollbar lateral discreto ===== */
+.aside-scroll {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  background: #111827;
+}
+
+/* Chrome / Edge / Safari */
+.aside-scroll::-webkit-scrollbar {
+  width: 6px;                 /* fino */
+  background: transparent;     /* sin fondo */
+  position: absolute;
+}
+.aside-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.aside-scroll::-webkit-scrollbar-thumb {
+  background-color: transparent;         /* invisible por defecto */
+  border-radius: 10px;
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+.aside-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.24);
+  box-shadow: none;
+}
+.aside-scroll:hover::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.38);
+  box-shadow: none;
+}
+
+/* Firefox */
+.aside-scroll {
+  scrollbar-width: thin;                            /* fino */
+  scrollbar-color: transparent transparent;         /* invisible por defecto */
+}
+.aside-scroll:hover {
+  scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+}
+
+/* ===== Unified Search (Reference: Reservations view) ===== */
+:root {
+  --gh-page-bg: #f2f4f8;
+  --gh-page-bg-alt: #f3f5f9;
+  --gh-surface: #ffffff;
+  --gh-surface-alt: #fbfcff;
+  --gh-surface-soft: #f8fbff;
+  --gh-surface-hover: #f9fbff;
+  --gh-border: #e2e8f0;
+  --gh-border-soft: #edf1f7;
+  --gh-border-strong: #d7deea;
+  --gh-text: #334155;
+  --gh-text-strong: #0f172a;
+  --gh-text-muted: #64748b;
+  --gh-text-soft: #94a3b8;
+  --gh-brand: #0f1f41;
+  --gh-brand-secondary: #112853;
+  --gh-brand-hover: #112853;
+  --gh-on-brand: #ffffff;
+  --gh-shadow-soft: 0 10px 24px rgba(15, 23, 42, 0.06);
+  --gh-shadow-soft-sm: 0 6px 14px rgba(15, 23, 42, 0.06);
+  --gh-shadow-hover: 0 10px 20px rgba(15, 23, 42, 0.1);
+  --gh-shadow-strong: 0 20px 46px rgba(15, 23, 42, 0.14);
+  --gh-shadow-side: -10px 0 30px rgba(2, 6, 23, 0.2);
+  --gh-status-info-bg: #dbeafe;
+  --gh-status-info-text: #1d4ed8;
+  --gh-status-info-border: #bfdbfe;
+  --gh-status-info-strong: #3b82f6;
+  --gh-status-info-strong-alt: #0b5aa6;
+  --gh-status-success-bg: #d1fae5;
+  --gh-status-success-text: #047857;
+  --gh-status-success-border: #86efac;
+  --gh-status-success-strong: #10b981;
+  --gh-status-success-strong-alt: #16a34a;
+  --gh-status-violet-bg: #ede9fe;
+  --gh-status-violet-text: #7c3aed;
+  --gh-status-warn-bg: #fef3c7;
+  --gh-status-warn-text: #b45309;
+  --gh-status-warn-border: #fde68a;
+  --gh-status-warn-strong: #f59e0b;
+  --gh-status-orange-bg: #ffedd5;
+  --gh-status-orange-text: #c2410c;
+  --gh-status-orange-border: #fed7aa;
+  --gh-status-orange-strong: #f97316;
+  --gh-status-danger-bg: #fee2e2;
+  --gh-status-danger-text: #b91c1c;
+  --gh-status-danger-border: #fecaca;
+  --gh-status-danger-strong: #ef4444;
+  --gh-status-danger-strong-hover: #b91c1c;
+  --gh-status-neutral-bg: #eef2ff;
+  --gh-status-neutral-text: #546377;
+  --gh-status-neutral-border: #e8eef7;
+  --gh-search-height: 40px;
+  --gh-search-radius: 11px;
+  --gh-search-border: var(--gh-border-strong);
+  --gh-search-focus: #3b82f6;
+  --gh-search-text: var(--gh-text);
+  --gh-search-muted: var(--gh-text-soft);
+  --gh-search-placeholder: var(--gh-text-soft);
+}
+
+.gh-search-wrap {
+  min-width: 0;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 7px !important;
+  box-sizing: border-box !important;
+}
+
+.gh-search-wrap.search-field,
+.search-field.gh-search-wrap,
+.gh-search-wrap.search {
+  height: auto !important;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  align-items: stretch !important;
+}
+
+.gh-search-wrap > span,
+.gh-search-label {
+  margin: 0 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  color: #95a2b5 !important;
+  font-weight: 600 !important;
+}
+
+.gh-search-control {
+  width: 100% !important;
+  height: var(--gh-search-height) !important;
+  border: 1px solid var(--gh-search-border) !important;
+  border-radius: var(--gh-search-radius) !important;
+  background: var(--gh-surface) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 0 10px !important;
+  box-sizing: border-box !important;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease !important;
+}
+
+.gh-search-control:focus-within {
+  border-color: var(--gh-search-focus) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.13) !important;
+}
+
+.gh-search-control i,
+.gh-search-control svg {
+  color: var(--gh-search-muted) !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  text-align: center !important;
+  flex: 0 0 auto !important;
+}
+
+.gh-search-control svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.gh-search-input {
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  color: var(--gh-search-text) !important;
+  font-size: 14px !important;
+  line-height: 1.2 !important;
+  font-weight: 500 !important;
+  box-sizing: border-box !important;
+  appearance: none !important;
+}
+
+.gh-search-input::placeholder {
+  color: var(--gh-search-placeholder) !important;
+}
+
+.gh-search-clear {
+  width: 24px !important;
+  height: 24px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: #64748b !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  transition: background-color .15s ease, color .15s ease !important;
+}
+
+.gh-search-clear:hover {
+  background: #edf2f9 !important;
+}
+
+/* ===== Unified Filters Card (Reference: Reservations view) ===== */
+.gh-filters-card {
+  margin-top: 16px !important;
+  border: 1px solid #dfe6f0 !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  padding: 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+}
+
+.gh-filters-grid {
+  display: grid !important;
+  gap: 10px !important;
+  grid-template-columns: minmax(360px, 1fr) 220px 220px !important;
+}
+
+.gh-filter-field {
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 7px !important;
+}
+
+.gh-filter-field > span {
+  margin: 0 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  color: #95a2b5 !important;
+  font-weight: 600 !important;
+}
+
+.gh-filter-select {
+  width: 100% !important;
+  border: 1px solid #d7deea !important;
+  border-radius: 11px !important;
+  background: #fff !important;
+  height: 40px !important;
+  padding: 0 12px !important;
+  font-size: 14px !important;
+  color: #334155 !important;
+  outline: 0 !important;
+}
+
+.gh-filter-select:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.13) !important;
+}
+
+.gh-filters-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+
+.gh-filters-actions-single {
+  justify-content: flex-end !important;
+}
+
+.gh-view-toggle {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.gh-view-toggle button {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 10px !important;
+  border: 1px solid #d7deea !important;
+  background: #fff !important;
+  color: #94a3b8 !important;
+  display: grid !important;
+  place-items: center !important;
+  cursor: pointer !important;
+}
+
+.gh-view-toggle button.active {
+  background: var(--gh-brand) !important;
+  border-color: var(--gh-brand) !important;
+  color: var(--gh-on-brand) !important;
+}
+
+.gh-action-group {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+.gh-btn {
+  border-radius: 11px !important;
+  border: 1px solid transparent !important;
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+}
+
+.gh-btn-light {
+  background: #fff !important;
+  color: #334155 !important;
+  border-color: #d7deea !important;
+}
+
+.gh-btn-dark {
+  background: var(--gh-brand) !important;
+  color: var(--gh-on-brand) !important;
+  border-color: var(--gh-brand) !important;
+}
+
+.gh-btn-dark:hover:not(:disabled),
+.btn.btn-primary:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
+.btn.btn-dark:hover:not(:disabled),
+.btn-dark:hover:not(:disabled) {
+  background: var(--gh-brand-hover) !important;
+  border-color: var(--gh-brand-hover) !important;
+}
+
+.btn.btn-primary,
+.btn-primary,
+.btn.btn-dark,
+.btn-dark {
+  background: var(--gh-brand) !important;
+  border-color: var(--gh-brand) !important;
+  color: var(--gh-on-brand) !important;
+}
+
+.gh-btn:disabled {
+  opacity: 0.65 !important;
+  cursor: not-allowed !important;
+}
+
+@media (max-width: 1100px) {
+  .gh-filters-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .gh-filters-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .gh-filters-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .gh-view-toggle,
+  .gh-action-group {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+}
+/* Shared field-level validation styles for forms */
+.field-error {
+  color: #b91c1c;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.input-error {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}
+
+/* Unified confirm dialog */
+.app-confirm-dialog .p-dialog {
+  border-radius: 14px !important;
+  overflow: hidden !important;
+}
+
+.app-confirm-dialog .p-dialog-header {
+  padding: 0.95rem 1.2rem !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.app-confirm-dialog .p-dialog-content {
+  padding: 1.1rem 1.2rem 0.8rem !important;
+  color: #334155 !important;
+}
+
+.app-confirm-dialog .p-dialog-footer {
+  padding: 0.85rem 1.2rem 1rem !important;
+  border-top: 1px solid #e2e8f0 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 0.6rem !important;
+}
+
+/* ===== Global dark mode (enabled by html:is(.my-app-dark, .dark)) ===== */
+:is(.my-app-dark, .dark) {
+  color-scheme: dark;
+  --gh-page-bg: #0b1220;
+  --gh-page-bg-alt: #0d1526;
+  --gh-surface: #111827;
+  --gh-surface-alt: #0f172a;
+  --gh-surface-soft: #1f2937;
+  --gh-surface-hover: #263445;
+  --gh-border: #334155;
+  --gh-border-soft: #334155;
+  --gh-border-strong: #475569;
+  --gh-text: #cbd5e1;
+  --gh-text-strong: #f3f4f6;
+  --gh-text-muted: #94a3b8;
+  --gh-text-soft: #94a3b8;
+  --gh-brand: #1e3a8a;
+  --gh-brand-secondary: #1d4ed8;
+  --gh-brand-hover: #1d4ed8;
+  --gh-on-brand: #f8fafc;
+  --gh-shadow-soft: 0 10px 24px rgba(2, 6, 23, 0.45);
+  --gh-shadow-soft-sm: 0 6px 14px rgba(2, 6, 23, 0.38);
+  --gh-shadow-hover: 0 12px 24px rgba(2, 6, 23, 0.6);
+  --gh-shadow-strong: 0 20px 46px rgba(2, 6, 23, 0.65);
+  --gh-shadow-side: -10px 0 30px rgba(2, 6, 23, 0.6);
+  --gh-status-info-bg: #1e3a8a;
+  --gh-status-info-text: #bfdbfe;
+  --gh-status-info-border: #3b82f6;
+  --gh-status-info-strong: #60a5fa;
+  --gh-status-info-strong-alt: #3b82f6;
+  --gh-status-success-bg: #14532d;
+  --gh-status-success-text: #86efac;
+  --gh-status-success-border: #22c55e;
+  --gh-status-success-strong: #34d399;
+  --gh-status-success-strong-alt: #22c55e;
+  --gh-status-violet-bg: #312e81;
+  --gh-status-violet-text: #c4b5fd;
+  --gh-status-warn-bg: #78350f;
+  --gh-status-warn-text: #fbbf24;
+  --gh-status-warn-border: #d97706;
+  --gh-status-warn-strong: #fbbf24;
+  --gh-status-orange-bg: #7c2d12;
+  --gh-status-orange-text: #fdba74;
+  --gh-status-orange-border: #ea580c;
+  --gh-status-orange-strong: #fb923c;
+  --gh-status-danger-bg: #7f1d1d;
+  --gh-status-danger-text: #fca5a5;
+  --gh-status-danger-border: #ef4444;
+  --gh-status-danger-strong: #f87171;
+  --gh-status-danger-strong-hover: #ef4444;
+  --gh-status-neutral-bg: #334155;
+  --gh-status-neutral-text: #cbd5e1;
+  --gh-status-neutral-border: #475569;
+}
+
+:is(.my-app-dark, .dark) body {
+  background: #0b1220;
+  color: #e5e7eb;
+}
+
+:is(.my-app-dark, .dark) .bg-white,
+:is(.my-app-dark, .dark) .bg-gray-50 {
+  background-color: #111827 !important;
+}
+
+:is(.my-app-dark, .dark) .bg-gray-100 {
+  background-color: #0f172a !important;
+}
+
+:is(.my-app-dark, .dark) .bg-gray-200 {
+  background-color: #1f2937 !important;
+}
+
+:is(.my-app-dark, .dark) .text-black,
+:is(.my-app-dark, .dark) .text-gray-900,
+:is(.my-app-dark, .dark) .text-gray-800 {
+  color: #f3f4f6 !important;
+}
+
+:is(.my-app-dark, .dark) .text-gray-700,
+:is(.my-app-dark, .dark) .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+:is(.my-app-dark, .dark) .text-gray-600,
+:is(.my-app-dark, .dark) .text-gray-500 {
+  color: #94a3b8 !important;
+}
+
+:is(.my-app-dark, .dark) .border-gray-100,
+:is(.my-app-dark, .dark) .border-gray-200,
+:is(.my-app-dark, .dark) .border-gray-300 {
+  border-color: #334155 !important;
+}
+
+:is(.my-app-dark, .dark) .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+:is(.my-app-dark, .dark) .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155 !important;
+}
+
+:is(.my-app-dark, .dark) [class*='hover:bg-gray-50']:hover,
+:is(.my-app-dark, .dark) [class*='hover:bg-gray-100']:hover {
+  background-color: #1f2937 !important;
+}
+
+:is(.my-app-dark, .dark) input:not([type='checkbox']):not([type='radio']),
+:is(.my-app-dark, .dark) select,
+:is(.my-app-dark, .dark) textarea {
+  background-color: #111827 !important;
+  border-color: #334155 !important;
+  color: #e5e7eb !important;
+}
+
+:is(.my-app-dark, .dark) input::placeholder,
+:is(.my-app-dark, .dark) textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+:is(.my-app-dark, .dark) .gh-search-control,
+:is(.my-app-dark, .dark) .gh-filters-card,
+:is(.my-app-dark, .dark) .gh-filter-select,
+:is(.my-app-dark, .dark) .gh-view-toggle button,
+:is(.my-app-dark, .dark) .gh-btn-light {
+  background: #111827 !important;
+  border-color: #334155 !important;
+  color: #e5e7eb !important;
+}
+
+:is(.my-app-dark, .dark) .gh-search-control {
+  border: 1px solid #475569 !important;
+  box-shadow: inset 0 0 0 1px rgba(71, 85, 105, 0.32) !important;
+}
+
+:is(.my-app-dark, .dark) .gh-search-control:focus-within {
+  border-color: #60a5fa !important;
+  box-shadow:
+    0 0 0 3px rgba(59, 130, 246, 0.22) !important,
+    inset 0 0 0 1px rgba(96, 165, 250, 0.4) !important;
+}
+
+:is(.my-app-dark, .dark) .gh-search-control i,
+:is(.my-app-dark, .dark) .gh-search-control svg,
+:is(.my-app-dark, .dark) .gh-search-clear {
+  color: #94a3b8 !important;
+}
+
+:is(.my-app-dark, .dark) .gh-search-clear:hover {
+  background: #1f2937 !important;
+}
+
+:is(.my-app-dark, .dark) .gh-search-input {
+  color: #e5e7eb !important;
+}
+
+:is(.my-app-dark, .dark) .gh-search-input::placeholder {
+  color: #94a3b8 !important;
+}
+
+:is(.my-app-dark, .dark) .app-confirm-dialog .p-dialog,
+:is(.my-app-dark, .dark) .app-confirm-dialog .p-dialog-header,
+:is(.my-app-dark, .dark) .app-confirm-dialog .p-dialog-content,
+:is(.my-app-dark, .dark) .app-confirm-dialog .p-dialog-footer {
+  background: #111827 !important;
+  color: #e5e7eb !important;
+  border-color: #334155 !important;
+}
+
+:is(.my-app-dark, .dark) app-create-client .create-drawer,
+:is(.my-app-dark, .dark) app-create-client .drawer-body,
+:is(.my-app-dark, .dark) app-create-client .drawer-footer,
+:is(.my-app-dark, .dark) app-create-client input,
+:is(.my-app-dark, .dark) app-create-client select {
+  background: var(--gh-surface) !important;
+  color: var(--gh-text-strong) !important;
+  border-color: var(--gh-border-strong) !important;
+}
+
+:is(.my-app-dark, .dark) app-create-room-type .type-drawer,
+:is(.my-app-dark, .dark) app-create-room-type .drawer-body,
+:is(.my-app-dark, .dark) app-create-room-type .drawer-footer,
+:is(.my-app-dark, .dark) app-create-room-type .btn-light,
+:is(.my-app-dark, .dark) app-create-room-type input,
+:is(.my-app-dark, .dark) app-create-room-type textarea,
+:is(.my-app-dark, .dark) app-create-room-type .switch-row {
+  background: var(--gh-surface) !important;
+  color: var(--gh-text-strong) !important;
+  border-color: var(--gh-border-strong) !important;
+}
+
+:is(.my-app-dark, .dark) app-create-rate .rate-drawer,
+:is(.my-app-dark, .dark) app-update-rate .rate-drawer,
+:is(.my-app-dark, .dark) app-detail-rate .rate-drawer,
+:is(.my-app-dark, .dark) app-create-rate .drawer-body,
+:is(.my-app-dark, .dark) app-update-rate .drawer-body,
+:is(.my-app-dark, .dark) app-detail-rate .drawer-body,
+:is(.my-app-dark, .dark) app-create-rate .drawer-footer,
+:is(.my-app-dark, .dark) app-update-rate .drawer-footer,
+:is(.my-app-dark, .dark) app-detail-rate .drawer-footer,
+:is(.my-app-dark, .dark) app-create-rate .btn-light,
+:is(.my-app-dark, .dark) app-update-rate .btn-light,
+:is(.my-app-dark, .dark) app-detail-rate .btn-light,
+:is(.my-app-dark, .dark) app-create-rate input,
+:is(.my-app-dark, .dark) app-create-rate select,
+:is(.my-app-dark, .dark) app-update-rate input,
+:is(.my-app-dark, .dark) app-update-rate select {
+  background: var(--gh-surface) !important;
+  color: var(--gh-text-strong) !important;
+  border-color: var(--gh-border-strong) !important;
+}
+
+:is(.my-app-dark, .dark) app-create-package .package-drawer,
+:is(.my-app-dark, .dark) app-update-package .package-drawer,
+:is(.my-app-dark, .dark) app-detail-package .package-drawer,
+:is(.my-app-dark, .dark) app-create-package .drawer-body,
+:is(.my-app-dark, .dark) app-update-package .drawer-body,
+:is(.my-app-dark, .dark) app-detail-package .drawer-body,
+:is(.my-app-dark, .dark) app-create-package .drawer-footer,
+:is(.my-app-dark, .dark) app-update-package .drawer-footer,
+:is(.my-app-dark, .dark) app-detail-package .drawer-footer,
+:is(.my-app-dark, .dark) app-create-package .btn-light,
+:is(.my-app-dark, .dark) app-update-package .btn-light,
+:is(.my-app-dark, .dark) app-detail-package .btn-light,
+:is(.my-app-dark, .dark) app-create-package input,
+:is(.my-app-dark, .dark) app-create-package textarea,
+:is(.my-app-dark, .dark) app-update-package input,
+:is(.my-app-dark, .dark) app-update-package textarea {
+  background: var(--gh-surface) !important;
+  color: var(--gh-text-strong) !important;
+  border-color: var(--gh-border-strong) !important;
+}
+
+:is(.my-app-dark, .dark) app-create-promotion .promotion-drawer,
+:is(.my-app-dark, .dark) app-detail-promotion .promotion-drawer,
+:is(.my-app-dark, .dark) app-create-promotion .drawer-body,
+:is(.my-app-dark, .dark) app-detail-promotion .drawer-body,
+:is(.my-app-dark, .dark) app-create-promotion .drawer-footer,
+:is(.my-app-dark, .dark) app-detail-promotion .drawer-footer,
+:is(.my-app-dark, .dark) app-create-promotion .btn-light,
+:is(.my-app-dark, .dark) app-detail-promotion .btn-light,
+:is(.my-app-dark, .dark) app-create-promotion input,
+:is(.my-app-dark, .dark) app-create-promotion select,
+:is(.my-app-dark, .dark) app-create-promotion textarea {
+  background: var(--gh-surface) !important;
+  color: var(--gh-text-strong) !important;
+  border-color: var(--gh-border-strong) !important;
+}
+
+:is(.my-app-dark, .dark) app-create-service .service-drawer,
+:is(.my-app-dark, .dark) app-update-service .service-drawer,
+:is(.my-app-dark, .dark) app-detail-service .service-drawer,
+:is(.my-app-dark, .dark) app-create-service .drawer-body,
+:is(.my-app-dark, .dark) app-update-service .drawer-body,
+:is(.my-app-dark, .dark) app-detail-service .drawer-body,
+:is(.my-app-dark, .dark) app-create-service .drawer-footer,
+:is(.my-app-dark, .dark) app-update-service .drawer-footer,
+:is(.my-app-dark, .dark) app-detail-service .drawer-footer,
+:is(.my-app-dark, .dark) app-create-service .btn-light,
+:is(.my-app-dark, .dark) app-update-service .btn-light,
+:is(.my-app-dark, .dark) app-detail-service .btn-light,
+:is(.my-app-dark, .dark) app-create-service input,
+:is(.my-app-dark, .dark) app-create-service select,
+:is(.my-app-dark, .dark) app-create-service textarea,
+:is(.my-app-dark, .dark) app-update-service input,
+:is(.my-app-dark, .dark) app-update-service select,
+:is(.my-app-dark, .dark) app-update-service textarea {
+  background: var(--gh-surface) !important;
+  color: var(--gh-text-strong) !important;
+  border-color: var(--gh-border-strong) !important;
+}
+
+:is(.my-app-dark, .dark) app-detail-bill .bill-modal,
+:is(.my-app-dark, .dark) app-detail-bill .category-bar,
+:is(.my-app-dark, .dark) app-detail-bill .bill-footer,
+:is(.my-app-dark, .dark) app-detail-bill .state-card,
+:is(.my-app-dark, .dark) app-detail-bill .charge-group,
+:is(.my-app-dark, .dark) app-detail-bill .payments-panel,
+:is(.my-app-dark, .dark) app-detail-bill .payment-line,
+:is(.my-app-dark, .dark) app-detail-bill .btn-light,
+:is(.my-app-dark, .dark) app-pos-bar .pos-card,
+:is(.my-app-dark, .dark) app-pos-bar .products-panel,
+:is(.my-app-dark, .dark) app-pos-bar .product-card,
+:is(.my-app-dark, .dark) app-pos-bar .cart-panel,
+:is(.my-app-dark, .dark) app-pos-bar .cart-line,
+:is(.my-app-dark, .dark) app-pos-bar .qty-btn,
+:is(.my-app-dark, .dark) app-pos-bar input,
+:is(.my-app-dark, .dark) app-pos-bar select,
+:is(.my-app-dark, .dark) app-pos-bar .btn-light,
+:is(.my-app-dark, .dark) app-create-bill .manual-charge-card,
+:is(.my-app-dark, .dark) app-create-payment .payment-form-card,
+:is(.my-app-dark, .dark) app-create-bill input,
+:is(.my-app-dark, .dark) app-create-bill select,
+:is(.my-app-dark, .dark) app-create-payment input,
+:is(.my-app-dark, .dark) app-create-payment select,
+:is(.my-app-dark, .dark) app-create-payment textarea {
+  background: var(--gh-surface) !important;
+  color: var(--gh-text-strong) !important;
+  border-color: var(--gh-border-strong) !important;
+}
+
+:is(.my-app-dark, .dark) app-detail-payment .payment-modal,
+:is(.my-app-dark, .dark) app-detail-payment .state-card,
+:is(.my-app-dark, .dark) app-detail-payment .detail-card,
+:is(.my-app-dark, .dark) app-detail-payment .payment-foot,
+:is(.my-app-dark, .dark) app-detail-payment .btn-light,
+:is(.my-app-dark, .dark) app-detail-payment .refund-form input,
+:is(.my-app-dark, .dark) app-detail-payment .refund-form textarea {
+  background: var(--gh-surface) !important;
+  color: var(--gh-text-strong) !important;
+  border-color: var(--gh-border-strong) !important;
+}
+
+:is(.my-app-dark, .dark) app-credit-note-list .credit-modal,
+:is(.my-app-dark, .dark) app-credit-note-list .state-card,
+:is(.my-app-dark, .dark) app-credit-note-list .note-card,
+:is(.my-app-dark, .dark) app-credit-note-list .empty-state,
+:is(.my-app-dark, .dark) app-credit-note-list .row-btn,
+:is(.my-app-dark, .dark) app-credit-note-list .btn-light,
+:is(.my-app-dark, .dark) app-credit-note-list .form-modal,
+:is(.my-app-dark, .dark) app-credit-note-form .credit-note-form-card,
+:is(.my-app-dark, .dark) app-credit-note-form input,
+:is(.my-app-dark, .dark) app-credit-note-form select,
+:is(.my-app-dark, .dark) app-credit-note-form textarea,
+:is(.my-app-dark, .dark) app-credit-note-form .btn-light {
+  background: var(--gh-surface) !important;
+  color: var(--gh-text-strong) !important;
+  border-color: var(--gh-border-strong) !important;
+}
+

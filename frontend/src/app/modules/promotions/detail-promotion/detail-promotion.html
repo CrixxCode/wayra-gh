@@ -1,0 +1,86 @@
+<div class="promotion-overlay" (click)="closeDrawer()">
+  <aside class="promotion-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div class="drawer-title-block">
+        <p class="drawer-type">{{ getDiscountTypeLabel() }}</p>
+        <h2>{{ promotionData?.name || 'Promocion sin nombre' }}</h2>
+
+        <div class="drawer-chips">
+          <span class="status-chip" [class.is-inactive]="!promotionData?.is_active">{{ getStatusLabel() }}</span>
+          <span class="status-chip visibility-chip" [class.is-private]="!promotionData?.is_public">{{ getVisibilityLabel() }}</span>
+        </div>
+      </div>
+
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="drawer-body">
+      <section class="hero-card">
+        <div>
+          <span>Descuento</span>
+          <strong>{{ getDiscountValueLabel() }}</strong>
+        </div>
+        <div>
+          <span>Vigencia</span>
+          <strong>{{ getDateRangeLabel() }}</strong>
+        </div>
+      </section>
+
+      <section>
+        <h3>Resumen</h3>
+        <div class="info-list">
+          <div>
+            <span>Tipo descuento</span>
+            <strong>{{ getDiscountTypeLabel() }}</strong>
+          </div>
+          <div>
+            <span>Objetivo</span>
+            <strong>{{ getPromotionTargetLabel() }}</strong>
+          </div>
+          <div>
+            <span>Codigo</span>
+            <strong>{{ promotionData?.code || 'N/D' }}</strong>
+          </div>
+          <div>
+            <span>Hotel</span>
+            <strong>{{ promotionData?.hotel_name || 'No definido' }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Descripcion</h3>
+        <p class="description">{{ promotionData?.description || 'Sin descripcion registrada.' }}</p>
+      </section>
+
+      <section>
+        <h3>Trazabilidad</h3>
+        <div class="info-list">
+          <div>
+            <span>Creada</span>
+            <strong>{{ formatDate(promotionData?.created_at) }}</strong>
+          </div>
+          <div>
+            <span>Ultima actualizacion</span>
+            <strong>{{ formatDate(promotionData?.updated_at) }}</strong>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="drawer-footer">
+      <button type="button" class="btn btn-light" (click)="requestVisibilityToggle()">
+        {{ promotionData?.is_public ? 'Marcar interna' : 'Marcar publica' }}
+      </button>
+      <button type="button" class="btn btn-dark" (click)="requestStatusToggle()">
+        {{ promotionData?.is_active ? 'Marcar inactiva' : 'Marcar activa' }}
+      </button>
+      <button type="button" class="btn btn-danger" (click)="requestDelete()">Eliminar</button>
+    </footer>
+  </aside>
+</div>

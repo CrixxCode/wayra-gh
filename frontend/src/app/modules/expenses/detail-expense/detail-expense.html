@@ -1,0 +1,121 @@
+<div class="expense-overlay" (click)="closeDrawer()">
+  <aside class="expense-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div class="drawer-title-block">
+        <p class="drawer-type">Egreso {{ activeExpense?.id || expense?.id || '--' }}</p>
+        <h2>{{ activeExpense?.concept || expense?.concept || 'Sin concepto' }}</h2>
+        <span
+          class="status-chip"
+          [ngStyle]="{
+            'background-color': statusTone.bg,
+            color: statusTone.color
+          }">
+          <span class="dot" [ngStyle]="{ 'background-color': statusTone.dot }"></span>
+          {{ statusLabel }}
+        </span>
+      </div>
+
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <section class="state-card" *ngIf="loading || errorMessage || infoMessage">
+      <p *ngIf="loading">Cargando detalle del egreso...</p>
+      <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+      <p class="info" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
+    </section>
+
+    <div class="drawer-body" *ngIf="!loading && activeExpense">
+      <section class="hero-card">
+        <div>
+          <span>Monto</span>
+          <strong>{{ getAmountLabel(activeExpense) }}</strong>
+        </div>
+        <div>
+          <span>Fecha egreso</span>
+          <strong>{{ formatDate(activeExpense.expense_date) }}</strong>
+        </div>
+      </section>
+
+      <section>
+        <h3>Resumen</h3>
+        <div class="info-list">
+          <div>
+            <span>Categoria</span>
+            <strong>{{ getCategoryLabel(activeExpense) }}</strong>
+          </div>
+          <div>
+            <span>Tipo de egreso</span>
+            <strong>{{ getExpenseTypeLabel(activeExpense) }}</strong>
+          </div>
+          <div>
+            <span>Comportamiento</span>
+            <strong>{{ getCostBehaviorLabel(activeExpense) }}</strong>
+          </div>
+          <div>
+            <span>Metodo de pago</span>
+            <strong>{{ getMethodLabel(activeExpense) }}</strong>
+          </div>
+          <div>
+            <span>Proveedor</span>
+            <strong>{{ getSupplierLabel(activeExpense) }}</strong>
+          </div>
+          <div>
+            <span>Referencia</span>
+            <strong>{{ getReferenceLabel(activeExpense) }}</strong>
+          </div>
+          <div>
+            <span>Hotel</span>
+            <strong>{{ activeExpense.hotel_name || 'Sin hotel asociado' }}</strong>
+          </div>
+          <div>
+            <span>Estado</span>
+            <strong>{{ statusLabel }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Descripcion</h3>
+        <p class="description">{{ getDescriptionLabel(activeExpense) }}</p>
+      </section>
+
+      <section>
+        <h3>Trazabilidad</h3>
+        <div class="info-list">
+          <div>
+            <span>Creado</span>
+            <strong>{{ formatDateTime(activeExpense.created_at) }}</strong>
+          </div>
+          <div>
+            <span>Ultima actualizacion</span>
+            <strong>{{ formatDateTime(activeExpense.updated_at) }}</strong>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="drawer-footer">
+      <button type="button" class="btn btn-light" (click)="refresh()" [disabled]="loading || updating">
+        <i class="fa-solid fa-rotate-right"></i>
+        Actualizar
+      </button>
+
+      <button type="button" class="btn btn-dark" (click)="toggleStatus()" [disabled]="loading || updating || !activeExpense">
+        {{
+          updating
+            ? 'Procesando...'
+            : activeExpense?.is_active
+              ? 'Marcar inactivo'
+              : 'Marcar activo'
+        }}
+      </button>
+
+      <button type="button" class="btn btn-outline" (click)="closeDrawer()">Cerrar</button>
+    </footer>
+  </aside>
+</div>

@@ -1,0 +1,69 @@
+﻿=== TODOS LOS USUARIOS ===
+  username='admin'                   | superuser=True | staff=True | roles=['admin']
+    resource_keys=['auth.password.change', 'dashboard.view', 'resources.read', 'resources.write', 'roles.read', 'roles.write', 'users.read', 'users.write']
+  username='admin2'                  | superuser=True | staff=True | roles=['admin']
+    resource_keys=['auth.password.change', 'dashboard.view', 'resources.read', 'resources.write', 'roles.read', 'roles.write', 'users.read', 'users.write']
+  username='chondre'                 | superuser=False | staff=False | roles=[]
+    resource_keys=[]
+  username='coviedo'                 | superuser=False | staff=False | roles=[]
+    resource_keys=[]
+  username='cristian'                | superuser=True | staff=True | roles=['admin']
+    resource_keys=['auth.password.change', 'dashboard.view', 'resources.read', 'resources.write', 'roles.read', 'roles.write', 'users.read', 'users.write']
+  username='jenier.dev'              | superuser=False | staff=False | roles=[]
+    resource_keys=[]
+  username='jjramirez'               | superuser=False | staff=False | roles=[]
+    resource_keys=[]
+  username='johnsebastian'           | superuser=False | staff=False | roles=[]
+    resource_keys=[]
+  username='joviedo'                 | superuser=False | staff=False | roles=[]
+    resource_keys=[]
+  username='juanchopolo'             | superuser=False | staff=False | roles=[]
+    resource_keys=[]
+  username='lucila1987'              | superuser=False | staff=False | roles=[]
+    resource_keys=[]
+  username='lvega'                   | superuser=False | staff=False | roles=[]
+    resource_keys=[]
+  username='maaron'                  | superuser=False | staff=False | roles=[]
+    resource_keys=[]
+  username='rastor'                  | superuser=True | staff=True | roles=['admin']
+    resource_keys=['auth.password.change', 'dashboard.view', 'resources.read', 'resources.write', 'roles.read', 'roles.write', 'users.read', 'users.write']
+  username='rdamianquintero'         | superuser=False | staff=False | roles=['staff']
+    resource_keys=['auth.password.change', 'dashboard.view']
+  username='sebas777'                | superuser=False | staff=False | roles=[]
+    resource_keys=[]
+
+=== ROLES Y SUS RECURSOS ===
+  'admin': ['auth.password.change', 'dashboard.view', 'resources.read', 'resources.write', 'roles.read', 'roles.write', 'users.read', 'users.write']
+  'manager': ['auth.password.change', 'dashboard.view', 'resources.read', 'roles.read', 'users.read']
+  'staff': ['auth.password.change', 'dashboard.view']
+
+=== TABLA RoleResource (relaciones actuales) ===
+  rol='admin'          resource='auth.password.change'
+  rol='admin'          resource='dashboard.view'
+  rol='admin'          resource='resources.read'
+  rol='admin'          resource='resources.write'
+  rol='admin'          resource='roles.read'
+  rol='admin'          resource='roles.write'
+  rol='admin'          resource='users.read'
+  rol='admin'          resource='users.write'
+  rol='manager'        resource='auth.password.change'
+  rol='manager'        resource='dashboard.view'
+  rol='manager'        resource='resources.read'
+  rol='manager'        resource='roles.read'
+  rol='manager'        resource='users.read'
+  rol='staff'          resource='auth.password.change'
+  rol='staff'          resource='dashboard.view'
+
+=== RECURSOS (todos) ===
+  key='auth.password.change'         is_menu=False link=''
+  key='resources.write'              is_menu=False link=''
+  key='roles.write'                  is_menu=False link=''
+  key='users.write'                  is_menu=False link=''
+  key='dashboard.view'               is_menu=True link='/dashboard'
+  key='user-viewset'                 is_menu=True link='/api/users/'
+  key='users'                        is_menu=True link=''
+  key='roles'                        is_menu=True link='roles'
+  key='users.read'                   is_menu=True link='/usuarios'
+  key='resources'                    is_menu=True link='recursos'
+  key='roles.read'                   is_menu=True link='/roles'
+  key='resources.read'               is_menu=True link='/recursos'

@@ -1,0 +1,291 @@
+<div class="wrap">
+  <header class="page-header">
+    <div class="header-copy">
+      <h1>Recursos</h1>
+      <p>Gestiona recursos y asignalos a roles.</p>
+    </div>
+
+    <div class="actions">
+      <button class="btn ghost" (click)="refreshView()">
+        <i class="fa-solid fa-rotate-right"></i>
+        Actualizar
+      </button>
+      <button class="btn primary" (click)="openCreate()">
+        <i class="fa-solid fa-plus"></i>
+        Nuevo recurso
+      </button>
+    </div>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total recursos</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-cube"></i></span>
+      </div>
+      <div class="stat-value">{{ totalResources }}</div>
+      <div class="stat-note">Recursos registrados</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Asignados</span>
+        <span class="stat-icon green"><i class="fa-regular fa-circle-check"></i></span>
+      </div>
+      <div class="stat-value">{{ totalAssigned }}</div>
+      <div class="stat-note">Al rol {{ selectedRole?.name || '-' }}</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Disponibles</span>
+        <span class="stat-icon amber"><i class="fa-regular fa-circle-xmark"></i></span>
+      </div>
+      <div class="stat-value">{{ totalAvailable }}</div>
+      <div class="stat-note">Sin asignar al rol</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Roles</span>
+        <span class="stat-icon violet"><i class="fa-solid fa-layer-group"></i></span>
+      </div>
+      <div class="stat-value">{{ totalRoles }}</div>
+      <div class="stat-note">Roles configurados</div>
+    </article>
+  </section>
+
+  <section class="rolesbar card">
+    <label class="search-field search-wrap gh-search-wrap">
+      <span>Buscar</span>
+      <div class="search-control gh-search-control">
+        <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+        <input class="gh-search-input" type="text" [(ngModel)]="rolesQuery" placeholder="Buscar rol..." />
+      </div>
+    </label>
+
+    <div class="chips">
+      @for (r of filteredRoles(); track r.id) {
+        <button class="chip" [class.active]="selectedRole?.id === r.id" (click)="selectRole(r)">
+          <span class="c-name">{{ r.name }}</span>
+          <span class="c-slug">{{ r.slug }}</span>
+        </button>
+      }
+      @if (!loadingRoles && filteredRoles().length === 0) {
+        <div class="muted">No hay roles para mostrar.</div>
+      }
+    </div>
+  </section>
+
+  <section class="main card">
+    <div class="main-head">
+      <div class="mh">
+        <div class="mh-title">Asignacion de recursos</div>
+        <div class="mh-sub muted">Rol seleccionado: <b>{{ selectedRole?.name || '-' }}</b></div>
+      </div>
+
+      <div class="mh-search">
+        <label class="search-field search-wrap gh-search-wrap">
+          <span>Buscar</span>
+          <div class="search-control gh-search-control">
+            <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+            <input class="gh-search-input" type="text" [(ngModel)]="qResources" (input)="onResourcesSearchInput()" placeholder="Buscar recursos (key/nombre)" />
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div class="main-body">
+      @if (!selectedRole) {
+        <div class="empty">
+          <div class="e-title">Selecciona un rol</div>
+          <div class="e-sub">Debes seleccionar un rol para asignar recursos.</div>
+        </div>
+      } @else {
+        <div class="transfer">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="p-title">Disponibles</div>
+                <div class="muted">Total: {{ availableResourcesFiltered().length }} | Seleccionados: {{ selectedAvailableIds.size }}</div>
+              </div>
+              <button class="btn xs ghost" (click)="openCreate()">Crear recurso</button>
+            </div>
+
+            <div class="list">
+              @for (res of availableResourcesFiltered(); track res.id) {
+                <div class="row" [class.selected]="selectedAvailableIds.has(res.id)" (click)="toggleAvailable(res.id)">
+                  <div class="resource-icon">
+                    <i [class]="resolveResourceIcon(res)"></i>
+                  </div>
+                  <div class="row-main">
+                    <div class="row-top">
+                      <span class="mono">{{ res.key }}</span>
+                      @if (res.is_menu) { <span class="tag">MENU</span> }
+                    </div>
+                    <div class="row-sub">
+                      <span>{{ res.name }}</span>
+                      @if (getParentName(res)) { <span class="dot">|</span><span class="muted">Padre: {{ getParentName(res) }}</span> }
+                      @if (res.link) { <span class="dot">|</span><span class="muted">{{ res.link }}</span> }
+                    </div>
+                  </div>
+                  <i class="fa-solid fa-check row-tick" aria-hidden="true"></i>
+                </div>
+              }
+
+              @if (availableResourcesFiltered().length === 0) {
+                <div class="empty small">
+                  <div class="e-title">Sin disponibles</div>
+                  <div class="e-sub">
+                    {{ qResources ? 'No hay recursos disponibles que coincidan con la busqueda.' : 'No hay recursos disponibles para asignar.' }}
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="ctrl">
+            <button class="ctrl-btn" [disabled]="selectedAvailableIds.size === 0" (click)="assignSelected()">
+              <i class="fa-solid fa-arrow-right"></i>
+              <span>Asignar</span>
+            </button>
+            <button class="ctrl-btn" [disabled]="selectedAssignedIds.size === 0" (click)="removeSelected()">
+              <i class="fa-solid fa-arrow-left"></i>
+              <span>Quitar</span>
+            </button>
+            <div class="hint muted">Selecciona recursos y muevelos.</div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="p-title">Asignados</div>
+                <div class="muted">Total: {{ assignedResourcesFiltered().length }} | Seleccionados: {{ selectedAssignedIds.size }}</div>
+              </div>
+            </div>
+
+            <div class="list">
+              @if (loadingAssigned) {
+                <div class="muted">Cargando recursos del rol...</div>
+              } @else {
+                @for (res of assignedResourcesFiltered(); track res.id) {
+                  <div class="row" [class.selected]="selectedAssignedIds.has(res.id)" (click)="toggleAssigned(res.id)">
+                    <div class="resource-icon">
+                      <i [class]="resolveResourceIcon(res)"></i>
+                    </div>
+                    <div class="row-main">
+                      <div class="row-top">
+                        <span class="mono">{{ res.key }}</span>
+                        @if (res.is_menu) { <span class="tag">MENU</span> }
+                      </div>
+                      <div class="row-sub">
+                        <span>{{ res.name }}</span>
+                        @if (getParentName(res)) { <span class="dot">|</span><span class="muted">Padre: {{ getParentName(res) }}</span> }
+                        @if (res.link) { <span class="dot">|</span><span class="muted">{{ res.link }}</span> }
+                      </div>
+
+                      <div class="row-actions">
+                        <button class="btn xs ghost" (click)="$event.stopPropagation(); openEdit(res)">Editar</button>
+                        <button class="btn xs danger" (click)="$event.stopPropagation(); askDelete(res)">Eliminar</button>
+                      </div>
+                    </div>
+                    <i class="fa-solid fa-check row-tick" aria-hidden="true"></i>
+                  </div>
+                }
+
+                @if (assignedResourcesFiltered().length === 0) {
+                  <div class="empty small">
+                    <div class="e-title">{{ assigned.length === 0 ? 'Sin asignaciones' : 'Sin coincidencias' }}</div>
+                    <div class="e-sub">
+                      {{ assigned.length === 0 ? 'Este rol aun no tiene recursos.' : 'No hay recursos asignados que coincidan con la busqueda.' }}
+                    </div>
+                  </div>
+                }
+              }
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  </section>
+
+  @if (showDrawer) {
+    <div class="overlay" (click)="showDrawer=false"></div>
+    <div class="drawer" (click)="$event.stopPropagation()">
+      <div class="drawer-head">
+        <div>
+          <div class="drawer-title">{{ isEditing ? 'Editar recurso' : 'Nuevo recurso' }}</div>
+          <div class="muted">Key (unico) + datos del recurso y configuracion de menu.</div>
+        </div>
+        <button class="icon-btn" (click)="showDrawer=false"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="drawer-body">
+        <label class="field">
+          <span>Key</span>
+          <input class="input" [(ngModel)]="form.key" [disabled]="isEditing" placeholder="ej: reservas.read" />
+        </label>
+
+        <label class="field">
+          <span>Nombre</span>
+          <input class="input" [(ngModel)]="form.name" placeholder="ej: Listado Reservas" />
+        </label>
+
+        <label class="field">
+          <span>Descripcion</span>
+          <textarea class="input" rows="3" [(ngModel)]="form.description"></textarea>
+        </label>
+
+        <div class="grid2">
+          <label class="field">
+            <span>Link frontend</span>
+            <input class="input" [(ngModel)]="form.link" placeholder="/reservas" />
+          </label>
+
+          <label class="field">
+            <span>Link backend</span>
+            <input class="input" [(ngModel)]="form.link_backend" placeholder="/api/reservas/" />
+          </label>
+        </div>
+
+        <div class="grid2">
+          <label class="field">
+            <span>Icon (FontAwesome class)</span>
+            <input class="input" [(ngModel)]="form.icon" placeholder="fa-solid fa-calendar" />
+          </label>
+
+          <label class="field">
+            <span>Order</span>
+            <input class="input" type="number" [(ngModel)]="form.order" />
+          </label>
+        </div>
+
+        <div class="grid2">
+          <label class="field">
+            <span>Padre (menu)</span>
+            <select class="input" [(ngModel)]="form.parent">
+              <option [ngValue]="null">Sin padre</option>
+              @for (p of parentOptions(); track p.id) {
+                <option [ngValue]="p.id">{{ p.name }} ({{ p.key }})</option>
+              }
+            </select>
+          </label>
+
+          <label class="field switch">
+            <span>Mostrar en menu</span>
+            <input type="checkbox" [(ngModel)]="form.is_menu" />
+          </label>
+        </div>
+      </div>
+
+      <div class="drawer-foot">
+        <button class="btn ghost" (click)="showDrawer=false">Cancelar</button>
+        <button class="btn primary" (click)="save()">{{ isEditing ? 'Guardar' : 'Crear' }}</button>
+      </div>
+    </div>
+  }
+
+  <div class="toast" [class.show]="toastVisible" [class.ok]="toastKind==='success'" [class.bad]="toastKind==='danger'">
+    {{ toastText }}
+  </div>
+</div>

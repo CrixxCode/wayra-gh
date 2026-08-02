@@ -1,0 +1,294 @@
+<div class="my-profile-page">
+  <div class="my-profile-shell">
+    <a routerLink="/dashboard" class="back-link" *ngIf="!forcePasswordChangeRequired">
+      <i class="fa-solid fa-arrow-left"></i>
+      Volver al panel
+    </a>
+
+    <section class="hero-card">
+      <div class="hero-cover"></div>
+      <div class="hero-body">
+        <div class="avatar-wrap">
+          <ng-container *ngIf="avatarUrl; else defaultAvatar">
+            <img [src]="avatarUrl" [alt]="fullName" class="avatar-img" />
+          </ng-container>
+          <ng-template #defaultAvatar>
+            <div class="avatar-fallback">
+              <i class="fa-regular fa-user"></i>
+            </div>
+          </ng-template>
+        </div>
+
+        <div class="hero-user">
+          <h1>{{ fullName }}</h1>
+          <p>{{ roleLabel }}</p>
+        </div>
+      </div>
+
+      <div class="hero-meta">
+        <div>
+          <i class="fa-regular fa-envelope"></i>
+          <span>{{ contactEmail }}</span>
+        </div>
+        <div>
+          <i class="fa-solid fa-location-dot"></i>
+          <span>{{ locationLabel }}</span>
+        </div>
+        <div>
+          <i class="fa-regular fa-calendar"></i>
+          <span>Desde {{ joinedLabel }}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="tabs-card">
+      <div class="feedback warn force-password-alert" *ngIf="forcePasswordChangeMessage">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        {{ forcePasswordChangeMessage }}
+      </div>
+
+      <div class="tabs-head">
+        <button
+          type="button"
+          [class.active]="activeTab === 'profile'"
+          [disabled]="forcePasswordChangeRequired"
+          (click)="selectTab('profile')"
+        >
+          <i class="fa-regular fa-user"></i>
+          Informacion del Perfil
+        </button>
+        <button type="button" [class.active]="activeTab === 'password'" (click)="selectTab('password')">
+          <i class="fa-solid fa-lock"></i>
+          Cambiar Contrasena
+        </button>
+        <button
+          type="button"
+          [class.active]="activeTab === 'work'"
+          [disabled]="forcePasswordChangeRequired"
+          (click)="selectTab('work')"
+        >
+          <i class="fa-solid fa-briefcase"></i>
+          Informacion Laboral
+        </button>
+      </div>
+
+      <div class="tabs-body" *ngIf="loading">
+        <div class="feedback loading">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          Cargando informacion de perfil...
+        </div>
+      </div>
+
+      <div class="tabs-body" *ngIf="!loading && loadError">
+        <div class="feedback error">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          {{ loadError }}
+        </div>
+      </div>
+
+      <div class="tabs-body" *ngIf="!loading && !loadError && activeTab === 'profile'">
+        <div class="section-head">
+          <div>
+            <h2>Datos Personales</h2>
+            <p>Consulta tu informacion personal y de contacto.</p>
+          </div>
+          <div class="section-actions">
+            <button type="button" class="btn-light" *ngIf="isEditingProfile" (click)="cancelProfileEditing()">
+              Cancelar
+            </button>
+            <button type="button" class="btn-gold" *ngIf="!isEditingProfile" (click)="startProfileEditing()">
+              <i class="fa-regular fa-pen-to-square"></i>
+              Editar Perfil
+            </button>
+            <button type="button" class="btn-gold" *ngIf="isEditingProfile" (click)="savePersonalInfo()">
+              Guardar Cambios
+            </button>
+          </div>
+        </div>
+
+        <p class="mode-badge" *ngIf="!isEditingProfile">
+          <i class="fa-regular fa-eye"></i>
+          Modo lectura activo. Usa "Editar Perfil" para modificar datos.
+        </p>
+
+        <form [formGroup]="personalForm" class="form-grid">
+          <label>
+            <span>Nombre Completo</span>
+            <input type="text" formControlName="full_name" />
+            <small *ngIf="personalForm.controls.full_name.touched && personalForm.controls.full_name.invalid">
+              El nombre completo es obligatorio.
+            </small>
+          </label>
+
+          <label>
+            <span>Correo Electronico</span>
+            <input type="email" formControlName="email" />
+            <small *ngIf="personalForm.controls.email.touched && personalForm.controls.email.invalid">
+              Ingresa un correo valido.
+            </small>
+          </label>
+
+          <label class="full-row">
+            <span>Avatar (URL)</span>
+            <input type="url" formControlName="avatar" placeholder="https://mi-dominio.com/avatar.jpg" />
+          </label>
+
+          <label>
+            <span>Telefono</span>
+            <input type="text" formControlName="phone" placeholder="+57 300 000 0000" />
+          </label>
+
+          <label>
+            <span>Departamento</span>
+            <input type="text" formControlName="department" placeholder="Operaciones, Recepcion, TI..." />
+          </label>
+
+          <label class="full-row">
+            <span>Ubicacion</span>
+            <input type="text" formControlName="location" placeholder="Ciudad, Pais" />
+          </label>
+        </form>
+
+        <p class="feedback success" *ngIf="profileSavedMessage">
+          <i class="fa-solid fa-circle-check"></i>
+          {{ profileSavedMessage }}
+        </p>
+        <p class="feedback error" *ngIf="profileErrorMessage">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          {{ profileErrorMessage }}
+        </p>
+      </div>
+
+      <div class="tabs-body" *ngIf="!loading && !loadError && activeTab === 'password'">
+        <div class="section-head stacked">
+          <div>
+            <h2>Cambiar Contrasena</h2>
+            <p>Asegurate de usar una contrasena segura de al menos 8 caracteres.</p>
+          </div>
+        </div>
+
+        <form [formGroup]="passwordForm" class="form-grid one-col">
+          <label>
+            <span>Contrasena Actual</span>
+            <div class="password-field">
+              <input [type]="passwordInputType('current')" formControlName="current_password" placeholder="Ingresa tu contrasena actual" />
+              <button
+                type="button"
+                class="btn-password-toggle"
+                (click)="togglePasswordVisibility('current')"
+                [attr.aria-label]="showCurrentPassword ? 'Ocultar contrasena actual' : 'Mostrar contrasena actual'"
+              >
+                <i class="fa-solid" [ngClass]="showCurrentPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+              </button>
+            </div>
+            <small *ngIf="passwordForm.controls.current_password.touched && passwordForm.controls.current_password.invalid">
+              La contrasena actual es obligatoria.
+            </small>
+          </label>
+
+          <label>
+            <span>Nueva Contrasena</span>
+            <div class="password-field">
+              <input [type]="passwordInputType('new')" formControlName="new_password" placeholder="Minimo 8 caracteres" />
+              <button
+                type="button"
+                class="btn-password-toggle"
+                (click)="togglePasswordVisibility('new')"
+                [attr.aria-label]="showNewPassword ? 'Ocultar nueva contrasena' : 'Mostrar nueva contrasena'"
+              >
+                <i class="fa-solid" [ngClass]="showNewPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+              </button>
+            </div>
+            <small *ngIf="passwordForm.controls.new_password.touched && passwordForm.controls.new_password.invalid">
+              Debe tener minimo 8 caracteres.
+            </small>
+          </label>
+
+          <label>
+            <span>Confirmar Nueva Contrasena</span>
+            <div class="password-field">
+              <input [type]="passwordInputType('confirm')" formControlName="confirm_password" placeholder="Repite la nueva contrasena" />
+              <button
+                type="button"
+                class="btn-password-toggle"
+                (click)="togglePasswordVisibility('confirm')"
+                [attr.aria-label]="showConfirmPassword ? 'Ocultar confirmacion de contrasena' : 'Mostrar confirmacion de contrasena'"
+              >
+                <i class="fa-solid" [ngClass]="showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+              </button>
+            </div>
+            <small *ngIf="passwordForm.controls.confirm_password.touched && passwordForm.controls.confirm_password.invalid">
+              La confirmacion es obligatoria.
+            </small>
+          </label>
+        </form>
+
+        <div class="actions-row">
+          <button type="button" class="btn-gold" [disabled]="passwordLoading" (click)="savePassword()">
+            {{ passwordLoading ? 'Guardando...' : 'Cambiar Contrasena' }}
+          </button>
+        </div>
+
+        <p class="feedback error" *ngIf="passwordErrorMessage">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          {{ passwordErrorMessage }}
+        </p>
+        <p class="feedback success" *ngIf="passwordSavedMessage">
+          <i class="fa-solid fa-circle-check"></i>
+          {{ passwordSavedMessage }}
+        </p>
+
+        <aside class="tips-box">
+          <h3>Recomendaciones de Seguridad</h3>
+          <ul>
+            <li>Usa al menos 8 caracteres.</li>
+            <li>Combina mayusculas, minusculas, numeros y simbolos.</li>
+            <li>No reutilices contrasenas de otras cuentas.</li>
+            <li>Cambia tu contrasena de forma periodica.</li>
+          </ul>
+        </aside>
+      </div>
+
+      <div class="tabs-body" *ngIf="!loading && !loadError && activeTab === 'work'">
+        <div class="section-head">
+          <div>
+            <h2>Informacion Laboral</h2>
+            <p>Consulta la informacion laboral vinculada a tu cuenta.</p>
+          </div>
+        </div>
+
+        <p class="mode-badge">
+          <i class="fa-regular fa-eye"></i>
+          Modo lectura activo. La informacion laboral la gestiona administracion.
+        </p>
+
+        <form [formGroup]="workForm" class="form-grid one-col">
+          <label>
+            <span>Hotel en el que trabaja</span>
+            <input type="text" formControlName="hotel_name" placeholder="Nombre del hotel" />
+            <small *ngIf="workForm.controls.hotel_name.touched && workForm.controls.hotel_name.invalid">
+              El nombre del hotel es obligatorio.
+            </small>
+          </label>
+
+          <label>
+            <span>Cargo</span>
+            <input type="text" formControlName="job_title" placeholder="Ej: Supervisor de recepcion" />
+            <small *ngIf="workForm.controls.job_title.touched && workForm.controls.job_title.invalid">
+              El cargo es obligatorio.
+            </small>
+          </label>
+
+          <label>
+            <span>Rol</span>
+            <input type="text" formControlName="work_role" placeholder="Ej: Admin, Operador, Auditor" />
+            <small *ngIf="workForm.controls.work_role.touched && workForm.controls.work_role.invalid">
+              El rol es obligatorio.
+            </small>
+          </label>
+        </form>
+
+      </div>
+    </section>
+  </div>
+</div>

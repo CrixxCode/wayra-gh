@@ -1,0 +1,83 @@
+<div class="type-overlay" (click)="closeDrawer()">
+  <article class="type-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div>
+        <h1>Nuevo tipo de habitacion</h1>
+        <p>Define capacidad, camas y datos base para nuevas habitaciones.</p>
+      </div>
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form [formGroup]="roomTypeForm" (ngSubmit)="submit()" class="drawer-body">
+      <section>
+        <h2>Informacion general</h2>
+
+        <div class="grid two">
+          <label>
+            <span>Codigo *</span>
+            <input type="text" formControlName="code" placeholder="Ej: DELUXE_KING" [class.input-error]="code?.touched && code?.invalid" />
+            <small class="field-error" *ngIf="code?.touched && code?.hasError('required')">El codigo es obligatorio.</small>
+            <small class="field-error" *ngIf="code?.touched && code?.hasError('maxlength')">Maximo 80 caracteres.</small>
+            <small class="field-error" *ngIf="code?.touched && code?.hasError('pattern')">Solo letras, numeros, guion y guion bajo.</small>
+          </label>
+
+          <label>
+            <span>Nombre *</span>
+            <input type="text" formControlName="name" placeholder="Ej: Suite Deluxe King" [class.input-error]="name?.touched && name?.invalid" />
+            <small class="field-error" *ngIf="name?.touched && name?.hasError('required')">El nombre es obligatorio.</small>
+            <small class="field-error" *ngIf="name?.touched && name?.hasError('maxlength')">Maximo 120 caracteres.</small>
+          </label>
+
+          <label>
+            <span>Capacidad (personas) *</span>
+            <input type="number" min="1" step="1" formControlName="capacity" [class.input-error]="capacity?.touched && capacity?.invalid" />
+            <small class="field-error" *ngIf="capacity?.touched && capacity?.invalid">La capacidad minima es 1.</small>
+          </label>
+
+          <label>
+            <span>Cantidad de camas *</span>
+            <input type="number" min="1" step="1" formControlName="bed_count" [class.input-error]="bed_count?.touched && bed_count?.invalid" />
+            <small class="field-error" *ngIf="bed_count?.touched && bed_count?.invalid">Debes registrar al menos 1 cama.</small>
+          </label>
+
+          <label>
+            <span>Tipo de cama</span>
+            <input type="text" formControlName="bed_type" placeholder="Ej: King, Queen, Twin" [class.input-error]="bed_type?.touched && bed_type?.invalid" />
+            <small class="field-error" *ngIf="bed_type?.touched && bed_type?.hasError('maxlength')">Maximo 50 caracteres.</small>
+          </label>
+
+          <label>
+            <span>Orden</span>
+            <input type="number" min="0" step="1" formControlName="sort_order" [class.input-error]="sort_order?.touched && sort_order?.invalid" />
+            <small class="field-error" *ngIf="sort_order?.touched && sort_order?.invalid">El orden no puede ser negativo.</small>
+          </label>
+
+          <label class="full">
+            <span>Descripcion</span>
+            <textarea formControlName="description" rows="4" placeholder="Describe caracteristicas de este tipo de habitacion..."></textarea>
+            <small class="field-error" *ngIf="description?.touched && description?.hasError('maxlength')">Maximo 2000 caracteres.</small>
+          </label>
+
+          <label class="full switch-row">
+            <input type="checkbox" formControlName="is_active" />
+            <span>Tipo activo para nuevos registros y tarifas</span>
+          </label>
+        </div>
+      </section>
+
+      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-light" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn-dark" [disabled]="saving">
+          {{ saving ? 'Guardando...' : 'Guardar tipo' }}
+        </button>
+      </footer>
+    </form>
+  </article>
+</div>

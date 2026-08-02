@@ -1,0 +1,137 @@
+<section class="pos-card">
+  <header class="pos-head">
+    <div>
+      <h3>Bar / Mini tienda</h3>
+      <p>Agrega productos de inventario a la factura activa en un solo paso.</p>
+    </div>
+
+    <button type="button" class="btn btn-close" (click)="close()" [disabled]="saving" title="Cerrar">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </header>
+
+  <section class="pos-toolbar">
+    <label class="gh-search-wrap pos-search">
+      <span>Buscar producto</span>
+      <div class="gh-search-control">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input
+          class="gh-search-input"
+          type="text"
+          [(ngModel)]="search"
+          (input)="applyFilters()"
+          placeholder="Nombre, SKU o categoria..." />
+      </div>
+    </label>
+
+    <label class="gh-filter-field">
+      <span>Categoria</span>
+      <select class="gh-filter-select" [(ngModel)]="categoryFilter" (change)="applyFilters()">
+        <option *ngFor="let category of categories" [value]="category.code">
+          {{ category.label }} ({{ category.count }})
+        </option>
+      </select>
+    </label>
+
+    <label class="availability-toggle">
+      <input type="checkbox" [(ngModel)]="onlyAvailable" (change)="applyFilters()" />
+      <span>Solo disponibles</span>
+    </label>
+  </section>
+
+  <section class="state-message" *ngIf="loading || errorMessage || infoMessage">
+    <p *ngIf="loading">Cargando catalogo POS...</p>
+    <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p class="info" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
+  </section>
+
+  <div class="pos-layout">
+    <section class="products-panel">
+      <div class="products-empty" *ngIf="!loading && filteredItems.length === 0">
+        <p>No hay productos para los filtros seleccionados.</p>
+      </div>
+
+      <div class="products-grid" *ngIf="!loading && filteredItems.length > 0">
+        <article class="product-card" *ngFor="let item of filteredItems; trackBy: trackByItem">
+          <div class="product-top">
+            <h4>{{ item.name }}</h4>
+            <span class="category-chip">{{ getCategoryLabel(item) }}</span>
+          </div>
+
+          <p class="product-sku">{{ item.sku || ('ITM-' + item.id) }}</p>
+
+          <div class="product-meta">
+            <span class="stock" [class.out]="getAvailableStock(item) <= 0">{{ getAvailableStockLabel(item) }}</span>
+            <span class="cart-mark" *ngIf="getCartQuantity(item.id) > 0">en ticket: {{ getCartQuantity(item.id) }}</span>
+          </div>
+
+          <footer class="product-foot">
+            <strong>{{ getPriceLabel(item) }}</strong>
+            <button
+              type="button"
+              class="btn btn-dark btn-add"
+              (click)="addItem(item)"
+              [disabled]="getAvailableStock(item) <= 0">
+              <i class="fa-solid fa-plus"></i>
+              Agregar
+            </button>
+          </footer>
+        </article>
+      </div>
+    </section>
+
+    <aside class="cart-panel">
+      <header class="cart-head">
+        <h4>Ticket de consumo</h4>
+        <span>{{ cartCount }} item(s)</span>
+      </header>
+
+      <section class="cart-empty" *ngIf="cart.length === 0">
+        <p>Agrega productos desde el catalogo para registrar el consumo.</p>
+      </section>
+
+      <div class="cart-lines" *ngIf="cart.length > 0">
+        <article class="cart-line" *ngFor="let line of cart; trackBy: trackByCartItem">
+          <div class="line-copy">
+            <strong>{{ line.item.name }}</strong>
+            <small>{{ getCategoryLabel(line.item) }}</small>
+          </div>
+
+          <div class="line-controls">
+            <button type="button" class="qty-btn" (click)="decrease(line)">-</button>
+            <input
+              type="number"
+              min="1"
+              [max]="line.item.stock"
+              [ngModel]="line.quantity"
+              (ngModelChange)="onQuantityChanged(line, $event)" />
+            <button type="button" class="qty-btn" (click)="increase(line)">+</button>
+          </div>
+
+          <div class="line-total">
+            <strong>{{ getCartLineTotalLabel(line) }}</strong>
+            <button type="button" class="remove-btn" (click)="remove(line)" title="Quitar">
+              <i class="fa-regular fa-trash-can"></i>
+            </button>
+          </div>
+        </article>
+      </div>
+
+      <footer class="cart-foot">
+        <div class="totals">
+          <span>Subtotal</span>
+          <strong>{{ cartSubtotal | currency: 'COP':'symbol':'1.0-0':'es-CO' }}</strong>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-light" (click)="clearCart()" [disabled]="saving || cart.length === 0">
+            Limpiar
+          </button>
+          <button type="button" class="btn btn-dark" (click)="submit()" [disabled]="!canSubmit">
+            {{ saving ? 'Registrando...' : 'Agregar a factura' }}
+          </button>
+        </div>
+      </footer>
+    </aside>
+  </div>
+</section>

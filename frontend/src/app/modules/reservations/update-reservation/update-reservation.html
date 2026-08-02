@@ -1,0 +1,190 @@
+﻿<div class="reservation-overlay" (click)="closeDrawer()">
+  <article class="reservation-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div class="head-main">
+        <span class="drawer-kicker">Reservas</span>
+        <h1>Editar reserva</h1>
+        <p>Actualiza fechas, origen y habitaciones asignadas.</p>
+      </div>
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form [formGroup]="reservationForm" (ngSubmit)="submit()" class="drawer-body">
+      <section>
+        <h2>Informacion base</h2>
+
+        <div class="grid two">
+          <label>
+            <span>Cliente *</span>
+            <select formControlName="client" [class.input-error]="isControlInvalid('client')">
+              <option [ngValue]="null">Selecciona cliente</option>
+              <option *ngFor="let client of clients; trackBy: trackById" [ngValue]="client.id">
+                {{ client.full_name || (client.first_name + ' ' + client.last_name) }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="getControlError('client') as error">{{ error }}</small>
+          </label>
+
+          <label>
+            <span>Origen *</span>
+            <select formControlName="origin" [class.input-error]="isControlInvalid('origin')">
+              <option [ngValue]="null">Selecciona origen</option>
+              <option *ngFor="let origin of origins; trackBy: trackById" [ngValue]="origin.id">
+                {{ origin.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="getControlError('origin') as error">{{ error }}</small>
+          </label>
+
+          <label>
+            <span>Codigo promo</span>
+            <input type="text" formControlName="promo_code" placeholder="Ej: SUMMER2026" />
+          </label>
+
+          <label>
+            <span>Paquete</span>
+            <select formControlName="package">
+              <option [ngValue]="null">Sin paquete</option>
+              <option *ngFor="let item of getAvailablePackagesForDates(); trackBy: trackById" [ngValue]="item.id">
+                {{ getPackageOptionLabel(item) }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <span>Check-in esperado *</span>
+            <input type="date" formControlName="expected_check_in" [class.input-error]="isControlInvalid('expected_check_in')" />
+            <small class="field-error" *ngIf="getControlError('expected_check_in') as error">{{ error }}</small>
+          </label>
+
+          <label>
+            <span>Check-out esperado *</span>
+            <input type="date" formControlName="expected_check_out" [class.input-error]="isControlInvalid('expected_check_out')" />
+            <small class="field-error" *ngIf="getControlError('expected_check_out') as error">{{ error }}</small>
+          </label>
+
+          <label>
+            <span>Descuento total</span>
+            <input type="number" formControlName="total_discount" min="0" step="0.01" placeholder="0" />
+          </label>
+
+          <label class="full">
+            <span>Notas internas</span>
+            <textarea
+              rows="4"
+              formControlName="notes"
+              placeholder="Observaciones para recepcion y operaciones..."
+              [class.input-error]="isControlInvalid('notes')"></textarea>
+            <small class="field-error" *ngIf="getControlError('notes') as error">{{ error }}</small>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Habitaciones de la reserva</h2>
+          <button type="button" class="btn btn-ghost" (click)="addRoomLine()">
+            <i class="fa-solid fa-plus"></i>
+            Agregar habitacion
+          </button>
+        </div>
+
+        <div formArrayName="room_lines" class="room-lines">
+          <article class="room-line" *ngFor="let roomControl of roomLines.controls; let idx = index; trackBy: trackByRoomLine" [formGroupName]="idx">
+            <div class="line-grid room-grid">
+              <label>
+                <span>Habitacion</span>
+                <select formControlName="room" [class.input-error]="isRoomFieldInvalid(idx, 'room')">
+                  <option [ngValue]="null">Sin asignar</option>
+                  <option *ngFor="let room of availableRooms; trackBy: trackById" [ngValue]="room.id">
+                    Hab. {{ room.number }}
+                  </option>
+                </select>
+                <small class="field-error" *ngIf="getRoomFieldError(idx, 'room') as error">{{ error }}</small>
+              </label>
+
+              <label>
+                <span>Capacidad</span>
+                <input type="text" [value]="getRoomCapacityLabel(idx)" readonly />
+              </label>
+            </div>
+
+            <div class="line-actions">
+              <button type="button" class="row-btn danger" (click)="removeRoomLine(idx)" title="Eliminar fila">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </article>
+        </div>
+        <small class="field-help">
+          La tarifa se toma automaticamente del tipo de habitacion y la ocupacion (adultos/ninos) se calcula segun la fecha de nacimiento de los huespedes.
+        </small>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Politicas de la reserva</h2>
+          <button type="button" class="btn btn-ghost" (click)="addPolicyLine()">
+            <i class="fa-solid fa-plus"></i>
+            Agregar politica
+          </button>
+        </div>
+
+        <div formArrayName="policy_lines" class="policy-lines">
+          <article class="policy-line" *ngFor="let policyControl of policyLines.controls; let idx = index; trackBy: trackByPolicyLine" [formGroupName]="idx">
+            <div class="line-grid policy-grid">
+              <label>
+                <span>Politica</span>
+                <select formControlName="policy">
+                  <option [ngValue]="null">Sin asignar</option>
+                  <option *ngFor="let policy of availableReservationPolicies; trackBy: trackById" [ngValue]="policy.id">
+                    {{ policy.name }}
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                <span>Tipo</span>
+                <input type="text" [value]="getPolicyTypeLabel(policyControl.get('policy')?.value)" readonly />
+              </label>
+
+              <label>
+                <span>Penalidad</span>
+                <input type="text" [value]="getPolicyPenaltyLabel(policyControl.get('policy')?.value)" readonly />
+              </label>
+
+              <label>
+                <span>Horas antes check-in</span>
+                <input type="text" [value]="getPolicyHoursLabel(policyControl.get('policy')?.value)" readonly />
+              </label>
+            </div>
+
+            <div class="line-actions">
+              <button type="button" class="row-btn danger" (click)="removePolicyLine(idx)" title="Eliminar politica">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </article>
+        </div>
+
+        <small class="field-help" *ngIf="selectedPoliciesCount > 0">{{ selectedPoliciesCount }} politica(s) seleccionada(s)</small>
+        <small class="field-help" *ngIf="selectedPoliciesCount === 0">Opcional. Agrega politicas si aplica.</small>
+      </section>
+
+      <p class="feedback warning" *ngIf="warningMessage">{{ warningMessage }}</p>
+      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving">
+          {{ saving ? 'Guardando...' : 'Guardar cambios' }}
+        </button>
+      </footer>
+    </form>
+  </article>
+</div>

@@ -1,0 +1,137 @@
+<div class="room-inventory-overlay" (click)="closeDrawer()">
+  <article class="room-inventory-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div>
+        <h1>Nueva asignacion</h1>
+        <p>Asigna varios items a una habitacion con cantidades y umbral minimo por item.</p>
+      </div>
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form [formGroup]="roomInventoryForm" (ngSubmit)="submit()" class="drawer-body">
+      <section>
+        <h2>Datos base</h2>
+        <div class="grid two">
+          <label class="full">
+            <span>Habitacion *</span>
+            <select formControlName="room" [class.input-error]="room?.touched && room?.invalid">
+              <option [ngValue]="null">Selecciona habitacion</option>
+              <option *ngFor="let roomOption of availableRooms; trackBy: trackById" [ngValue]="roomOption.id">
+                {{ getRoomLabel(roomOption) }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="room?.touched && room?.invalid">Selecciona una habitacion.</small>
+          </label>
+
+          <label class="full switch-row">
+            <input type="checkbox" formControlName="is_active" />
+            <span>Asignaciones activas en operacion diaria</span>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Items a asignar</h2>
+          <button type="button" class="btn btn-light btn-sm" (click)="addAssignment()" [disabled]="saving || !availableItems.length">
+            <i class="fa-solid fa-plus"></i>
+            Agregar item
+          </button>
+        </div>
+
+        <div class="assignments-list" formArrayName="assignments">
+          <article class="assignment-card" *ngFor="let row of assignmentControls; let i = index; trackBy: trackByIndex" [formGroupName]="i">
+            <header class="assignment-head">
+              <p>Item {{ i + 1 }}</p>
+              <button type="button" class="btn btn-danger-outline btn-sm" (click)="removeAssignment(i)" [disabled]="saving || assignmentControls.length <= 1">
+                Quitar
+              </button>
+            </header>
+
+            <div class="grid two">
+              <label class="full">
+                <span>Item *</span>
+                <select formControlName="item" [class.input-error]="getAssignmentItemControl(i)?.touched && getAssignmentItemControl(i)?.invalid">
+                  <option [ngValue]="null">Selecciona item</option>
+                  <option *ngFor="let itemOption of availableItemsForRow(i); trackBy: trackById" [ngValue]="itemOption.id">
+                    {{ getItemLabel(itemOption) }}
+                  </option>
+                </select>
+                <small class="field-error" *ngIf="getAssignmentItemControl(i)?.touched && getAssignmentItemControl(i)?.invalid">
+                  Selecciona un item.
+                </small>
+                <small class="field-hint">{{ selectedItemLabel(i) }}</small>
+              </label>
+
+              <label>
+                <span>Cantidad en habitacion *</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  formControlName="quantity"
+                  placeholder="Ej: 4"
+                  [class.input-error]="getAssignmentQuantityControl(i)?.touched && getAssignmentQuantityControl(i)?.invalid" />
+                <small class="field-error" *ngIf="getAssignmentQuantityControl(i)?.touched && getAssignmentQuantityControl(i)?.hasError('required')">
+                  La cantidad es obligatoria.
+                </small>
+                <small class="field-error" *ngIf="getAssignmentQuantityControl(i)?.touched && getAssignmentQuantityControl(i)?.hasError('min')">
+                  La cantidad debe ser mayor o igual a 0.
+                </small>
+              </label>
+
+              <label>
+                <span>Cantidad minima *</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  formControlName="minimum_quantity"
+                  placeholder="Ej: 2"
+                  [class.input-error]="getAssignmentMinimumControl(i)?.touched && getAssignmentMinimumControl(i)?.invalid" />
+                <small class="field-error" *ngIf="getAssignmentMinimumControl(i)?.touched && getAssignmentMinimumControl(i)?.hasError('required')">
+                  La cantidad minima es obligatoria.
+                </small>
+                <small class="field-error" *ngIf="getAssignmentMinimumControl(i)?.touched && getAssignmentMinimumControl(i)?.hasError('min')">
+                  La cantidad minima debe ser mayor o igual a 0.
+                </small>
+              </label>
+
+              <label class="full">
+                <span>Notas</span>
+                <textarea
+                  rows="3"
+                  formControlName="notes"
+                  placeholder="Observaciones de reposicion o uso..."
+                  [class.input-error]="getAssignmentNotesControl(i)?.touched && getAssignmentNotesControl(i)?.invalid"></textarea>
+                <small class="field-error" *ngIf="getAssignmentNotesControl(i)?.touched && getAssignmentNotesControl(i)?.hasError('maxlength')">
+                  Las notas no pueden superar 2000 caracteres.
+                </small>
+              </label>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <p class="feedback warning" *ngIf="!availableRooms.length">
+        No hay habitaciones disponibles para este registro.
+      </p>
+      <p class="feedback warning" *ngIf="availableRooms.length && !availableItems.length">
+        No hay items activos para asociar al inventario de habitaciones.
+      </p>
+      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-light" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn-dark" [disabled]="saving || !availableRooms.length || !availableItems.length">
+          {{ saving ? 'Guardando...' : 'Guardar asignaciones' }}
+        </button>
+      </footer>
+    </form>
+  </article>
+</div>

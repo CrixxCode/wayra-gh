@@ -1,0 +1,119 @@
+<div class="maintenance-order-overlay" (click)="closeDrawer()">
+  <article class="maintenance-order-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div>
+        <h1>Nueva orden de mantenimiento</h1>
+        <p>Registra la incidencia, prioridad y estado para seguimiento tecnico.</p>
+      </div>
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form [formGroup]="maintenanceOrderForm" (ngSubmit)="submit()" class="drawer-body">
+      <section>
+        <h2>Datos de la orden</h2>
+        <div class="grid two">
+          <label class="full">
+            <span>Habitacion *</span>
+            <select formControlName="room" [class.input-error]="room?.touched && room?.invalid">
+              <option [ngValue]="null">Selecciona habitacion</option>
+              <option *ngFor="let roomOption of availableRooms; trackBy: trackById" [ngValue]="roomOption.id">
+                {{ getRoomLabel(roomOption) }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="room?.touched && room?.invalid">Selecciona una habitacion.</small>
+          </label>
+
+          <label class="full">
+            <span>Titulo *</span>
+            <input
+              type="text"
+              formControlName="title"
+              placeholder="Ej: Fuga en bano de habitacion"
+              [class.input-error]="title?.touched && title?.invalid" />
+            <small class="field-error" *ngIf="title?.touched && title?.hasError('required')">El titulo es obligatorio.</small>
+            <small class="field-error" *ngIf="title?.touched && title?.hasError('maxlength')">
+              El titulo no puede superar 150 caracteres.
+            </small>
+          </label>
+
+          <label>
+            <span>Prioridad *</span>
+            <select formControlName="priority" [class.input-error]="priority?.touched && priority?.invalid">
+              <option value="">Selecciona prioridad</option>
+              <option *ngFor="let priorityOption of availablePriorities; trackBy: trackById" [value]="priorityOption.code">
+                {{ priorityOption.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="priority?.touched && priority?.invalid">Selecciona una prioridad.</small>
+          </label>
+
+          <label>
+            <span>Estado *</span>
+            <select formControlName="status" [class.input-error]="status?.touched && status?.invalid">
+              <option value="">Selecciona estado</option>
+              <option *ngFor="let statusOption of availableStatuses; trackBy: trackById" [value]="statusOption.code">
+                {{ statusOption.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="status?.touched && status?.invalid">Selecciona un estado.</small>
+          </label>
+
+          <label>
+            <span>Fecha estimada de finalizacion</span>
+            <input type="datetime-local" formControlName="estimated_completed_at" />
+            <small class="field-hint">Opcional: fecha y hora objetivo para cerrar la orden.</small>
+          </label>
+
+          <label>
+            <span>Fecha real de finalizacion</span>
+            <input type="datetime-local" formControlName="completed_at" [disabled]="!shouldShowCompletedAt" />
+            <small class="field-hint" *ngIf="!shouldShowCompletedAt">
+              Se establece automaticamente al marcar como completada.
+            </small>
+          </label>
+
+          <label class="full">
+            <span>Descripcion</span>
+            <textarea
+              rows="4"
+              formControlName="description"
+              placeholder="Detalle tecnico de la averia, materiales o instrucciones..."
+              [class.input-error]="maintenanceOrderForm.get('description')?.touched && maintenanceOrderForm.get('description')?.invalid"></textarea>
+            <small
+              class="field-error"
+              *ngIf="maintenanceOrderForm.get('description')?.touched && maintenanceOrderForm.get('description')?.hasError('maxlength')">
+              La descripcion no puede superar 3000 caracteres.
+            </small>
+          </label>
+        </div>
+      </section>
+
+      <p class="feedback warning" *ngIf="!availableRooms.length">
+        No hay habitaciones disponibles para este registro.
+      </p>
+      <p class="feedback warning" *ngIf="availableRooms.length && !availablePriorities.length">
+        No hay prioridades de mantenimiento activas.
+      </p>
+      <p class="feedback warning" *ngIf="availableRooms.length && availablePriorities.length && !availableStatuses.length">
+        No hay estados de mantenimiento activos.
+      </p>
+      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-light" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button
+          type="submit"
+          class="btn btn-dark"
+          [disabled]="saving || !availableRooms.length || !availablePriorities.length || !availableStatuses.length">
+          {{ saving ? 'Guardando...' : 'Guardar orden' }}
+        </button>
+      </footer>
+    </form>
+  </article>
+</div>
+

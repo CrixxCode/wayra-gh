@@ -1,0 +1,287 @@
+<div class="rooms-page">
+  <header class="page-header">
+    <div>
+      <h1>Check-In / Check-Out</h1>
+      <p>Gestiona el estado de las habitaciones y los movimientos de huespedes.</p>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" class="btn btn-light" (click)="goToAmenities()">
+        <i class="fa-solid fa-star"></i>
+        Amenidades
+      </button>
+      <button type="button" class="btn btn-light" (click)="goToRoomTypes()">
+        <i class="fa-solid fa-layer-group"></i>
+        Tipos
+      </button>
+      <button type="button" class="btn btn-dark" (click)="goToRates()">
+        <i class="fa-solid fa-tags"></i>
+        Tarifas
+      </button>
+    </div>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Disponibles</span>
+        <span class="stat-icon green"><i class="fa-solid fa-check"></i></span>
+      </div>
+      <div class="stat-value">{{ availableCount }}</div>
+      <div class="stat-note">de {{ totalRooms }} hab.</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Reservadas</span>
+        <span class="stat-icon violet"><i class="fa-regular fa-calendar-check"></i></span>
+      </div>
+      <div class="stat-value">{{ reservedCount }}</div>
+      <div class="stat-note">de {{ totalRooms }} hab.</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Ocupadas</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-user-group"></i></span>
+      </div>
+      <div class="stat-value">{{ occupiedCount }}</div>
+      <div class="stat-note">de {{ totalRooms }} hab.</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Por salir hoy</span>
+        <span class="stat-icon yellow"><i class="fa-solid fa-right-from-bracket"></i></span>
+      </div>
+      <div class="stat-value">{{ leavingTodayCount }}</div>
+      <div class="stat-note">de {{ totalRooms }} hab.</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Mantenimiento</span>
+        <span class="stat-icon red"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+      </div>
+      <div class="stat-value">{{ maintenanceCount }}</div>
+      <div class="stat-note">de {{ totalRooms }} hab.</div>
+    </article>
+  </section>
+
+  <section class="filters-card">
+    <div class="filters-grid">
+      <label class="search-field search-wrap gh-search-wrap">
+        <span>Buscar</span>
+        <div class="search-control gh-search-control">
+          <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+          <input class="gh-search-input" type="text" [(ngModel)]="search" (input)="applyFilters()" placeholder="Numero o descripcion..." />
+        </div>
+      </label>
+
+      <label>
+        <span>Estado</span>
+        <select [(ngModel)]="statusFilter" (change)="applyFilters()">
+          <option *ngFor="let statusOption of statusOptions" [ngValue]="statusOption.value">{{ statusOption.label }}</option>
+        </select>
+      </label>
+
+      <label>
+        <span>Piso</span>
+        <select [(ngModel)]="floorFilter" (change)="applyFilters()">
+          <option [ngValue]="'ALL'">Todos los pisos</option>
+          <option *ngFor="let floorItem of floors; trackBy: trackById" [ngValue]="floorItem.id">
+            {{ floorItem.name }} ({{ floorItem.prefix }})
+          </option>
+        </select>
+      </label>
+
+      <div class="filter-actions-inline">
+        <button type="button" [class.active]="viewMode === 'table'" (click)="setViewMode('table')" title="Vista tabla">
+          <i class="fa-solid fa-list"></i>
+        </button>
+        <button type="button" [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')" title="Vista cuadricula">
+          <i class="fa-solid fa-grip"></i>
+        </button>
+        <button type="button" (click)="loadModuleData()" [disabled]="loading" title="Actualizar">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+        <button type="button" (click)="exportCsv()" title="Exportar">
+          <i class="fa-solid fa-download"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="status-tabs">
+      <button
+        type="button"
+        *ngFor="let tab of statusTabs"
+        [class.active]="statusFilter === tab.key"
+        (click)="selectStatus(tab.key)">
+        {{ tab.label }}
+        <span>{{ getStatusCount(tab.key) }}</span>
+      </button>
+    </div>
+  </section>
+
+  <section class="state-message" *ngIf="loading || errorMessage || filteredRooms.length === 0">
+    <p *ngIf="loading">Cargando habitaciones...</p>
+    <p *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p *ngIf="!loading && !errorMessage && filteredRooms.length === 0">No hay habitaciones para los filtros seleccionados.</p>
+  </section>
+
+  <section class="rooms-grid" *ngIf="!loading && !errorMessage && viewMode === 'cards'">
+    <article
+      class="room-card"
+      *ngFor="let room of filteredRooms; trackBy: trackByRoom"
+      [ngClass]="getCardStatusClass(room)"
+      (click)="openDetail(room)">
+      <header class="room-head">
+        <div>
+          <span class="room-label">Habitacion</span>
+          <h2>{{ room.number }}</h2>
+        </div>
+        <span
+          class="status-chip status-chip-card"
+          [ngStyle]="{ 'background-color': getStatusStyle(room).bg, color: getStatusStyle(room).color }">
+          {{ getStatusLabel(room) }}
+        </span>
+      </header>
+
+      <p class="room-type">
+        <i class="fa-solid fa-bed"></i>
+        {{ getCardTypeSummary(room) }}
+      </p>
+      <p class="room-floor">
+        <i class="fa-solid fa-layer-group"></i>
+        {{ room.floor_name || 'Piso no definido' }}
+      </p>
+      <p class="room-price">{{ getPriceLabel(room) }}<small>/ noche</small></p>
+
+      <div class="reservation-info" *ngIf="hasReservationInfo(room)">
+        <p>
+          <i class="fa-regular fa-user"></i>
+          {{ getGuestLabel(room) }}
+        </p>
+        <p>
+          <i class="fa-solid fa-right-from-bracket"></i>
+          Salida:
+          <strong>{{ getCheckoutLabel(room) }}</strong>
+        </p>
+      </div>
+
+      <p class="maintenance" *ngIf="room.status === 'MANTENIMIENTO'">
+        <i class="fa-solid fa-screwdriver-wrench"></i>
+        {{ getMaintenanceText(room) }}
+      </p>
+
+      <div class="room-actions">
+        <button
+          type="button"
+          class="action-btn card-main-btn"
+          [ngClass]="getPrimaryActionClass(room)"
+          [disabled]="!canPrimaryAction(room)"
+          (click)="$event.stopPropagation(); onPrimaryAction(room)">
+          <i [class]="getPrimaryActionIcon(room)"></i>
+          {{ getPrimaryActionLabel(room) }}
+        </button>
+      </div>
+    </article>
+
+    <button type="button" class="add-room-card" (click)="openCreateDrawer()">
+      <span><i class="fa-solid fa-plus"></i></span>
+      <strong>Agregar habitacion</strong>
+      <small>Crea una nueva unidad para el hotel.</small>
+    </button>
+  </section>
+
+  <section class="table-card" *ngIf="!loading && !errorMessage && filteredRooms.length > 0 && viewMode === 'table'">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Habitacion</th>
+            <th>Tipo</th>
+            <th>Estado</th>
+            <th>Piso</th>
+            <th>Notas</th>
+            <th>Precio</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let room of filteredRooms; trackBy: trackByRoom" class="table-clickable-row" (click)="openDetail(room)">
+            <td>
+              <p class="table-main">Hab. {{ room.number }}</p>
+              <small>{{ room.floor_name || 'Piso no definido' }}</small>
+            </td>
+            <td>
+              <p class="table-main">{{ getRoomTypeName(room) }}</p>
+              <small>{{ getRoomTypeBeds(room) }}</small>
+            </td>
+            <td>
+              <span class="status-chip" [ngStyle]="{ 'background-color': getStatusStyle(room).bg, color: getStatusStyle(room).color }">
+                <span class="status-dot" [ngStyle]="{ 'background-color': getStatusStyle(room).dot }"></span>
+                {{ getStatusLabel(room) }}
+              </span>
+            </td>
+            <td>{{ room.floor_name || '--' }}</td>
+            <td class="notes-cell">{{ room.notes || '--' }}</td>
+            <td>{{ getPriceLabel(room) }}/noche</td>
+            <td>
+              <div class="row-actions" (click)="$event.stopPropagation()">
+                <button
+                  type="button"
+                  class="action-btn"
+                  [disabled]="!canPrimaryAction(room)"
+                  [ngStyle]="{
+                    'background-color': canPrimaryAction(room) ? getStatusStyle(room).buttonBg : 'var(--gh-surface-soft)',
+                    color: canPrimaryAction(room) ? getStatusStyle(room).buttonColor : 'var(--gh-text-soft)'
+                  }"
+                  (click)="onPrimaryAction(room)">
+                  {{ getPrimaryActionLabel(room) }}
+                </button>
+                <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(room)">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+                <button type="button" class="row-btn" title="Editar" (click)="openUpdateDrawer(room)">
+                  <i class="fa-regular fa-pen-to-square"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="table-footer">
+      Mostrando {{ filteredRooms.length }} habitaciones
+    </footer>
+  </section>
+
+  <app-create-room
+    *ngIf="showCreateDrawer"
+    [floors]="floors"
+    [roomTypes]="roomTypes"
+    [amenities]="amenities"
+    (closed)="closeCreateDrawer()"
+    (created)="onRoomCreated()">
+  </app-create-room>
+
+  <app-update-room
+    *ngIf="showUpdateDrawer && roomToEdit"
+    [room]="roomToEdit"
+    [floors]="floors"
+    [roomTypes]="roomTypes"
+    [amenities]="amenities"
+    (closed)="closeUpdateDrawer()"
+    (updated)="onRoomUpdated()">
+  </app-update-room>
+
+  <app-room-detail
+    *ngIf="selectedRoom"
+    [room]="selectedRoom"
+    (closed)="closeDetail()"
+    (editRequested)="openUpdateFromDetail($event)"
+    (refreshed)="refreshRooms()">
+  </app-room-detail>
+</div>

@@ -1,0 +1,138 @@
+<div class="activity-page">
+  <header class="page-header">
+    <div>
+      <h1>Registro de Actividad</h1>
+      <p>Historial completo de eventos operativos y financieros del hotel.</p>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" class="gh-btn gh-btn-light" (click)="loadActivityLog()" [disabled]="loading">
+        <i class="fa-solid fa-rotate-right"></i>
+        Actualizar
+      </button>
+      <button type="button" class="gh-btn gh-btn-light" (click)="clearFilters()">
+        <i class="fa-solid fa-filter-circle-xmark"></i>
+        Limpiar filtros
+      </button>
+    </div>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total eventos</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-list-check"></i></span>
+      </div>
+      <div class="stat-value">{{ totalEvents }}</div>
+      <div class="stat-note">registro consolidado</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Pagos</span>
+        <span class="stat-icon green"><i class="fa-solid fa-wallet"></i></span>
+      </div>
+      <div class="stat-value">{{ paymentsCount }}</div>
+      <div class="stat-note">eventos financieros</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Inventario</span>
+        <span class="stat-icon cyan"><i class="fa-solid fa-boxes-stacked"></i></span>
+      </div>
+      <div class="stat-value">{{ inventoryCount }}</div>
+      <div class="stat-note">entradas y salidas</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Mantenimiento</span>
+        <span class="stat-icon amber"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+      </div>
+      <div class="stat-value">{{ maintenanceCount }}</div>
+      <div class="stat-note">ordenes registradas</div>
+    </article>
+  </section>
+
+  <section class="filters-card">
+    <label class="filter-field search-field">
+      <span>Buscar</span>
+      <div class="search-control">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input
+          type="text"
+          [(ngModel)]="search"
+          (input)="applyFilters()"
+          placeholder="Buscar por titulo, detalle o metadato..." />
+      </div>
+    </label>
+
+    <label class="filter-field">
+      <span>Tipo</span>
+      <select [(ngModel)]="typeFilter" (change)="applyFilters()">
+        <option *ngFor="let option of typeOptions" [ngValue]="option.value">{{ option.label }}</option>
+      </select>
+    </label>
+
+    <label class="filter-field">
+      <span>Fecha inicial</span>
+      <input type="date" [(ngModel)]="startDate" (change)="applyFilters()" />
+    </label>
+
+    <label class="filter-field">
+      <span>Fecha final</span>
+      <input type="date" [(ngModel)]="endDate" (change)="applyFilters()" />
+    </label>
+
+    <label class="filter-field">
+      <span>Eventos por pagina</span>
+      <select [(ngModel)]="pageSize" (change)="onPageSizeChange()">
+        <option *ngFor="let option of pageSizeOptions" [ngValue]="option">{{ option }}</option>
+      </select>
+    </label>
+  </section>
+
+  <section class="state-message" *ngIf="loading || errorMessage || infoMessage || (!loading && filteredEvents.length === 0)">
+    <p *ngIf="loading">Cargando registro de actividad...</p>
+    <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p class="info" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
+    <p *ngIf="!loading && !errorMessage && !infoMessage && filteredEvents.length === 0">
+      No hay eventos para los filtros seleccionados.
+    </p>
+  </section>
+
+  <section class="events-list" *ngIf="!loading && !errorMessage && filteredEvents.length > 0">
+    <article class="event-row" *ngFor="let event of visibleEvents; trackBy: trackByEvent">
+      <span class="event-icon" [ngClass]="'tone-' + event.tone">
+        <i [class]="event.icon"></i>
+      </span>
+
+      <div class="event-main">
+        <h3>{{ event.title }}</h3>
+        <p>{{ event.detail }}</p>
+        <small>{{ event.meta }}</small>
+      </div>
+
+      <div class="event-side">
+        <span class="event-date">{{ event.timestampLabel }}</span>
+        <button type="button" class="open-btn" (click)="openEvent(event)">
+          Abrir modulo
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    </article>
+  </section>
+
+  <footer class="pagination" *ngIf="!loading && !errorMessage && filteredEvents.length > 0">
+    <button type="button" class="page-btn" (click)="previousPage()" [disabled]="currentPage <= 1">
+      <i class="fa-solid fa-chevron-left"></i>
+      Anterior
+    </button>
+    <span>Pagina {{ currentPage }} de {{ totalPages }} - {{ filteredEvents.length }} eventos</span>
+    <button type="button" class="page-btn" (click)="nextPage()" [disabled]="currentPage >= totalPages">
+      Siguiente
+      <i class="fa-solid fa-chevron-right"></i>
+    </button>
+  </footer>
+</div>

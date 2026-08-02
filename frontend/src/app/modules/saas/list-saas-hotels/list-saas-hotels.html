@@ -1,0 +1,176 @@
+<div class="saas-hotels-page">
+  <header class="page-header">
+    <div>
+      <h1>Listado Global de Hoteles</h1>
+      <p>Vista SaaS para auditar configuracion, contacto y estado operativo de todos los hoteles.</p>
+    </div>
+
+    <div class="header-actions">
+      <a routerLink="/saas-panel" class="gh-btn gh-btn-light">
+        <i class="fa-solid fa-chart-line"></i>
+        Ir a panel SaaS
+      </a>
+      <a routerLink="/dashboard" class="gh-btn gh-btn-light">
+        <i class="fa-solid fa-arrow-left"></i>
+        Volver
+      </a>
+    </div>
+  </header>
+
+  <section class="state-message" *ngIf="loading || loadError || !isPlatformAdmin">
+    <p *ngIf="loading">Cargando listado global de hoteles...</p>
+    <p class="error" *ngIf="!loading && loadError">{{ loadError }}</p>
+    <p class="warning" *ngIf="!loading && !loadError && !isPlatformAdmin">
+      Esta vista solo esta disponible para administradores globales de la plataforma.
+    </p>
+  </section>
+
+  <ng-container *ngIf="!loading && !loadError && isPlatformAdmin">
+    <section class="stats-grid">
+      <article class="stat-card" *ngFor="let card of statCards">
+        <div class="stat-head">
+          <span>{{ card.label }}</span>
+          <span class="stat-icon" [ngClass]="card.tone">
+            <i [class]="card.icon"></i>
+          </span>
+        </div>
+        <div class="stat-value">{{ card.value }}</div>
+        <div class="stat-note">{{ card.note }}</div>
+      </article>
+    </section>
+
+    <section class="gh-filters-card">
+      <div class="gh-filters-grid saas-hotels-filters-grid">
+        <label class="search-field search-wrap gh-search-wrap">
+          <span>Buscar</span>
+          <div class="search-control gh-search-control">
+            <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+            <input
+              class="gh-search-input"
+              type="text"
+              [(ngModel)]="search"
+              (input)="applyFilters()"
+              placeholder="Buscar por hotel, ubicacion, contacto o id"
+            />
+          </div>
+        </label>
+
+        <label class="gh-filter-field">
+          <span>Pais</span>
+          <select class="gh-filter-select" [(ngModel)]="countryFilter" (change)="applyFilters()">
+            <option value="ALL">Todos</option>
+            <option *ngFor="let country of countryOptions" [value]="country">{{ country }}</option>
+          </select>
+        </label>
+
+        <label class="gh-filter-field">
+          <span>Salud</span>
+          <select class="gh-filter-select" [(ngModel)]="healthFilter" (change)="applyFilters()">
+            <option value="ALL">Todas</option>
+            <option value="healthy">Saludable</option>
+            <option value="warning">Observacion</option>
+            <option value="risk">Riesgo</option>
+          </select>
+        </label>
+
+        <label class="gh-filter-field">
+          <span>Contacto</span>
+          <select class="gh-filter-select" [(ngModel)]="contactFilter" (change)="applyFilters()">
+            <option value="ALL">Todos</option>
+            <option value="full">Completo</option>
+            <option value="partial">Parcial</option>
+            <option value="none">Sin contacto</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="gh-filters-actions">
+        <p class="state-note">
+          Mostrando {{ showingFrom }} - {{ showingTo }} de {{ filteredHotels.length }} hoteles.
+        </p>
+
+        <div class="gh-action-group">
+          <button type="button" class="gh-btn gh-btn-light" (click)="loadHotels()">
+            <i class="fa-solid fa-rotate-right"></i>
+            Actualizar
+          </button>
+          <button type="button" class="gh-btn gh-btn-light" (click)="exportCsv()" [disabled]="filteredHotels.length === 0">
+            <i class="fa-solid fa-file-export"></i>
+            Exportar CSV
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="table-card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Hotel</th>
+              <th>Ubicacion</th>
+              <th>Contacto general</th>
+              <th>Correo reservas</th>
+              <th>Telefono</th>
+              <th>Ultima actualizacion</th>
+              <th>Estado contacto</th>
+              <th>Salud</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="paginatedHotels.length === 0">
+              <td colspan="8" class="table-empty">No se encontraron hoteles con los filtros actuales.</td>
+            </tr>
+
+            <tr *ngFor="let hotel of paginatedHotels; trackBy: trackByHotel">
+              <td>
+                <div class="hotel-cell">
+                  <p class="hotel-name">{{ hotel.name }}</p>
+                  <p class="hotel-id">ID #{{ hotel.id }}</p>
+                </div>
+              </td>
+              <td>{{ hotel.location }}</td>
+              <td>{{ hotel.generalEmail || 'Sin correo' }}</td>
+              <td>{{ hotel.reservationsEmail || 'Sin correo' }}</td>
+              <td>{{ hotel.primaryPhone || 'Sin telefono' }}</td>
+              <td>
+                <div class="updated-cell">
+                  <strong>{{ hotel.lastUpdatedLabel }}</strong>
+                  <span>{{ formatDate(hotel.lastUpdatedAt) || 'Sin fecha' }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="status-chip" [ngClass]="getContactClass(hotel.contactCompleteness)">
+                  {{ getContactLabel(hotel.contactCompleteness) }}
+                </span>
+              </td>
+              <td>
+                <span class="status-chip" [ngClass]="getHealthClass(hotel.health)">
+                  {{ getHealthLabel(hotel.health) }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="table-footer">
+        <span>
+          Mostrando {{ showingFrom }} - {{ showingTo }} de {{ filteredHotels.length }} hoteles
+        </span>
+
+        <div class="pager">
+          <button (click)="changePage(currentPage - 1)" [disabled]="currentPage === 1">Anterior</button>
+
+          <button *ngFor="let page of pages" (click)="changePage(page)" [class.active]="currentPage === page">
+            {{ page }}
+          </button>
+
+          <button (click)="changePage(currentPage + 1)" [disabled]="currentPage === totalPages || totalPages === 0">
+            Siguiente
+          </button>
+        </div>
+      </footer>
+    </section>
+  </ng-container>
+</div>

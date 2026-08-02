@@ -1,0 +1,76 @@
+<div class="rate-overlay" (click)="closeDrawer()">
+  <article class="rate-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div>
+        <h1>Nueva tarifa</h1>
+        <p>Configura la tarifa por noche para un tipo de habitacion.</p>
+      </div>
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form [formGroup]="rateForm" (ngSubmit)="submit()" class="drawer-body">
+      <section>
+        <h2>Datos de tarifa</h2>
+
+        <div class="grid two">
+          <label class="full">
+            <span>Tipo de habitacion *</span>
+            <select formControlName="room_type" [class.input-error]="room_type?.touched && room_type?.invalid">
+              <option [ngValue]="null">Selecciona tipo</option>
+              <option *ngFor="let roomType of roomTypes; trackBy: trackById" [ngValue]="roomType.id">
+                {{ roomType.name }}
+              </option>
+            </select>
+            <small class="field-error" *ngIf="room_type?.touched && room_type?.invalid">Selecciona un tipo de habitacion.</small>
+          </label>
+
+          <label>
+            <span>Nombre de la tarifa *</span>
+            <input type="text" formControlName="name" placeholder="Ej: Tarifa estandar" [class.input-error]="name?.touched && name?.invalid" />
+            <small class="field-error" *ngIf="name?.touched && name?.hasError('required')">El nombre es obligatorio.</small>
+            <small class="field-error" *ngIf="name?.touched && name?.hasError('maxlength')">Maximo 100 caracteres.</small>
+          </label>
+
+          <label>
+            <span>Precio por noche (COP) *</span>
+            <input type="number" min="0" step="1000" formControlName="price" placeholder="Ej: 180000" [class.input-error]="price?.touched && price?.invalid" />
+            <small class="field-error" *ngIf="price?.touched && price?.hasError('required')">El precio es obligatorio.</small>
+            <small class="field-error" *ngIf="price?.touched && price?.hasError('min')">El precio no puede ser negativo.</small>
+          </label>
+
+          <label>
+            <span>Vigencia desde</span>
+            <input type="date" formControlName="start_date" />
+          </label>
+
+          <label>
+            <span>Vigencia hasta</span>
+            <input type="date" formControlName="end_date" />
+          </label>
+
+          <label class="full switch-row">
+            <input type="checkbox" formControlName="is_active" />
+            <span>Tarifa activa para reservas nuevas</span>
+          </label>
+        </div>
+      </section>
+
+      <p class="feedback warning" *ngIf="!roomTypes.length">
+        No hay tipos de habitacion disponibles. Registra primero tipos de habitacion para continuar.
+      </p>
+      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-light" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn-dark" [disabled]="saving || !roomTypes.length">
+          {{ saving ? 'Guardando...' : 'Guardar tarifa' }}
+        </button>
+      </footer>
+    </form>
+  </article>
+</div>

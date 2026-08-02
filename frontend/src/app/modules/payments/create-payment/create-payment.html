@@ -1,0 +1,53 @@
+<section class="payment-form-card">
+  <form [formGroup]="paymentForm" (ngSubmit)="submit()" class="payment-form">
+    <div class="top-row">
+      <label>
+        <span>Metodo</span>
+        <select formControlName="payment_method" [class.input-error]="payment_method?.touched && payment_method?.invalid">
+          <option [ngValue]="null">Seleccionar...</option>
+          <option *ngFor="let method of paymentMethods; trackBy: trackById" [ngValue]="method.id">
+            {{ method.name }}
+          </option>
+        </select>
+        <small class="field-error" *ngIf="payment_method?.touched && payment_method?.invalid">Selecciona un metodo de pago.</small>
+      </label>
+
+      <label>
+        <span>Monto</span>
+        <input
+          type="number"
+          min="1"
+          step="1000"
+          formControlName="amount"
+          placeholder="Ej: 120000"
+          [class.input-error]="amount?.touched && amount?.invalid" />
+        <small class="field-error" *ngIf="amount?.touched && amount?.hasError('required')">Ingresa el monto.</small>
+        <small class="field-error" *ngIf="amount?.touched && amount?.hasError('min')">El monto debe ser mayor que 0.</small>
+      </label>
+
+      <label>
+        <span>Referencia</span>
+        <input type="text" formControlName="reference" placeholder="Opcional: ultimos 4 digitos, recibo..." />
+      </label>
+
+      <button type="submit" class="btn btn-primary" [disabled]="saving">
+        {{ saving ? 'Registrando...' : 'Registrar pago' }}
+      </button>
+
+      <button type="button" class="btn btn-close" (click)="close()" [disabled]="saving" title="Cerrar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <label class="notes-field">
+      <span>Notas</span>
+      <textarea
+        formControlName="notes"
+        rows="2"
+        placeholder="Opcional: observaciones del pago, banco o comprobante"></textarea>
+    </label>
+  </form>
+
+  <p class="feedback hint" *ngIf="!errorMessage">Saldo pendiente: {{ formatCurrency(pendingAmount) }}</p>
+  <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+</section>

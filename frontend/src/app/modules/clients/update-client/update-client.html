@@ -1,0 +1,85 @@
+﻿<div class="update-overlay" (click)="closeDrawer()">
+  <article class="update-drawer" (click)="$event.stopPropagation()">
+    <header class="drawer-head">
+      <div>
+        <h1>Editar cliente</h1>
+        <p>Actualiza los datos principales del cliente</p>
+      </div>
+      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form [formGroup]="clientForm" (ngSubmit)="submit()" class="drawer-body">
+      <section>
+        <h2>Datos personales</h2>
+        <div class="grid two">
+          <label>
+            <span>Nombres *</span>
+            <input type="text" formControlName="first_name" placeholder="Ej: Sofia" [class.input-error]="first_name?.touched && first_name?.invalid" />
+            <small class="field-error" *ngIf="first_name?.touched && first_name?.hasError('required')">El nombre es obligatorio.</small>
+            <small class="field-error" *ngIf="first_name?.touched && first_name?.hasError('maxlength')">El nombre no puede superar 80 caracteres.</small>
+          </label>
+
+          <label>
+            <span>Apellidos *</span>
+            <input type="text" formControlName="last_name" placeholder="Ej: Ramirez" [class.input-error]="last_name?.touched && last_name?.invalid" />
+            <small class="field-error" *ngIf="last_name?.touched && last_name?.hasError('required')">El apellido es obligatorio.</small>
+            <small class="field-error" *ngIf="last_name?.touched && last_name?.hasError('maxlength')">El apellido no puede superar 80 caracteres.</small>
+          </label>
+
+          <label>
+            <span>Correo *</span>
+            <input type="email" formControlName="email" placeholder="cliente@correo.com" [class.input-error]="email?.touched && email?.invalid" />
+            <small class="field-error" *ngIf="email?.touched && email?.hasError('required')">El correo es obligatorio.</small>
+            <small class="field-error" *ngIf="email?.touched && email?.hasError('email')">Ingresa un correo valido.</small>
+          </label>
+
+          <label>
+            <span>Telefono</span>
+            <input type="text" formControlName="phone" placeholder="+57 300 123 4567" />
+          </label>
+
+          <label class="full">
+            <span>Pais</span>
+            <input type="text" formControlName="country" placeholder="Colombia" />
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Documento</h2>
+        <div class="grid two">
+          <label>
+            <span>Tipo de documento *</span>
+            <select formControlName="document_type">
+              <option value="CC">CC</option>
+              <option value="CE">CE</option>
+              <option value="DNI">DNI</option>
+              <option value="PASAPORTE">Pasaporte</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Numero de documento *</span>
+            <input type="text" formControlName="document_number" placeholder="123456789" [class.input-error]="document_number?.touched && document_number?.invalid" />
+            <small class="field-error" *ngIf="document_number?.touched && document_number?.hasError('required')">Este campo es obligatorio.</small>
+            <small class="field-error" *ngIf="document_number?.touched && document_number?.hasError('maxlength')">Maximo 40 caracteres.</small>
+          </label>
+        </div>
+      </section>
+
+      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn btn-light" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn-dark" [disabled]="saving">
+          {{ saving ? 'Guardando...' : 'Guardar cambios' }}
+        </button>
+      </footer>
+    </form>
+  </article>
+</div>

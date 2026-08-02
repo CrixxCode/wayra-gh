@@ -1,0 +1,403 @@
+<div class="movements-page">
+  <header class="page-header">
+    <div>
+      <h1>Movimientos de Inventario</h1>
+      <p>Registra y consulta entradas, salidas, ajustes y transferencias por item.</p>
+    </div>
+
+    <button type="button" class="btn btn-dark" (click)="openCreateDrawer()" [disabled]="!canCreateMovement">
+      <i class="fa-solid fa-plus"></i>
+      Nuevo movimiento
+    </button>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Total movimientos</span>
+        <span class="stat-icon blue"><i class="fa-solid fa-arrows-rotate"></i></span>
+      </div>
+      <div class="stat-value">{{ totalMovements }}</div>
+      <div class="stat-note">eventos registrados</div>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-head">
+        <span>Entradas</span>
+        <span class="stat-icon green"><i class="fa-solid fa-arrow-trend-up"></i></span>
+      </div>
+      <div class="stat-value">{{ incomingMovements }}</div>
+      <div class="stat-note">ingresos de inventario</div>
+    </article>
+
+    <article class="stat-card danger">
+      <div class="stat-head">
+        <span>Salidas / Perdidas</span>
+        <span class="stat-icon gold"><i class="fa-solid fa-arrow-trend-down"></i></span>
+      </div>
+      <div class="stat-value">{{ outgoingMovements }}</div>
+      <div class="stat-note">egresos del stock</div>
+    </article>
+
+    <article class="stat-card info">
+      <div class="stat-head">
+        <span>Ajustes</span>
+        <span class="stat-icon cyan"><i class="fa-solid fa-sliders"></i></span>
+      </div>
+      <div class="stat-value">{{ adjustmentMovements }}</div>
+      <div class="stat-note">ajustes y transferencias</div>
+    </article>
+
+    <article class="stat-card accent">
+      <div class="stat-head">
+        <span>Variacion neta</span>
+        <span class="stat-icon purple"><i class="fa-solid fa-chart-line"></i></span>
+      </div>
+      <div class="stat-value stat-money">{{ netVariationLabel }}</div>
+      <div class="stat-note">{{ movedUnits }} unidades movilizadas</div>
+    </article>
+  </section>
+
+  <section class="gh-filters-card">
+    <div class="gh-filters-grid movements-filters-grid">
+      <label class="search-field search-wrap gh-search-wrap">
+        <span>Buscar</span>
+        <div class="search-control gh-search-control">
+          <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+          <input
+            class="gh-search-input"
+            type="text"
+            [(ngModel)]="search"
+            (input)="applyFilters()"
+            placeholder="Buscar por item, referencia o tipo..." />
+        </div>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Estado</span>
+        <select class="gh-filter-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
+          <option *ngFor="let statusOption of statusOptions" [ngValue]="statusOption.value">{{ statusOption.label }}</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Direccion</span>
+        <select class="gh-filter-select" [(ngModel)]="directionFilter" (change)="applyFilters()">
+          <option *ngFor="let directionOption of directionOptions" [ngValue]="directionOption.value">
+            {{ directionOption.label }}
+          </option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Tipo movimiento</span>
+        <select class="gh-filter-select" [(ngModel)]="selectedTypeFilter" (change)="applyFilters()">
+          <option *ngFor="let tab of typeTabs; trackBy: trackByTab" [value]="tab.key">{{ tab.label }}</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="gh-filters-actions">
+      <div class="gh-view-toggle">
+        <button type="button" title="Vista en tarjetas" [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')">
+          <i class="fa-solid fa-grip"></i>
+        </button>
+        <button type="button" title="Vista en tabla" [class.active]="viewMode === 'table'" (click)="setViewMode('table')">
+          <i class="fa-solid fa-table-list"></i>
+        </button>
+      </div>
+
+      <div class="gh-action-group">
+        <button type="button" class="gh-btn gh-btn-light" (click)="refreshMovements()" [disabled]="loading">
+          <i class="fa-solid fa-rotate-right"></i>
+          Actualizar
+        </button>
+
+        <button type="button" class="gh-btn gh-btn-light" (click)="exportCsv()">
+          <i class="fa-solid fa-file-export"></i>
+          Exportar
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="gh-filters-card" *ngIf="!loading && deletedMovementsCount > 0">
+    <div class="gh-filters-actions">
+      <p class="state-note">
+        Hay {{ deletedMovementsCount }} movimiento(s) eliminados logicamente.
+      </p>
+      <div class="gh-action-group">
+        <button type="button" class="gh-btn gh-btn-light" (click)="showDeletedMovements = !showDeletedMovements">
+          <i class="fa-solid" [class.fa-eye]="!showDeletedMovements" [class.fa-eye-slash]="showDeletedMovements"></i>
+          {{ showDeletedMovements ? 'Ocultar eliminados' : 'Ver eliminados' }}
+        </button>
+      </div>
+    </div>
+
+    <article class="table-card" *ngIf="showDeletedMovements">
+      <div class="table-scroll">
+        <table class="movements-table">
+          <thead>
+            <tr>
+              <th>Codigo</th>
+              <th>Item</th>
+              <th>Tipo</th>
+              <th>Cantidad</th>
+              <th>Fecha</th>
+              <th>Estado operativo</th>
+              <th>Accion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let movement of deletedMovements; trackBy: trackByMovement">
+              <td class="code-cell">{{ getMovementCode(movement) }}</td>
+              <td>{{ getItemLabel(movement) }}</td>
+              <td>{{ getMovementTypeLabel(movement) }}</td>
+              <td>{{ getQuantitySignedLabel(movement) }}</td>
+              <td>{{ getMovementDateTimeLabel(movement) }}</td>
+              <td>{{ movement.is_active ? 'Activo' : 'Inactivo' }}</td>
+              <td>
+                <div class="table-actions">
+                  <button type="button" class="row-btn" title="Restaurar" (click)="restoreMovement(movement)">
+                    <i class="fa-solid fa-rotate-left"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <section class="state-message" *ngIf="loading || errorMessage || infoMessage || filteredMovements.length === 0">
+    <p *ngIf="loading">Cargando movimientos de inventario...</p>
+    <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p class="warning" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
+    <p *ngIf="!loading && !errorMessage && filteredMovements.length === 0">No hay movimientos para los filtros seleccionados.</p>
+  </section>
+
+  <section class="catalog-sections" *ngIf="!loading && !errorMessage && filteredMovements.length > 0">
+    <ng-container *ngIf="viewMode === 'cards'; else tableView">
+      <article class="category-block" *ngFor="let group of groupedMovements; trackBy: trackByGroup">
+        <header class="category-head">
+          <div class="category-title">
+            <span
+              class="category-icon"
+              [ngStyle]="{
+                'background-color': getGroupTone(group).iconBg,
+                color: getGroupTone(group).iconColor
+              }">
+              <i [class]="getGroupTone(group).icon"></i>
+            </span>
+            <h2>{{ group.label }}</h2>
+            <span class="category-count">{{ group.items.length }}</span>
+          </div>
+
+          <p class="category-note">
+            <i class="fa-regular fa-star"></i>
+            Se destacan los movimientos de mayor cantidad
+          </p>
+        </header>
+
+        <div class="movements-grid">
+          <article
+            class="movement-card"
+            *ngFor="let movement of group.items; trackBy: trackByMovement"
+            (click)="openDetail(movement)">
+            <div class="movement-cover" [ngStyle]="{ background: getGroupTone(group).cover }">
+              <div class="cover-badges">
+                <span
+                  class="cover-type"
+                  [ngStyle]="{
+                    'background-color': getGroupTone(group).badgeBg,
+                    color: getGroupTone(group).badgeColor
+                  }">
+                  {{ getMovementTypeLabel(movement) }}
+                </span>
+
+                <span class="cover-badge" *ngIf="isHighlighted(group.key, movement.id)">Alto impacto</span>
+              </div>
+
+              <span
+                class="direction-chip"
+                [ngStyle]="{
+                  'background-color': getMovementDirectionTone(movement).bg,
+                  color: getMovementDirectionTone(movement).color
+                }">
+                {{ getMovementDirectionLabel(movement) }}
+              </span>
+            </div>
+
+            <div class="movement-body">
+              <h3>{{ getItemLabel(movement) }}</h3>
+              <p>{{ getNotesLabel(movement) }}</p>
+
+              <div class="meta-row">
+                <span>
+                  <i class="fa-solid fa-hashtag"></i>
+                  {{ getReferenceLabel(movement) }}
+                </span>
+                <span>
+                  <i class="fa-regular fa-calendar"></i>
+                  {{ getMovementDateLabel(movement) }}
+                </span>
+              </div>
+
+              <div class="stock-row">
+                <strong>{{ getStockFlowLabel(movement) }}</strong>
+                <small>Variacion: {{ getStockDeltaLabel(movement) }}</small>
+              </div>
+
+              <div class="quantity-row">
+                <span>Cantidad</span>
+                <strong
+                  [ngStyle]="{
+                    color: getMovementDirectionTone(movement).color
+                  }">
+                  {{ getQuantitySignedLabel(movement) }}
+                </strong>
+              </div>
+
+              <div class="card-foot">
+                <span
+                  class="status-chip"
+                  [ngStyle]="{
+                    'background-color': getStatusTone(movement).bg,
+                    color: getStatusTone(movement).color
+                  }">
+                  <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(movement).dot }"></span>
+                  {{ movement.is_active ? 'Activo' : 'Inactivo' }}
+                </span>
+
+                <div class="card-actions" (click)="$event.stopPropagation()">
+                  <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(movement)">
+                    <i class="fa-regular fa-eye"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="row-btn"
+                    [title]="movement.is_active ? 'Desactivar' : 'Activar'"
+                    (click)="toggleMovementStatus(movement)">
+                    <i [class]="movement.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+                  </button>
+                  <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(movement)">
+                    <i class="fa-regular fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </article>
+    </ng-container>
+
+    <ng-template #tableView>
+      <article class="table-card">
+        <div class="table-scroll">
+          <table class="movements-table">
+            <thead>
+              <tr>
+                <th>Codigo</th>
+                <th>Item</th>
+                <th>Tipo</th>
+                <th>Cantidad</th>
+                <th>Stock</th>
+                <th>Variacion</th>
+                <th>Referencia</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let movement of filteredMovements; trackBy: trackByMovement" (click)="openDetail(movement)">
+                <td class="code-cell">{{ getMovementCode(movement) }}</td>
+                <td>
+                  <div class="item-cell">
+                    <span class="item-avatar">
+                      <i class="fa-solid fa-cubes"></i>
+                    </span>
+                    <div class="item-copy">
+                      <strong>{{ getItemLabel(movement) }}</strong>
+                      <small>{{ getReferenceLabel(movement) }}</small>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span
+                    class="table-type"
+                    [ngStyle]="{
+                      'background-color': getTypeBadgeTone(movement).bg,
+                      color: getTypeBadgeTone(movement).color
+                    }">
+                    <span class="dot" [ngStyle]="{ 'background-color': getTypeBadgeTone(movement).dot }"></span>
+                    {{ getMovementTypeLabel(movement) }}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    class="qty-pill"
+                    [ngStyle]="{
+                      'background-color': getMovementDirectionTone(movement).bg,
+                      color: getMovementDirectionTone(movement).color
+                    }">
+                    {{ getQuantitySignedLabel(movement) }}
+                  </span>
+                </td>
+                <td>{{ getStockFlowLabel(movement) }}</td>
+                <td>{{ getStockDeltaLabel(movement) }}</td>
+                <td>{{ getReferenceLabel(movement) }}</td>
+                <td>{{ getMovementDateTimeLabel(movement) }}</td>
+                <td>
+                  <span
+                    class="table-status"
+                    [ngStyle]="{
+                      'background-color': getStatusTone(movement).bg,
+                      color: getStatusTone(movement).color
+                    }">
+                    <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(movement).dot }"></span>
+                    {{ movement.is_active ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </td>
+                <td>
+                  <div class="table-actions" (click)="$event.stopPropagation()">
+                    <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(movement)">
+                      <i class="fa-regular fa-eye"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="row-btn"
+                      [title]="movement.is_active ? 'Desactivar' : 'Activar'"
+                      (click)="toggleMovementStatus(movement)">
+                      <i [class]="movement.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+                    </button>
+                    <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(movement)">
+                      <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </ng-template>
+  </section>
+
+  <app-create-inventory-movement
+    *ngIf="showCreateDrawer"
+    [items]="items"
+    [movementTypes]="movementTypes"
+    (closed)="closeCreateDrawer()"
+    (created)="onMovementCreated()">
+  </app-create-inventory-movement>
+
+  <app-detail-inventory-movement
+    *ngIf="selectedMovement"
+    [movementData]="selectedMovement"
+    (closed)="closeDetail()"
+    (statusRequested)="toggleMovementStatus($event)"
+    (deleteRequested)="confirmDelete($event)">
+  </app-detail-inventory-movement>
+</div>
