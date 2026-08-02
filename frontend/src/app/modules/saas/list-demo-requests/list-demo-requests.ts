@@ -310,7 +310,7 @@ export class ListDemoRequests implements OnInit {
     if (request.email_delivery_enabled === false) {
       this.actionMessageType = 'warning';
       this.actionMessage =
-        'Hotel y primer usuario creados. El correo no se envio porque el servidor esta en modo consola; configura Resend y reenvia el enlace.';
+        'Hotel y primer usuario creados. El correo no se envio porque Resend no esta configurado; agrega RESEND_API_KEY y reenvia el enlace.';
       return;
     }
 

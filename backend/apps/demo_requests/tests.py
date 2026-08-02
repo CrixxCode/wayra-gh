@@ -52,7 +52,11 @@ class DemoRequestFlowTests(APITestCase):
             "django.core.mail.backends.console.EmailBackend",
         )
 
-    @override_settings(EMAIL_BACKEND="anymail.backends.resend.EmailBackend")
+    @override_settings(
+        EMAIL_BACKEND="anymail.backends.resend.EmailBackend",
+        RESEND_API_KEY="re_test_key",
+        ANYMAIL={"RESEND_API_KEY": "re_test_key"},
+    )
     @patch("accounts.serializers.EmailMultiAlternatives.send", return_value=1)
     def test_platform_admin_can_convert_request_into_hotel_and_first_user(self, send_mock):
         User = get_user_model()
@@ -117,6 +121,44 @@ class DemoRequestFlowTests(APITestCase):
         self.assertTrue(
             link_response.data["access_url"].startswith("http://localhost:4200/reset-password?uid=")
         )
+
+    @override_settings(
+        EMAIL_BACKEND="anymail.backends.resend.EmailBackend",
+        RESEND_API_KEY="",
+        ANYMAIL={"RESEND_API_KEY": ""},
+    )
+    @patch("accounts.serializers.EmailMultiAlternatives.send", return_value=1)
+    def test_missing_resend_api_key_keeps_access_link_pending(self, send_mock):
+        User = get_user_model()
+        Role.objects.create(name="Administrador", slug="admin")
+        admin = User.objects.create_superuser(
+            username="platform-admin-missing-resend-key",
+            email="platform-admin-missing-resend-key@example.com",
+            password="TempPass123!",
+        )
+        demo_request = DemoRequest.objects.create(
+            **{
+                **self.payload,
+                "requester_username": "laura.demo.missing-key",
+                "requester_email": "laura.demo.missing-key@example.com",
+            }
+        )
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.patch(
+            f"/api/demo-requests/{demo_request.id}/",
+            {"status": "CONVERTED", "base_url": "http://localhost:4200/reset-password"},
+            format="json",
+            HTTP_HOST="localhost",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        demo_request.refresh_from_db()
+        self.assertEqual(demo_request.status, DemoRequest.Status.CONVERTED)
+        self.assertFalse(demo_request.password_reset_sent)
+        self.assertFalse(response.data["password_reset_sent"])
+        self.assertFalse(response.data["email_delivery_enabled"])
+        send_mock.assert_not_called()
 
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
     @patch("accounts.serializers.EmailMultiAlternatives.send", return_value=1)

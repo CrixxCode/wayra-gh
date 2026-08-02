@@ -12,7 +12,11 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from apps.hotel_settings.models import HotelSettings
-from accounts.email_utils import build_password_reset_url, email_backend_delivers_to_inbox
+from accounts.email_utils import (
+    build_password_reset_url,
+    email_backend_configuration_error,
+    email_backend_delivers_to_inbox,
+)
 from accounts.tenancy import is_effective_global_admin
 
 from rest_framework import serializers
@@ -720,6 +724,16 @@ class PasswordResetRequestSerializer(serializers.Serializer):
                 filename=inline_logo_name,
             )
             msg.attach(logo_attachment)
+        configuration_error = email_backend_configuration_error()
+        if configuration_error:
+            logger.error(
+                "Password reset email could not be sent for user_id=%s email=%s: %s",
+                user.pk,
+                email,
+                configuration_error,
+            )
+            return {"found": True, "sent": False}
+
         try:
             sent_count = msg.send(fail_silently=False)
         except Exception:
