@@ -7,6 +7,7 @@ from rest_framework.test import APITestCase
 from accounts.models import Role
 from apps.demo_requests.models import DemoRequest
 from apps.hotel_settings.models import HotelSettings
+from backend.settings import resolve_email_backend
 
 
 class DemoRequestFlowTests(APITestCase):
@@ -32,6 +33,16 @@ class DemoRequestFlowTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(DemoRequest.objects.count(), 1)
         self.assertEqual(DemoRequest.objects.first().requester_email, "laura.demo.test@example.com")
+
+    def test_resend_api_key_prefers_resend_backend(self):
+        self.assertEqual(
+            resolve_email_backend("", "re_test_key"),
+            "anymail.backends.resend.EmailBackend",
+        )
+        self.assertEqual(
+            resolve_email_backend("django.core.mail.backends.smtp.EmailBackend", "re_test_key"),
+            "django.core.mail.backends.smtp.EmailBackend",
+        )
 
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend")
     @patch("accounts.serializers.EmailMultiAlternatives.send", return_value=1)

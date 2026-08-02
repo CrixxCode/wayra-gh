@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -27,6 +28,15 @@ def env_int(name: str, default: int) -> int:
         return int(str(raw).strip())
     except (TypeError, ValueError):
         return default
+
+
+def resolve_email_backend(email_backend: str | None, resend_api_key: str | None) -> str:
+    explicit_backend = (email_backend or "").strip()
+    if explicit_backend:
+        return explicit_backend
+    if (resend_api_key or "").strip():
+        return "anymail.backends.resend.EmailBackend"
+    return "django.core.mail.backends.smtp.EmailBackend"
 
 
 DEBUG = env_bool("DJANGO_DEBUG", default=False)
@@ -111,8 +121,32 @@ MIDDLEWARE = [
 ROOT_URLCONF = "backend.urls"
 WSGI_APPLICATION = "backend.wsgi.application"
 
-# DB: SQLite by default; PostgreSQL when DB_ENGINE=postgres.
-if os.getenv("DB_ENGINE", "sqlite") == "postgres":
+# DB: SQLite by default; PostgreSQL when DATABASE_URL or DB_ENGINE=postgres.
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+db_engine = (os.getenv("DB_ENGINE", "") or "").strip().lower()
+
+if DATABASE_URL:
+    parsed = urlparse(DATABASE_URL)
+    scheme = (parsed.scheme or "").split("+")[0]
+    if scheme in {"postgres", "postgresql"}:
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": (parsed.path.lstrip("/") or os.getenv("DB_NAME") or os.getenv("PGDATABASE") or "gestion_hotelera"),
+                "USER": (parsed.username or os.getenv("DB_USER") or os.getenv("PGUSER") or "postgres"),
+                "PASSWORD": (parsed.password or os.getenv("DB_PASSWORD") or os.getenv("PGPASSWORD") or ""),
+                "HOST": (parsed.hostname or os.getenv("DB_HOST") or os.getenv("PGHOST") or "localhost"),
+                "PORT": str(parsed.port or os.getenv("DB_PORT") or os.getenv("PGPORT") or "5432"),
+            }
+        }
+    else:
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": BASE_DIR / os.getenv("DB_NAME", "db.sqlite3"),
+            }
+        }
+elif db_engine == "postgres":
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -246,7 +280,8 @@ SECURE_PROXY_SSL_HEADER = (
     else None
 )
 
-EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
+EMAIL_BACKEND = resolve_email_backend(os.getenv("EMAIL_BACKEND"), RESEND_API_KEY)
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = env_int("EMAIL_PORT", 587)
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
@@ -255,7 +290,6 @@ EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", default=True)
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-reply@localhost")
 SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 EMAIL_TIMEOUT = env_int("EMAIL_TIMEOUT", 20)
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 ANYMAIL = {
     "RESEND_API_KEY": RESEND_API_KEY,
 }

@@ -18,12 +18,18 @@ Este proyecto se despliega como un solo servicio Docker:
 ```env
 DJANGO_DEBUG=False
 DJANGO_SECRET_KEY=replace-with-a-long-random-secret
-DB_ENGINE=postgres
-DB_NAME=${{Postgres.PGDATABASE}}
-DB_USER=${{Postgres.PGUSER}}
-DB_PASSWORD=${{Postgres.PGPASSWORD}}
-DB_HOST=${{Postgres.PGHOST}}
-DB_PORT=${{Postgres.PGPORT}}
+
+# Opción recomendada: usa la URL de conexión del servicio Postgres
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+
+# Opción alternativa si Railway expone PG* (cambia el nombre del servicio si no es Postgres):
+# DB_ENGINE=postgres
+# DB_NAME=${{Postgres.PGDATABASE}}
+# DB_USER=${{Postgres.PGUSER}}
+# DB_PASSWORD=${{Postgres.PGPASSWORD}}
+# DB_HOST=${{Postgres.PGHOST}}
+# DB_PORT=${{Postgres.PGPORT}}
+
 SECURE_SSL_REDIRECT=False
 
 # Correo por API HTTPS, recomendado en Railway Free/Trial/Hobby
