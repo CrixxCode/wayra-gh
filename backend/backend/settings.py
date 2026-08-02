@@ -30,13 +30,20 @@ def env_int(name: str, default: int) -> int:
         return default
 
 
+RESEND_EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+LOCAL_EMAIL_BACKENDS = {
+    "django.core.mail.backends.console.EmailBackend",
+    "django.core.mail.backends.dummy.EmailBackend",
+    "django.core.mail.backends.filebased.EmailBackend",
+    "django.core.mail.backends.locmem.EmailBackend",
+}
+
+
 def resolve_email_backend(email_backend: str | None, resend_api_key: str | None) -> str:
     explicit_backend = (email_backend or "").strip()
-    if explicit_backend:
+    if explicit_backend == RESEND_EMAIL_BACKEND or explicit_backend in LOCAL_EMAIL_BACKENDS:
         return explicit_backend
-    if (resend_api_key or "").strip():
-        return "anymail.backends.resend.EmailBackend"
-    return "django.core.mail.backends.smtp.EmailBackend"
+    return RESEND_EMAIL_BACKEND
 
 
 DEBUG = env_bool("DJANGO_DEBUG", default=False)
@@ -282,12 +289,7 @@ SECURE_PROXY_SSL_HEADER = (
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
 EMAIL_BACKEND = resolve_email_backend(os.getenv("EMAIL_BACKEND"), RESEND_API_KEY)
-EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
-EMAIL_PORT = env_int("EMAIL_PORT", 587)
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", default=True)
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-reply@localhost")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Wayra <onboarding@resend.dev>")
 SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 EMAIL_TIMEOUT = env_int("EMAIL_TIMEOUT", 20)
 ANYMAIL = {

@@ -34,17 +34,25 @@ class DemoRequestFlowTests(APITestCase):
         self.assertEqual(DemoRequest.objects.count(), 1)
         self.assertEqual(DemoRequest.objects.first().requester_email, "laura.demo.test@example.com")
 
-    def test_resend_api_key_prefers_resend_backend(self):
+    def test_email_backend_resolves_to_resend(self):
         self.assertEqual(
             resolve_email_backend("", "re_test_key"),
             "anymail.backends.resend.EmailBackend",
         )
         self.assertEqual(
             resolve_email_backend("django.core.mail.backends.smtp.EmailBackend", "re_test_key"),
-            "django.core.mail.backends.smtp.EmailBackend",
+            "anymail.backends.resend.EmailBackend",
+        )
+        self.assertEqual(
+            resolve_email_backend("django.core.mail.backends.smtp.EmailBackend", ""),
+            "anymail.backends.resend.EmailBackend",
+        )
+        self.assertEqual(
+            resolve_email_backend("django.core.mail.backends.console.EmailBackend", ""),
+            "django.core.mail.backends.console.EmailBackend",
         )
 
-    @override_settings(EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend")
+    @override_settings(EMAIL_BACKEND="anymail.backends.resend.EmailBackend")
     @patch("accounts.serializers.EmailMultiAlternatives.send", return_value=1)
     def test_platform_admin_can_convert_request_into_hotel_and_first_user(self, send_mock):
         User = get_user_model()

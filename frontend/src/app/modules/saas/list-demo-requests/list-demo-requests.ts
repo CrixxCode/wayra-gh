@@ -310,14 +310,14 @@ export class ListDemoRequests implements OnInit {
     if (request.email_delivery_enabled === false) {
       this.actionMessageType = 'warning';
       this.actionMessage =
-        'Hotel y primer usuario creados. El correo no se envio porque el servidor esta en modo consola; configura SMTP y reenvia el enlace.';
+        'Hotel y primer usuario creados. El correo no se envio porque el servidor esta en modo consola; configura Resend y reenvia el enlace.';
       return;
     }
 
     if (!request.password_reset_sent) {
       this.actionMessageType = 'warning';
       this.actionMessage =
-        'Hotel y primer usuario creados, pero no fue posible enviar el enlace de acceso. Revisa la configuracion SMTP.';
+        'Hotel y primer usuario creados, pero no fue posible enviar el enlace de acceso. Revisa la configuracion de Resend.';
       return;
     }
 

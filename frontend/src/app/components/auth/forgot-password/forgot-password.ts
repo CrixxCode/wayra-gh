@@ -74,7 +74,7 @@ export class ForgotPasswordComponent {
             if (!sent) {
               this.emailSent = false;
               this.messageType = 'error';
-              this.message = 'No fue posible enviar el correo de recuperacion. Verifica la configuracion SMTP del servidor.';
+              this.message = 'No fue posible enviar el correo de recuperacion. Verifica la configuracion de Resend del servidor.';
               return;
             }
 
@@ -101,4 +101,3 @@ export class ForgotPasswordComponent {
     });
   }
 }
-

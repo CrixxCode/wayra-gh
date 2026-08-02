@@ -21,18 +21,11 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS=True
 SECURE_HSTS_PRELOAD=False
 SECURE_PROXY_SSL_HEADER_ENABLED=True
 
-# Railway Free/Trial/Hobby: usar API HTTPS de correo transaccional.
+# Email transaccional por Resend.
 EMAIL_BACKEND=anymail.backends.resend.EmailBackend
 RESEND_API_KEY=<resend-api-key>
 DEFAULT_FROM_EMAIL=Wayra <no-reply@tu-dominio.com>
 SERVER_EMAIL=Wayra <no-reply@tu-dominio.com>
-
-# SMTP solo si el proveedor/plan permite salida SMTP.
-# EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-# EMAIL_HOST=<smtp-host>
-# EMAIL_PORT=587
-# EMAIL_HOST_USER=<smtp-user>
-# EMAIL_HOST_PASSWORD=<smtp-password>
 
 ALLOW_PUBLIC_USER_REGISTRATION=False
 ALLOW_PUBLIC_CLIENT_REGISTRATION=False
@@ -109,7 +102,7 @@ Estado esperado:
 Pasos de rotación:
 
 1. Rotar `DJANGO_SECRET_KEY`.
-2. Rotar credenciales SMTP (`EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`).
+2. Rotar `RESEND_API_KEY`.
 3. Revocar cualquier secreto expuesto previamente.
 4. Desplegar con nuevos secretos.
 
