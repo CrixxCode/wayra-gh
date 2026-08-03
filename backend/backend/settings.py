@@ -20,6 +20,16 @@ def env_list(name: str, default: str = "") -> list[str]:
     return [item.strip() for item in str(raw).split(",") if item.strip()]
 
 
+def unique_list(items: list[str]) -> list[str]:
+    seen = set()
+    unique_items = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            unique_items.append(item)
+    return unique_items
+
+
 def env_int(name: str, default: int) -> int:
     raw = os.getenv(name)
     if raw is None or str(raw).strip() == "":
@@ -75,6 +85,19 @@ ALLOWED_HOSTS = env_list(
     "DJANGO_ALLOWED_HOSTS",
     "localhost,127.0.0.1" if DEBUG else RAILWAY_ALLOWED_HOSTS,
 )
+if not DEBUG:
+    ALLOWED_HOSTS = unique_list(
+        ALLOWED_HOSTS
+        + [
+            host
+            for host in [
+                RAILWAY_PUBLIC_DOMAIN,
+                RAILWAY_PRIVATE_DOMAIN,
+                "healthcheck.railway.app" if RAILWAY_PUBLIC_DOMAIN else "",
+            ]
+            if host
+        ]
+    )
 if not DEBUG and not ALLOWED_HOSTS:
     raise RuntimeError("DJANGO_ALLOWED_HOSTS must not be empty when DEBUG=False")
 if not DEBUG and "*" in ALLOWED_HOSTS:
@@ -243,6 +266,10 @@ CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS",
     "http://localhost:4200,http://127.0.0.1:4200" if DEBUG else RAILWAY_PUBLIC_ORIGIN,
 )
+if not DEBUG:
+    CORS_ALLOWED_ORIGINS = unique_list(
+        CORS_ALLOWED_ORIGINS + ([RAILWAY_PUBLIC_ORIGIN] if RAILWAY_PUBLIC_ORIGIN else [])
+    )
 if not DEBUG and not CORS_ALLOWED_ORIGINS:
     raise RuntimeError(
         "CORS_ALLOWED_ORIGINS must be configured with trusted frontend domains when DEBUG=False"
@@ -264,6 +291,10 @@ CSRF_TRUSTED_ORIGINS = env_list(
     "CSRF_TRUSTED_ORIGINS",
     "http://localhost:4200,http://127.0.0.1:4200" if DEBUG else RAILWAY_PUBLIC_ORIGIN,
 )
+if not DEBUG:
+    CSRF_TRUSTED_ORIGINS = unique_list(
+        CSRF_TRUSTED_ORIGINS + ([RAILWAY_PUBLIC_ORIGIN] if RAILWAY_PUBLIC_ORIGIN else [])
+    )
 if not DEBUG and not CSRF_TRUSTED_ORIGINS:
     raise RuntimeError(
         "CSRF_TRUSTED_ORIGINS must be configured with trusted frontend domains when DEBUG=False"
