@@ -124,7 +124,7 @@ export class ListDemoRequests implements OnInit {
     this.updatingId = request.id;
     this.loadError = '';
     this.actionMessage = '';
-    const baseUrl = status === 'CONVERTED' ? this.resetPasswordBaseUrl() : '';
+    const baseUrl = status === 'CONVERTED' ? this.loginBaseUrl() : '';
 
     this.demoRequestService
       .updateStatus(request.id, status, baseUrl)
@@ -152,7 +152,7 @@ export class ListDemoRequests implements OnInit {
     this.actionMessage = '';
 
     this.demoRequestService
-      .resendAccessEmail(request.id, this.resetPasswordBaseUrl())
+      .resendAccessEmail(request.id, this.loginBaseUrl())
       .pipe(
         catchError((error) => {
           this.loadError = this.getStatusUpdateErrorMessage(error);
@@ -176,7 +176,7 @@ export class ListDemoRequests implements OnInit {
     this.actionMessage = '';
 
     this.demoRequestService
-      .generateAccessLink(request.id, this.resetPasswordBaseUrl())
+      .generateAccessLink(request.id, this.loginBaseUrl())
       .pipe(
         catchError((error) => {
           this.loadError = this.getStatusUpdateErrorMessage(error);
@@ -191,7 +191,7 @@ export class ListDemoRequests implements OnInit {
         try {
           await this.copyText(accessUrl);
           this.actionMessageType = 'success';
-          this.actionMessage = 'Enlace de acceso copiado. Puedes enviarlo manualmente al primer usuario.';
+          this.actionMessage = 'Enlace de ingreso copiado. La clave temporal solo se envia por correo.';
         } catch {
           this.actionMessageType = 'warning';
           this.actionMessage = `No fue posible copiar automaticamente. Enlace: ${accessUrl}`;
@@ -292,8 +292,8 @@ export class ListDemoRequests implements OnInit {
     return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(value || 0);
   }
 
-  private resetPasswordBaseUrl(): string {
-    return `${window.location.origin}/reset-password`;
+  private loginBaseUrl(): string {
+    return `${window.location.origin}/login`;
   }
 
   private copyText(text: string): Promise<void> {
@@ -317,19 +317,19 @@ export class ListDemoRequests implements OnInit {
     if (request.email_delivery_enabled === false) {
       this.actionMessageType = 'warning';
       this.actionMessage =
-        'Hotel y primer usuario creados. El correo no se envio porque Resend no esta configurado; agrega RESEND_API_KEY y reenvia el enlace.';
+        'Hotel y primer usuario creados. El correo no se envio porque Resend no esta configurado; agrega RESEND_API_KEY y reenvia la clave temporal.';
       return;
     }
 
     if (!request.password_reset_sent) {
       this.actionMessageType = 'warning';
       this.actionMessage =
-        'Hotel y primer usuario creados, pero no fue posible enviar el enlace de acceso. Revisa la configuracion de Resend.';
+        'Hotel y primer usuario creados, pero no fue posible enviar la clave temporal. Revisa la configuracion de Resend.';
       return;
     }
 
     this.actionMessageType = 'success';
-    this.actionMessage = 'Hotel y primer usuario creados. Enlace de acceso enviado.';
+    this.actionMessage = 'Hotel y primer usuario creados. Clave temporal enviada por correo.';
   }
 
   private getStatusUpdateErrorMessage(error: any): string {

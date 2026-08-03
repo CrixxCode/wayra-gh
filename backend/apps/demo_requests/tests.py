@@ -58,8 +58,10 @@ class DemoRequestFlowTests(APITestCase):
         ANYMAIL={"RESEND_API_KEY": "re_test_key"},
         DEFAULT_FROM_EMAIL="Wayra <notificaciones@example.com>",
     )
-    @patch("accounts.serializers.EmailMultiAlternatives.send", return_value=1)
-    def test_platform_admin_can_convert_request_into_hotel_and_first_user(self, send_mock):
+    @patch("apps.demo_requests.views.generate_temporary_access_password")
+    @patch("apps.demo_requests.views.EmailMultiAlternatives.send", return_value=1)
+    def test_platform_admin_can_convert_request_into_hotel_and_first_user(self, send_mock, password_mock):
+        password_mock.side_effect = ["DemoTemp123!AA", "DemoTemp456!BB"]
         User = get_user_model()
         Role.objects.create(name="Administrador", slug="admin")
         admin = User.objects.create_superuser(
@@ -72,7 +74,7 @@ class DemoRequestFlowTests(APITestCase):
 
         response = self.client.patch(
             f"/api/demo-requests/{demo_request.id}/",
-            {"status": "CONVERTED", "base_url": "http://localhost:4200/reset-password"},
+            {"status": "CONVERTED", "base_url": "http://localhost:4200/login"},
             format="json",
             HTTP_HOST="localhost",
         )
@@ -89,7 +91,9 @@ class DemoRequestFlowTests(APITestCase):
         self.assertEqual(hotel.hotel_name, self.payload["hotel_name"])
         self.assertEqual(first_user.hotel_settings_id, hotel.id)
         self.assertEqual(first_user.email, self.payload["requester_email"])
-        self.assertFalse(first_user.has_usable_password())
+        self.assertTrue(first_user.has_usable_password())
+        self.assertTrue(first_user.check_password("DemoTemp123!AA"))
+        self.assertTrue(first_user.must_change_password)
         self.assertTrue(first_user.roles.filter(slug="admin").exists())
         send_mock.assert_called_once()
 
@@ -99,7 +103,7 @@ class DemoRequestFlowTests(APITestCase):
 
         resend_response = self.client.post(
             f"/api/demo-requests/{demo_request.id}/resend-access-email/",
-            {"base_url": "http://localhost:4200/reset-password"},
+            {"base_url": "http://localhost:4200/login"},
             format="json",
             HTTP_HOST="localhost",
         )
@@ -108,20 +112,21 @@ class DemoRequestFlowTests(APITestCase):
         demo_request.refresh_from_db()
         self.assertTrue(demo_request.password_reset_sent)
         self.assertTrue(resend_response.data["password_reset_sent"])
+        first_user.refresh_from_db()
+        self.assertTrue(first_user.check_password("DemoTemp456!BB"))
+        self.assertTrue(first_user.must_change_password)
         send_mock.assert_called_once()
 
         link_response = self.client.post(
             f"/api/demo-requests/{demo_request.id}/access-link/",
-            {"base_url": "http://localhost:4200/reset-password"},
+            {"base_url": "http://localhost:4200/login"},
             format="json",
             HTTP_HOST="localhost",
         )
 
         self.assertEqual(link_response.status_code, 200)
         self.assertIn("access_url", link_response.data)
-        self.assertTrue(
-            link_response.data["access_url"].startswith("http://localhost:4200/reset-password?uid=")
-        )
+        self.assertEqual(link_response.data["access_url"], "http://localhost:4200/login")
 
     @override_settings(
         EMAIL_BACKEND="anymail.backends.resend.EmailBackend",
@@ -129,7 +134,7 @@ class DemoRequestFlowTests(APITestCase):
         ANYMAIL={"RESEND_API_KEY": ""},
         DEFAULT_FROM_EMAIL="Wayra <notificaciones@example.com>",
     )
-    @patch("accounts.serializers.EmailMultiAlternatives.send", return_value=1)
+    @patch("apps.demo_requests.views.EmailMultiAlternatives.send", return_value=1)
     def test_missing_resend_api_key_keeps_access_link_pending(self, send_mock):
         User = get_user_model()
         Role.objects.create(name="Administrador", slug="admin")
@@ -149,7 +154,7 @@ class DemoRequestFlowTests(APITestCase):
 
         response = self.client.patch(
             f"/api/demo-requests/{demo_request.id}/",
-            {"status": "CONVERTED", "base_url": "http://localhost:4200/reset-password"},
+            {"status": "CONVERTED", "base_url": "http://localhost:4200/login"},
             format="json",
             HTTP_HOST="localhost",
         )
@@ -169,7 +174,7 @@ class DemoRequestFlowTests(APITestCase):
         ANYMAIL={"RESEND_API_KEY": "re_test_key"},
         DEFAULT_FROM_EMAIL="Wayra <onboarding@resend.dev>",
     )
-    @patch("accounts.serializers.EmailMultiAlternatives.send", return_value=1)
+    @patch("apps.demo_requests.views.EmailMultiAlternatives.send", return_value=1)
     def test_resend_test_domain_error_is_returned_to_admin(self, send_mock):
         User = get_user_model()
         Role.objects.create(name="Administrador", slug="admin")
@@ -189,7 +194,7 @@ class DemoRequestFlowTests(APITestCase):
 
         response = self.client.patch(
             f"/api/demo-requests/{demo_request.id}/",
-            {"status": "CONVERTED", "base_url": "http://localhost:4200/reset-password"},
+            {"status": "CONVERTED", "base_url": "http://localhost:4200/login"},
             format="json",
             HTTP_HOST="localhost",
         )
@@ -203,7 +208,7 @@ class DemoRequestFlowTests(APITestCase):
         send_mock.assert_not_called()
 
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
-    @patch("accounts.serializers.EmailMultiAlternatives.send", return_value=1)
+    @patch("apps.demo_requests.views.EmailMultiAlternatives.send", return_value=1)
     def test_console_email_backend_keeps_access_link_pending(self, send_mock):
         User = get_user_model()
         Role.objects.create(name="Administrador", slug="admin")
@@ -223,7 +228,7 @@ class DemoRequestFlowTests(APITestCase):
 
         response = self.client.patch(
             f"/api/demo-requests/{demo_request.id}/",
-            {"status": "CONVERTED", "base_url": "http://localhost:4200/reset-password"},
+            {"status": "CONVERTED", "base_url": "http://localhost:4200/login"},
             format="json",
             HTTP_HOST="localhost",
         )

@@ -139,8 +139,8 @@
                 <p class="conversion-note" *ngIf="request.converted_hotel_settings && request.converted_user">
                   Hotel #{{ request.converted_hotel_settings }} - Usuario creado
                   <span *ngIf="request.email_delivery_enabled === false"> - correo no configurado</span>
-                  <span *ngIf="request.email_delivery_enabled !== false && request.password_reset_sent"> - enlace enviado</span>
-                  <span *ngIf="request.email_delivery_enabled !== false && !request.password_reset_sent"> - enlace pendiente</span>
+                  <span *ngIf="request.email_delivery_enabled !== false && request.password_reset_sent"> - clave enviada</span>
+                  <span *ngIf="request.email_delivery_enabled !== false && !request.password_reset_sent"> - clave pendiente</span>
                 </p>
               </td>
               <td>
@@ -160,7 +160,7 @@
                     [disabled]="updatingId === request.id || resendingId === request.id || linkingId === request.id"
                     (click)="copyAccessLink(request)">
                     <i class="fa-solid fa-link"></i>
-                    <span>{{ linkingId === request.id ? 'Copiando...' : 'Copiar enlace' }}</span>
+                    <span>{{ linkingId === request.id ? 'Copiando...' : 'Copiar ingreso' }}</span>
                   </button>
 
                   <button
@@ -170,7 +170,7 @@
                     [disabled]="updatingId === request.id || resendingId === request.id || linkingId === request.id"
                     (click)="resendAccessEmail(request)">
                     <i class="fa-solid fa-paper-plane"></i>
-                    <span>{{ resendingId === request.id ? 'Enviando...' : 'Reenviar enlace' }}</span>
+                    <span>{{ resendingId === request.id ? 'Enviando...' : 'Reenviar clave' }}</span>
                   </button>
                 </div>
               </td>
