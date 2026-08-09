@@ -28,7 +28,7 @@ from accounts.permissions import HasResourcePermission
 from accounts.soft_delete import LogicalDeleteViewSetMixin
 from accounts.tenancy import is_effective_global_admin, scope_queryset_to_hotel
 
-from .models import Role, Resource, UserRole, RoleResource, NotificationReadState
+from .models import JobTitle, Role, Resource, UserRole, RoleResource, NotificationReadState
 from .serializers import (
     JobTitleSerializer, RegisterSerializer, UserSerializer, UserUpdateSerializer, RoleSerializer, ResourceSerializer,
     UserMiniSerializer, PasswordChangeSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
@@ -338,6 +338,8 @@ class RoleViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
         return self.required_scopes
 
     def get_permissions(self):
+        if getattr(self, "action", "") == "public_job_titles":
+            return [AllowAny()]
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
 
@@ -364,6 +366,25 @@ class RoleViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
     # -------------------------
     # Usuarios por rol
     # -------------------------
+
+    @action(detail=False, methods=["get"], url_path="public-job-titles")
+    def public_job_titles(self, request):
+        """
+        GET /api/roles/public-job-titles/
+        Devuelve cargos activos para formularios publicos.
+        """
+        seen_names = set()
+        job_titles = []
+
+        for job_title in JobTitle.objects.filter(is_active=True).order_by("sort_order", "name"):
+            normalized_name = str(job_title.name or "").strip().lower()
+            if not normalized_name or normalized_name in seen_names:
+                continue
+
+            seen_names.add(normalized_name)
+            job_titles.append(job_title)
+
+        return Response(JobTitleSerializer(job_titles, many=True).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["get"], url_path="job-titles")
     def job_titles(self, request, pk=None):

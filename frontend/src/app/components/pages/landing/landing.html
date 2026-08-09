@@ -439,23 +439,41 @@
       </header>
 
       <ng-container *ngIf="!demoSubmitted; else demoConfirmation">
-        <div class="grid gap-2 border-b border-slate-200 bg-slate-50 px-5 py-4 sm:grid-cols-2 sm:px-6">
+        <div class="grid gap-2 border-b border-slate-200 bg-slate-50 px-5 py-4 sm:grid-cols-2 lg:grid-cols-4 sm:px-6">
           <button
             type="button"
             class="wayra-demo-step"
             [class.wayra-demo-step-active]="demoStep === 'hotel'"
             (click)="goToHotelStep()">
             <span>1</span>
-            Informacion del hotel
+            Hotel
+          </button>
+          <button
+            type="button"
+            class="wayra-demo-step"
+            [class.wayra-demo-step-active]="demoStep === 'location'"
+            [disabled]="!canOpenDemoStep('location')"
+            (click)="goToLocationStep()">
+            <span>2</span>
+            Ubicacion
+          </button>
+          <button
+            type="button"
+            class="wayra-demo-step"
+            [class.wayra-demo-step-active]="demoStep === 'operation'"
+            [disabled]="!canOpenDemoStep('operation')"
+            (click)="goToOperationStep()">
+            <span>3</span>
+            Horarios
           </button>
           <button
             type="button"
             class="wayra-demo-step"
             [class.wayra-demo-step-active]="demoStep === 'requester'"
-            [disabled]="demoForm.controls.hotel.invalid"
+            [disabled]="!canOpenDemoStep('requester')"
             (click)="goToRequesterStep()">
-            <span>2</span>
-            Primer usuario del hotel
+            <span>4</span>
+            Primer usuario
           </button>
         </div>
 
@@ -492,18 +510,6 @@
                   </small>
                 </label>
 
-                <label class="wayra-demo-field" for="demo-city">
-                  <span>Ciudad</span>
-                  <input
-                    id="demo-city"
-                    type="text"
-                    class="wayra-demo-input"
-                    [class.input-error]="isInvalid('hotel', 'city')"
-                    formControlName="city"
-                    autocomplete="address-level2" />
-                  <small *ngIf="isInvalid('hotel', 'city')" class="field-error">Ingresa la ciudad.</small>
-                </label>
-
                 <label class="wayra-demo-field" for="demo-rooms">
                   <span>Numero de habitaciones</span>
                   <input
@@ -536,6 +542,151 @@
                   class="inline-flex items-center justify-center rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
                   (click)="closeDemoModal()">
                   Cancelar
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                  (click)="goToLocationStep()">
+                  Continuar
+                  <i class="pi pi-arrow-right text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="demoStep === 'location'">
+            <div formGroupName="location" class="px-5 py-6 sm:px-6">
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="wayra-demo-field" for="demo-country">
+                  <span>Pais</span>
+                  <select
+                    id="demo-country"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('location', 'country')"
+                    formControlName="country"
+                    (change)="onDemoCountryChange()">
+                    <option value="" disabled>Selecciona un pais</option>
+                    <option *ngFor="let country of locationCountries; trackBy: trackByIndex" [value]="country.name">
+                      {{ country.name }}
+                    </option>
+                  </select>
+                  <small *ngIf="isInvalid('location', 'country')" class="field-error">
+                    Selecciona el pais.
+                  </small>
+                </label>
+
+                <label class="wayra-demo-field" for="demo-state">
+                  <span>Departamento</span>
+                  <select
+                    id="demo-state"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('location', 'state')"
+                    formControlName="state"
+                    [disabled]="!locationDepartments.length"
+                    (change)="onDemoStateChange()">
+                    <option value="" disabled>Selecciona un departamento</option>
+                    <option *ngFor="let department of locationDepartments; trackBy: trackByIndex" [value]="department.name">
+                      {{ department.name }}
+                    </option>
+                  </select>
+                  <small *ngIf="isInvalid('location', 'state')" class="field-error">
+                    Selecciona el departamento.
+                  </small>
+                </label>
+
+                <label class="wayra-demo-field" for="demo-city">
+                  <span>Ciudad</span>
+                  <select
+                    id="demo-city"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('location', 'city')"
+                    formControlName="city"
+                    [disabled]="!locationCities.length">
+                    <option value="" disabled>Selecciona una ciudad</option>
+                    <option *ngFor="let city of locationCities; trackBy: trackByIndex" [value]="city">
+                      {{ city }}
+                    </option>
+                  </select>
+                  <small *ngIf="isInvalid('location', 'city')" class="field-error">
+                    Selecciona la ciudad.
+                  </small>
+                </label>
+
+                <label class="wayra-demo-field" for="demo-address">
+                  <span>Direccion del hotel</span>
+                  <input
+                    id="demo-address"
+                    type="text"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('location', 'address')"
+                    formControlName="address"
+                    autocomplete="street-address" />
+                  <small *ngIf="isInvalid('location', 'address')" class="field-error">
+                    Ingresa la direccion.
+                  </small>
+                </label>
+              </div>
+
+              <div class="mt-6 flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+                  (click)="goToHotelStep()">
+                  <i class="pi pi-arrow-left text-xs"></i>
+                  Atras
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                  (click)="goToOperationStep()">
+                  Continuar
+                  <i class="pi pi-arrow-right text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="demoStep === 'operation'">
+            <div formGroupName="operation" class="px-5 py-6 sm:px-6">
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="wayra-demo-field" for="demo-check-in-time">
+                  <span>Horario de check-in</span>
+                  <input
+                    id="demo-check-in-time"
+                    type="time"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('operation', 'checkInTime') || hasSameDemoOperationTimes()"
+                    formControlName="checkInTime" />
+                  <small *ngIf="isInvalid('operation', 'checkInTime')" class="field-error">
+                    Selecciona el horario de check-in.
+                  </small>
+                </label>
+
+                <label class="wayra-demo-field" for="demo-check-out-time">
+                  <span>Horario de check-out</span>
+                  <input
+                    id="demo-check-out-time"
+                    type="time"
+                    class="wayra-demo-input"
+                    [class.input-error]="isInvalid('operation', 'checkOutTime') || hasSameDemoOperationTimes()"
+                    formControlName="checkOutTime" />
+                  <small *ngIf="isInvalid('operation', 'checkOutTime')" class="field-error">
+                    Selecciona el horario de check-out.
+                  </small>
+                </label>
+              </div>
+
+              <p *ngIf="hasSameDemoOperationTimes()" class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                Check-in y check-out no pueden tener la misma hora.
+              </p>
+
+              <div class="mt-6 flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+                  (click)="goToLocationStep()">
+                  <i class="pi pi-arrow-left text-xs"></i>
+                  Atras
                 </button>
                 <button
                   type="button"
@@ -595,14 +746,24 @@
 
                 <label class="wayra-demo-field" for="demo-job-title">
                   <span>Cargo</span>
-                  <input
+                  <select
                     id="demo-job-title"
-                    type="text"
                     class="wayra-demo-input"
                     [class.input-error]="isInvalid('requester', 'jobTitle')"
-                    formControlName="jobTitle"
-                    autocomplete="organization-title" />
-                  <small *ngIf="isInvalid('requester', 'jobTitle')" class="field-error">Ingresa el cargo.</small>
+                    formControlName="jobTitle">
+                    <option value="" disabled>
+                      {{ jobTitlesLoading ? 'Cargando cargos...' : 'Selecciona un cargo' }}
+                    </option>
+                    <option *ngFor="let jobTitle of jobTitles; trackBy: trackByIndex" [value]="jobTitle.name">
+                      {{ jobTitle.name }}
+                    </option>
+                  </select>
+                  <small *ngIf="jobTitlesLoadError && !jobTitlesLoading" class="field-error">
+                    {{ jobTitlesLoadError }}
+                  </small>
+                  <small *ngIf="isInvalid('requester', 'jobTitle')" class="field-error">
+                    Selecciona el cargo.
+                  </small>
                 </label>
 
                 <label class="wayra-demo-field" for="demo-email">
@@ -652,7 +813,7 @@
                   type="button"
                   class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
                   [disabled]="demoSubmitting"
-                  (click)="goToHotelStep()">
+                  (click)="goToOperationStep()">
                   <i class="pi pi-arrow-left text-xs"></i>
                   Atras
                 </button>

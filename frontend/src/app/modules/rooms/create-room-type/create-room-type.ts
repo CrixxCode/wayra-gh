@@ -25,19 +25,13 @@ export class CreateRoomType {
     private roomService: RoomService
   ) {
     this.roomTypeForm = this.fb.group({
-      code: ['', [Validators.required, Validators.maxLength(80), Validators.pattern(/^[A-Za-z0-9_-]+$/)]],
       name: ['', [Validators.required, Validators.maxLength(120)]],
       description: ['', [Validators.maxLength(2000)]],
       capacity: [1, [Validators.required, Validators.min(1)]],
       bed_count: [1, [Validators.required, Validators.min(1)]],
       bed_type: ['', [Validators.maxLength(50)]],
-      sort_order: [0, [Validators.required, Validators.min(0)]],
-      is_active: [true]
+      sort_order: [0, [Validators.required, Validators.min(0)]]
     });
-  }
-
-  get code() {
-    return this.roomTypeForm.get('code');
   }
 
   get name() {
@@ -75,14 +69,12 @@ export class CreateRoomType {
     const raw = this.roomTypeForm.getRawValue();
 
     const payload: RoomTypeFormPayload = {
-      code: this.normalizeCode(raw.code),
       name: String(raw.name || '').trim(),
       description: this.normalizeNullableString(raw.description),
       capacity: this.toPositiveInt(raw.capacity, 1),
       bed_count: this.toPositiveInt(raw.bed_count, 1),
       bed_type: this.normalizeNullableString(raw.bed_type),
-      sort_order: this.toNonNegativeInt(raw.sort_order),
-      is_active: !!raw.is_active
+      sort_order: this.toNonNegativeInt(raw.sort_order)
     };
 
     this.saving = true;
@@ -102,12 +94,6 @@ export class CreateRoomType {
   closeDrawer(): void {
     if (this.saving) return;
     this.closed.emit();
-  }
-
-  private normalizeCode(value: unknown): string {
-    return String(value || '')
-      .trim()
-      .toUpperCase();
   }
 
   private normalizeNullableString(value: unknown): string | null {

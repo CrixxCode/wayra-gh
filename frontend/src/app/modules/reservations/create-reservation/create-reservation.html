@@ -15,7 +15,23 @@
     </header>
 
     <form [formGroup]="reservationForm" (ngSubmit)="submit()" class="drawer-body">
-      <section>
+      <nav class="reservation-stepper" aria-label="Flujo de creacion de reserva">
+        <button
+          type="button"
+          *ngFor="let step of steps; let idx = index"
+          [class.active]="idx === currentStepIndex"
+          [class.completed]="idx < currentStepIndex"
+          [disabled]="saving"
+          (click)="goToStep(idx)">
+          <span class="step-number">{{ idx + 1 }}</span>
+          <span class="step-copy">
+            <strong>{{ step.label }}</strong>
+            <small>{{ step.description }}</small>
+          </span>
+        </button>
+      </nav>
+
+      <section *ngIf="isStepActive('base')">
         <h2>Informacion base</h2>
 
         <div class="grid two">
@@ -75,11 +91,6 @@
             <small class="field-error" *ngIf="getControlError('expected_check_out') as error">{{ error }}</small>
           </label>
 
-          <label>
-            <span>Descuento total</span>
-            <input type="number" formControlName="total_discount" min="0" step="0.01" placeholder="0" />
-          </label>
-
           <label class="full">
             <span>Notas internas</span>
             <textarea
@@ -92,7 +103,7 @@
         </div>
       </section>
 
-      <section>
+      <section *ngIf="isStepActive('payment')">
         <h2>Abono inicial (opcional)</h2>
 
         <div class="grid two">
@@ -139,7 +150,7 @@
         </div>
       </section>
 
-      <section>
+      <section *ngIf="isStepActive('rooms')">
         <div class="section-head">
           <h2>Habitaciones de la reserva</h2>
           <button type="button" class="btn btn-ghost" (click)="addRoomLine()">
@@ -183,7 +194,7 @@
         </small>
       </section>
 
-      <section>
+      <section *ngIf="isStepActive('policies')">
         <div class="section-head">
           <h2>Politicas de la reserva</h2>
           <button type="button" class="btn btn-ghost" (click)="addPolicyLine()">
@@ -236,12 +247,23 @@
         <small class="field-help" *ngIf="selectedPoliciesCount === 0">Opcional. Agrega politicas si aplica.</small>
       </section>
 
-      <section>
+      <section *ngIf="isStepActive('guests')">
         <div class="section-head">
           <h2>Huespedes de la reserva</h2>
           <button type="button" class="btn btn-ghost" (click)="addGuestLine()">
             <i class="fa-solid fa-plus"></i>
             Agregar huesped
+          </button>
+        </div>
+
+        <div class="guest-primary-controls">
+          <label class="inline-check">
+            <input type="checkbox" [checked]="contactIsPrimaryGuest" (change)="onContactAsPrimaryGuestToggle($event)" />
+            <span>El contacto tambien sera el huesped principal</span>
+          </label>
+          <button type="button" class="btn btn-ghost" (click)="useContactAsPrimaryGuest()">
+            <i class="fa-solid fa-user-check"></i>
+            Usar contacto como huesped principal
           </button>
         </div>
 
@@ -251,6 +273,27 @@
             *ngFor="let guestControl of guestLines.controls; let idx = index; trackBy: trackByGuestLine"
             [formGroupName]="idx">
             <div class="line-grid guest-grid">
+              <label class="guest-search-field full">
+                <span>Buscar huesped existente</span>
+                <div class="guest-search-box">
+                  <input
+                    type="text"
+                    [value]="guestSearchTerms[idx] || ''"
+                    placeholder="Nombre, documento, correo o telefono"
+                    (input)="onGuestSearchInput(idx, $event)" />
+                  <div class="guest-search-results" *ngIf="getGuestSearchResults(idx).length > 0">
+                    <button
+                      type="button"
+                      *ngFor="let client of getGuestSearchResults(idx); trackBy: trackById"
+                      (click)="selectGuestFromClient(idx, client)">
+                      <strong>{{ getClientOptionLabel(client) }}</strong>
+                      <small>{{ client.email || client.phone || 'Cliente registrado' }}</small>
+                    </button>
+                  </div>
+                </div>
+                <small class="field-help">Busca entre clientes registrados para autocompletar el huesped.</small>
+              </label>
+
               <label>
                 <span>Tipo doc *</span>
                 <select formControlName="document_type" [class.input-error]="isGuestFieldInvalid(idx, 'document_type')">
@@ -324,7 +367,9 @@
 
       <footer class="drawer-footer">
         <button type="button" class="btn btn-secondary" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
-        <button type="submit" class="btn btn-primary" [disabled]="saving">
+        <button type="button" class="btn btn-secondary" *ngIf="!isFirstStep" (click)="previousStep()" [disabled]="saving">Anterior</button>
+        <button type="button" class="btn btn-primary" *ngIf="!isLastStep" (click)="nextStep()" [disabled]="saving">Siguiente</button>
+        <button type="submit" class="btn btn-primary" *ngIf="isLastStep" [disabled]="saving">
           {{ saving ? 'Guardando...' : 'Guardar reserva' }}
         </button>
       </footer>

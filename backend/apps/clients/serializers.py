@@ -1,6 +1,8 @@
 import unicodedata
 
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.validators import validate_email as django_validate_email
 from rest_framework import serializers
 
 from accounts.tenancy import TenantSerializerMixin
@@ -92,6 +94,34 @@ def normalize_document_type(value):
 
 def get_master_data(group, code):
     return MasterData.objects.filter(group=group, code=code).first()
+
+
+def normalize_phone(value):
+    value = str(value or "").strip()
+    if not value:
+        return ""
+
+    if value.startswith("+"):
+        prefix = "+"
+        digits = value[1:]
+    else:
+        prefix = ""
+        digits = value
+
+    if not digits.isdigit():
+        raise serializers.ValidationError(
+            "El telefono solo puede contener numeros despues del prefijo internacional."
+        )
+
+    if prefix and not 8 <= len(digits) <= 19:
+        raise serializers.ValidationError(
+            "Ingresa un telefono valido con prefijo internacional."
+        )
+
+    if not prefix and not 7 <= len(digits) <= 20:
+        raise serializers.ValidationError("Ingresa un telefono valido.")
+
+    return f"{prefix}{digits}"
 
 
 class ClientSerializer(serializers.ModelSerializer):
@@ -217,7 +247,17 @@ class ClientCreateUpdateSerializer(TenantSerializerMixin, serializers.ModelSeria
         return value
 
     def validate_email(self, value):
-        return value.lower().strip()
+        value = (value or "").strip().lower()
+        if not value:
+            raise serializers.ValidationError("El correo es obligatorio.")
+        try:
+            django_validate_email(value)
+        except DjangoValidationError:
+            raise serializers.ValidationError("Ingresa un correo valido.")
+        return value
+
+    def validate_phone(self, value):
+        return normalize_phone(value)
 
     def resolve_target_tenant(self, attrs):
         tenant = super().resolve_target_tenant(attrs)
@@ -282,7 +322,7 @@ class ClientCreateUpdateSerializer(TenantSerializerMixin, serializers.ModelSeria
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
 
-        if document_number and qs.filter(document_number=document_number.strip()).exists():
+        if document_number and qs.filter(document_number__iexact=document_number.strip()).exists():
             raise serializers.ValidationError({
                 "document_number": "Ya existe un cliente con este documento en este hotel."
             })

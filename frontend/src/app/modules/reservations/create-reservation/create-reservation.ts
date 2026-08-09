@@ -16,6 +16,8 @@ import {
   ReservationWritePayloadI
 } from '../reservation-model';
 
+type ReservationCreateStep = 'base' | 'rooms' | 'guests' | 'policies' | 'payment';
+
 @Component({
   selector: 'app-create-reservation',
   standalone: true,
@@ -45,6 +47,17 @@ export class CreateReservation implements OnChanges {
   submitted = false;
   showCreateClientModal = false;
   clientOptions: ClientI[] = [];
+  contactIsPrimaryGuest = false;
+  currentStepIndex = 0;
+  guestSearchTerms: string[] = [];
+
+  readonly steps: Array<{ id: ReservationCreateStep; label: string; description: string }> = [
+    { id: 'base', label: 'Datos base', description: 'Cliente, origen y fechas' },
+    { id: 'rooms', label: 'Habitaciones', description: 'Asignacion y capacidad' },
+    { id: 'guests', label: 'Huespedes', description: 'Principal y acompanantes' },
+    { id: 'policies', label: 'Politicas', description: 'Condiciones aplicables' },
+    { id: 'payment', label: 'Abono', description: 'Pago inicial opcional' },
+  ];
 
   reservationForm: UntypedFormGroup;
 
@@ -59,7 +72,6 @@ export class CreateReservation implements OnChanges {
       expected_check_in: [this.formatDateForInput(new Date()), [Validators.required]],
       expected_check_out: [this.formatDateForInput(this.addDays(new Date(), 1)), [Validators.required]],
       promo_code: [''],
-      total_discount: [0],
       notes: ['', [Validators.maxLength(1200)]],
       initial_deposit_amount: [0, [Validators.min(0)]],
       initial_deposit_payment_method: [null],
@@ -75,6 +87,12 @@ export class CreateReservation implements OnChanges {
     this.addRoomLine();
     this.addGuestLine();
     this.syncClientOptions();
+
+    this.reservationForm.get('client')?.valueChanges.subscribe(() => {
+      if (this.contactIsPrimaryGuest) {
+        this.useContactAsPrimaryGuest(false);
+      }
+    });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -154,6 +172,51 @@ export class CreateReservation implements OnChanges {
     return this.collectSelectedPolicyIds().length;
   }
 
+  get currentStep(): { id: ReservationCreateStep; label: string; description: string } {
+    return this.steps[this.currentStepIndex];
+  }
+
+  get isFirstStep(): boolean {
+    return this.currentStepIndex === 0;
+  }
+
+  get isLastStep(): boolean {
+    return this.currentStepIndex === this.steps.length - 1;
+  }
+
+  isStepActive(stepId: ReservationCreateStep): boolean {
+    return this.currentStep.id === stepId;
+  }
+
+  goToStep(index: number): void {
+    if (this.saving || index === this.currentStepIndex || index < 0 || index >= this.steps.length) return;
+
+    if (index < this.currentStepIndex) {
+      this.currentStepIndex = index;
+      this.errorMessage = '';
+      this.warningMessage = '';
+      return;
+    }
+
+    while (this.currentStepIndex < index) {
+      if (!this.validateCurrentStep()) return;
+      this.currentStepIndex += 1;
+    }
+  }
+
+  previousStep(): void {
+    if (this.saving || this.isFirstStep) return;
+    this.currentStepIndex -= 1;
+    this.errorMessage = '';
+    this.warningMessage = '';
+  }
+
+  nextStep(): void {
+    if (this.saving || this.isLastStep) return;
+    if (!this.validateCurrentStep()) return;
+    this.currentStepIndex += 1;
+  }
+
   addPolicyLine(): void {
     this.policyLines.push(this.buildPolicyLine());
   }
@@ -182,11 +245,13 @@ export class CreateReservation implements OnChanges {
 
   addGuestLine(): void {
     this.guestLines.push(this.buildGuestLine());
+    this.guestSearchTerms.push('');
   }
 
   removeGuestLine(index: number): void {
     if (index < 0 || index >= this.guestLines.length) return;
     this.guestLines.removeAt(index);
+    this.guestSearchTerms.splice(index, 1);
 
     if (this.guestLines.length === 0) {
       this.addGuestLine();
@@ -194,6 +259,11 @@ export class CreateReservation implements OnChanges {
   }
 
   submit(): void {
+    if (!this.isLastStep) {
+      this.nextStep();
+      return;
+    }
+
     this.submitted = true;
     this.errorMessage = '';
     this.warningMessage = '';
@@ -357,6 +427,9 @@ export class CreateReservation implements OnChanges {
     this.reservationForm.patchValue({ client: clientId });
     this.reservationForm.get('client')?.markAsDirty();
     this.reservationForm.get('client')?.markAsTouched();
+    if (this.contactIsPrimaryGuest) {
+      this.useContactAsPrimaryGuest(false);
+    }
   }
 
   getClientOptionLabel(client: ClientI): string {
@@ -549,6 +622,193 @@ export class CreateReservation implements OnChanges {
     return `${item.name} - ${formattedPrice}`;
   }
 
+  onContactAsPrimaryGuestToggle(event: Event): void {
+    const checked = Boolean((event.target as HTMLInputElement | null)?.checked);
+    this.contactIsPrimaryGuest = checked;
+    if (checked) {
+      this.useContactAsPrimaryGuest();
+    }
+  }
+
+  useContactAsPrimaryGuest(showError = true): void {
+    const client = this.getSelectedClient();
+    if (!client) {
+      if (showError) {
+        this.errorMessage = 'Selecciona primero el cliente/contacto de la reserva.';
+      }
+      return;
+    }
+
+    if (!this.guestLines.length) {
+      this.addGuestLine();
+    }
+
+    this.applyClientToGuestLine(0, client);
+    this.guestSearchTerms[0] = this.getClientOptionLabel(client);
+    this.errorMessage = '';
+  }
+
+  onGuestSearchInput(index: number, event: Event): void {
+    const value = String((event.target as HTMLInputElement | null)?.value || '');
+    this.guestSearchTerms[index] = value;
+  }
+
+  getGuestSearchResults(index: number): ClientI[] {
+    const term = this.toSearchToken(this.guestSearchTerms[index]);
+    if (term.length < 2) return [];
+
+    return this.availableClients
+      .filter((client) => this.clientMatchesSearch(client, term))
+      .slice(0, 6);
+  }
+
+  selectGuestFromClient(index: number, client: ClientI): void {
+    this.applyClientToGuestLine(index, client);
+    this.guestSearchTerms[index] = this.getClientOptionLabel(client);
+    this.errorMessage = '';
+  }
+
+  private validateCurrentStep(): boolean {
+    this.errorMessage = '';
+    this.warningMessage = '';
+
+    switch (this.currentStep.id) {
+      case 'base':
+        return this.validateBaseStep();
+      case 'rooms':
+        return this.validateRoomsStep();
+      case 'guests':
+        return this.validateGuestsStep();
+      case 'policies':
+        return this.validatePoliciesStep();
+      case 'payment':
+        return this.validatePaymentStep();
+      default:
+        return true;
+    }
+  }
+
+  private validateBaseStep(): boolean {
+    const controls = ['client', 'origin', 'expected_check_in', 'expected_check_out', 'notes'];
+    controls.forEach((controlName) => this.reservationForm.get(controlName)?.markAsTouched());
+
+    if (controls.some((controlName) => this.reservationForm.get(controlName)?.invalid)) {
+      this.errorMessage = 'Completa los datos base obligatorios antes de continuar.';
+      return false;
+    }
+
+    const dateError = this.validateDateRange();
+    if (dateError) {
+      this.errorMessage = dateError;
+      return false;
+    }
+
+    const packageError = this.validateSelectedPackage();
+    if (packageError) {
+      this.errorMessage = packageError;
+      return false;
+    }
+
+    return true;
+  }
+
+  private validateRoomsStep(): boolean {
+    this.roomLines.controls.forEach((control) => control.markAllAsTouched());
+    const roomBuild = this.buildRoomPayloads();
+    if (roomBuild.error) {
+      this.errorMessage = roomBuild.error;
+      return false;
+    }
+    return true;
+  }
+
+  private validateGuestsStep(): boolean {
+    this.guestLines.controls.forEach((control) => control.markAllAsTouched());
+    const guestBuild = this.buildGuestPayloads();
+    if (guestBuild.error) {
+      this.errorMessage = guestBuild.error;
+      return false;
+    }
+    return true;
+  }
+
+  private validatePoliciesStep(): boolean {
+    this.policyLines.controls.forEach((control) => control.markAllAsTouched());
+    const policyBuild = this.buildPolicySelection();
+    if (policyBuild.error) {
+      this.errorMessage = policyBuild.error;
+      return false;
+    }
+    return true;
+  }
+
+  private validatePaymentStep(): boolean {
+    const controls = [
+      'initial_deposit_amount',
+      'initial_deposit_payment_method',
+      'initial_deposit_date',
+      'initial_deposit_reference',
+      'initial_deposit_notes',
+    ];
+    controls.forEach((controlName) => this.reservationForm.get(controlName)?.markAsTouched());
+
+    const initialDepositBuild = this.buildInitialDepositPayload();
+    if (initialDepositBuild.error) {
+      this.errorMessage = initialDepositBuild.error;
+      return false;
+    }
+    return true;
+  }
+
+  private getSelectedClient(): ClientI | null {
+    const clientId = Number(this.reservationForm.get('client')?.value || 0);
+    if (!clientId || Number.isNaN(clientId)) return null;
+    return this.availableClients.find((client) => Number(client.id || 0) === clientId) || null;
+  }
+
+  private applyClientToGuestLine(index: number, client: ClientI): void {
+    const lineControl = this.guestLines.at(index) as UntypedFormGroup | null;
+    if (!lineControl) return;
+
+    const documentTypeId = this.resolveDocumentTypeId(client.document_type);
+    lineControl.patchValue({
+      document_type: documentTypeId ?? lineControl.get('document_type')?.value ?? this.getDefaultDocumentTypeId(),
+      document_number: this.toTrimmedString(client.document_number),
+      first_name: this.toTrimmedString(client.first_name),
+      last_name: this.toTrimmedString(client.last_name),
+    });
+    lineControl.markAsDirty();
+    lineControl.markAllAsTouched();
+  }
+
+  private resolveDocumentTypeId(documentTypeCode: unknown): number | null {
+    const normalizedCode = this.normalizeCode(String(documentTypeCode || ''));
+    if (!normalizedCode) return this.getDefaultDocumentTypeId();
+
+    const match = this.availableDocumentTypes.find(
+      (documentType) => this.normalizeCode(documentType.code) === normalizedCode
+    );
+    return match?.id ?? this.getDefaultDocumentTypeId();
+  }
+
+  private clientMatchesSearch(client: ClientI, term: string): boolean {
+    const values = [
+      this.buildClientDisplayName(client),
+      client.document_number,
+      client.email,
+      client.phone,
+    ];
+    return values.some((value) => this.toSearchToken(value).includes(term));
+  }
+
+  private toSearchToken(value: unknown): string {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
   private syncClientOptions(): void {
     const clientMap = new Map<number, ClientI>();
 
@@ -731,7 +991,6 @@ export class CreateReservation implements OnChanges {
       expected_check_in: String(raw.expected_check_in || ''),
       expected_check_out: String(raw.expected_check_out || ''),
       promo_code: raw.promo_code ? String(raw.promo_code).trim() : null,
-      total_discount: raw.total_discount ? Number(raw.total_discount) : 0,
       policies: policyIds,
       notes: raw.notes ? String(raw.notes).trim() : null
     };

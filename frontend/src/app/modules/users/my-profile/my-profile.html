@@ -5,9 +5,16 @@
       Volver al panel
     </a>
 
-    <section class="hero-card">
-      <div class="hero-cover"></div>
-      <div class="hero-body">
+    <header class="page-header">
+      <div>
+        <span class="page-eyebrow">Cuenta</span>
+        <h1>Mi Perfil</h1>
+        <p>Administra tus datos personales, seguridad y datos laborales vinculados a la plataforma.</p>
+      </div>
+    </header>
+
+    <div class="profile-layout">
+      <aside class="profile-summary-card">
         <div class="avatar-wrap">
           <ng-container *ngIf="avatarUrl; else defaultAvatar">
             <img [src]="avatarUrl" [alt]="fullName" class="avatar-img" />
@@ -19,33 +26,32 @@
           </ng-template>
         </div>
 
-        <div class="hero-user">
+        <div class="profile-identity">
           <h1>{{ fullName }}</h1>
           <p>{{ roleLabel }}</p>
         </div>
-      </div>
 
-      <div class="hero-meta">
-        <div>
-          <i class="fa-regular fa-envelope"></i>
-          <span>{{ contactEmail }}</span>
+        <div class="profile-meta">
+          <div class="meta-item">
+            <i class="fa-regular fa-envelope"></i>
+            <span>{{ contactEmail }}</span>
+          </div>
+          <div class="meta-item">
+            <i class="fa-solid fa-location-dot"></i>
+            <span>{{ locationLabel }}</span>
+          </div>
+          <div class="meta-item">
+            <i class="fa-regular fa-calendar"></i>
+            <span>Desde {{ joinedLabel }}</span>
+          </div>
         </div>
-        <div>
-          <i class="fa-solid fa-location-dot"></i>
-          <span>{{ locationLabel }}</span>
-        </div>
-        <div>
-          <i class="fa-regular fa-calendar"></i>
-          <span>Desde {{ joinedLabel }}</span>
-        </div>
-      </div>
-    </section>
+      </aside>
 
-    <section class="tabs-card">
-      <div class="feedback warn force-password-alert" *ngIf="forcePasswordChangeMessage">
-        <i class="fa-solid fa-triangle-exclamation"></i>
-        {{ forcePasswordChangeMessage }}
-      </div>
+      <section class="tabs-card">
+        <div class="feedback warn force-password-alert" *ngIf="forcePasswordChangeMessage">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          {{ forcePasswordChangeMessage }}
+        </div>
 
       <div class="tabs-head">
         <button
@@ -289,6 +295,7 @@
         </form>
 
       </div>
-    </section>
+      </section>
+    </div>
   </div>
 </div>

@@ -40,7 +40,21 @@
 
           <label>
             <span>Telefono</span>
-            <input type="text" formControlName="phone" placeholder="+57 300 123 4567" />
+            <div class="phone-field">
+              <select class="phone-prefix" formControlName="phone_prefix" aria-label="Prefijo telefonico">
+                <option *ngFor="let prefix of phonePrefixes" [value]="prefix.code">{{ prefix.label }}</option>
+              </select>
+              <input
+                class="phone-number"
+                type="tel"
+                inputmode="numeric"
+                formControlName="phone_number"
+                placeholder="3001234567"
+                [class.input-error]="phone_number?.touched && phone_number?.invalid"
+                (input)="onPhoneNumberInput()" />
+            </div>
+            <small class="field-error" *ngIf="phone_number?.touched && phone_number?.hasError('pattern')">Ingresa solo numeros.</small>
+            <small class="field-error" *ngIf="phone_number?.touched && phone_number?.hasError('maxlength')">Maximo 20 digitos.</small>
           </label>
 
           <label class="full">

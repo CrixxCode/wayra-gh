@@ -1,3 +1,6 @@
+import re
+import unicodedata
+
 from rest_framework import serializers
 
 from accounts.tenancy import TenantSerializerMixin, is_effective_global_admin
@@ -124,11 +127,8 @@ class RoomTypeSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "created_at", "updated_at")
+        read_only_fields = ("id", "code", "created_at", "updated_at")
         validators = []
-
-    def validate_code(self, value):
-        return str(value).strip().upper()
 
     def validate_name(self, value):
         normalized = str(value or "").strip()
@@ -151,7 +151,7 @@ class RoomTypeSerializer(TenantSerializerMixin, serializers.ModelSerializer):
                 "No puedes modificar tipos de habitacion de otro hotel."
             )
 
-        code = attrs.get("code", getattr(self.instance, "code", None))
+        code = getattr(self.instance, "code", None)
         qs = RoomType.objects.filter(hotel_settings=hotel)
 
         if self.instance:
@@ -165,12 +165,42 @@ class RoomTypeSerializer(TenantSerializerMixin, serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        self.assign_target_tenant(validated_data)
+        hotel = self.assign_target_tenant(validated_data)
+        validated_data["code"] = self.generate_unique_code(
+            hotel,
+            validated_data.get("name"),
+        )
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
+        validated_data.pop("code", None)
         self.assign_target_tenant(validated_data)
         return super().update(instance, validated_data)
+
+    @classmethod
+    def generate_unique_code(cls, hotel, name):
+        base_code = cls.build_code_base(name)
+        existing_codes = set(
+            RoomType.objects.filter(hotel_settings=hotel)
+            .values_list("code", flat=True)
+        )
+
+        candidate = base_code
+        suffix = 2
+        while candidate in existing_codes:
+            suffix_text = f"_{suffix}"
+            candidate = f"{base_code[:80 - len(suffix_text)]}{suffix_text}"
+            suffix += 1
+
+        return candidate
+
+    @staticmethod
+    def build_code_base(name):
+        normalized = unicodedata.normalize("NFKD", str(name or ""))
+        ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
+        code = re.sub(r"[^A-Za-z0-9]+", "_", ascii_name).strip("_").upper()
+        code = re.sub(r"_+", "_", code)
+        return (code or "TIPO_HABITACION")[:80]
 
 class RateSerializer(TenantSerializerMixin, serializers.ModelSerializer):
     tenant_field_name = "hotel_settings"

@@ -6,7 +6,11 @@
       <div class="guided-tour-highlight" [ngStyle]="highlightStyle" aria-hidden="true"></div>
     }
 
-    <article class="guided-tour-card" [ngStyle]="panelStyle">
+    <article
+      class="guided-tour-card"
+      [class.is-ready]="positionReady"
+      [ngStyle]="panelStyle"
+    >
       <header class="guided-tour-header">
         <span class="guided-tour-progress">{{ currentIndex + 1 }} de {{ steps.length }}</span>
         <button

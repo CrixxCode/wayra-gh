@@ -60,6 +60,7 @@ from apps.reservations.services import (
     is_reservation_status_confirmed,
     is_reservation_status_finished,
     is_reservation_status_pending,
+    validate_reservation_status_transition,
     validate_checkout_inventory_review_payload,
 )
 
@@ -248,6 +249,10 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
         status_obj = self._get_status_obj(status_code)
         update_fields = ["status"]
 
+        validate_reservation_status_transition(
+            reservation.status_code,
+            getattr(status_obj, "code", status_code),
+        )
         reservation.status = status_obj
 
         if set_real_check_in is True and not reservation.real_check_in:

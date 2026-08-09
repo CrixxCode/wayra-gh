@@ -302,8 +302,8 @@
 
       @if (activeTab === 'contact') {
         <section class="space-y-4">
-          <div class="grid gap-4 xl:grid-cols-2">
-            <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div class="grid items-start gap-4 xl:grid-cols-2">
+            <article class="hotel-location-card self-start rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <div class="mb-4 flex items-start gap-3">
                 <span class="grid h-9 w-9 place-items-center rounded-full bg-amber-50 text-amber-600">
                   <i class="fa-solid fa-location-dot"></i>
@@ -317,30 +317,48 @@
               <div class="grid gap-3">
                 <label class="grid gap-1">
                   <span class="text-sm font-medium text-slate-700">Dirección *</span>
-                  <input [(ngModel)]="form.address" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                  <input [(ngModel)]="form.address" class="hotel-location-control rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
                 </label>
 
-                <div class="grid gap-3 md:grid-cols-2">
-                  <label class="grid gap-1">
+                <div class="hotel-location-grid">
+                  <label class="hotel-location-field">
+                    <span class="text-sm font-medium text-slate-700">Pais *</span>
+                    <select
+                      [(ngModel)]="form.country"
+                      (change)="onCountryChange()"
+                      class="hotel-location-control rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500">
+                      <option value="">Selecciona un pais</option>
+                      @for (country of locationCountries; track country.code) {
+                        <option [value]="country.name">{{ country.name }}</option>
+                      }
+                    </select>
+                  </label>
+
+                  <label class="hotel-location-field">
+                    <span class="text-sm font-medium text-slate-700">Departamento *</span>
+                    <select
+                      [(ngModel)]="form.state"
+                      (change)="onStateChange()"
+                      [disabled]="!locationDepartments.length"
+                      class="hotel-location-control rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500 disabled:bg-gray-100">
+                      <option value="">Selecciona un departamento</option>
+                      @for (department of locationDepartments; track department.name) {
+                        <option [value]="department.name">{{ department.name }}</option>
+                      }
+                    </select>
+                  </label>
+
+                  <label class="hotel-location-field">
                     <span class="text-sm font-medium text-slate-700">Ciudad *</span>
-                    <input [(ngModel)]="form.city" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
-                  </label>
-
-                  <label class="grid gap-1">
-                    <span class="text-sm font-medium text-slate-700">Estado / Provincia</span>
-                    <input [(ngModel)]="form.state" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
-                  </label>
-                </div>
-
-                <div class="grid gap-3 md:grid-cols-2">
-                  <label class="grid gap-1">
-                    <span class="text-sm font-medium text-slate-700">País *</span>
-                    <input [(ngModel)]="form.country" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
-                  </label>
-
-                  <label class="grid gap-1">
-                    <span class="text-sm font-medium text-slate-700">Código Postal</span>
-                    <input [(ngModel)]="form.postal_code" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                    <select
+                      [(ngModel)]="form.city"
+                      [disabled]="!locationCities.length"
+                      class="hotel-location-control rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500 disabled:bg-gray-100">
+                      <option value="">Selecciona una ciudad</option>
+                      @for (city of locationCities; track city) {
+                        <option [value]="city">{{ city }}</option>
+                      }
+                    </select>
                   </label>
                 </div>
               </div>
@@ -545,10 +563,6 @@
               </label>
             </div>
 
-            <label class="grid gap-1">
-              <span class="text-sm font-medium text-slate-700">Máx. Huéspedes por Habitación</span>
-              <input type="number" min="1" [(ngModel)]="form.max_guests_per_room" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
-            </label>
           </article>
 
           <article class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -604,14 +618,6 @@
             } @else {
               <fieldset class="space-y-4" [disabled]="financialConfigSaving || !canEditFinancialConfig">
                 <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  <label class="grid gap-1 xl:col-span-3">
-                    <span class="text-sm font-medium text-slate-700">Distrito *</span>
-                    <input
-                      [(ngModel)]="financialConfigForm.district_name"
-                      class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
-                    />
-                  </label>
-
                   <label class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-slate-700">
                     <input type="checkbox" [(ngModel)]="financialConfigForm.tourism_law_enabled" />
                     Ley de turismo habilitada
@@ -751,21 +757,12 @@
                 <i class="fa-solid fa-globe"></i>
               </span>
               <div>
-                <h3 class="text-xl font-semibold text-slate-900">Idioma & Zona Horaria</h3>
+                <h3 class="text-xl font-semibold text-slate-900">Zona Horaria</h3>
                 <p class="text-sm text-gray-500">Configuración regional del sistema</p>
               </div>
             </div>
 
             <div class="grid gap-3 md:grid-cols-2">
-              <label class="grid gap-1">
-                <span class="text-sm font-medium text-slate-700">Idioma del Sistema</span>
-                <select [(ngModel)]="form.system_language" class="rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500">
-                  @for (language of languageOptions; track language.code) {
-                    <option [value]="language.code">{{ language.label }}</option>
-                  }
-                </select>
-              </label>
-
               <label class="grid gap-1">
                 <span class="text-sm font-medium text-slate-700">Zona Horaria</span>
                 <select [(ngModel)]="form.timezone" class="rounded-xl border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500">

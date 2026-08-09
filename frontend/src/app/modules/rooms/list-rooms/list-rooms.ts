@@ -18,7 +18,15 @@ import { CreateRoom } from '../create-room/create-room';
 import { UpdateRoom } from '../update-room/update-room';
 import { RoomDetail } from '../room-detail/room-detail';
 
-type ViewMode = 'cards' | 'table';
+type ViewMode = 'floor' | 'cards' | 'table';
+
+type RoomFloorGroup = {
+  key: string;
+  label: string;
+  summary: string;
+  rooms: RoomI[];
+  order: number;
+};
 
 type StatusStyle = {
   bg: string;
@@ -51,7 +59,7 @@ export class ListRooms implements OnInit {
   search = '';
   statusFilter: RoomVisualStatus | 'ALL' = 'ALL';
   floorFilter: number | 'ALL' = 'ALL';
-  viewMode: ViewMode = 'cards';
+  viewMode: ViewMode = 'floor';
 
   showCreateDrawer = false;
   showUpdateDrawer = false;
@@ -112,6 +120,34 @@ export class ListRooms implements OnInit {
 
   get leavingTodayCount(): number {
     return this.rooms.filter((room) => this.isPorSalirHoy(room)).length;
+  }
+
+  get groupedRooms(): RoomFloorGroup[] {
+    const floorMap = new Map(this.floors.map((floor, index) => [floor.id, { floor, index }]));
+    const groups = new Map<string, RoomFloorGroup>();
+
+    for (const room of this.filteredRooms) {
+      const floorInfo = floorMap.get(room.floor);
+      const key = floorInfo ? `floor:${floorInfo.floor.id}` : `unassigned:${room.floor || 'none'}`;
+      const fallbackLabel = room.floor_name || 'Piso no definido';
+
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          label: floorInfo?.floor.name || fallbackLabel,
+          summary: floorInfo?.floor.range_display || floorInfo?.floor.prefix || fallbackLabel,
+          rooms: [],
+          order: floorInfo?.floor.floor_number ?? room.floor_number ?? room.florr_number ?? 9999
+        });
+      }
+
+      groups.get(key)?.rooms.push(room);
+    }
+
+    return Array.from(groups.values()).sort((left, right) => {
+      if (left.order !== right.order) return left.order - right.order;
+      return left.label.localeCompare(right.label, 'es');
+    });
   }
 
   loadModuleData(): void {
@@ -504,6 +540,10 @@ export class ListRooms implements OnInit {
 
   trackByRoom(_: number, room: RoomI): number {
     return room.id;
+  }
+
+  trackByFloorGroup(_: number, group: RoomFloorGroup): string {
+    return group.key;
   }
 
   trackById(_: number, item: { id: number }): number {

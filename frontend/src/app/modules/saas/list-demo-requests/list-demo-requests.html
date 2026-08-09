@@ -56,7 +56,7 @@
               type="text"
               [(ngModel)]="search"
               (keyup.enter)="applyFilters()"
-              placeholder="Hotel, ciudad, usuario, correo o telefono"
+              placeholder="Hotel, ubicacion, usuario, correo o telefono"
             />
           </div>
         </label>
@@ -111,7 +111,11 @@
               <td>
                 <div class="primary-cell">
                   <p class="primary-title">{{ request.hotel_name }}</p>
-                  <p class="primary-meta">{{ request.hotel_type }} - {{ request.city }}</p>
+                  <p class="primary-meta">{{ request.hotel_type }} - {{ request.city }}, {{ request.state || request.country }}</p>
+                  <p class="primary-meta" *ngIf="request.address">{{ request.address }}</p>
+                  <p class="primary-meta" *ngIf="request.check_in_time || request.check_out_time">
+                    Check-in {{ request.check_in_time || 'N/D' }} - Check-out {{ request.check_out_time || 'N/D' }}
+                  </p>
                   <a *ngIf="request.website" [href]="request.website" target="_blank" rel="noopener noreferrer">
                     {{ request.website }}
                   </a>

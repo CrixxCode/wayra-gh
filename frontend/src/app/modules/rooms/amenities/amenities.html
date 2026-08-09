@@ -6,7 +6,19 @@
     </div>
 
     <div class="header-actions">
-      <button class="btn primary" (click)="openCreate()">
+      <button type="button" class="btn ghost" (click)="goToRooms()">
+        <i class="fa-solid fa-bed"></i>
+        Ver habitaciones
+      </button>
+      <button type="button" class="btn ghost" (click)="goToRoomTypes()">
+        <i class="fa-solid fa-layer-group"></i>
+        Tipos
+      </button>
+      <button type="button" class="btn ghost" (click)="goToRates()">
+        <i class="fa-solid fa-tags"></i>
+        Tarifas
+      </button>
+      <button type="button" class="btn primary" (click)="openCreate()">
         <i class="fa-solid fa-plus"></i>
         Nueva amenidad
       </button>

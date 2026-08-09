@@ -28,7 +28,6 @@ export interface HotelSettings {
     city?: string;
     state?: string;
     country?: string;
-    postal_code?: string;
 
     // Contacto
     primary_phone?: string;
@@ -40,14 +39,12 @@ export interface HotelSettings {
     // Operación
     check_in_time?: string;
     check_out_time?: string;
-    max_guests_per_room?: number;
 
     // Configuración financiera
     currency?: string;
     tax_rate?: number;
 
     // Sistema
-    system_language?: string;
     timezone?: string;
 
     // Estructura del hotel

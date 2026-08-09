@@ -10,9 +10,14 @@ class DemoRequest(models.Model):
 
     hotel_name = models.CharField(max_length=150)
     hotel_type = models.CharField(max_length=80)
+    country = models.CharField(max_length=100, blank=True, default="")
+    state = models.CharField(max_length=100, blank=True, default="")
     city = models.CharField(max_length=100)
+    address = models.CharField(max_length=255, blank=True, default="")
     rooms = models.PositiveIntegerField()
     website = models.CharField(max_length=255, blank=True, default="")
+    check_in_time = models.TimeField(blank=True, null=True)
+    check_out_time = models.TimeField(blank=True, null=True)
 
     requester_first_name = models.CharField(max_length=80)
     requester_last_name = models.CharField(max_length=120)

@@ -10,6 +10,10 @@
         <i class="fa-solid fa-bed"></i>
         Ver habitaciones
       </button>
+      <button type="button" class="btn btn-light" (click)="goToAmenities()">
+        <i class="fa-solid fa-star"></i>
+        Amenidades
+      </button>
       <button type="button" class="btn btn-light" (click)="goToRoomTypes()">
         <i class="fa-solid fa-layer-group"></i>
         Tipos de habitacion
@@ -164,85 +168,87 @@
     </article>
   </section>
 
-  <section class="state-message" *ngIf="loading || errorMessage || infoMessage || groupedRates.length === 0">
+  <section class="state-message" *ngIf="loading || errorMessage || infoMessage || filteredRates.length === 0">
     <p *ngIf="loading">Cargando tarifas...</p>
     <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
     <p class="warning" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
-    <p *ngIf="!loading && !errorMessage && groupedRates.length === 0">No hay tarifas para los filtros seleccionados.</p>
+    <p *ngIf="!loading && !errorMessage && filteredRates.length === 0">No hay tarifas para los filtros seleccionados.</p>
   </section>
 
-  <section class="catalog-sections" *ngIf="!loading && !errorMessage && groupedRates.length > 0">
-    <article class="type-block" *ngFor="let group of groupedRates; trackBy: trackByGroup">
-      <header class="type-head">
-        <div>
-          <h2>{{ group.label }}</h2>
-          <p>{{ group.items.length }} tarifa(s) - Promedio {{ getGroupAverageLabel(group) }}</p>
-        </div>
-        <button type="button" class="group-action" (click)="openCreateDrawer()">
-          <i class="fa-solid fa-plus"></i>
-          Nueva tarifa
-        </button>
-      </header>
-
-      <div class="rates-grid">
-        <article class="rate-card" *ngFor="let rate of group.items; trackBy: trackByRate" (click)="openDetail(rate)">
-          <header class="card-head">
-            <div class="card-badges">
+  <section class="table-card catalog-table-card" *ngIf="!loading && !errorMessage && filteredRates.length > 0">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Tarifa</th>
+            <th>Tipo habitacion</th>
+            <th>Precio</th>
+            <th>Vigencia</th>
+            <th>Periodo</th>
+            <th>Estado</th>
+            <th>Creada</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            class="table-clickable-row"
+            *ngFor="let rate of filteredRates; trackBy: trackByRate"
+            (click)="openDetail(rate)">
+            <td>
+              <p class="table-main">{{ rate.name || 'Sin nombre' }}</p>
+              <small>#{{ rate.id }}</small>
+            </td>
+            <td>{{ getRoomTypeLabel(rate) }}</td>
+            <td>
+              <p class="table-main">{{ getPriceLabel(rate) }}</p>
+              <small>por noche</small>
+            </td>
+            <td>
+              <span
+                class="status-chip validity-chip"
+                [ngStyle]="{ 'background-color': getValidityTone(rate).bg, color: getValidityTone(rate).color }">
+                {{ getValidityLabel(rate) }}
+              </span>
+            </td>
+            <td>{{ getRangeLabel(rate) }}</td>
+            <td>
               <span
                 class="status-chip"
                 [ngStyle]="{ 'background-color': getStatusTone(rate).bg, color: getStatusTone(rate).color }">
                 <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(rate).dot }"></span>
-                {{ rate.is_active === false ? 'Inactiva' : 'Activa' }}
+                {{ getStatusLabel(rate) }}
               </span>
+            </td>
+            <td>{{ getCreatedLabel(rate) }}</td>
+            <td>
+              <div class="table-actions" (click)="$event.stopPropagation()">
+                <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(rate)">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+                <button type="button" class="row-btn" title="Editar" (click)="openUpdateDrawer(rate)">
+                  <i class="fa-regular fa-pen-to-square"></i>
+                </button>
+                <button
+                  type="button"
+                  class="row-btn"
+                  [title]="rate.is_active === false ? 'Activar' : 'Desactivar'"
+                  (click)="toggleRateStatus(rate)">
+                  <i [class]="rate.is_active === false ? 'fa-solid fa-toggle-off' : 'fa-solid fa-toggle-on'"></i>
+                </button>
+                <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(rate)">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-              <span
-                class="validity-chip"
-                [ngStyle]="{ 'background-color': getValidityTone(rate).bg, color: getValidityTone(rate).color }">
-                {{ getValidityLabel(rate) }}
-              </span>
-            </div>
-
-            <div class="card-quick-actions" (click)="$event.stopPropagation()">
-              <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(rate)">
-                <i class="fa-regular fa-eye"></i>
-              </button>
-              <button type="button" class="row-btn" title="Editar" (click)="openUpdateDrawer(rate)">
-                <i class="fa-regular fa-pen-to-square"></i>
-              </button>
-              <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(rate)">
-                <i class="fa-regular fa-trash-can"></i>
-              </button>
-            </div>
-          </header>
-
-          <h3>{{ rate.name }}</h3>
-          <p class="rate-price">{{ getPriceLabel(rate) }}<small>/noche</small></p>
-          <div class="rate-range">
-            <i class="fa-regular fa-calendar"></i>
-            <div>
-              <span>Periodo de validez</span>
-              <strong>{{ getRangeLabel(rate) }}</strong>
-            </div>
-          </div>
-
-          <footer class="card-foot" (click)="$event.stopPropagation()">
-            <button
-              type="button"
-              class="status-action"
-              (click)="toggleRateStatus(rate)">
-              <i [class]="rate.is_active === false ? 'fa-solid fa-toggle-off' : 'fa-solid fa-toggle-on'"></i>
-              {{ rate.is_active === false ? 'Activar tarifa' : 'Desactivar tarifa' }}
-            </button>
-          </footer>
-        </article>
-
-        <button type="button" class="add-rate-card" (click)="openCreateDrawer()">
-          <span><i class="fa-solid fa-plus"></i></span>
-          <strong>Anadir tarifa</strong>
-          <small>Para {{ group.label }}</small>
-        </button>
-      </div>
-    </article>
+    <footer class="table-footer">
+      Mostrando {{ filteredRates.length }} de {{ totalRates }} tarifas
+    </footer>
   </section>
 
   <app-create-rate

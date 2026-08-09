@@ -6,6 +6,33 @@ from apps.hotel_settings.models import HotelSettings
 
 User = get_user_model()
 
+
+class PublicJobTitleCatalogTests(APITestCase):
+    def test_public_job_titles_returns_active_titles_without_authentication(self):
+        admin_role = Role.objects.create(name="Administrador", slug="admin")
+        active_title = JobTitle.objects.create(
+            role=admin_role,
+            name="Administrador general",
+            slug="administrador-general",
+            is_active=True,
+            sort_order=1,
+        )
+        JobTitle.objects.create(
+            role=admin_role,
+            name="Cargo inactivo",
+            slug="cargo-inactivo",
+            is_active=False,
+            sort_order=2,
+        )
+
+        response = self.client.get("/api/roles/public-job-titles/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], str(active_title.id))
+        self.assertEqual(response.data[0]["name"], "Administrador general")
+
+
 class FilterOrderingTests(APITestCase):
     def setUp(self):
         self.hotel = HotelSettings.objects.create(hotel_name="Hotel Filter")

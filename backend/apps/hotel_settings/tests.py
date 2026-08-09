@@ -173,6 +173,40 @@ class HotelSettingsTenantIsolationTests(APITestCase):
         )
         self.assertEqual(response.status_code, 201)
 
+    def test_floor_update_renumbers_existing_rooms_without_recreating_them(self):
+        floor = HotelFloor.objects.create(
+            hotel_settings=self.hotel_b,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=2,
+        )
+        room_101 = Room.objects.create(number="101", floor=floor, status=self.room_status_available)
+        room_102 = Room.objects.create(number="102", floor=floor, status=self.room_status_available)
+
+        response = self.client.patch(
+            f"/api/hotel-floors/{floor.id}/?delete_extra_rooms=true",
+            {
+                "hotel_settings": self.hotel_b.id,
+                "floor_number": 1,
+                "name": "Piso renovado",
+                "prefix": "2",
+                "room_count": 3,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            list(Room.objects.filter(floor=floor).order_by("number").values_list("number", flat=True)),
+            ["201", "202", "203"],
+        )
+        room_101.refresh_from_db()
+        room_102.refresh_from_db()
+        self.assertEqual(room_101.number, "201")
+        self.assertEqual(room_102.number, "202")
+        self.assertEqual(Room.objects.filter(floor=floor).count(), 3)
+
     def test_by_settings_respects_tenant_scope(self):
         HotelFloor.objects.create(
             hotel_settings=self.hotel_a,

@@ -10,9 +10,14 @@ import { AuthService } from './auth/auth';
 export interface DemoRequestPayload {
   hotel_name: string;
   hotel_type: string;
+  country: string;
+  state: string;
   city: string;
+  address: string;
   rooms: number;
   website?: string;
+  check_in_time: string;
+  check_out_time: string;
   requester_first_name: string;
   requester_last_name: string;
   requester_username: string;

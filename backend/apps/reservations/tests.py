@@ -17,17 +17,22 @@ from apps.reservations.models import (
     Reservation,
     ReservationInventoryCheck,
     ReservationInventoryCheckLine,
+    ReservationGuest,
     ReservationRoom,
 )
 from apps.reservations.serializers import (
     ReservationDetailSerializer,
     ReservationDepositSerializer,
+    ReservationGuestSerializer,
     ReservationListSerializer,
     ReservationRoomSerializer,
     ReservationWriteSerializer,
 )
 from apps.inventory.services import apply_checkout_consumption_inventory
-from apps.reservations.services import create_post_checkout_cleaning_tasks
+from apps.reservations.services import (
+    create_post_checkout_cleaning_tasks,
+    validate_reservation_status_transition,
+)
 from apps.rooms.models import CleaningTask, Rate, Room, RoomType
 
 User = get_user_model()
@@ -202,6 +207,46 @@ class ReservationFlowTestCase(TestCase):
             expected_check_in=check_in,
             expected_check_out=check_out,
         )
+
+    def test_status_transition_validator_rejects_inconsistent_changes(self):
+        validate_reservation_status_transition("PENDIENTE", "CONFIRMADA")
+        validate_reservation_status_transition("CONFIRMADA", "EN_CURSO")
+        validate_reservation_status_transition("EN_CURSO", "FINALIZADA")
+
+        with self.assertRaises(ValueError):
+            validate_reservation_status_transition("PENDIENTE", "FINALIZADA")
+
+        with self.assertRaises(ValueError):
+            validate_reservation_status_transition("CANCELADA", "CONFIRMADA")
+
+    def test_guest_document_number_is_unique_inside_reservation_case_insensitive(self):
+        today = timezone.now().date()
+        reservation = self._create_reservation(
+            check_in=today + timedelta(days=1),
+            check_out=today + timedelta(days=2),
+            status=self.reservation_status_pending,
+        )
+
+        ReservationGuest.objects.create(
+            reservation=reservation,
+            document_type=self.document_type,
+            document_number="ABC123",
+            first_name="Maria",
+            last_name="Lopez",
+        )
+
+        serializer = ReservationGuestSerializer(
+            data={
+                "reservation": reservation.id,
+                "document_type": self.document_type.id,
+                "document_number": "abc123",
+                "first_name": "Maria",
+                "last_name": "Lopez",
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("document_number", serializer.errors)
 
     def test_room_status_changes_across_reservation_lifecycle(self):
         today = timezone.now().date()

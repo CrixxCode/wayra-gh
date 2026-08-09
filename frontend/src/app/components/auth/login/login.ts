@@ -92,6 +92,11 @@ export class LoginComponent {
         const mustChangePassword = Boolean(
           res?.must_change_password ?? res?.user?.must_change_password
         );
+        const isHotelUser = Boolean(res?.user?.hotel_settings);
+
+        if (isFirstLogin && isHotelUser) {
+          sessionStorage.setItem('gh_first_hotel_setup_alert', '1');
+        }
 
         setTimeout(() => {
           this.showLoading = false;
@@ -145,10 +150,10 @@ export class LoginComponent {
   private showWelcomeToast(): void {
     this.messageService.add({
       key: 'auth',
-      severity: 'success',
-      summary: 'Bienvenido',
-      detail: 'Este es tu primer inicio de sesion. Bienvenido al sistema.',
-      life: 4500,
+      severity: 'warn',
+      summary: 'Completa la configuracion del hotel',
+      detail: 'Este es tu primer ingreso. Revisa la informacion del hotel antes de operar.',
+      life: 7000,
     });
   }
 }

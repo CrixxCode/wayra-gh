@@ -68,11 +68,6 @@
             <small class="field-error" *ngIf="getControlError('expected_check_out') as error">{{ error }}</small>
           </label>
 
-          <label>
-            <span>Descuento total</span>
-            <input type="number" formControlName="total_discount" min="0" step="0.01" placeholder="0" />
-          </label>
-
           <label class="full">
             <span>Notas internas</span>
             <textarea

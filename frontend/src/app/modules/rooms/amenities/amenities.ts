@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { catchError, forkJoin, map, of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
 import { RoomService } from '../../../services/room';
@@ -81,6 +82,7 @@ export class AmenitiesPage implements OnInit {
 
   constructor(
     private roomService: RoomService,
+    private router: Router,
     private confirmationService: ConfirmationService
   ) {
     this.form = this.emptyForm();
@@ -116,6 +118,18 @@ export class AmenitiesPage implements OnInit {
 
   trackByAmenity(_: number, item: AmenityI): number {
     return item.id;
+  }
+
+  goToRooms(): void {
+    void this.router.navigate(['/habitaciones']);
+  }
+
+  goToRoomTypes(): void {
+    void this.router.navigate(['/tipos-habitacion']);
+  }
+
+  goToRates(): void {
+    void this.router.navigate(['/tarifas-habitacion']);
   }
 
   loadData(): void {

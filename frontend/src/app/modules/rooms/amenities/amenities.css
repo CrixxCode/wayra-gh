@@ -49,6 +49,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .btn {
@@ -85,6 +87,7 @@
 
 .btn.ghost {
   background: var(--gh-surface);
+  color: var(--gh-text);
 }
 
 .stats-grid {

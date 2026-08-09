@@ -147,6 +147,10 @@ export class ListRoomTypes implements OnInit {
     void this.router.navigate(['/habitaciones']);
   }
 
+  goToAmenities(): void {
+    void this.router.navigate(['/amenidades']);
+  }
+
   goToRates(): void {
     void this.router.navigate(['/tarifas-habitacion']);
   }
@@ -338,6 +342,17 @@ export class ListRoomTypes implements OnInit {
       color: 'var(--gh-status-success-text)',
       dot: 'var(--gh-status-success-strong)'
     };
+  }
+
+  getStatusLabel(roomType: RoomTypeI): string {
+    return roomType.is_active === false ? 'Inactivo' : 'Activo';
+  }
+
+  getCreatedLabel(roomType: RoomTypeI): string {
+    if (!roomType.created_at) return '--';
+    const date = new Date(roomType.created_at);
+    if (Number.isNaN(date.getTime())) return '--';
+    return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' }).format(date);
   }
 
   getBedSummary(roomType: RoomTypeI): string {

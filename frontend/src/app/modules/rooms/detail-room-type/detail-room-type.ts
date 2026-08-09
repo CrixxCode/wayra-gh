@@ -73,17 +73,6 @@ export class DetailRoomType {
     return this.formatCurrency(this.toNumber(this.activeRate.price));
   }
 
-  getRateRangeLabel(): string {
-    if (!this.activeRate) return 'Sin periodo';
-    const start = this.formatDate(this.activeRate.start_date);
-    const end = this.formatDate(this.activeRate.end_date);
-
-    if (start === 'Sin fecha' && end === 'Sin fecha') return 'Sin restriccion de fechas';
-    if (start !== 'Sin fecha' && end === 'Sin fecha') return `Desde ${start}`;
-    if (start === 'Sin fecha' && end !== 'Sin fecha') return `Hasta ${end}`;
-    return `${start} - ${end}`;
-  }
-
   formatDate(value: string | null | undefined): string {
     if (!value) return 'Sin fecha';
 

@@ -383,10 +383,6 @@ export class ReservationService {
       normalized.notes = normalized.notes ? String(normalized.notes).trim() : null;
     }
 
-    if (normalized.total_discount !== undefined && normalized.total_discount !== null) {
-      normalized.total_discount = Number(normalized.total_discount);
-    }
-
     if (normalized.policies !== undefined) {
       if (Array.isArray(normalized.policies)) {
         normalized.policies = normalized.policies

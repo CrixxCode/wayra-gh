@@ -25,7 +25,7 @@ from accounts.email_utils import (
     email_backend_delivers_to_inbox,
 )
 from accounts.models import Role, UserRole
-from apps.hotel_settings.models import HotelSettings
+from apps.hotel_settings.models import HotelFloor, HotelSettings
 from .models import DemoRequest
 from .permissions import IsPlatformAdmin
 from .serializers import DemoRequestCreateSerializer, DemoRequestSerializer, DemoRequestStatusSerializer
@@ -204,10 +204,13 @@ class DemoRequestViewSet(
     queryset = DemoRequest.objects.all().order_by("-created_at", "-id")
     throttle_scope = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["status", "hotel_type", "city"]
+    filterset_fields = ["status", "hotel_type", "country", "state", "city"]
     search_fields = [
         "hotel_name",
+        "country",
+        "state",
         "city",
+        "address",
         "requester_first_name",
         "requester_last_name",
         "requester_username",
@@ -331,12 +334,24 @@ class DemoRequestViewSet(
 
         hotel = HotelSettings.objects.create(
             hotel_name=locked_request.hotel_name,
+            address=locked_request.address or None,
             city=locked_request.city,
+            state=locked_request.state or None,
+            country=locked_request.country or None,
             primary_phone=locked_request.requester_phone,
             general_email=email,
             reservations_email=email,
             website=locked_request.website or None,
+            check_in_time=locked_request.check_in_time,
+            check_out_time=locked_request.check_out_time,
             description=f"Creado desde solicitud de demo. Tipo de alojamiento: {locked_request.hotel_type}.",
+        )
+        HotelFloor.objects.create(
+            hotel_settings=hotel,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=locked_request.rooms,
         )
 
         user = User(

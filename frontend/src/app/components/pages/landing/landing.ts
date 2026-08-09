@@ -2,8 +2,16 @@ import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { catchError, finalize, of } from 'rxjs';
 import { DemoRequestPayload, DemoRequestService } from '../../../services/demo-request';
+import { JobTitle, RolesService } from '../../../services/roles.service';
+import {
+  HotelLocationCountry,
+  HotelLocationDepartment,
+  loadCitiesForDepartment,
+  loadDepartmentsForCountry,
+  loadHotelCountries,
+} from '../../../shared/hotel-location-options';
 
 interface NavLink {
   label: string;
@@ -46,8 +54,8 @@ interface AudienceItem {
   icon: string;
 }
 
-type DemoStep = 'hotel' | 'requester';
-type DemoFormSection = 'hotel' | 'requester';
+type DemoStep = 'hotel' | 'location' | 'operation' | 'requester';
+type DemoFormSection = 'hotel' | 'location' | 'operation' | 'requester';
 
 @Component({
   selector: 'app-landing',
@@ -59,19 +67,32 @@ type DemoFormSection = 'hotel' | 'requester';
 export class LandingPage implements OnDestroy {
   private readonly formBuilder = inject(FormBuilder);
   private readonly demoRequestService = inject(DemoRequestService);
+  private readonly rolesService = inject(RolesService);
   private previousBodyOverflow = '';
 
   readonly year = new Date().getFullYear();
 
   readonly hotelTypes = ['Hotel', 'Hostal', 'Apartahotel', 'Alojamiento turistico', 'Otro'];
+  locationCountries: HotelLocationCountry[] = [];
+  locationDepartments: HotelLocationDepartment[] = [];
+  locationCities: string[] = [];
 
   readonly demoForm = this.formBuilder.group({
     hotel: this.formBuilder.group({
       hotelName: ['', [Validators.required, Validators.minLength(2)]],
       hotelType: ['', Validators.required],
-      city: ['', Validators.required],
       rooms: [null, [Validators.required, Validators.min(1)]],
       website: [''],
+    }),
+    location: this.formBuilder.group({
+      country: ['', Validators.required],
+      state: ['', Validators.required],
+      city: ['', Validators.required],
+      address: ['', Validators.required],
+    }),
+    operation: this.formBuilder.group({
+      checkInTime: ['14:00', Validators.required],
+      checkOutTime: ['12:00', Validators.required],
     }),
     requester: this.formBuilder.group({
       firstName: ['', Validators.required],
@@ -275,6 +296,49 @@ export class LandingPage implements OnDestroy {
   demoSubmitting = false;
   demoSubmitError = '';
   demoRequestSummary = '';
+  jobTitles: JobTitle[] = [];
+  jobTitlesLoading = false;
+  jobTitlesLoadError = '';
+
+  private readonly demoFieldLabels: Record<string, string> = {
+    hotel_name: 'Nombre del hotel',
+    hotel_type: 'Tipo de alojamiento',
+    country: 'Pais',
+    state: 'Departamento',
+    city: 'Ciudad',
+    address: 'Direccion del hotel',
+    rooms: 'Numero de habitaciones',
+    website: 'Sitio web',
+    check_in_time: 'Horario de check-in',
+    check_out_time: 'Horario de check-out',
+    requester_first_name: 'Nombre',
+    requester_last_name: 'Apellidos',
+    requester_username: 'Usuario de acceso',
+    requester_email: 'Correo de acceso',
+    requester_job_title: 'Cargo',
+    requester_phone: 'Telefono de contacto',
+    message: 'Comentarios',
+  };
+
+  private readonly demoFieldSections: Record<string, DemoStep> = {
+    hotel_name: 'hotel',
+    hotel_type: 'hotel',
+    rooms: 'hotel',
+    website: 'hotel',
+    country: 'location',
+    state: 'location',
+    city: 'location',
+    address: 'location',
+    check_in_time: 'operation',
+    check_out_time: 'operation',
+    requester_first_name: 'requester',
+    requester_last_name: 'requester',
+    requester_username: 'requester',
+    requester_email: 'requester',
+    requester_job_title: 'requester',
+    requester_phone: 'requester',
+    message: 'requester',
+  };
 
   ngOnDestroy(): void {
     this.unlockPageScroll();
@@ -324,6 +388,8 @@ export class LandingPage implements OnDestroy {
     this.demoSubmitError = '';
     this.demoStep = 'hotel';
     this.lockPageScroll();
+    this.loadDemoCountries();
+    this.loadDemoJobTitles();
 
     window.setTimeout(() => {
       document.getElementById('demo-hotel-name')?.focus();
@@ -338,6 +404,7 @@ export class LandingPage implements OnDestroy {
     this.demoSubmitError = '';
     this.demoRequestSummary = '';
     this.demoForm.reset();
+    this.demoForm.controls.operation.patchValue({ checkInTime: '14:00', checkOutTime: '12:00' });
     this.unlockPageScroll();
   }
 
@@ -350,16 +417,81 @@ export class LandingPage implements OnDestroy {
   }
 
   goToRequesterStep(): void {
-    const hotelForm = this.demoForm.controls.hotel;
-    hotelForm.markAllAsTouched();
+    if (!this.goToOperationStep()) return;
 
-    if (hotelForm.invalid) return;
+    const operationForm = this.demoForm.controls.operation;
+    operationForm.markAllAsTouched();
+
+    if (operationForm.invalid || this.hasSameDemoOperationTimes()) return;
 
     this.demoStep = 'requester';
 
     window.setTimeout(() => {
       document.getElementById('demo-first-name')?.focus();
     });
+  }
+
+  goToLocationStep(): boolean {
+    const hotelForm = this.demoForm.controls.hotel;
+    hotelForm.markAllAsTouched();
+
+    if (hotelForm.invalid) return false;
+
+    this.demoStep = 'location';
+
+    window.setTimeout(() => {
+      document.getElementById('demo-country')?.focus();
+    });
+
+    return true;
+  }
+
+  goToOperationStep(): boolean {
+    if (!this.goToLocationStep()) return false;
+
+    const locationForm = this.demoForm.controls.location;
+    locationForm.markAllAsTouched();
+
+    if (locationForm.invalid) return false;
+
+    this.demoStep = 'operation';
+
+    window.setTimeout(() => {
+      document.getElementById('demo-check-in-time')?.focus();
+    });
+
+    return true;
+  }
+
+  async onDemoCountryChange(): Promise<void> {
+    this.demoForm.controls.location.patchValue({ state: '', city: '' });
+    this.locationCities = [];
+    this.locationDepartments = await loadDepartmentsForCountry(
+      this.demoForm.controls.location.controls.country.value
+    );
+  }
+
+  async onDemoStateChange(): Promise<void> {
+    this.demoForm.controls.location.patchValue({ city: '' });
+    const location = this.demoForm.controls.location.controls;
+    this.locationCities = await loadCitiesForDepartment(location.country.value, location.state.value);
+  }
+
+  hasSameDemoOperationTimes(): boolean {
+    const operation = this.demoForm.controls.operation.getRawValue();
+    return Boolean(operation.checkInTime && operation.checkOutTime && operation.checkInTime === operation.checkOutTime);
+  }
+
+  canOpenDemoStep(step: DemoStep): boolean {
+    if (step === 'hotel') return true;
+    if (step === 'location') return this.demoForm.controls.hotel.valid;
+    if (step === 'operation') return this.demoForm.controls.hotel.valid && this.demoForm.controls.location.valid;
+    return (
+      this.demoForm.controls.hotel.valid &&
+      this.demoForm.controls.location.valid &&
+      this.demoForm.controls.operation.valid &&
+      !this.hasSameDemoOperationTimes()
+    );
   }
 
   submitDemoRequest(): void {
@@ -370,6 +502,16 @@ export class LandingPage implements OnDestroy {
 
     if (this.demoForm.controls.hotel.invalid) {
       this.goToHotelStep();
+      return;
+    }
+
+    if (this.demoForm.controls.location.invalid) {
+      this.demoStep = 'location';
+      return;
+    }
+
+    if (this.demoForm.controls.operation.invalid || this.hasSameDemoOperationTimes()) {
+      this.demoStep = 'operation';
       return;
     }
 
@@ -389,8 +531,8 @@ export class LandingPage implements OnDestroy {
         next: () => {
           this.demoSubmitted = true;
         },
-        error: () => {
-          this.demoSubmitError = 'No se pudo guardar la solicitud. Intenta nuevamente.';
+        error: (error) => {
+          this.applyDemoSubmitError(error);
         },
       });
   }
@@ -399,7 +541,11 @@ export class LandingPage implements OnDestroy {
     const control =
       sectionName === 'hotel'
         ? this.demoForm.controls.hotel.get(controlName)
-        : this.demoForm.controls.requester.get(controlName);
+        : sectionName === 'location'
+          ? this.demoForm.controls.location.get(controlName)
+          : sectionName === 'operation'
+            ? this.demoForm.controls.operation.get(controlName)
+            : this.demoForm.controls.requester.get(controlName);
 
     return Boolean(control && control.invalid && (control.dirty || control.touched));
   }
@@ -417,16 +563,132 @@ export class LandingPage implements OnDestroy {
     document.body.style.overflow = this.previousBodyOverflow;
   }
 
+  private loadDemoCountries(): void {
+    loadHotelCountries().then((countries) => {
+      this.locationCountries = countries;
+    });
+  }
+
+  private loadDemoJobTitles(): void {
+    if (this.jobTitles.length > 0 || this.jobTitlesLoading) return;
+
+    this.jobTitlesLoading = true;
+    this.jobTitlesLoadError = '';
+    this.rolesService
+      .publicJobTitles()
+      .pipe(
+        catchError(() => {
+          this.jobTitlesLoadError = 'No se pudieron cargar los cargos disponibles.';
+          return of([] as JobTitle[]);
+        }),
+        finalize(() => {
+          this.jobTitlesLoading = false;
+        })
+      )
+      .subscribe((jobTitles) => {
+        this.jobTitles = [...jobTitles]
+          .filter((jobTitle) => jobTitle.is_active !== false)
+          .sort((first, second) =>
+            String(first.name || '').localeCompare(String(second.name || ''), 'es-CO')
+          );
+      });
+  }
+
+  private applyDemoSubmitError(error: unknown): void {
+    const fieldErrors = this.extractDemoFieldErrors(error);
+    const fieldNames = Object.keys(fieldErrors);
+
+    if (fieldNames.length > 0) {
+      this.demoSubmitError = fieldNames
+        .map((fieldName) => this.formatDemoFieldError(fieldName, fieldErrors[fieldName]))
+        .join(' ');
+      this.focusDemoStepForField(fieldNames[0]);
+      return;
+    }
+
+    this.demoSubmitError = this.extractDemoErrorMessage(
+      error,
+      'No se pudo guardar la solicitud. Intenta nuevamente.'
+    );
+  }
+
+  private extractDemoFieldErrors(error: unknown): Record<string, string[]> {
+    const payload = this.getErrorPayload(error);
+    if (!payload || typeof payload !== 'object') return {};
+
+    const errors = (payload as Record<string, unknown>)['errors'];
+    if (errors && typeof errors === 'object') {
+      return this.normalizeFieldErrors(errors as Record<string, unknown>);
+    }
+
+    return this.normalizeFieldErrors(payload as Record<string, unknown>);
+  }
+
+  private normalizeFieldErrors(payload: Record<string, unknown>): Record<string, string[]> {
+    const normalized: Record<string, string[]> = {};
+
+    Object.entries(payload).forEach(([fieldName, value]) => {
+      if (['detail', 'code', 'non_field_errors'].includes(fieldName)) return;
+
+      if (Array.isArray(value)) {
+        const messages = value.map((item) => String(item || '').trim()).filter(Boolean);
+        if (messages.length > 0) normalized[fieldName] = messages;
+        return;
+      }
+
+      if (typeof value === 'string' && value.trim()) {
+        normalized[fieldName] = [value.trim()];
+      }
+    });
+
+    return normalized;
+  }
+
+  private extractDemoErrorMessage(error: unknown, fallback: string): string {
+    const payload = this.getErrorPayload(error);
+
+    if (typeof payload === 'string' && payload.trim()) return payload.trim();
+
+    if (payload && typeof payload === 'object') {
+      const detail = (payload as Record<string, unknown>)['detail'];
+      if (typeof detail === 'string' && detail.trim()) return detail.trim();
+    }
+
+    return fallback;
+  }
+
+  private getErrorPayload(error: unknown): unknown {
+    return error && typeof error === 'object' ? (error as Record<string, unknown>)['error'] : null;
+  }
+
+  private formatDemoFieldError(fieldName: string, messages: string[]): string {
+    const label = this.demoFieldLabels[fieldName] || fieldName;
+    return `${label}: ${messages.join(' ')}`;
+  }
+
+  private focusDemoStepForField(fieldName: string): void {
+    const section = this.demoFieldSections[fieldName];
+    if (!section) return;
+    this.demoStep = section;
+  }
+
   private buildDemoRequestPayload(): DemoRequestPayload {
     const hotel = this.demoForm.controls.hotel.getRawValue();
+    const location = this.demoForm.controls.location.getRawValue();
+    const operation = this.demoForm.controls.operation.getRawValue();
     const requester = this.demoForm.controls.requester.getRawValue();
 
     return {
       hotel_name: String(hotel.hotelName || '').trim(),
       hotel_type: String(hotel.hotelType || '').trim(),
-      city: String(hotel.city || '').trim(),
+      country: String(location.country || '').trim(),
+      state: String(location.state || '').trim(),
+      city: String(location.city || '').trim(),
+      address: String(location.address || '').trim(),
       rooms: Number(hotel.rooms || 0),
       website: String(hotel.website || '').trim(),
+      check_in_time: String(operation.checkInTime || '').trim(),
+      check_out_time: String(operation.checkOutTime || '').trim(),
       requester_first_name: String(requester.firstName || '').trim(),
       requester_last_name: String(requester.lastName || '').trim(),
       requester_username: String(requester.username || '').trim(),

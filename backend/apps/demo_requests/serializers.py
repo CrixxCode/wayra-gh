@@ -1,7 +1,10 @@
 from rest_framework import serializers
 
 from accounts.email_utils import email_backend_delivers_to_inbox
+from django.contrib.auth import get_user_model
 from .models import DemoRequest
+
+User = get_user_model()
 
 
 class DemoRequestCreateSerializer(serializers.ModelSerializer):
@@ -11,9 +14,14 @@ class DemoRequestCreateSerializer(serializers.ModelSerializer):
             "id",
             "hotel_name",
             "hotel_type",
+            "country",
+            "state",
             "city",
+            "address",
             "rooms",
             "website",
+            "check_in_time",
+            "check_out_time",
             "requester_first_name",
             "requester_last_name",
             "requester_username",
@@ -35,13 +43,24 @@ class DemoRequestCreateSerializer(serializers.ModelSerializer):
         username = str(value or "").strip()
         if len(username) < 3:
             raise serializers.ValidationError("El usuario debe tener al menos 3 caracteres.")
+        if User.objects.filter(username__iexact=username).exists():
+            raise serializers.ValidationError("Ya existe un usuario con este nombre de usuario.")
         return username
+
+    def validate_requester_email(self, value):
+        email = str(value or "").strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError("Ya existe un usuario con este correo.")
+        return email
 
     def validate(self, attrs):
         text_fields = [
             "hotel_name",
             "hotel_type",
+            "country",
+            "state",
             "city",
+            "address",
             "website",
             "requester_first_name",
             "requester_last_name",
@@ -56,6 +75,14 @@ class DemoRequestCreateSerializer(serializers.ModelSerializer):
 
         attrs["requester_email"] = str(attrs.get("requester_email") or "").strip().lower()
         attrs["requester_username"] = str(attrs.get("requester_username") or "").strip()
+
+        check_in_time = attrs.get("check_in_time")
+        check_out_time = attrs.get("check_out_time")
+        if check_in_time and check_out_time and check_in_time == check_out_time:
+            raise serializers.ValidationError(
+                {"check_out_time": "Check-out time must be different from check-in time."}
+            )
+
         return attrs
 
 

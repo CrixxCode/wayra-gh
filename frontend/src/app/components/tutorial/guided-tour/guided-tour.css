@@ -40,6 +40,14 @@
   box-shadow: 0 22px 54px rgba(2, 6, 23, 0.24);
   padding: 16px;
   pointer-events: auto;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+}
+
+.guided-tour-card.is-ready {
+  opacity: 1;
+  visibility: visible;
 }
 
 .guided-tour-header {

@@ -6,7 +6,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Role
 from apps.demo_requests.models import DemoRequest
-from apps.hotel_settings.models import HotelSettings
+from apps.hotel_settings.models import HotelFloor, HotelSettings
 from backend.settings import resolve_email_backend
 
 
@@ -15,9 +15,14 @@ class DemoRequestFlowTests(APITestCase):
         self.payload = {
             "hotel_name": "Hotel Demo Test",
             "hotel_type": "Hotel",
+            "country": "Colombia",
+            "state": "La Guajira",
             "city": "Riohacha",
+            "address": "Calle 1 # 2-3",
             "rooms": 24,
             "website": "https://demo.example.com",
+            "check_in_time": "15:00",
+            "check_out_time": "11:00",
             "requester_first_name": "Laura",
             "requester_last_name": "Diaz",
             "requester_username": "laura.demo.test",
@@ -33,6 +38,34 @@ class DemoRequestFlowTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(DemoRequest.objects.count(), 1)
         self.assertEqual(DemoRequest.objects.first().requester_email, "laura.demo.test@example.com")
+
+    def test_public_request_rejects_existing_username(self):
+        User = get_user_model()
+        User.objects.create_superuser(
+            username="laura.demo.test",
+            email="other.demo.user@example.com",
+            password="TempPass123!",
+        )
+
+        response = self.client.post("/api/demo-requests/", self.payload, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("requester_username", response.data["errors"])
+        self.assertEqual(DemoRequest.objects.count(), 0)
+
+    def test_public_request_rejects_existing_email(self):
+        User = get_user_model()
+        User.objects.create_superuser(
+            username="other.demo.user",
+            email="laura.demo.test@example.com",
+            password="TempPass123!",
+        )
+
+        response = self.client.post("/api/demo-requests/", self.payload, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("requester_email", response.data["errors"])
+        self.assertEqual(DemoRequest.objects.count(), 0)
 
     def test_email_backend_resolves_to_resend(self):
         self.assertEqual(
@@ -89,6 +122,16 @@ class DemoRequestFlowTests(APITestCase):
         hotel = HotelSettings.objects.get(id=demo_request.converted_hotel_settings_id)
         first_user = User.objects.get(id=demo_request.converted_user_id)
         self.assertEqual(hotel.hotel_name, self.payload["hotel_name"])
+        self.assertEqual(hotel.country, self.payload["country"])
+        self.assertEqual(hotel.state, self.payload["state"])
+        self.assertEqual(hotel.city, self.payload["city"])
+        self.assertEqual(hotel.address, self.payload["address"])
+        self.assertEqual(str(hotel.check_in_time), "15:00:00")
+        self.assertEqual(str(hotel.check_out_time), "11:00:00")
+        self.assertEqual(
+            HotelFloor.objects.get(hotel_settings=hotel, floor_number=1).room_count,
+            self.payload["rooms"],
+        )
         self.assertEqual(first_user.hotel_settings_id, hotel.id)
         self.assertEqual(first_user.email, self.payload["requester_email"])
         self.assertTrue(first_user.has_usable_password())

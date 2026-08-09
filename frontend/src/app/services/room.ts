@@ -377,23 +377,17 @@ export class RoomService {
 
   private normalizeCreateRoomTypePayload(payload: RoomTypeFormPayload): RoomTypeFormPayload {
     return {
-      code: this.normalizeRoomTypeCode(payload.code),
       name: this.normalizeRoomTypeName(payload.name),
       description: this.normalizeNullableText(payload.description),
       capacity: this.normalizePositiveInteger(payload.capacity, 1),
       bed_count: this.normalizePositiveInteger(payload.bed_count, 1),
       bed_type: this.normalizeNullableText(payload.bed_type),
-      is_active: !!payload.is_active,
       sort_order: this.normalizeNonNegativeInteger(payload.sort_order)
     };
   }
 
   private normalizePatchRoomTypePayload(payload: Partial<RoomTypeFormPayload>): Partial<RoomTypeFormPayload> {
     const normalized: Partial<RoomTypeFormPayload> = {};
-
-    if (payload.code !== undefined) {
-      normalized.code = this.normalizeRoomTypeCode(payload.code);
-    }
 
     if (payload.name !== undefined) {
       normalized.name = this.normalizeRoomTypeName(payload.name);
@@ -430,10 +424,6 @@ export class RoomService {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
     return trimmed || null;
-  }
-
-  private normalizeRoomTypeCode(value: unknown): string {
-    return String(value || '').trim().toUpperCase();
   }
 
   private normalizeRoomTypeName(value: unknown): string {

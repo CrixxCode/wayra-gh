@@ -32,13 +32,12 @@ export interface RoomTypeI {
 }
 
 export interface RoomTypeFormPayload {
-  code: string;
   name: string;
   description?: string | null;
   capacity: number;
   bed_count: number;
   bed_type?: string | null;
-  is_active: boolean;
+  is_active?: boolean;
   sort_order: number;
 }
 
@@ -86,6 +85,7 @@ export interface RoomI {
 
   room_type_name?: string;
   floor_name?: string;
+  floor_number?: number;
   florr_number?: number;
   active_reservation?: RoomActiveReservationI | null;
 }

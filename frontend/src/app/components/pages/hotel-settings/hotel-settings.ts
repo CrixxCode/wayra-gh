@@ -14,6 +14,13 @@ import { MasterDataService } from '../../../services/master-data.service';
 import { ReservationService } from '../../../services/reservation';
 import { FinancialControlConfigPayload, FinancialControlService } from '../../../services/financial-control';
 import { ReservationPolicyI, ReservationPolicyPayloadI } from '../../../modules/reservations/reservation-model';
+import {
+  HotelLocationCountry,
+  HotelLocationDepartment,
+  loadCitiesForDepartment,
+  loadDepartmentsForCountry,
+  loadHotelCountries,
+} from '../../../shared/hotel-location-options';
 import { HotelFloor, HotelSettings as HotelSettingsModel } from './hotel-setting-model';
 
 type SettingsTab = 'general' | 'contact' | 'structure' | 'operation' | 'policies';
@@ -31,7 +38,6 @@ type SettingsForm = {
   city: string;
   state: string;
   country: string;
-  postal_code: string;
   primary_phone: string;
   secondary_phone: string;
   general_email: string;
@@ -39,10 +45,8 @@ type SettingsForm = {
   website: string;
   check_in_time: string;
   check_out_time: string;
-  max_guests_per_room: number;
   currency: string;
   tax_rate: number;
-  system_language: string;
   timezone: string;
 };
 
@@ -58,7 +62,6 @@ type ReservationPolicyForm = {
 };
 
 type FinancialConfigForm = {
-  district_name: string;
   tourism_law_enabled: boolean;
   tourism_law_preferential_rate: number | null;
   standard_income_tax_rate: number | null;
@@ -122,9 +125,12 @@ export class HotelSettings implements OnInit {
   financialConfigSuccessMessage = '';
 
   private initialSnapshot = '';
-  private readonly defaultDistrictName = 'Riohacha';
+  private persistedFloorIdByNumber = new Map<number, number>();
   themePrimaryColor = this.defaultThemePrimaryColor;
   themeSecondaryColor = this.defaultThemeSecondaryColor;
+  locationCountries: HotelLocationCountry[] = [];
+  locationDepartments: HotelLocationDepartment[] = [];
+  locationCities: string[] = [];
 
   readonly tabs: Array<{ key: SettingsTab; label: string; icon: string }> = [
     { key: 'general', label: 'Información General', icon: 'fa-solid fa-building' },
@@ -139,12 +145,6 @@ export class HotelSettings implements OnInit {
     { code: 'MXN', label: 'MXN - Peso Mexicano' },
     { code: 'USD', label: 'USD - Dólar Estadounidense' },
     { code: 'EUR', label: 'EUR - Euro' },
-  ];
-
-  readonly languageOptions = [
-    { code: 'es', label: 'Español' },
-    { code: 'en', label: 'Inglés' },
-    { code: 'pt', label: 'Portugués' },
   ];
 
   readonly timezoneOptions = [
@@ -166,6 +166,7 @@ export class HotelSettings implements OnInit {
 
   ngOnInit(): void {
     this.loadThemeCustomization();
+    this.loadCountries();
     this.resolvePermissions();
   }
 
@@ -540,11 +541,21 @@ export class HotelSettings implements OnInit {
     if (!this.canEdit) return;
     this.form.check_in_time = '14:00';
     this.form.check_out_time = '12:00';
-    this.form.max_guests_per_room = 2;
     this.form.currency = 'COP';
     this.form.tax_rate = 19;
-    this.form.system_language = 'es';
     this.form.timezone = 'America/Bogota';
+  }
+
+  async onCountryChange(): Promise<void> {
+    this.form.state = '';
+    this.form.city = '';
+    this.locationCities = [];
+    this.locationDepartments = await loadDepartmentsForCountry(this.form.country);
+  }
+
+  async onStateChange(): Promise<void> {
+    this.form.city = '';
+    this.locationCities = await loadCitiesForDepartment(this.form.country, this.form.state);
   }
 
   onThemeColorsChanged(): void {
@@ -884,8 +895,11 @@ export class HotelSettings implements OnInit {
       this.settingsId = null;
       this.updatedAt = null;
       this.form = this.buildDefaultForm();
+      this.locationDepartments = [];
+      this.locationCities = [];
       this.floors = [];
       this.deletedFloorIds = [];
+      this.persistedFloorIdByNumber.clear();
       this.clearPoliciesCollection();
       this.resetFinancialConfigState();
       return;
@@ -899,15 +913,20 @@ export class HotelSettings implements OnInit {
       logo: this.getTrimmedString(settings.logo),
       stars: settings.stars ?? 3,
       tax_rate: Number(settings.tax_rate ?? 0),
-      max_guests_per_room: Number(settings.max_guests_per_room ?? 2),
       check_in_time: this.normalizeTime(settings.check_in_time, '14:00'),
       check_out_time: this.normalizeTime(settings.check_out_time, '12:00'),
     };
+    this.syncLocationOptions();
 
     this.floors = (settings.floors ?? []).map((floor) => ({
       ...floor,
       room_count: Number(floor.room_count) || 0,
     }));
+    this.persistedFloorIdByNumber = new Map(
+      this.floors
+        .filter((floor) => floor.id)
+        .map((floor) => [Number(floor.floor_number), Number(floor.id)])
+    );
     this.deletedFloorIds = [];
 
     if (this.canReadPolicies) {
@@ -1065,7 +1084,6 @@ export class HotelSettings implements OnInit {
 
   private applyFinancialConfigRecord(payload: Record<string, unknown>): void {
     this.financialConfigForm = {
-      district_name: this.getTrimmedString(payload['district_name']) || this.defaultDistrictName,
       tourism_law_enabled: this.toBoolean(payload['tourism_law_enabled'], true),
       tourism_law_preferential_rate: this.toOptionalNumber(payload['tourism_law_preferential_rate']),
       standard_income_tax_rate: this.toOptionalNumber(payload['standard_income_tax_rate']),
@@ -1078,26 +1096,27 @@ export class HotelSettings implements OnInit {
     };
   }
 
+  private loadCountries(): void {
+    loadHotelCountries().then((countries) => {
+      this.locationCountries = countries;
+      this.syncLocationOptions();
+    });
+  }
+
+  private async syncLocationOptions(): Promise<void> {
+    const country = this.form.country;
+    const state = this.form.state;
+    this.locationDepartments = await loadDepartmentsForCountry(country);
+    this.locationCities = await loadCitiesForDepartment(country, state);
+  }
+
   private buildFinancialConfigPayload(hotelSettingsId: number): {
     payload: FinancialControlConfigPayload;
     error: string | null;
   } {
-    const districtName = this.getTrimmedString(this.financialConfigForm.district_name);
-    if (!districtName) {
-      return {
-        payload: {
-          hotel_settings: hotelSettingsId,
-          district_name: '',
-          tourism_law_enabled: !!this.financialConfigForm.tourism_law_enabled,
-          has_iva_exemption: !!this.financialConfigForm.has_iva_exemption,
-        },
-        error: 'El nombre del distrito es obligatorio.',
-      };
-    }
-
     const payload: FinancialControlConfigPayload = {
       hotel_settings: hotelSettingsId,
-      district_name: districtName,
+      district_name: this.resolveFinancialDistrictName(),
       tourism_law_enabled: !!this.financialConfigForm.tourism_law_enabled,
       has_iva_exemption: !!this.financialConfigForm.has_iva_exemption,
     };
@@ -1176,6 +1195,15 @@ export class HotelSettings implements OnInit {
     return { payload, error: null };
   }
 
+  private resolveFinancialDistrictName(): string {
+    return (
+      this.getTrimmedString(this.form.state) ||
+      this.getTrimmedString(this.form.city) ||
+      this.getTrimmedString(this.form.country) ||
+      'Sin distrito'
+    );
+  }
+
   private appendOptionalFinancialNumber(
     payload: FinancialControlConfigPayload,
     key:
@@ -1204,30 +1232,51 @@ export class HotelSettings implements OnInit {
 
   private syncFloors(settingsId: number): Observable<void> {
     const options = this.auth.buildCsrfRequestOptions();
-    const createReqs = this.floors
-      .filter((floor) => !floor.id)
-      .map((floor) =>
-        this.http.post(this.floorsUrl, this.floorPayload(floor, settingsId), options)
-      );
-
-    const updateReqs = this.floors
-      .filter((floor) => !!floor.id)
-      .map((floor) =>
-        this.http.patch(
-          `${this.floorsUrl}${floor.id}/`,
-          this.floorPayload(floor, settingsId),
-          options
-        )
-      );
-
-    const deleteReqs = this.deletedFloorIds.map((id) =>
-      this.http.delete(`${this.floorsUrl}${id}/`, options)
+    const upsertEntries = this.floors.map((floor) => ({
+      floor,
+      floorId: this.resolvePersistedFloorId(floor),
+    }));
+    const floorIdsToKeep = new Set(
+      upsertEntries
+        .map((entry) => entry.floorId)
+        .filter((floorId): floorId is number => floorId !== null)
     );
 
-    const requests = [...createReqs, ...updateReqs, ...deleteReqs];
-    if (!requests.length) return of(void 0);
+    const upsertReqs = upsertEntries.map(({ floor, floorId }) => {
+      if (floorId) {
+        return this.http.patch(
+          `${this.floorsUrl}${floorId}/?delete_extra_rooms=true`,
+          this.floorPayload(floor, settingsId),
+          options
+        );
+      }
 
-    return forkJoin(requests).pipe(map(() => void 0));
+      return this.http.post(this.floorsUrl, this.floorPayload(floor, settingsId), options);
+    });
+
+    const deleteReqs = this.deletedFloorIds
+      .filter((id) => !floorIdsToKeep.has(id))
+      .map((id) => this.http.delete(`${this.floorsUrl}${id}/`, options));
+
+    const delete$ = deleteReqs.length
+      ? forkJoin(deleteReqs).pipe(map(() => void 0))
+      : of(void 0);
+
+    if (!upsertReqs.length) return delete$;
+
+    return delete$.pipe(
+      switchMap(() => forkJoin(upsertReqs).pipe(map(() => void 0)))
+    );
+  }
+
+  private resolvePersistedFloorId(floor: HotelFloor): number | null {
+    const directId = this.toOptionalPositiveInt(floor.id);
+    if (directId) return directId;
+
+    const floorNumber = Number(floor.floor_number);
+    if (!Number.isFinite(floorNumber)) return null;
+
+    return this.persistedFloorIdByNumber.get(floorNumber) ?? null;
   }
 
   private floorPayload(floor: HotelFloor, settingsId: number): Partial<HotelFloor> & { hotel_settings: number } {
@@ -1255,7 +1304,6 @@ export class HotelSettings implements OnInit {
       city: this.emptyAsUndefined(this.form.city),
       state: this.emptyAsUndefined(this.form.state),
       country: this.emptyAsUndefined(this.form.country),
-      postal_code: this.emptyAsUndefined(this.form.postal_code),
       primary_phone: this.emptyAsUndefined(this.form.primary_phone),
       secondary_phone: this.emptyAsUndefined(this.form.secondary_phone),
       general_email: this.emptyAsUndefined(this.form.general_email),
@@ -1263,10 +1311,8 @@ export class HotelSettings implements OnInit {
       website: this.emptyAsUndefined(this.form.website),
       check_in_time: this.emptyAsUndefined(this.form.check_in_time),
       check_out_time: this.emptyAsUndefined(this.form.check_out_time),
-      max_guests_per_room: Math.max(1, Number(this.form.max_guests_per_room) || 1),
       currency: this.form.currency || 'COP',
       tax_rate: Math.max(0, Math.min(100, Number(this.form.tax_rate) || 0)),
-      system_language: this.form.system_language || 'es',
       timezone: this.form.timezone || 'America/Bogota',
     };
   }
@@ -1532,7 +1578,6 @@ export class HotelSettings implements OnInit {
       city: '',
       state: '',
       country: '',
-      postal_code: '',
       primary_phone: '',
       secondary_phone: '',
       general_email: '',
@@ -1540,17 +1585,14 @@ export class HotelSettings implements OnInit {
       website: '',
       check_in_time: '14:00',
       check_out_time: '12:00',
-      max_guests_per_room: 2,
       currency: 'COP',
       tax_rate: 19,
-      system_language: 'es',
       timezone: 'America/Bogota',
     };
   }
 
   private buildDefaultFinancialConfigForm(): FinancialConfigForm {
     return {
-      district_name: this.getTrimmedString(this.form.city) || this.defaultDistrictName,
       tourism_law_enabled: true,
       tourism_law_preferential_rate: 9,
       standard_income_tax_rate: 35,

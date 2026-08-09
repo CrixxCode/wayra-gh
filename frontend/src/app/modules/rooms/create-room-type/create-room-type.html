@@ -19,14 +19,6 @@
 
         <div class="grid two">
           <label>
-            <span>Codigo *</span>
-            <input type="text" formControlName="code" placeholder="Ej: DELUXE_KING" [class.input-error]="code?.touched && code?.invalid" />
-            <small class="field-error" *ngIf="code?.touched && code?.hasError('required')">El codigo es obligatorio.</small>
-            <small class="field-error" *ngIf="code?.touched && code?.hasError('maxlength')">Maximo 80 caracteres.</small>
-            <small class="field-error" *ngIf="code?.touched && code?.hasError('pattern')">Solo letras, numeros, guion y guion bajo.</small>
-          </label>
-
-          <label>
             <span>Nombre *</span>
             <input type="text" formControlName="name" placeholder="Ej: Suite Deluxe King" [class.input-error]="name?.touched && name?.invalid" />
             <small class="field-error" *ngIf="name?.touched && name?.hasError('required')">El nombre es obligatorio.</small>
@@ -61,11 +53,6 @@
             <span>Descripcion</span>
             <textarea formControlName="description" rows="4" placeholder="Describe caracteristicas de este tipo de habitacion..."></textarea>
             <small class="field-error" *ngIf="description?.touched && description?.hasError('maxlength')">Maximo 2000 caracteres.</small>
-          </label>
-
-          <label class="full switch-row">
-            <input type="checkbox" formControlName="is_active" />
-            <span>Tipo activo para nuevos registros y tarifas</span>
           </label>
         </div>
       </section>

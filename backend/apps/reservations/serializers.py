@@ -404,7 +404,7 @@ class ReservationGuestSerializer(serializers.ModelSerializer):
         qs = ReservationGuest.objects.filter(
             reservation=reservation,
             document_type=document_type,
-            document_number=document_number,
+            document_number__iexact=document_number,
         )
 
         if self.instance:
@@ -1088,7 +1088,6 @@ class ReservationWriteSerializer(TenantSerializerMixin, serializers.ModelSeriali
             "real_check_in",
             "real_check_out",
             "promo_code",
-            "total_discount",
             "notes",
             "created_by",
             "created_at",
@@ -1187,10 +1186,6 @@ class ReservationWriteSerializer(TenantSerializerMixin, serializers.ModelSeriali
             "real_check_out",
             getattr(self.instance, "real_check_out", None),
         )
-        total_discount = attrs.get(
-            "total_discount",
-            getattr(self.instance, "total_discount", 0),
-        )
         package = attrs.get("package", getattr(self.instance, "package", None))
         policies = attrs.get("policies", None)
 
@@ -1216,9 +1211,6 @@ class ReservationWriteSerializer(TenantSerializerMixin, serializers.ModelSeriali
 
         if real_check_in and real_check_out and real_check_out < real_check_in:
             errors["real_check_out"] = "Real check-out cannot be earlier than real check-in."
-
-        if total_discount is not None and total_discount < 0:
-            errors["total_discount"] = "Total discount cannot be negative."
 
         package_date_error = self._validate_package_dates(
             package,

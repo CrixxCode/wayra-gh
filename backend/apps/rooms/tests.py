@@ -7,7 +7,7 @@ from apps.hotel_settings.models import HotelFloor, HotelSettings
 from apps.inventory.models import InventoryMovement, Item, RoomInventory
 from apps.master_data.models import MasterData
 from apps.rooms.models import CleaningTask, MaintenanceOrder, Room, RoomType
-from apps.rooms.serializers import AmenitySerializer
+from apps.rooms.serializers import AmenitySerializer, RoomTypeSerializer
 from apps.rooms.views import RoomTypeViewSet
 
 
@@ -208,6 +208,49 @@ class AmenitySerializerTenantAutofillTests(TestCase):
         )
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
+class RoomTypeSerializerCodeGenerationTests(TestCase):
+    def test_create_without_code_generates_unique_code_from_name(self):
+        user_model = get_user_model()
+        hotel = HotelSettings.objects.create(hotel_name="Hotel Tipos Codigo")
+        user = user_model.objects.create_user(
+            username="room_type_code_user",
+            password="secret123",
+            hotel_settings=hotel,
+        )
+
+        request = APIRequestFactory().post("/api/room-types/", {}, format="json")
+        request.user = user
+
+        first_serializer = RoomTypeSerializer(
+            data={
+                "name": "Suite Deluxe",
+                "capacity": 2,
+                "bed_count": 1,
+                "bed_type": "King",
+                "sort_order": 0,
+            },
+            context={"request": request},
+        )
+        self.assertTrue(first_serializer.is_valid(), first_serializer.errors)
+        first_room_type = first_serializer.save()
+
+        second_serializer = RoomTypeSerializer(
+            data={
+                "code": "MANUAL",
+                "name": "Suite Deluxe",
+                "capacity": 3,
+                "bed_count": 2,
+                "sort_order": 1,
+            },
+            context={"request": request},
+        )
+        self.assertTrue(second_serializer.is_valid(), second_serializer.errors)
+        second_room_type = second_serializer.save()
+
+        self.assertEqual(first_room_type.code, "SUITE_DELUXE")
+        self.assertEqual(second_room_type.code, "SUITE_DELUXE_2")
 
 
 class RoomTypeInactiveUpdateTests(TestCase):

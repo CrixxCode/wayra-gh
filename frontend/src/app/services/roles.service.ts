@@ -143,6 +143,12 @@ export class RolesService {
     );
   }
 
+  publicJobTitles(): Observable<JobTitle[]> {
+    return this.http.get<any>(`${this.rolesUrl}public-job-titles/`).pipe(
+      map((res) => this.unwrapArray<JobTitle>(res))
+    );
+  }
+
   listResources(q: string = '', filters?: { include_inactive?: boolean; include_deleted?: boolean }): Observable<ResourcePermission[]> {
     let params = new HttpParams();
     if (q) params = params.set('q', q);

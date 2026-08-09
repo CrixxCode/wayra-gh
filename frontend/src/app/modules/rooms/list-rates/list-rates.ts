@@ -174,6 +174,10 @@ export class ListRates implements OnInit {
     void this.router.navigate(['/habitaciones']);
   }
 
+  goToAmenities(): void {
+    void this.router.navigate(['/amenidades']);
+  }
+
   goToRoomTypes(): void {
     void this.router.navigate(['/tipos-habitacion']);
   }
@@ -386,6 +390,17 @@ export class ListRates implements OnInit {
       color: 'var(--gh-status-success-text)',
       dot: 'var(--gh-status-success-strong)'
     };
+  }
+
+  getStatusLabel(rate: RateI): string {
+    return rate.is_active === false ? 'Inactiva' : 'Activa';
+  }
+
+  getCreatedLabel(rate: RateI): string {
+    if (!rate.created_at) return '--';
+    const date = new Date(rate.created_at);
+    if (Number.isNaN(date.getTime())) return '--';
+    return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' }).format(date);
   }
 
   getValidityLabel(rate: RateI): string {

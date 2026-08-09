@@ -109,6 +109,30 @@ RESERVATION_STATUS_CANCELLED_CODES = (
     "CANCELLED",
 )
 
+RESERVATION_STATUS_CANONICAL_ALIASES = {
+    RESERVATION_STATUS_PENDING: RESERVATION_STATUS_PENDING_CODES,
+    RESERVATION_STATUS_CONFIRMED: RESERVATION_STATUS_CONFIRMED_CODES,
+    RESERVATION_STATUS_IN_PROGRESS: RESERVATION_STATUS_IN_PROGRESS_CODES,
+    RESERVATION_STATUS_FINISHED: RESERVATION_STATUS_FINISHED_CODES,
+    RESERVATION_STATUS_CANCELLED: RESERVATION_STATUS_CANCELLED_CODES,
+}
+
+RESERVATION_ALLOWED_STATUS_TRANSITIONS = {
+    RESERVATION_STATUS_PENDING: {
+        RESERVATION_STATUS_CONFIRMED,
+        RESERVATION_STATUS_CANCELLED,
+    },
+    RESERVATION_STATUS_CONFIRMED: {
+        RESERVATION_STATUS_IN_PROGRESS,
+        RESERVATION_STATUS_CANCELLED,
+    },
+    RESERVATION_STATUS_IN_PROGRESS: {
+        RESERVATION_STATUS_FINISHED,
+    },
+    RESERVATION_STATUS_FINISHED: set(),
+    RESERVATION_STATUS_CANCELLED: set(),
+}
+
 CLIENT_STATUS_ACTIVE = "ACTIVO"
 CLIENT_STATUS_CURRENT_GUEST = "HUESPED_ACTUAL"
 
@@ -131,6 +155,36 @@ REFUND_IMPACT_STATUS_CODES = {"APROBADO", "PROCESADO"}
 
 def _normalize_code(value) -> str:
     return str(value or "").strip().upper()
+
+
+def normalize_reservation_status_code(value) -> str:
+    normalized_value = _normalize_code(value)
+    if not normalized_value:
+        return ""
+
+    for canonical_code, aliases in RESERVATION_STATUS_CANONICAL_ALIASES.items():
+        if normalized_value in {_normalize_code(alias) for alias in aliases}:
+            return canonical_code
+
+    return normalized_value
+
+
+def validate_reservation_status_transition(current_code, target_code) -> None:
+    current = normalize_reservation_status_code(current_code)
+    target = normalize_reservation_status_code(target_code)
+
+    if not current or not target or current == target:
+        return
+
+    allowed_targets = RESERVATION_ALLOWED_STATUS_TRANSITIONS.get(current, set())
+    if target in allowed_targets:
+        return
+
+    allowed_text = ", ".join(sorted(allowed_targets)) or "ninguna"
+    raise ValueError(
+        f"Transicion de estado no permitida: {current} -> {target}. "
+        f"Transiciones permitidas desde {current}: {allowed_text}."
+    )
 
 
 def is_room_status_blocked_for_reservation(code) -> bool:

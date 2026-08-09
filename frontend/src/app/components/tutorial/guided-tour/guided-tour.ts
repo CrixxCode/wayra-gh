@@ -155,6 +155,7 @@ export class GuidedTour implements OnDestroy {
   active = false;
   currentIndex = 0;
   hasTarget = false;
+  positionReady = false;
   highlightStyle: Record<string, string> = {};
   panelStyle: Record<string, string> = {};
 
@@ -181,6 +182,11 @@ export class GuidedTour implements OnDestroy {
   }
 
   startFlow(): void {
+    this.currentIndex = 0;
+    this.hasTarget = false;
+    this.positionReady = false;
+    this.highlightStyle = {};
+    this.panelStyle = this.centerPanelStyle();
     this.active = true;
     this.goToStep(0);
   }
@@ -225,6 +231,7 @@ export class GuidedTour implements OnDestroy {
   close(): void {
     this.active = false;
     this.hasTarget = false;
+    this.positionReady = false;
     this.highlightStyle = {};
     this.panelStyle = {};
     if (this.measureTimer) {
@@ -281,12 +288,15 @@ export class GuidedTour implements OnDestroy {
   }
 
   private syncTargetPosition(): void {
+    if (!this.active) return;
+
     const target = this.resolveTargetElement(this.currentStep);
 
     if (!target) {
       this.hasTarget = false;
       this.highlightStyle = {};
       this.panelStyle = this.centerPanelStyle();
+      this.positionReady = true;
       return;
     }
 
@@ -297,6 +307,7 @@ export class GuidedTour implements OnDestroy {
       this.hasTarget = false;
       this.highlightStyle = {};
       this.panelStyle = this.centerPanelStyle();
+      this.positionReady = true;
       return;
     }
 
@@ -316,6 +327,7 @@ export class GuidedTour implements OnDestroy {
       height: `${Math.round(height)}px`,
     };
     this.panelStyle = this.positionPanel(rect);
+    this.positionReady = true;
   }
 
   private resolveTargetElement(step: TourStep): HTMLElement | null {

@@ -47,7 +47,6 @@ export class UpdateReservation implements OnChanges {
       expected_check_in: ['', [Validators.required]],
       expected_check_out: ['', [Validators.required]],
       promo_code: [''],
-      total_discount: [0],
       notes: ['', [Validators.maxLength(1200)]],
       policy_lines: this.fb.array([]),
       room_lines: this.fb.array([])
@@ -69,7 +68,6 @@ export class UpdateReservation implements OnChanges {
       expected_check_in: this.normalizeDateInput(this.reservation.expected_check_in),
       expected_check_out: this.normalizeDateInput(this.reservation.expected_check_out),
       promo_code: this.reservation.promo_code || '',
-      total_discount: this.reservation.total_discount ? Number(this.reservation.total_discount) : 0,
       notes: this.reservation.notes || ''
     });
 
@@ -412,7 +410,6 @@ export class UpdateReservation implements OnChanges {
       expected_check_in: String(raw.expected_check_in || ''),
       expected_check_out: String(raw.expected_check_out || ''),
       promo_code: raw.promo_code ? String(raw.promo_code).trim() : null,
-      total_discount: raw.total_discount ? Number(raw.total_discount) : 0,
       policies: policyIds,
       notes: raw.notes ? String(raw.notes).trim() : null
     };

@@ -1,4 +1,6 @@
+from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.db.models import Case, IntegerField, Value, When
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status, viewsets, filters
@@ -8,6 +10,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from accounts.pagination import OptionalPageNumberPagination
+from accounts.models import SoftDeleteMarker
 from accounts.permissions import HasResourcePermission
 from accounts.soft_delete import LogicalDeleteViewSetMixin
 from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
@@ -236,21 +239,46 @@ class HotelFloorViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Mo
     def _build_room_number(prefix, room_index):
         return f"{prefix}{str(room_index).zfill(2)}"
 
-    def _create_missing_rooms(self, floor):
-        """
-        Crea solo las habitaciones faltantes segun room_count/prefix.
-        """
-        target_numbers = [
+    def _target_room_numbers(self, floor):
+        return [
             self._build_room_number(floor.prefix, room_index)
             for room_index in range(1, floor.room_count + 1)
         ]
 
+    def _soft_deleted_room_ids(self):
+        content_type = ContentType.objects.get_for_model(Room)
+        ids = []
+        deleted_ids = SoftDeleteMarker.objects.filter(
+            content_type=content_type,
+        ).values_list("object_id", flat=True)
+        for object_id in deleted_ids:
+            if str(object_id).isdigit():
+                ids.append(int(object_id))
+        return ids
+
+    def _restore_rooms(self, rooms):
+        room_ids = [room.id for room in rooms if room.id]
+        if not room_ids:
+            return
+
+        content_type = ContentType.objects.get_for_model(Room)
+        SoftDeleteMarker.objects.filter(
+            content_type=content_type,
+            object_id__in=[str(room_id) for room_id in room_ids],
+        ).delete()
+
+    def _validate_room_number_conflicts(self, floor, target_numbers):
+        deleted_room_ids = self._soft_deleted_room_ids()
+        rooms = Room.objects.filter(
+            number__in=target_numbers,
+            floor__hotel_settings_id=floor.hotel_settings_id,
+        )
+        if deleted_room_ids:
+            rooms = rooms.exclude(id__in=deleted_room_ids)
+
         existing_by_number = {
             number: floor_id
-            for number, floor_id in Room.objects.filter(
-                number__in=target_numbers,
-                floor__hotel_settings_id=floor.hotel_settings_id,
-            ).values_list("number", "floor_id")
+            for number, floor_id in rooms.values_list("number", "floor_id")
         }
 
         conflicting_numbers = sorted(
@@ -262,34 +290,137 @@ class HotelFloorViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Mo
             raise ValidationError(
                 {
                     "room_count": (
-                        "No se pudieron autogenerar habitaciones porque estos numeros "
+                        "No se pudieron sincronizar habitaciones porque estos numeros "
                         f"ya existen en otro piso: {', '.join(conflicting_numbers)}"
                     )
                 }
             )
 
+    def _get_default_room_status(self):
+        default_status = MasterData.objects.filter(
+            group=MasterData.Group.ROOM_STATUS,
+            code="DISPONIBLE",
+        ).first()
+
+        if not default_status:
+            raise ValidationError(
+                {
+                    "room_count": (
+                        "No se pudo autogenerar habitaciones porque falta el catalogo "
+                        "ROOM_STATUS:DISPONIBLE."
+                    )
+                }
+            )
+
+        return default_status
+
+    def _ordered_floor_rooms(self, floor, prefix):
+        rooms = Room.objects.filter(floor=floor)
+        prefix = str(prefix or "")
+        if not prefix:
+            return list(rooms.order_by("number", "id"))
+
+        prefix_len = len(prefix)
+        ordering_cases = []
+        for room in rooms:
+            suffix = room.number[prefix_len:] if room.number.startswith(prefix) else ""
+            sequence = int(suffix) if suffix.isdigit() else 999_999
+            ordering_cases.append(When(id=room.id, then=Value(sequence)))
+
+        if not ordering_cases:
+            return list(rooms.order_by("number", "id"))
+
+        return list(
+            rooms.annotate(
+                _structure_order=Case(
+                    *ordering_cases,
+                    default=Value(999_999),
+                    output_field=IntegerField(),
+                )
+            ).order_by("_structure_order", "number", "id")
+        )
+
+    def _create_missing_rooms(self, floor):
+        """
+        Crea solo las habitaciones faltantes segun room_count/prefix.
+        """
+        target_numbers = self._target_room_numbers(floor)
+        self._validate_room_number_conflicts(floor, target_numbers)
+        existing_by_number = {
+            number: floor_id
+            for number, floor_id in Room.objects.filter(
+                number__in=target_numbers,
+                floor__hotel_settings_id=floor.hotel_settings_id,
+            ).values_list("number", "floor_id")
+        }
+
         missing_numbers = [number for number in target_numbers if number not in existing_by_number]
         if missing_numbers:
-            default_status = MasterData.objects.filter(
-                group=MasterData.Group.ROOM_STATUS,
-                code="DISPONIBLE",
-            ).first()
-
-            if not default_status:
-                raise ValidationError(
-                    {
-                        "room_count": (
-                            "No se pudo autogenerar habitaciones porque falta el catalogo "
-                            "ROOM_STATUS:DISPONIBLE."
-                        )
-                    }
-                )
+            default_status = self._get_default_room_status()
 
             Room.objects.bulk_create(
                 [Room(number=number, floor=floor, status=default_status) for number in missing_numbers]
             )
 
         return missing_numbers
+
+    def _sync_floor_rooms(self, floor, previous_prefix=None, delete_extra_rooms=False):
+        """
+        Actualiza las habitaciones existentes del piso para conservar sus registros.
+        """
+        target_numbers = self._target_room_numbers(floor)
+        self._validate_room_number_conflicts(floor, target_numbers)
+
+        existing_rooms = self._ordered_floor_rooms(floor, previous_prefix or floor.prefix)
+        original_numbers = {room.id: room.number for room in existing_rooms}
+        rooms_to_keep = existing_rooms[: len(target_numbers)]
+        extra_rooms = existing_rooms[len(target_numbers):]
+
+        temporary_updates = []
+        for room in existing_rooms:
+            temporary_number = f"__{room.id}"
+            if room.number != temporary_number:
+                room.number = temporary_number
+                temporary_updates.append(room)
+
+        if temporary_updates:
+            Room.objects.bulk_update(temporary_updates, ["number"])
+
+        final_updates = []
+        for room, number in zip(rooms_to_keep, target_numbers):
+            if room.number != number:
+                room.number = number
+                final_updates.append(room)
+
+        if final_updates:
+            Room.objects.bulk_update(final_updates, ["number"])
+
+        self._restore_rooms(rooms_to_keep)
+
+        if len(target_numbers) > len(rooms_to_keep):
+            default_status = self._get_default_room_status()
+            Room.objects.bulk_create(
+                [
+                    Room(number=number, floor=floor, status=default_status)
+                    for number in target_numbers[len(rooms_to_keep):]
+                ]
+            )
+
+        if delete_extra_rooms:
+            for room in extra_rooms:
+                self.perform_destroy(room)
+        elif extra_rooms:
+            restored_numbers = set(target_numbers)
+            restore_updates = []
+            for room in extra_rooms:
+                original_number = original_numbers.get(room.id, room.number)
+                if original_number in restored_numbers:
+                    continue
+                room.number = original_number
+                restored_numbers.add(original_number)
+                restore_updates.append(room)
+            if restore_updates:
+                Room.objects.bulk_update(restore_updates, ["number"])
 
     def _delete_extra_rooms(self, floor):
         """
@@ -328,9 +459,11 @@ class HotelFloorViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Mo
     @transaction.atomic
     def perform_update(self, serializer):
         """
-        Siempre crea faltantes.
+        Reordena/renumera habitaciones existentes y crea solo faltantes.
         Solo borra extras si viene ?delete_extra_rooms=true en la URL.
         """
+        previous_floor = self.get_object()
+        previous_prefix = previous_floor.prefix
         delete_extra_rooms = self._parse_bool(
             self.request.query_params.get("delete_extra_rooms")
         )
@@ -339,10 +472,13 @@ class HotelFloorViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Mo
             floor = serializer.save()
         else:
             floor = serializer.save(hotel_settings=self.request.user.hotel_settings)
-        self._create_missing_rooms(floor)
+        self._sync_floor_rooms(floor, previous_prefix, delete_extra_rooms)
 
-        if delete_extra_rooms:
-            self._delete_extra_rooms(floor)
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        for room in Room.objects.filter(floor=instance):
+            super().perform_destroy(room)
+        super().perform_destroy(instance)
 
     def create(self, request, *args, **kwargs):
         """

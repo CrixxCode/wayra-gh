@@ -99,6 +99,9 @@
         <button type="button" [class.active]="viewMode === 'table'" (click)="setViewMode('table')" title="Vista tabla">
           <i class="fa-solid fa-list"></i>
         </button>
+        <button type="button" [class.active]="viewMode === 'floor'" (click)="setViewMode('floor')" title="Vista por piso">
+          <i class="fa-solid fa-layer-group"></i>
+        </button>
         <button type="button" [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')" title="Vista cuadricula">
           <i class="fa-solid fa-grip"></i>
         </button>
@@ -129,10 +132,9 @@
     <p *ngIf="!loading && !errorMessage && filteredRooms.length === 0">No hay habitaciones para los filtros seleccionados.</p>
   </section>
 
-  <section class="rooms-grid" *ngIf="!loading && !errorMessage && viewMode === 'cards'">
+  <ng-template #roomCard let-room>
     <article
       class="room-card"
-      *ngFor="let room of filteredRooms; trackBy: trackByRoom"
       [ngClass]="getCardStatusClass(room)"
       (click)="openDetail(room)">
       <header class="room-head">
@@ -186,6 +188,36 @@
         </button>
       </div>
     </article>
+  </ng-template>
+
+  <section class="floor-sections" *ngIf="!loading && !errorMessage && filteredRooms.length > 0 && viewMode === 'floor'">
+    <article class="floor-section" *ngFor="let group of groupedRooms; trackBy: trackByFloorGroup">
+      <header class="floor-section-head">
+        <div>
+          <h2>{{ group.label }}</h2>
+          <p>{{ group.summary }}</p>
+        </div>
+        <span>{{ group.rooms.length }} hab.</span>
+      </header>
+
+      <div class="rooms-grid floor-room-grid">
+        <ng-container *ngFor="let room of group.rooms; trackBy: trackByRoom">
+          <ng-container *ngTemplateOutlet="roomCard; context: { $implicit: room }"></ng-container>
+        </ng-container>
+      </div>
+    </article>
+
+    <button type="button" class="add-room-card grouped-add-room" (click)="openCreateDrawer()">
+      <span><i class="fa-solid fa-plus"></i></span>
+      <strong>Agregar habitacion</strong>
+      <small>Crea una nueva unidad para el hotel.</small>
+    </button>
+  </section>
+
+  <section class="rooms-grid" *ngIf="!loading && !errorMessage && viewMode === 'cards'">
+    <ng-container *ngFor="let room of filteredRooms; trackBy: trackByRoom">
+      <ng-container *ngTemplateOutlet="roomCard; context: { $implicit: room }"></ng-container>
+    </ng-container>
 
     <button type="button" class="add-room-card" (click)="openCreateDrawer()">
       <span><i class="fa-solid fa-plus"></i></span>

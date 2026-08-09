@@ -8,6 +8,8 @@ class DemoRequestAdmin(admin.ModelAdmin):
     list_display = (
         "hotel_name",
         "hotel_type",
+        "country",
+        "state",
         "city",
         "requester_email",
         "requester_username",
@@ -16,9 +18,13 @@ class DemoRequestAdmin(admin.ModelAdmin):
         "converted_user",
         "created_at",
     )
-    list_filter = ("status", "hotel_type", "city", "created_at")
+    list_filter = ("status", "hotel_type", "country", "state", "city", "created_at")
     search_fields = (
         "hotel_name",
+        "country",
+        "state",
+        "city",
+        "address",
         "requester_first_name",
         "requester_last_name",
         "requester_email",
