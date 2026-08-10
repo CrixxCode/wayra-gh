@@ -7,6 +7,10 @@ from apps.master_data.models import MasterData
 from apps.rooms.models import Room
 
 class Item(models.Model):
+    class Purpose(models.TextChoices):
+        ROOM = "ROOM", "Habitacion"
+        RECEPTION = "RECEPTION", "Recepcion"
+
     hotel_settings = models.ForeignKey(
         HotelSettings,
         on_delete=models.CASCADE,
@@ -28,6 +32,12 @@ class Item(models.Model):
     name = models.CharField(max_length=150)
     sku = models.CharField(max_length=80, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
+    item_purpose = models.CharField(
+        max_length=20,
+        choices=Purpose.choices,
+        default=Purpose.RECEPTION,
+        db_index=True,
+    )
 
     stock = models.PositiveIntegerField(default=0)
     minimum_stock = models.PositiveIntegerField(default=0)
@@ -80,6 +90,9 @@ class Item(models.Model):
 
         if self.sale_price is not None and self.sale_price < 0:
             errors["sale_price"] = "Sale price cannot be negative."
+
+        if self.item_purpose not in self.Purpose.values:
+            errors["item_purpose"] = "Selecciona si el item es de habitacion o de recepcion."
 
         if errors:
             raise ValidationError(errors)
@@ -216,6 +229,9 @@ class RoomInventory(models.Model):
             if room_hotel_settings_id and item_hotel_settings_id:
                 if room_hotel_settings_id != item_hotel_settings_id:
                     errors["item"] = "The item must belong to the same hotel as the room."
+
+            if getattr(self.item, "item_purpose", None) != Item.Purpose.ROOM:
+                errors["item"] = "Solo los items de habitacion pueden asignarse a una habitacion."
 
         if errors:
             raise ValidationError(errors)

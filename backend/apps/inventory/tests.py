@@ -58,6 +58,7 @@ class RoomInventoryAutomaticMovementTestCase(TestCase):
             item_type=self.item_type,
             unit_measure=self.unit_measure,
             name="Toalla",
+            item_purpose=Item.Purpose.ROOM,
             stock=20,
             minimum_stock=2,
             maximum_stock=100,
@@ -117,6 +118,34 @@ class RoomInventoryAutomaticMovementTestCase(TestCase):
         self.item.refresh_from_db()
         self.assertEqual(self.item.stock, 20)
         self.assertEqual(RoomInventory.objects.count(), 0)
+
+    def test_create_room_inventory_rejects_reception_item(self):
+        reception_item = Item.objects.create(
+            hotel_settings=self.hotel,
+            item_type=self.item_type,
+            unit_measure=self.unit_measure,
+            name="Gaseosa",
+            item_purpose=Item.Purpose.RECEPTION,
+            stock=20,
+            minimum_stock=2,
+            maximum_stock=100,
+            cost_price=3000,
+            sale_price=6000,
+            is_active=True,
+        )
+        serializer = RoomInventorySerializer(
+            data={
+                "room": self.room.id,
+                "item": reception_item.id,
+                "quantity": 1,
+                "minimum_quantity": 0,
+                "notes": "",
+                "is_active": True,
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("item", serializer.errors)
 
     def test_update_room_inventory_quantity_adjusts_stock_with_movements(self):
         assignment = self._create_room_inventory(quantity=4)
@@ -351,6 +380,7 @@ class InventoryTenantIsolationTests(TestCase):
             item_type=item_type,
             unit_measure=unit_measure,
             name="Toalla A",
+            item_purpose=Item.Purpose.ROOM,
             stock=20,
             minimum_stock=2,
             maximum_stock=100,
@@ -363,6 +393,7 @@ class InventoryTenantIsolationTests(TestCase):
             item_type=item_type,
             unit_measure=unit_measure,
             name="Toalla B",
+            item_purpose=Item.Purpose.ROOM,
             stock=20,
             minimum_stock=2,
             maximum_stock=100,

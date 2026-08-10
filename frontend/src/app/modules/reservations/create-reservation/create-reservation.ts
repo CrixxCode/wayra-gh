@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { AbstractControl, ReactiveFormsModule, UntypedFormArray, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { MasterDataI } from '../../../components/pages/master-data/master-data-model';
@@ -8,15 +8,24 @@ import { RateI, RoomI } from '../../rooms/room-model';
 import { ReservationService } from '../../../services/reservation';
 import { PackageI } from '../../packages/package-model';
 import { CreateClient } from '../../clients/create-client/create-client';
+import { HotelLocationCountry, loadHotelCountries } from '../../../shared/hotel-location-options';
 import {
   ReservationDepositPayloadI,
+  ReservationGuestI,
   ReservationGuestPayloadI,
   ReservationPolicyI,
   ReservationRoomPayloadI,
   ReservationWritePayloadI
 } from '../reservation-model';
 
-type ReservationCreateStep = 'base' | 'rooms' | 'guests' | 'policies' | 'payment';
+type ReservationWizardStep = 'base' | 'rooms' | 'guests' | 'payment';
+type GuestLookupSuggestion = {
+  source: 'client' | 'guest';
+  document_number: string;
+  display_name: string;
+  subtitle: string;
+  payload: ClientI | ReservationGuestI;
+};
 
 @Component({
   selector: 'app-create-reservation',
@@ -25,7 +34,7 @@ type ReservationCreateStep = 'base' | 'rooms' | 'guests' | 'policies' | 'payment
   templateUrl: './create-reservation.html',
   styleUrls: ['./create-reservation.css']
 })
-export class CreateReservation implements OnChanges {
+export class CreateReservation implements OnChanges, OnInit {
   @Input() clients: ClientI[] = [];
   @Input() origins: MasterDataI[] = [];
   @Input() documentTypes: MasterDataI[] = [];
@@ -47,19 +56,23 @@ export class CreateReservation implements OnChanges {
   submitted = false;
   showCreateClientModal = false;
   clientOptions: ClientI[] = [];
-  contactIsPrimaryGuest = false;
-  currentStepIndex = 0;
-  guestSearchTerms: string[] = [];
-
-  readonly steps: Array<{ id: ReservationCreateStep; label: string; description: string }> = [
-    { id: 'base', label: 'Datos base', description: 'Cliente, origen y fechas' },
-    { id: 'rooms', label: 'Habitaciones', description: 'Asignacion y capacidad' },
-    { id: 'guests', label: 'Huespedes', description: 'Principal y acompanantes' },
-    { id: 'policies', label: 'Politicas', description: 'Condiciones aplicables' },
-    { id: 'payment', label: 'Abono', description: 'Pago inicial opcional' },
-  ];
+  activeStep: ReservationWizardStep = 'base';
+  guestLookupMessages: Record<number, string> = {};
+  guestLookupLoading = new Set<number>();
+  guestLookupSuggestions: Record<number, GuestLookupSuggestion[]> = {};
+  private guestLookupTimers = new Map<number, ReturnType<typeof setTimeout>>();
+  private lastLookupQuery = new Map<number, string>();
 
   reservationForm: UntypedFormGroup;
+
+  readonly wizardSteps: Array<{ key: ReservationWizardStep; label: string; icon: string }> = [
+    { key: 'base', label: 'Datos', icon: 'fa-regular fa-calendar' },
+    { key: 'rooms', label: 'Habitacion', icon: 'fa-solid fa-bed' },
+    { key: 'guests', label: 'Huespedes', icon: 'fa-solid fa-user-group' },
+    { key: 'payment', label: 'Cierre', icon: 'fa-solid fa-credit-card' }
+  ];
+  readonly bloodTypeOptions = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
+  countryOptions: HotelLocationCountry[] = [];
 
   constructor(
     private fb: UntypedFormBuilder,
@@ -72,6 +85,7 @@ export class CreateReservation implements OnChanges {
       expected_check_in: [this.formatDateForInput(new Date()), [Validators.required]],
       expected_check_out: [this.formatDateForInput(this.addDays(new Date(), 1)), [Validators.required]],
       promo_code: [''],
+      total_discount: [0],
       notes: ['', [Validators.maxLength(1200)]],
       initial_deposit_amount: [0, [Validators.min(0)]],
       initial_deposit_payment_method: [null],
@@ -87,12 +101,10 @@ export class CreateReservation implements OnChanges {
     this.addRoomLine();
     this.addGuestLine();
     this.syncClientOptions();
+  }
 
-    this.reservationForm.get('client')?.valueChanges.subscribe(() => {
-      if (this.contactIsPrimaryGuest) {
-        this.useContactAsPrimaryGuest(false);
-      }
-    });
+  ngOnInit(): void {
+    void this.loadCountryOptions();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -172,49 +184,21 @@ export class CreateReservation implements OnChanges {
     return this.collectSelectedPolicyIds().length;
   }
 
-  get currentStep(): { id: ReservationCreateStep; label: string; description: string } {
-    return this.steps[this.currentStepIndex];
+  get activeStepIndex(): number {
+    return this.wizardSteps.findIndex((step) => step.key === this.activeStep);
   }
 
   get isFirstStep(): boolean {
-    return this.currentStepIndex === 0;
+    return this.activeStepIndex <= 0;
   }
 
   get isLastStep(): boolean {
-    return this.currentStepIndex === this.steps.length - 1;
+    return this.activeStepIndex === this.wizardSteps.length - 1;
   }
 
-  isStepActive(stepId: ReservationCreateStep): boolean {
-    return this.currentStep.id === stepId;
-  }
-
-  goToStep(index: number): void {
-    if (this.saving || index === this.currentStepIndex || index < 0 || index >= this.steps.length) return;
-
-    if (index < this.currentStepIndex) {
-      this.currentStepIndex = index;
-      this.errorMessage = '';
-      this.warningMessage = '';
-      return;
-    }
-
-    while (this.currentStepIndex < index) {
-      if (!this.validateCurrentStep()) return;
-      this.currentStepIndex += 1;
-    }
-  }
-
-  previousStep(): void {
-    if (this.saving || this.isFirstStep) return;
-    this.currentStepIndex -= 1;
-    this.errorMessage = '';
-    this.warningMessage = '';
-  }
-
-  nextStep(): void {
-    if (this.saving || this.isLastStep) return;
-    if (!this.validateCurrentStep()) return;
-    this.currentStepIndex += 1;
+  get primaryActionLabel(): string {
+    if (!this.isLastStep) return 'Continuar';
+    return this.saving ? 'Guardando...' : this.initialCheckInMode ? 'Crear check-in' : 'Guardar reserva';
   }
 
   addPolicyLine(): void {
@@ -245,13 +229,12 @@ export class CreateReservation implements OnChanges {
 
   addGuestLine(): void {
     this.guestLines.push(this.buildGuestLine());
-    this.guestSearchTerms.push('');
   }
 
   removeGuestLine(index: number): void {
     if (index < 0 || index >= this.guestLines.length) return;
     this.guestLines.removeAt(index);
-    this.guestSearchTerms.splice(index, 1);
+    this.clearGuestLookup(index);
 
     if (this.guestLines.length === 0) {
       this.addGuestLine();
@@ -408,6 +391,43 @@ export class CreateReservation implements OnChanges {
     this.closed.emit();
   }
 
+  selectStep(step: ReservationWizardStep): void {
+    const targetIndex = this.wizardSteps.findIndex((item) => item.key === step);
+    if (targetIndex < 0) return;
+    if (targetIndex <= this.activeStepIndex) {
+      this.activeStep = step;
+      this.errorMessage = '';
+      this.warningMessage = '';
+      return;
+    }
+
+    while (this.activeStepIndex < targetIndex) {
+      if (!this.nextStep()) return;
+    }
+  }
+
+  nextStep(): boolean {
+    this.errorMessage = '';
+    this.warningMessage = '';
+
+    const error = this.validateCurrentStep();
+    if (error) {
+      this.errorMessage = error;
+      return false;
+    }
+
+    if (this.isLastStep) return true;
+    this.activeStep = this.wizardSteps[this.activeStepIndex + 1].key;
+    return true;
+  }
+
+  previousStep(): void {
+    if (this.isFirstStep) return;
+    this.errorMessage = '';
+    this.warningMessage = '';
+    this.activeStep = this.wizardSteps[this.activeStepIndex - 1].key;
+  }
+
   openCreateClientModal(): void {
     if (this.saving) return;
     this.showCreateClientModal = true;
@@ -427,9 +447,6 @@ export class CreateReservation implements OnChanges {
     this.reservationForm.patchValue({ client: clientId });
     this.reservationForm.get('client')?.markAsDirty();
     this.reservationForm.get('client')?.markAsTouched();
-    if (this.contactIsPrimaryGuest) {
-      this.useContactAsPrimaryGuest(false);
-    }
   }
 
   getClientOptionLabel(client: ClientI): string {
@@ -622,191 +639,137 @@ export class CreateReservation implements OnChanges {
     return `${item.name} - ${formattedPrice}`;
   }
 
-  onContactAsPrimaryGuestToggle(event: Event): void {
-    const checked = Boolean((event.target as HTMLInputElement | null)?.checked);
-    this.contactIsPrimaryGuest = checked;
-    if (checked) {
-      this.useContactAsPrimaryGuest();
-    }
+  onGuestDocumentInput(index: number): void {
+    const existingTimer = this.guestLookupTimers.get(index);
+    if (existingTimer) clearTimeout(existingTimer);
+
+    this.guestLookupTimers.set(
+      index,
+      setTimeout(() => this.lookupGuestByDocument(index, false), 300)
+    );
   }
 
-  useContactAsPrimaryGuest(showError = true): void {
-    const client = this.getSelectedClient();
-    if (!client) {
-      if (showError) {
-        this.errorMessage = 'Selecciona primero el cliente/contacto de la reserva.';
-      }
-      return;
-    }
-
-    if (!this.guestLines.length) {
-      this.addGuestLine();
-    }
-
-    this.applyClientToGuestLine(0, client);
-    this.guestSearchTerms[0] = this.getClientOptionLabel(client);
-    this.errorMessage = '';
-  }
-
-  onGuestSearchInput(index: number, event: Event): void {
-    const value = String((event.target as HTMLInputElement | null)?.value || '');
-    this.guestSearchTerms[index] = value;
-  }
-
-  getGuestSearchResults(index: number): ClientI[] {
-    const term = this.toSearchToken(this.guestSearchTerms[index]);
-    if (term.length < 2) return [];
-
-    return this.availableClients
-      .filter((client) => this.clientMatchesSearch(client, term))
-      .slice(0, 6);
-  }
-
-  selectGuestFromClient(index: number, client: ClientI): void {
-    this.applyClientToGuestLine(index, client);
-    this.guestSearchTerms[index] = this.getClientOptionLabel(client);
-    this.errorMessage = '';
-  }
-
-  private validateCurrentStep(): boolean {
-    this.errorMessage = '';
-    this.warningMessage = '';
-
-    switch (this.currentStep.id) {
-      case 'base':
-        return this.validateBaseStep();
-      case 'rooms':
-        return this.validateRoomsStep();
-      case 'guests':
-        return this.validateGuestsStep();
-      case 'policies':
-        return this.validatePoliciesStep();
-      case 'payment':
-        return this.validatePaymentStep();
-      default:
-        return true;
-    }
-  }
-
-  private validateBaseStep(): boolean {
-    const controls = ['client', 'origin', 'expected_check_in', 'expected_check_out', 'notes'];
-    controls.forEach((controlName) => this.reservationForm.get(controlName)?.markAsTouched());
-
-    if (controls.some((controlName) => this.reservationForm.get(controlName)?.invalid)) {
-      this.errorMessage = 'Completa los datos base obligatorios antes de continuar.';
-      return false;
-    }
-
-    const dateError = this.validateDateRange();
-    if (dateError) {
-      this.errorMessage = dateError;
-      return false;
-    }
-
-    const packageError = this.validateSelectedPackage();
-    if (packageError) {
-      this.errorMessage = packageError;
-      return false;
-    }
-
-    return true;
-  }
-
-  private validateRoomsStep(): boolean {
-    this.roomLines.controls.forEach((control) => control.markAllAsTouched());
-    const roomBuild = this.buildRoomPayloads();
-    if (roomBuild.error) {
-      this.errorMessage = roomBuild.error;
-      return false;
-    }
-    return true;
-  }
-
-  private validateGuestsStep(): boolean {
-    this.guestLines.controls.forEach((control) => control.markAllAsTouched());
-    const guestBuild = this.buildGuestPayloads();
-    if (guestBuild.error) {
-      this.errorMessage = guestBuild.error;
-      return false;
-    }
-    return true;
-  }
-
-  private validatePoliciesStep(): boolean {
-    this.policyLines.controls.forEach((control) => control.markAllAsTouched());
-    const policyBuild = this.buildPolicySelection();
-    if (policyBuild.error) {
-      this.errorMessage = policyBuild.error;
-      return false;
-    }
-    return true;
-  }
-
-  private validatePaymentStep(): boolean {
-    const controls = [
-      'initial_deposit_amount',
-      'initial_deposit_payment_method',
-      'initial_deposit_date',
-      'initial_deposit_reference',
-      'initial_deposit_notes',
-    ];
-    controls.forEach((controlName) => this.reservationForm.get(controlName)?.markAsTouched());
-
-    const initialDepositBuild = this.buildInitialDepositPayload();
-    if (initialDepositBuild.error) {
-      this.errorMessage = initialDepositBuild.error;
-      return false;
-    }
-    return true;
-  }
-
-  private getSelectedClient(): ClientI | null {
-    const clientId = Number(this.reservationForm.get('client')?.value || 0);
-    if (!clientId || Number.isNaN(clientId)) return null;
-    return this.availableClients.find((client) => Number(client.id || 0) === clientId) || null;
-  }
-
-  private applyClientToGuestLine(index: number, client: ClientI): void {
+  lookupGuestByDocument(index: number, applyExactMatch = true): void {
     const lineControl = this.guestLines.at(index) as UntypedFormGroup | null;
     if (!lineControl) return;
 
-    const documentTypeId = this.resolveDocumentTypeId(client.document_type);
-    lineControl.patchValue({
-      document_type: documentTypeId ?? lineControl.get('document_type')?.value ?? this.getDefaultDocumentTypeId(),
-      document_number: this.toTrimmedString(client.document_number),
-      first_name: this.toTrimmedString(client.first_name),
-      last_name: this.toTrimmedString(client.last_name),
-    });
-    lineControl.markAsDirty();
-    lineControl.markAllAsTouched();
-  }
+    const documentNumber = this.toTrimmedString(lineControl.get('document_number')?.value);
+    if (!documentNumber) {
+      this.clearGuestLookup(index);
+      return;
+    }
 
-  private resolveDocumentTypeId(documentTypeCode: unknown): number | null {
-    const normalizedCode = this.normalizeCode(String(documentTypeCode || ''));
-    if (!normalizedCode) return this.getDefaultDocumentTypeId();
+    const documentTypeId = Number(lineControl.get('document_type')?.value || 0);
+    const clientSuggestions = this.findClientSuggestionsByDocument(documentNumber, documentTypeId);
+    this.guestLookupSuggestions[index] = clientSuggestions;
+    this.guestLookupMessages[index] = clientSuggestions.length
+      ? `${clientSuggestions.length} coincidencia(s) encontrada(s).`
+      : '';
 
-    const match = this.availableDocumentTypes.find(
-      (documentType) => this.normalizeCode(documentType.code) === normalizedCode
+    const exactClient = clientSuggestions.find(
+      (suggestion) => this.normalizeDocument(suggestion.document_number) === this.normalizeDocument(documentNumber)
     );
-    return match?.id ?? this.getDefaultDocumentTypeId();
+    if (applyExactMatch && exactClient) {
+      this.applyGuestSuggestion(index, exactClient);
+      return;
+    }
+
+    const normalizedQuery = this.normalizeDocument(documentNumber);
+    this.lastLookupQuery.set(index, normalizedQuery);
+    this.guestLookupLoading.add(index);
+    this.reservationService.listReservationGuests({ search: documentNumber }).subscribe({
+      next: (guests) => {
+        if (this.lastLookupQuery.get(index) !== normalizedQuery) return;
+        this.guestLookupLoading.delete(index);
+
+        const guestSuggestions = this.findGuestSuggestionsByDocument(guests, documentNumber, documentTypeId);
+        const merged = this.mergeGuestSuggestions(clientSuggestions, guestSuggestions);
+        this.guestLookupSuggestions[index] = merged;
+
+        if (!merged.length) {
+          this.guestLookupMessages[index] = 'Sin coincidencias guardadas.';
+          return;
+        }
+
+        this.guestLookupMessages[index] = `${merged.length} coincidencia(s) encontrada(s).`;
+        const exactGuest = merged.find(
+          (suggestion) => this.normalizeDocument(suggestion.document_number) === normalizedQuery
+        );
+        if (applyExactMatch && exactGuest) {
+          this.applyGuestSuggestion(index, exactGuest);
+        }
+      },
+      error: () => {
+        if (this.lastLookupQuery.get(index) !== normalizedQuery) return;
+        this.guestLookupLoading.delete(index);
+        if (!clientSuggestions.length) {
+          delete this.guestLookupMessages[index];
+        }
+      }
+    });
   }
 
-  private clientMatchesSearch(client: ClientI, term: string): boolean {
-    const values = [
-      this.buildClientDisplayName(client),
-      client.document_number,
-      client.email,
-      client.phone,
-    ];
-    return values.some((value) => this.toSearchToken(value).includes(term));
+  applyGuestSuggestion(index: number, suggestion: GuestLookupSuggestion): void {
+    const lineControl = this.guestLines.at(index) as UntypedFormGroup | null;
+    if (!lineControl) return;
+
+    if (suggestion.source === 'client') {
+      this.applyClientToGuestLine(index, lineControl, suggestion.payload as ClientI);
+    } else {
+      this.applyGuestToGuestLine(index, lineControl, suggestion.payload as ReservationGuestI);
+    }
+
+    this.guestLookupSuggestions[index] = [];
   }
 
-  private toSearchToken(value: unknown): string {
-    return String(value || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .trim();
+  getGuestLookupMessage(index: number): string {
+    if (this.guestLookupLoading.has(index)) return 'Buscando informacion guardada...';
+    return this.guestLookupMessages[index] || '';
+  }
+
+  getGuestLookupSuggestions(index: number): GuestLookupSuggestion[] {
+    return this.guestLookupSuggestions[index] || [];
+  }
+
+  private validateCurrentStep(): string {
+    if (this.activeStep === 'base') {
+      const fields = ['client', 'origin', 'expected_check_in', 'expected_check_out', 'notes'];
+      fields.forEach((field) => this.reservationForm.get(field)?.markAsTouched());
+
+      for (const field of fields) {
+        if (this.reservationForm.get(field)?.invalid) {
+          return this.getControlError(field) || 'Completa los datos base de la reserva.';
+        }
+      }
+
+      return this.validateDateRange() || this.validateSelectedPackage();
+    }
+
+    if (this.activeStep === 'rooms') {
+      this.roomLines.controls.forEach((control) => control.markAllAsTouched());
+      const build = this.buildRoomPayloads();
+      if (build.error) return build.error;
+      if (!build.payloads.length) return 'Selecciona al menos una habitacion.';
+      return '';
+    }
+
+    if (this.activeStep === 'guests') {
+      this.guestLines.controls.forEach((control) => control.markAllAsTouched());
+      const build = this.buildGuestPayloads();
+      if (build.error) return build.error;
+      if (!build.payloads.length) return 'Agrega al menos un huesped con documento, nombres y apellidos.';
+      const roomBuild = this.buildRoomPayloads();
+      return this.validateRoomCapacityAgainstGuests(roomBuild.payloads, build.payloads.length);
+    }
+
+    const depositBuild = this.buildInitialDepositPayload();
+    if (depositBuild.error) return depositBuild.error;
+    const policyBuild = this.buildPolicySelection();
+    return policyBuild.error || '';
+  }
+
+  private async loadCountryOptions(): Promise<void> {
+    this.countryOptions = await loadHotelCountries();
   }
 
   private syncClientOptions(): void {
@@ -825,6 +788,159 @@ export class CreateReservation implements OnChanges {
     }
 
     this.clientOptions = Array.from(clientMap.values());
+  }
+
+  private findClientSuggestionsByDocument(
+    documentNumber: string,
+    documentTypeId: number
+  ): GuestLookupSuggestion[] {
+    const normalizedDocument = this.normalizeDocument(documentNumber);
+    if (!normalizedDocument) return [];
+
+    return this.availableClients
+      .filter((client) => {
+        const clientDocument = this.normalizeDocument(client.document_number);
+        if (!clientDocument.includes(normalizedDocument)) return false;
+        if (!documentTypeId) return true;
+
+        const clientTypeId = this.resolveDocumentTypeId(client.document_type);
+        return !clientTypeId || clientTypeId === documentTypeId;
+      })
+      .slice(0, 5)
+      .map((client) => ({
+        source: 'client' as const,
+        document_number: client.document_number,
+        display_name: this.buildClientDisplayName(client),
+        subtitle: `Cliente - ${client.document_number}`,
+        payload: client,
+      }));
+  }
+
+  private findGuestSuggestionsByDocument(
+    guests: ReservationGuestI[],
+    documentNumber: string,
+    documentTypeId: number
+  ): GuestLookupSuggestion[] {
+    const normalizedDocument = this.normalizeDocument(documentNumber);
+    if (!normalizedDocument) return [];
+
+    return guests
+      .filter((guest) => {
+        const guestDocument = this.normalizeDocument(guest.document_number);
+        if (!guestDocument.includes(normalizedDocument)) return false;
+        if (!documentTypeId) return true;
+        return !guest.document_type || Number(guest.document_type) === documentTypeId;
+      })
+      .slice(0, 5)
+      .map((guest) => ({
+        source: 'guest' as const,
+        document_number: guest.document_number || '',
+        display_name: guest.full_name || `${guest.first_name || ''} ${guest.last_name || ''}`.trim() || 'Huesped guardado',
+        subtitle: `Huesped previo - ${guest.document_number || 'sin documento'}`,
+        payload: guest,
+      }));
+  }
+
+  private mergeGuestSuggestions(
+    clients: GuestLookupSuggestion[],
+    guests: GuestLookupSuggestion[]
+  ): GuestLookupSuggestion[] {
+    const used = new Set<string>();
+    const merged: GuestLookupSuggestion[] = [];
+
+    for (const suggestion of [...clients, ...guests]) {
+      const key = `${suggestion.source}:${this.normalizeDocument(suggestion.document_number)}`;
+      if (used.has(key)) continue;
+      used.add(key);
+      merged.push(suggestion);
+    }
+
+    return merged.slice(0, 6);
+  }
+
+  private applyClientToGuestLine(
+    index: number,
+    lineControl: UntypedFormGroup,
+    client: ClientI
+  ): void {
+    const documentTypeId = this.resolveDocumentTypeId(client.document_type);
+    const patch: Record<string, unknown> = {
+      document_number: client.document_number,
+      first_name: client.first_name || this.extractFirstName(client.full_name),
+      last_name: client.last_name || this.extractLastName(client.full_name),
+      nationality: client.country || '',
+    };
+
+    if (documentTypeId) {
+      patch['document_type'] = documentTypeId;
+    }
+
+    lineControl.patchValue(patch);
+    lineControl.markAsDirty();
+    this.guestLookupMessages[index] = `Datos completados desde cliente: ${this.buildClientDisplayName(client)}.`;
+  }
+
+  private applyGuestToGuestLine(
+    index: number,
+    lineControl: UntypedFormGroup,
+    guest: ReservationGuestI
+  ): void {
+    lineControl.patchValue({
+      document_type: guest.document_type || lineControl.get('document_type')?.value,
+      document_number: guest.document_number || lineControl.get('document_number')?.value,
+      first_name: guest.first_name || this.extractFirstName(guest.full_name),
+      last_name: guest.last_name || this.extractLastName(guest.full_name),
+      birth_date: guest.birth_date || '',
+      nationality: guest.nationality || '',
+      blood_type: guest.blood_type || '',
+      emergency_contact_name: guest.emergency_contact_name || '',
+      emergency_contact_phone: guest.emergency_contact_phone || '',
+    });
+    lineControl.markAsDirty();
+    this.guestLookupMessages[index] = `Datos completados desde huesped existente: ${guest.full_name || guest.document_number}.`;
+  }
+
+  private resolveDocumentTypeId(value: unknown): number | null {
+    const raw = this.toTrimmedString(value);
+    if (!raw) return null;
+
+    const numeric = Number(raw);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+
+    const normalized = this.normalizeCode(raw);
+    const match = this.availableDocumentTypes.find(
+      (type) =>
+        this.normalizeCode(type.code) === normalized ||
+        this.normalizeCode(type.name) === normalized
+    );
+    return match?.id ?? null;
+  }
+
+  private normalizeDocument(value: unknown): string {
+    return this.toTrimmedString(value).replace(/[\s.\-]/g, '').toUpperCase();
+  }
+
+  private clearGuestLookup(index: number): void {
+    const timer = this.guestLookupTimers.get(index);
+    if (timer) clearTimeout(timer);
+    this.guestLookupTimers.delete(index);
+    this.lastLookupQuery.delete(index);
+    this.guestLookupLoading.delete(index);
+    delete this.guestLookupMessages[index];
+    delete this.guestLookupSuggestions[index];
+  }
+
+  private extractFirstName(fullName: unknown): string {
+    const parts = this.toTrimmedString(fullName).split(/\s+/).filter(Boolean);
+    if (!parts.length) return '';
+    if (parts.length <= 2) return parts[0] || '';
+    return parts.slice(0, -1).join(' ');
+  }
+
+  private extractLastName(fullName: unknown): string {
+    const parts = this.toTrimmedString(fullName).split(/\s+/).filter(Boolean);
+    if (parts.length <= 1) return '';
+    return parts[parts.length - 1] || '';
   }
 
   private upsertClientOption(client: ClientI): void {
@@ -991,6 +1107,7 @@ export class CreateReservation implements OnChanges {
       expected_check_in: String(raw.expected_check_in || ''),
       expected_check_out: String(raw.expected_check_out || ''),
       promo_code: raw.promo_code ? String(raw.promo_code).trim() : null,
+      total_discount: raw.total_discount ? Number(raw.total_discount) : 0,
       policies: policyIds,
       notes: raw.notes ? String(raw.notes).trim() : null
     };

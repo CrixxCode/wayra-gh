@@ -14,6 +14,7 @@ import { ItemI } from '../item-model';
 
 type ItemStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 type ItemStockFilter = 'ALL' | 'LOW' | 'HEALTHY';
+type ItemPurposeFilter = 'ALL' | 'ROOM' | 'RECEPTION';
 type ItemViewMode = 'cards' | 'table';
 
 type ItemCategoryTone = {
@@ -134,6 +135,7 @@ export class ListItems implements OnInit {
   search = '';
   statusFilter: ItemStatusFilter = 'ALL';
   stockFilter: ItemStockFilter = 'ALL';
+  purposeFilter: ItemPurposeFilter = 'ALL';
   selectedTypeFilter = 'ALL';
 
   showCreateDrawer = false;
@@ -151,6 +153,12 @@ export class ListItems implements OnInit {
     { value: 'ALL', label: 'Todo el stock' },
     { value: 'LOW', label: 'Bajo minimo' },
     { value: 'HEALTHY', label: 'Saludable' }
+  ];
+
+  readonly purposeOptions: Array<{ value: ItemPurposeFilter; label: string }> = [
+    { value: 'ALL', label: 'Todos' },
+    { value: 'ROOM', label: 'Habitacion' },
+    { value: 'RECEPTION', label: 'Recepcion' }
   ];
 
   private itemTypeMap = new Map<number, MasterDataI>();
@@ -267,6 +275,7 @@ export class ListItems implements OnInit {
       'nombre',
       'sku',
       'tipo',
+      'uso',
       'unidad',
       'stock',
       'stock_minimo',
@@ -281,6 +290,7 @@ export class ListItems implements OnInit {
         item.name || '',
         item.sku || '',
         this.getItemTypeLabel(item),
+        this.getItemPurposeLabel(item),
         this.getUnitLabel(item),
         this.toNonNegativeInt(item.stock),
         this.toNonNegativeInt(item.minimum_stock),
@@ -313,6 +323,7 @@ export class ListItems implements OnInit {
         (this.statusFilter === 'INACTIVE' && !item.is_active);
 
       const typeMatch = this.selectedTypeFilter === 'ALL' || this.getItemTypeKey(item) === this.selectedTypeFilter;
+      const purposeMatch = this.purposeFilter === 'ALL' || item.item_purpose === this.purposeFilter;
 
       const stockMatch =
         this.stockFilter === 'ALL' ||
@@ -332,7 +343,7 @@ export class ListItems implements OnInit {
         .toLowerCase();
 
       const searchMatch = !searchValue || searchPool.includes(searchValue);
-      return statusMatch && typeMatch && stockMatch && searchMatch;
+      return statusMatch && typeMatch && purposeMatch && stockMatch && searchMatch;
     });
 
     this.groupedItems = this.buildGroups(this.filteredItems);
@@ -427,6 +438,29 @@ export class ListItems implements OnInit {
     if (item.item_type_name) return item.item_type_name;
     if (item.item_type_code) return item.item_type_code;
     return 'Sin tipo';
+  }
+
+  getItemPurposeLabel(item: ItemI): string {
+    return item.item_purpose === 'ROOM' ? 'Habitacion' : 'Recepcion';
+  }
+
+  getItemPurposeIcon(item: ItemI): string {
+    return item.item_purpose === 'ROOM' ? 'fa-solid fa-bed' : 'fa-solid fa-bell-concierge';
+  }
+
+  getItemPurposeTone(item: ItemI): { bg: string; color: string; dot: string } {
+    if (item.item_purpose === 'ROOM') {
+      return {
+        bg: 'var(--gh-status-info-bg)',
+        color: 'var(--gh-status-info-strong-alt)',
+        dot: 'var(--gh-status-info-strong)'
+      };
+    }
+    return {
+      bg: 'var(--gh-status-orange-bg)',
+      color: 'var(--gh-status-orange-text)',
+      dot: 'var(--gh-status-orange-strong)'
+    };
   }
 
   getUnitLabel(item: ItemI): string {

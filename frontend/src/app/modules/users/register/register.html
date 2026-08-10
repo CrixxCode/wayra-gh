@@ -195,11 +195,10 @@
 
         <label>
           <span>País</span>
-          <input 
-            formControlName="country" 
-            type="text"
-            placeholder="Ej: Colombia"
-          />
+          <select formControlName="country">
+            <option value="">Selecciona país</option>
+            <option *ngFor="let country of countryOptions" [value]="country.name">{{ country.name }}</option>
+          </select>
         </label>
       </div>
 

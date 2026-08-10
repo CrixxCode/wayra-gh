@@ -42,6 +42,7 @@ class ItemViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
         "name",
         "sku",
         "description",
+        "item_purpose",
         "hotel_settings__hotel_name",
         "item_type__name",
         "item_type__code",
@@ -62,7 +63,11 @@ class ItemViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
     ordering = ["-id"]
 
     def get_base_queryset(self):
-        return self.queryset.order_by("-id")
+        queryset = self.queryset.order_by("-id")
+        item_purpose = str(self.request.query_params.get("item_purpose", "")).strip().upper()
+        if item_purpose in Item.Purpose.values:
+            queryset = queryset.filter(item_purpose=item_purpose)
+        return queryset
 
     def get_required_scopes(self):
         if self.request.method in ("POST", "PUT", "PATCH", "DELETE"):
@@ -130,6 +135,8 @@ class RoomInventoryViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets
             "room__floor",
             "room__floor__hotel_settings",
             "item",
+            "item__item_type",
+            "item__unit_measure",
         )
     )
     tenant_filter = "room__floor__hotel_settings"
@@ -157,6 +164,7 @@ class RoomInventoryViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets
     def get_base_queryset(self):
         return self.queryset.filter(
             item__hotel_settings_id=F("room__floor__hotel_settings_id"),
+            item__item_purpose=Item.Purpose.ROOM,
         ).order_by("-id")
 
     def get_required_scopes(self):

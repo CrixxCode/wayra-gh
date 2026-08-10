@@ -40,6 +40,11 @@ export class DetailItem {
     return this.itemData.item_type_name || this.itemData.item_type_code || 'Sin tipo';
   }
 
+  getPurposeLabel(): string {
+    if (!this.itemData) return 'Sin uso';
+    return this.itemData.item_purpose === 'ROOM' ? 'Habitacion' : 'Recepcion';
+  }
+
   getUnitLabel(): string {
     if (!this.itemData) return 'Sin unidad';
     return this.itemData.unit_measure_name || this.itemData.unit_measure_code || 'unidad';

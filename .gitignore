@@ -22,12 +22,15 @@ backend/media/
 backend/staticfiles/
 backend/schema.yml
 backend/*.log
+backend/*.err
 
 # Frontend
 frontend/node_modules/
 frontend/dist/
 frontend/.angular/cache/
 frontend/coverage/
+frontend/*.log
+frontend/*.err
 
 # OS / editors
 .DS_Store

@@ -32,6 +32,7 @@ export class CreateItem {
     this.itemForm = this.fb.group({
       name: ['', [Validators.required, Validators.maxLength(150)]],
       sku: ['', [Validators.maxLength(80)]],
+      item_purpose: ['RECEPTION', [Validators.required]],
       item_type: [null as number | null, [Validators.required]],
       unit_measure: [null as number | null, [Validators.required]],
       stock: [0, [Validators.required, Validators.min(0)]],
@@ -54,6 +55,10 @@ export class CreateItem {
 
   get item_type() {
     return this.itemForm.get('item_type');
+  }
+
+  get item_purpose() {
+    return this.itemForm.get('item_purpose');
   }
 
   get unit_measure() {
@@ -110,6 +115,7 @@ export class CreateItem {
 
     const payload: ItemFormPayload = {
       hotel_settings: Number(this.hotelSettingsId),
+      item_purpose: raw.item_purpose === 'ROOM' ? 'ROOM' : 'RECEPTION',
       item_type: Number(raw.item_type),
       unit_measure: Number(raw.unit_measure),
       name: raw.name?.trim() || '',

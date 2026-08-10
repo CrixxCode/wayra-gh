@@ -68,14 +68,6 @@ class Rate(models.Model):
 
 
 class Amenity(models.Model):
-    hotel_settings = models.ForeignKey(
-        "hotel_settings.HotelSettings",
-        on_delete=models.PROTECT,
-        related_name="amenities",
-        null=False,   # temporal para migración
-        blank=False,  # temporal para migración
-    )
-
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     icon = models.CharField(max_length=50, blank=True, null=True)
@@ -87,8 +79,8 @@ class Amenity(models.Model):
         ordering = ["name"]
         constraints = [
             models.UniqueConstraint(
-                fields=["hotel_settings", "name"],
-                name="uq_amenity_hotel_name",
+                fields=["name"],
+                name="uq_amenity_name",
             ),
         ]
 
@@ -100,6 +92,13 @@ class Room(models.Model):
     number = models.CharField(max_length=20)
     room_type = models.ForeignKey(
         RoomType,
+        on_delete=models.SET_NULL,
+        related_name="rooms",
+        null=True,
+        blank=True,
+    )
+    rate = models.ForeignKey(
+        Rate,
         on_delete=models.SET_NULL,
         related_name="rooms",
         null=True,

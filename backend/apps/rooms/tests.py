@@ -6,9 +6,9 @@ from accounts.models import Resource, Role
 from apps.hotel_settings.models import HotelFloor, HotelSettings
 from apps.inventory.models import InventoryMovement, Item, RoomInventory
 from apps.master_data.models import MasterData
-from apps.rooms.models import CleaningTask, MaintenanceOrder, Room, RoomType
-from apps.rooms.serializers import AmenitySerializer, RoomTypeSerializer
-from apps.rooms.views import RoomTypeViewSet
+from apps.rooms.models import Amenity, CleaningTask, MaintenanceOrder, Rate, Room, RoomType
+from apps.rooms.serializers import AmenitySerializer
+from apps.rooms.views import AmenityViewSet, RoomTypeViewSet, RoomViewSet
 
 
 class RoomOperationInventoryAutomationTestCase(TestCase):
@@ -177,80 +177,56 @@ class RoomOperationInventoryAutomationTestCase(TestCase):
         self.assertEqual(movement.quantity, 1)
 
 
-class AmenitySerializerTenantAutofillTests(TestCase):
-    def test_create_without_hotel_settings_uses_user_hotel(self):
-        user_model = get_user_model()
-        hotel = HotelSettings.objects.create(hotel_name="Hotel Amenidades")
-        user = user_model.objects.create_user(
-            username="amenity_user",
-            password="secret123",
-            hotel_settings=hotel,
-        )
-
-        request = APIRequestFactory().post(
-            "/api/amenities/",
-            {
-                "name": "WiFi Premium",
-                "icon": "fa-solid fa-wifi",
-                "is_active": True,
-            },
-            format="json",
-        )
-        request.user = user
-
+class GlobalAmenityCatalogTests(TestCase):
+    def test_create_without_hotel_settings_is_valid_for_global_catalog(self):
         serializer = AmenitySerializer(
             data={
                 "name": "WiFi Premium",
                 "icon": "fa-solid fa-wifi",
                 "is_active": True,
             },
-            context={"request": request},
         )
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
-
-class RoomTypeSerializerCodeGenerationTests(TestCase):
-    def test_create_without_code_generates_unique_code_from_name(self):
+    def test_hotel_admin_cannot_create_global_amenity(self):
         user_model = get_user_model()
-        hotel = HotelSettings.objects.create(hotel_name="Hotel Tipos Codigo")
+        hotel = HotelSettings.objects.create(hotel_name="Hotel Amenidades")
         user = user_model.objects.create_user(
-            username="room_type_code_user",
+            username="hotel_admin",
             password="secret123",
             hotel_settings=hotel,
         )
 
-        request = APIRequestFactory().post("/api/room-types/", {}, format="json")
-        request.user = user
-
-        first_serializer = RoomTypeSerializer(
-            data={
-                "name": "Suite Deluxe",
-                "capacity": 2,
-                "bed_count": 1,
-                "bed_type": "King",
-                "sort_order": 0,
-            },
-            context={"request": request},
+        role = Role.objects.create(name="Amenity Writer", slug="amenity-writer")
+        read_resource = Resource.objects.create(
+            key="amenities.read",
+            name="Amenity Read",
+            link_backend="/api/amenities/",
         )
-        self.assertTrue(first_serializer.is_valid(), first_serializer.errors)
-        first_room_type = first_serializer.save()
-
-        second_serializer = RoomTypeSerializer(
-            data={
-                "code": "MANUAL",
-                "name": "Suite Deluxe",
-                "capacity": 3,
-                "bed_count": 2,
-                "sort_order": 1,
-            },
-            context={"request": request},
+        write_resource = Resource.objects.create(
+            key="amenities.write",
+            name="Amenity Write",
+            link_backend="/api/amenities/",
         )
-        self.assertTrue(second_serializer.is_valid(), second_serializer.errors)
-        second_room_type = second_serializer.save()
+        role.resources.add(read_resource, write_resource)
+        user.roles.add(role)
 
-        self.assertEqual(first_room_type.code, "SUITE_DELUXE")
-        self.assertEqual(second_room_type.code, "SUITE_DELUXE_2")
+        request = APIRequestFactory().post(
+            "/api/amenities/",
+            {
+                "name": "Piscina",
+                "icon": "fa-solid fa-water-ladder",
+                "is_active": True,
+            },
+            format="json",
+        )
+        force_authenticate(request, user=user)
+
+        response = AmenityViewSet.as_view({"post": "create"})(request)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Amenity.objects.filter(name="Piscina").exists())
 
 
 class RoomTypeInactiveUpdateTests(TestCase):
@@ -313,3 +289,141 @@ class RoomTypeInactiveUpdateTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.room_type.refresh_from_db()
         self.assertTrue(self.room_type.is_active)
+
+
+class RoomRateSelectionTests(TestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Tarifas")
+        self.floor = HotelFloor.objects.create(
+            hotel_settings=self.hotel,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=1,
+        )
+        self.status, _ = MasterData.objects.update_or_create(
+            group=MasterData.Group.ROOM_STATUS,
+            code="DISPONIBLE",
+            defaults={
+                "name": "Disponible",
+                "is_active": True,
+            },
+        )
+        self.standard = RoomType.objects.create(
+            hotel_settings=self.hotel,
+            code="STD",
+            name="Standard",
+            capacity=2,
+        )
+        self.suite = RoomType.objects.create(
+            hotel_settings=self.hotel,
+            code="STE",
+            name="Suite",
+            capacity=4,
+        )
+        self.standard_low = Rate.objects.create(
+            hotel_settings=self.hotel,
+            room_type=self.standard,
+            name="Temporada baja",
+            price=120000,
+            is_active=True,
+        )
+        self.standard_high = Rate.objects.create(
+            hotel_settings=self.hotel,
+            room_type=self.standard,
+            name="Temporada alta",
+            price=180000,
+            is_active=True,
+        )
+        self.suite_rate = Rate.objects.create(
+            hotel_settings=self.hotel,
+            room_type=self.suite,
+            name="Suite base",
+            price=260000,
+            is_active=True,
+        )
+        self.room = Room.objects.create(
+            number="101",
+            room_type=self.standard,
+            rate=self.standard_low,
+            floor=self.floor,
+            status=self.status,
+        )
+
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            username="room_writer",
+            password="test-pass-123",
+            hotel_settings=self.hotel,
+        )
+        role = Role.objects.create(name="Room Writer Role", slug="room-writer-role")
+        read_resource, _ = Resource.objects.get_or_create(
+            key="rooms.read",
+            defaults={"name": "Rooms Read", "link_backend": "/api/rooms/"},
+        )
+        write_resource, _ = Resource.objects.get_or_create(
+            key="rooms.write",
+            defaults={"name": "Rooms Write", "link_backend": "/api/rooms/"},
+        )
+        role.resources.add(read_resource, write_resource)
+        self.user.roles.add(role)
+
+    def test_patch_can_select_one_rate_for_room_type(self):
+        request = self.factory.patch(
+            f"/api/rooms/{self.room.id}/",
+            {"rate": self.standard_high.id},
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+
+        response = RoomViewSet.as_view({"patch": "partial_update"})(request, pk=self.room.id)
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["rate"], self.standard_high.id)
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.rate_id, self.standard_high.id)
+
+    def test_room_list_returns_persisted_rate_price(self):
+        self.room.rate = self.standard_high
+        self.room.save(update_fields=["rate"])
+
+        request = self.factory.get("/api/rooms/")
+        force_authenticate(request, user=self.user)
+
+        response = RoomViewSet.as_view({"get": "list"})(request)
+        rows = response.data["results"] if isinstance(response.data, dict) else response.data
+        row = next(item for item in rows if item["id"] == self.room.id)
+
+        self.assertEqual(row["rate"], self.standard_high.id)
+        self.assertEqual(row["rate_name"], self.standard_high.name)
+        self.assertEqual(row["rate_price"], "180000.00")
+
+    def test_rate_action_persists_selected_rate(self):
+        request = self.factory.post(
+            f"/api/rooms/{self.room.id}/rate/",
+            {"rate": self.standard_high.id},
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+
+        response = RoomViewSet.as_view({"post": "rate"})(request, pk=self.room.id)
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["rate"], self.standard_high.id)
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.rate_id, self.standard_high.id)
+
+    def test_patch_rejects_rate_from_another_room_type(self):
+        request = self.factory.patch(
+            f"/api/rooms/{self.room.id}/",
+            {"rate": self.suite_rate.id},
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+
+        response = RoomViewSet.as_view({"patch": "partial_update"})(request, pk=self.room.id)
+
+        self.assertEqual(response.status_code, 400)
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.rate_id, self.standard_low.id)

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, of, switchMap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
 import {
@@ -92,6 +92,22 @@ export class RoomService {
       `${this.roomsUrl}${id}/`,
       this.normalizePayload(payload),
       this.auth.buildCsrfRequestOptions()
+    );
+  }
+
+  updateRoomRate(id: number, rate: number | null): Observable<RoomI> {
+    const normalizedRate = typeof rate === 'number' && rate > 0 ? Number(rate) : null;
+    return this.http.patch<RoomI>(
+      `${this.roomsUrl}${id}/`,
+      { rate: normalizedRate },
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(
+      switchMap((updated) =>
+        this.getRoomById(id).pipe(
+          map((fresh) => ({ ...updated, ...fresh })),
+          catchError(() => of(updated))
+        )
+      )
     );
   }
 
@@ -300,6 +316,12 @@ export class RoomService {
       normalized.room_type = null;
     }
 
+    if (payload.rate) {
+      normalized.rate = Number(payload.rate);
+    } else {
+      normalized.rate = null;
+    }
+
     return normalized;
   }
 
@@ -377,17 +399,23 @@ export class RoomService {
 
   private normalizeCreateRoomTypePayload(payload: RoomTypeFormPayload): RoomTypeFormPayload {
     return {
+      code: this.normalizeRoomTypeCode(payload.code),
       name: this.normalizeRoomTypeName(payload.name),
       description: this.normalizeNullableText(payload.description),
       capacity: this.normalizePositiveInteger(payload.capacity, 1),
       bed_count: this.normalizePositiveInteger(payload.bed_count, 1),
       bed_type: this.normalizeNullableText(payload.bed_type),
+      is_active: !!payload.is_active,
       sort_order: this.normalizeNonNegativeInteger(payload.sort_order)
     };
   }
 
   private normalizePatchRoomTypePayload(payload: Partial<RoomTypeFormPayload>): Partial<RoomTypeFormPayload> {
     const normalized: Partial<RoomTypeFormPayload> = {};
+
+    if (payload.code !== undefined) {
+      normalized.code = this.normalizeRoomTypeCode(payload.code);
+    }
 
     if (payload.name !== undefined) {
       normalized.name = this.normalizeRoomTypeName(payload.name);
@@ -424,6 +452,10 @@ export class RoomService {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
     return trimmed || null;
+  }
+
+  private normalizeRoomTypeCode(value: unknown): string {
+    return String(value || '').trim().toUpperCase();
   }
 
   private normalizeRoomTypeName(value: unknown): string {

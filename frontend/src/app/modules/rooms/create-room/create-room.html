@@ -1,42 +1,48 @@
-<div class="room-overlay" (click)="closeDrawer()">
-  <article class="room-drawer" (click)="$event.stopPropagation()">
-    <header class="drawer-head">
+<div class="gh-modal-overlay" (click)="closeDrawer()">
+  <section class="gh-modal is-narrow" (click)="$event.stopPropagation()">
+    <header class="gh-modal-head">
       <div>
-        <h1>Nueva habitación</h1>
-        <p>Crea la habitación y define su piso, tipo, estado y amenidades.</p>
+        <h2>Nueva habitacion</h2>
+        <p>Define su piso, tipo, estado y amenidades.</p>
       </div>
-      <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6 6 18" />
-          <path d="m6 6 12 12" />
-        </svg>
+      <button type="button" class="gh-modal-close" (click)="closeDrawer()" title="Cerrar">
+        <i class="fa-solid fa-xmark"></i>
       </button>
     </header>
 
-    <form [formGroup]="roomForm" (ngSubmit)="submit()" class="drawer-body">
-      <section>
-        <h2>Datos base</h2>
-        <div class="grid two">
-          <label>
-            <span>Número *</span>
-            <input type="text" formControlName="number" placeholder="Ej: 101" [class.input-error]="number?.touched && number?.invalid" />
-            <small class="field-error" *ngIf="number?.touched && number?.hasError('required')">El numero es obligatorio.</small>
-            <small class="field-error" *ngIf="number?.touched && number?.hasError('maxlength')">El numero no puede superar 20 caracteres.</small>
+    <form [formGroup]="roomForm" (ngSubmit)="submit()">
+      <div class="gh-modal-body">
+        <p class="gh-inline-alert is-error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+        <p class="gh-inline-alert is-info" *ngIf="!floors.length">
+          No hay pisos configurados. Crea un piso en Configuracion del Hotel antes de registrar habitaciones.
+        </p>
+
+        <div class="gh-form-grid">
+          <label class="gh-field" [class.is-invalid]="number?.touched && number?.invalid">
+            <span>Numero *</span>
+            <input type="text" formControlName="number" placeholder="Ej: 101" />
+            <small class="gh-field-error" *ngIf="number?.touched && number?.hasError('required')">
+              El numero es obligatorio.
+            </small>
+            <small class="gh-field-error" *ngIf="number?.touched && number?.hasError('maxlength')">
+              El numero no puede superar 20 caracteres.
+            </small>
           </label>
 
-          <label>
+          <label class="gh-field" [class.is-invalid]="floor?.touched && floor?.invalid">
             <span>Piso *</span>
-            <select formControlName="floor" [class.input-error]="floor?.touched && floor?.invalid">
+            <select formControlName="floor">
               <option [ngValue]="null">Selecciona piso</option>
               <option *ngFor="let floorItem of floors; trackBy: trackById" [ngValue]="floorItem.id">
                 {{ floorItem.name }} (Piso {{ floorItem.floor_number }})
               </option>
             </select>
-            <small class="field-error" *ngIf="floor?.touched && floor?.invalid">Selecciona un piso.</small>
+            <small class="gh-field-error" *ngIf="floor?.touched && floor?.invalid">Selecciona un piso.</small>
           </label>
 
-          <label>
-            <span>Tipo de habitación</span>
+          <label class="gh-field">
+            <span>Tipo de habitacion</span>
             <select formControlName="room_type">
               <option [ngValue]="null">Sin tipo</option>
               <option *ngFor="let roomType of roomTypes; trackBy: trackById" [ngValue]="roomType.id">
@@ -45,53 +51,45 @@
             </select>
           </label>
 
-          <label>
+          <label class="gh-field">
             <span>Estado *</span>
             <select formControlName="status">
               <option *ngFor="let status of statusOptions" [ngValue]="status.value">{{ status.label }}</option>
             </select>
           </label>
 
-          <label class="full">
+          <label class="gh-field gh-span-all">
             <span>Notas internas</span>
-            <textarea
-              rows="4"
-              formControlName="notes"
-              placeholder="Observaciones operativas de la habitacion..."
-              [class.input-error]="roomForm.get('notes')?.touched && roomForm.get('notes')?.invalid"></textarea>
-            <small class="field-error" *ngIf="roomForm.get('notes')?.touched && roomForm.get('notes')?.hasError('maxlength')">
+            <textarea rows="3" formControlName="notes" placeholder="Observaciones operativas..."></textarea>
+            <small class="gh-field-error" *ngIf="roomForm.get('notes')?.touched && roomForm.get('notes')?.hasError('maxlength')">
               Las notas no pueden superar 800 caracteres.
             </small>
           </label>
         </div>
-      </section>
 
-      <section>
-        <h2>Amenidades</h2>
-        <div class="amenities-grid">
-          <label *ngFor="let amenity of amenities; trackBy: trackById" class="amenity-option">
-            <input
-              type="checkbox"
-              [checked]="isAmenitySelected(amenity.id)"
-              (change)="toggleAmenity(amenity.id, $any($event.target).checked)"
-            />
-            <span class="amenity-label">
-              <i [class]="amenity.icon || 'fa-solid fa-circle-check'"></i>
-              <span>{{ amenity.name }}</span>
-            </span>
-          </label>
+        <div class="amenities-block" *ngIf="amenities.length">
+          <p class="gh-panel-title">Amenidades</p>
+          <div class="amenity-grid">
+            <label class="amenity-option" *ngFor="let amenity of amenities; trackBy: trackById">
+              <input
+                type="checkbox"
+                [checked]="isAmenitySelected(amenity.id)"
+                (change)="toggleAmenity(amenity.id, $any($event.target).checked)" />
+              <span>
+                <i [class]="amenity.icon || 'fa-solid fa-circle-check'"></i>
+                {{ amenity.name }}
+              </span>
+            </label>
+          </div>
         </div>
-      </section>
+      </div>
 
-      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
-
-      <footer class="drawer-footer">
-        <button type="button" class="btn btn-light" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
-        <button type="submit" class="btn btn-dark" [disabled]="saving">
-          {{ saving ? 'Guardando...' : 'Guardar habitación' }}
+      <footer class="gh-modal-foot">
+        <button type="button" class="gh-mbtn gh-mbtn-light" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="gh-mbtn gh-mbtn-dark" [disabled]="saving || !floors.length">
+          {{ saving ? 'Guardando...' : 'Guardar habitacion' }}
         </button>
       </footer>
     </form>
-  </article>
+  </section>
 </div>
-

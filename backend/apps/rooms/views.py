@@ -1,11 +1,12 @@
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from accounts.pagination import OptionalPageNumberPagination
 from accounts.permissions import HasResourcePermission
 from accounts.soft_delete import LogicalDeleteViewSetMixin
-from accounts.tenancy import TenantScopeMixin
+from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
 from apps.reservations.services import sync_room_status_for_room_ids
 from .models import Rate, Amenity, Room, MaintenanceOrder, CleaningTask, RoomType
 from .serializers import (
@@ -63,13 +64,12 @@ class RateViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
 
-class AmenityViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
-    queryset = Amenity.objects.select_related("hotel_settings").all()
+class AmenityViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+    queryset = Amenity.objects.all()
     serializer_class = AmenitySerializer
     pagination_class = OptionalPageNumberPagination
     permission_classes = [HasResourcePermission]
     required_scopes = ["amenities.read"]
-    tenant_filter = "hotel_settings"
 
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["name", "description", "icon"]
@@ -85,11 +85,35 @@ class AmenityViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Model
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
 
+    def _require_global_admin_write(self):
+        if not is_effective_global_admin(self.request.user):
+            raise PermissionDenied(
+                "Solo el administrador de plataforma puede gestionar el catalogo global de amenidades."
+            )
+
+    def perform_create(self, serializer):
+        self._require_global_admin_write()
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._require_global_admin_write()
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._require_global_admin_write()
+        super().perform_destroy(instance)
+
+    @action(detail=True, methods=["post"], url_path="restore")
+    def restore(self, request, *args, **kwargs):
+        self._require_global_admin_write()
+        return super().restore(request, *args, **kwargs)
+
 
 class RoomViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
     queryset = (
         Room.objects.select_related(
             "room_type",
+            "rate",
             "floor",
             "floor__hotel_settings",
             "status",
@@ -136,6 +160,7 @@ class RoomViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
         status_code = (self.request.query_params.get("status") or "").strip().upper()
         floor = (self.request.query_params.get("floor") or "").strip()
         room_type = (self.request.query_params.get("room_type") or "").strip()
+        rate = (self.request.query_params.get("rate") or "").strip()
 
         if status_code:
             queryset = queryset.filter(status__code=status_code)
@@ -149,12 +174,27 @@ class RoomViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
             else:
                 queryset = queryset.filter(room_type__code=room_type.upper())
 
+        if rate.isdigit():
+            queryset = queryset.filter(rate_id=int(rate))
+
         return queryset.order_by("number")
 
     @action(detail=True, methods=["GET"], name="panel")
     def panel(self, request, pk=None):
         room = self.get_object()
         serializer = RoomPanelSerializer(room, context=self.get_serializer_context())
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["POST"], url_path="rate")
+    def rate(self, request, pk=None):
+        room = self.get_object()
+        serializer = self.get_serializer(
+            room,
+            data={"rate": request.data.get("rate", None)},
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(serializer.data)
 
 

@@ -10,6 +10,7 @@ class ItemAdmin(admin.ModelAdmin):
         "hotel_settings",
         "name",
         "sku",
+        "item_purpose",
         "item_type",
         "unit_measure",
         "stock",
@@ -20,7 +21,7 @@ class ItemAdmin(admin.ModelAdmin):
         "is_active",
     )
     search_fields = ("name", "sku", "description")
-    list_filter = ("hotel_settings", "item_type", "unit_measure", "is_active")
+    list_filter = ("hotel_settings", "item_purpose", "item_type", "unit_measure", "is_active")
     
 @admin.register(InventoryMovement)
 class InventoryMovementAdmin(admin.ModelAdmin):

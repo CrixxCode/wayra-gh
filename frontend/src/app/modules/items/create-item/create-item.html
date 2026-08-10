@@ -30,6 +30,15 @@
             <small class="field-error" *ngIf="sku?.touched && sku?.hasError('maxlength')">El SKU no puede superar 80 caracteres.</small>
           </label>
 
+          <label class="full">
+            <span>Uso del item *</span>
+            <select formControlName="item_purpose" [class.input-error]="item_purpose?.touched && item_purpose?.invalid">
+              <option value="RECEPTION">Recepcion - venta o consumo desde recepcion</option>
+              <option value="ROOM">Habitacion - dotacion asignable a habitaciones</option>
+            </select>
+            <small class="field-error" *ngIf="item_purpose?.touched && item_purpose?.invalid">Selecciona donde se usa este item.</small>
+          </label>
+
           <label>
             <span>Tipo de item *</span>
             <select formControlName="item_type" [class.input-error]="item_type?.touched && item_type?.invalid">

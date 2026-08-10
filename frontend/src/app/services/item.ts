@@ -26,6 +26,7 @@ export class ItemsService {
     ordering?: string;
     include_inactive?: boolean;
     include_deleted?: boolean;
+    item_purpose?: 'ROOM' | 'RECEPTION';
   }): Observable<ItemI[]> {
     let params = new HttpParams();
 
@@ -43,6 +44,10 @@ export class ItemsService {
 
     if (typeof filters?.include_deleted === 'boolean') {
       params = params.set('include_deleted', String(filters.include_deleted));
+    }
+
+    if (filters?.item_purpose) {
+      params = params.set('item_purpose', filters.item_purpose);
     }
 
     return this.http
@@ -88,6 +93,7 @@ export class ItemsService {
   private normalizeCreatePayload(payload: ItemFormPayload): ItemFormPayload {
     return {
       hotel_settings: Number(payload.hotel_settings),
+      item_purpose: payload.item_purpose || 'RECEPTION',
       item_type: Number(payload.item_type),
       unit_measure: Number(payload.unit_measure),
       name: (payload.name || '').trim(),
@@ -107,6 +113,10 @@ export class ItemsService {
 
     if (typeof payload.hotel_settings === 'number') {
       normalized.hotel_settings = Number(payload.hotel_settings);
+    }
+
+    if (payload.item_purpose === 'ROOM' || payload.item_purpose === 'RECEPTION') {
+      normalized.item_purpose = payload.item_purpose;
     }
 
     if (typeof payload.item_type === 'number') {

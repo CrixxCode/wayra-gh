@@ -6,7 +6,7 @@ export type RoomStatus =
   | 'LIMPIEZA'
   | 'FUERA_DE_SERVICIO';
 
-export type RoomVisualStatus = RoomStatus | 'POR_SALIR_HOY';
+export type RoomVisualStatus = RoomStatus | 'POR_SALIR_HOY' | 'SIN_CONFIGURAR';
 
 export interface AmenityI {
   id: number;
@@ -32,12 +32,13 @@ export interface RoomTypeI {
 }
 
 export interface RoomTypeFormPayload {
+  code: string;
   name: string;
   description?: string | null;
   capacity: number;
   bed_count: number;
   bed_type?: string | null;
-  is_active?: boolean;
+  is_active: boolean;
   sort_order: number;
 }
 
@@ -77,6 +78,9 @@ export interface RoomI {
   number: string;
   room_type: number | null;
   room_type_capacity?: number | null;
+  rate?: number | null;
+  rate_name?: string | null;
+  rate_price?: string | number | null;
   floor: number;
   status: RoomStatus;
   notes?: string | null;
@@ -85,7 +89,6 @@ export interface RoomI {
 
   room_type_name?: string;
   floor_name?: string;
-  floor_number?: number;
   florr_number?: number;
   active_reservation?: RoomActiveReservationI | null;
 }
@@ -124,6 +127,7 @@ export interface RoomActiveReservationI {
   status_label?: string;
   expected_check_in?: string;
   expected_check_out?: string;
+  expected_check_out_time?: string | null;
   real_check_in?: string | null;
   real_check_out?: string | null;
   client_name?: string | null;
@@ -154,6 +158,7 @@ export interface RoomFormPayload {
   number: string;
   floor: number;
   room_type?: number | null;
+  rate?: number | null;
   status: RoomStatus;
   notes?: string;
   amenity_ids?: number[];

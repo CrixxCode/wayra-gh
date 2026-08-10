@@ -1,0 +1,190 @@
+<div class="gh-modal-overlay" (click)="close()">
+  <section class="gh-modal" (click)="$event.stopPropagation()">
+    <header class="gh-modal-head">
+      <div>
+        <h2>Tarifas</h2>
+        <p>Precio por noche de cada tipo de habitacion. Sin tarifa activa no se puede reservar.</p>
+      </div>
+      <button type="button" class="gh-modal-close" (click)="close()" title="Cerrar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <div class="gh-modal-body">
+      <p class="gh-inline-alert" *ngIf="feedback" [ngClass]="feedbackKind === 'error' ? 'is-error' : 'is-info'">
+        {{ feedback }}
+      </p>
+
+      <p class="gh-inline-alert is-info" *ngIf="!loading && !hasRoomTypes">
+        No hay tipos de habitacion activos. Crea uno desde el boton "Tipos" antes de definir tarifas.
+      </p>
+
+      <div class="manager-toolbar">
+        <label class="gh-search-wrap search-field">
+          <span class="gh-search-label">Buscar</span>
+          <div class="gh-search-control">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input
+              class="gh-search-input"
+              type="text"
+              [(ngModel)]="search"
+              (input)="applyFilters()"
+              [disabled]="showDeleted"
+              placeholder="Nombre de tarifa o tipo..." />
+          </div>
+        </label>
+
+        <label class="gh-field type-filter">
+          <span>Tipo de habitacion</span>
+          <select [(ngModel)]="roomTypeFilter" (change)="applyFilters()" [disabled]="showDeleted">
+            <option [ngValue]="'ALL'">Todos los tipos</option>
+            <option *ngFor="let roomType of roomTypes; trackBy: trackById" [ngValue]="roomType.id">
+              {{ roomType.name }}
+            </option>
+          </select>
+        </label>
+
+        <div class="toolbar-actions">
+          <span class="gh-chip is-success">{{ activeCount }} activas</span>
+          <button
+            type="button"
+            class="gh-icon-btn"
+            [class.is-on]="showDeleted"
+            (click)="toggleDeletedView()"
+            [title]="showDeleted ? 'Ver tarifas vigentes' : 'Ver eliminadas (' + deletedRates.length + ')'">
+            <i class="fa-solid fa-trash-can-arrow-up"></i>
+          </button>
+          <button
+            type="button"
+            class="gh-mbtn gh-mbtn-dark"
+            (click)="openCreate()"
+            *ngIf="!showDeleted"
+            [disabled]="!hasRoomTypes">
+            <i class="fa-solid fa-plus"></i>
+            Nueva tarifa
+          </button>
+        </div>
+      </div>
+
+      <div class="gh-panel form-panel" *ngIf="formMode !== 'closed'">
+        <p class="gh-panel-title">{{ formMode === 'edit' ? 'Editar tarifa' : 'Nueva tarifa' }}</p>
+
+        <div class="gh-form-grid is-three">
+          <label class="gh-field">
+            <span>Tipo de habitacion *</span>
+            <select [(ngModel)]="form.room_type">
+              <option [ngValue]="null">Selecciona un tipo</option>
+              <option *ngFor="let roomType of roomTypes; trackBy: trackById" [ngValue]="roomType.id">
+                {{ roomType.name }}
+              </option>
+            </select>
+          </label>
+
+          <label class="gh-field">
+            <span>Nombre *</span>
+            <input type="text" [(ngModel)]="form.name" maxlength="100" placeholder="Ej: Tarifa temporada baja" />
+          </label>
+
+          <label class="gh-field">
+            <span>Precio por noche *</span>
+            <input type="number" min="0" step="1000" [(ngModel)]="form.price" />
+          </label>
+
+          <label class="gh-field">
+            <span>Vigente desde</span>
+            <input type="date" [(ngModel)]="form.start_date" />
+          </label>
+
+          <label class="gh-field">
+            <span>Vigente hasta</span>
+            <input type="date" [(ngModel)]="form.end_date" />
+          </label>
+
+          <label class="gh-field">
+            <span>Estado</span>
+            <select [(ngModel)]="form.is_active">
+              <option [ngValue]="true">Activa</option>
+              <option [ngValue]="false">Inactiva</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="gh-mbtn gh-mbtn-light" (click)="closeForm()" [disabled]="saving">Cancelar</button>
+          <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="save()" [disabled]="saving">
+            {{ saving ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+      </div>
+
+      <p class="gh-empty" *ngIf="loading">Cargando tarifas...</p>
+
+      <p class="gh-empty" *ngIf="!loading && !visibleRates.length">
+        {{ showDeleted ? 'No hay tarifas eliminadas.' : 'No hay tarifas para el filtro seleccionado.' }}
+      </p>
+
+      <div class="gh-modal-table-wrap" *ngIf="!loading && visibleRates.length">
+        <table class="gh-modal-table">
+          <thead>
+            <tr>
+              <th>Tarifa</th>
+              <th>Tipo</th>
+              <th>Precio</th>
+              <th>Vigencia</th>
+              <th>Estado</th>
+              <th class="col-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let rate of visibleRates; trackBy: trackById">
+              <td class="cell-main">{{ rate.name }}</td>
+              <td>{{ rate.room_type_name || getRoomTypeName(rate.room_type) }}</td>
+              <td class="cell-price">{{ getPriceLabel(rate) }}</td>
+              <td>
+                <span class="gh-chip" [ngClass]="getValidityChipClass(rate)">{{ getValidityLabel(rate) }}</span>
+                <small class="cell-sub">{{ getRangeLabel(rate) }}</small>
+              </td>
+              <td>
+                <span class="gh-chip" [ngClass]="rate.is_active !== false ? 'is-success' : ''">
+                  {{ rate.is_active !== false ? 'Activa' : 'Inactiva' }}
+                </span>
+              </td>
+              <td class="col-actions">
+                <div class="gh-row-actions">
+                  <ng-container *ngIf="!showDeleted">
+                    <button
+                      type="button"
+                      class="gh-icon-btn"
+                      [title]="rate.is_active !== false ? 'Desactivar' : 'Activar'"
+                      (click)="toggleActive(rate)">
+                      <i class="fa-solid" [ngClass]="rate.is_active !== false ? 'fa-toggle-on' : 'fa-toggle-off'"></i>
+                    </button>
+                    <button type="button" class="gh-icon-btn" title="Editar" (click)="openEdit(rate)">
+                      <i class="fa-regular fa-pen-to-square"></i>
+                    </button>
+                    <button type="button" class="gh-icon-btn is-danger" title="Eliminar" (click)="askDelete(rate)">
+                      <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                  </ng-container>
+                  <button
+                    type="button"
+                    class="gh-icon-btn"
+                    title="Restaurar"
+                    *ngIf="showDeleted"
+                    (click)="askRestore(rate)">
+                    <i class="fa-solid fa-rotate-left"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer class="gh-modal-foot">
+      <span class="gh-foot-note" *ngIf="showDeleted">Mostrando tarifas eliminadas.</span>
+      <button type="button" class="gh-mbtn gh-mbtn-light" (click)="close()">Cerrar</button>
+    </footer>
+  </section>
+</div>

@@ -1,0 +1,924 @@
+<div class="gh-modal-overlay" (click)="close()">
+  <section class="gh-modal" (click)="$event.stopPropagation()">
+    <header class="gh-modal-head" [ngClass]="statusHeaderClass">
+      <div class="head-main">
+        <span class="room-head-icon">
+          <i class="fa-solid fa-bed"></i>
+        </span>
+        <div>
+          <h2>Habitacion {{ roomNumber }}</h2>
+          <p>{{ floorLabel }} &middot; {{ selectedRoomType?.name || 'Sin tipo asignado' }}</p>
+        </div>
+        <span class="gh-chip" [ngClass]="statusChipClass">{{ statusLabel }}</span>
+      </div>
+      <button type="button" class="gh-modal-close" (click)="close()" title="Cerrar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <nav class="gh-tabs">
+      <button type="button" class="gh-tab" [class.is-active]="activeTab === 'general'" (click)="selectTab('general')">
+        <i class="fa-solid fa-sliders"></i>
+        General
+      </button>
+      <button type="button" class="gh-tab" [class.is-active]="activeTab === 'amenities'" (click)="selectTab('amenities')">
+        <i class="fa-solid fa-star"></i>
+        Amenidades
+        <span class="gh-tab-count">{{ selectedAmenityIds.length }}</span>
+      </button>
+      <button type="button" class="gh-tab" [class.is-active]="activeTab === 'rate'" (click)="selectTab('rate')">
+        <i class="fa-solid fa-tags"></i>
+        Tipo y tarifa
+      </button>
+      <button type="button" class="gh-tab" [class.is-active]="activeTab === 'reservation'" (click)="selectTab('reservation')">
+        <i class="fa-regular fa-calendar-check"></i>
+        Reserva
+        <span class="gh-tab-count" *ngIf="activeReservation">1</span>
+      </button>
+      <button type="button" class="gh-tab" [class.is-active]="activeTab === 'operations'" (click)="selectTab('operations')">
+        <i class="fa-solid fa-screwdriver-wrench"></i>
+        Limpieza y mantenimiento
+        <span class="gh-tab-count" *ngIf="openCleaningCount + openMaintenanceCount > 0">
+          {{ openCleaningCount + openMaintenanceCount }}
+        </span>
+      </button>
+      <button type="button" class="gh-tab" [class.is-active]="activeTab === 'inventory'" (click)="selectTab('inventory')">
+        <i class="fa-solid fa-boxes-stacked"></i>
+        Inventario
+        <span class="gh-tab-count" *ngIf="activeInventoryCount > 0">{{ activeInventoryCount }}</span>
+      </button>
+    </nav>
+
+    <div class="gh-modal-body">
+      <p class="gh-inline-alert" *ngIf="feedback" [ngClass]="feedbackKind === 'error' ? 'is-error' : 'is-info'">
+        {{ feedback }}
+      </p>
+
+      <!-- ================= GENERAL ================= -->
+      <ng-container *ngIf="activeTab === 'general'">
+        <div class="gh-form-grid">
+          <label class="gh-field">
+            <span>Numero *</span>
+            <input type="text" [(ngModel)]="form.number" maxlength="20" placeholder="Ej: 101" />
+          </label>
+
+          <label class="gh-field">
+            <span>Piso *</span>
+            <select [(ngModel)]="form.floor">
+              <option [ngValue]="null">Selecciona piso</option>
+              <option *ngFor="let floor of floors; trackBy: trackById" [ngValue]="floor.id">
+                {{ floor.name }} (Piso {{ floor.floor_number }})
+              </option>
+            </select>
+          </label>
+
+          <label class="gh-field">
+            <span>Tipo de habitacion</span>
+            <select [(ngModel)]="form.room_type" (ngModelChange)="onRoomTypeChange()">
+              <option [ngValue]="null">Sin tipo</option>
+              <option *ngFor="let roomType of roomTypes; trackBy: trackById" [ngValue]="roomType.id">
+                {{ roomType.name }}
+              </option>
+            </select>
+          </label>
+
+          <label class="gh-field">
+            <span>Estado</span>
+            <select [(ngModel)]="form.status">
+              <option *ngFor="let option of statusOptions" [ngValue]="option.value">{{ option.label }}</option>
+            </select>
+          </label>
+
+          <label class="gh-field gh-span-all">
+            <span>Notas internas</span>
+            <textarea [(ngModel)]="form.notes" rows="3" maxlength="800" placeholder="Observaciones operativas..."></textarea>
+          </label>
+        </div>
+
+        <p class="hint" *ngIf="!form.room_type">
+          <i class="fa-solid fa-circle-info"></i>
+          Sin tipo de habitacion no se puede reservar ni tarifar. Asignalo en la pestana "Tipo y tarifa".
+        </p>
+
+        <div class="tab-actions">
+          <button type="button" class="gh-mbtn gh-mbtn-light" (click)="resetFormFromRoom()" [disabled]="saving || !isDirtyGeneral">
+            Descartar cambios
+          </button>
+          <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="saveGeneral()" [disabled]="saving || !isDirtyGeneral">
+            {{ saving ? 'Guardando...' : 'Guardar cambios' }}
+          </button>
+        </div>
+      </ng-container>
+
+      <!-- ================= AMENIDADES ================= -->
+      <ng-container *ngIf="activeTab === 'amenities'">
+        <p class="gh-empty" *ngIf="!amenities.length">
+          Aun no hay amenidades en el catalogo global. Crealas desde SaaS Admin.
+        </p>
+
+        <div class="amenity-grid" *ngIf="amenities.length">
+          <label
+            class="amenity-option"
+            *ngFor="let amenity of amenities; trackBy: trackById"
+            [class.is-selected]="isAmenitySelected(amenity.id)">
+            <input
+              type="checkbox"
+              [checked]="isAmenitySelected(amenity.id)"
+              (change)="toggleAmenity(amenity.id, $any($event.target).checked)" />
+            <span class="amenity-icon">
+              <i [class]="amenity.icon || 'fa-solid fa-circle-check'"></i>
+            </span>
+            <span class="amenity-copy">
+              <strong>{{ amenity.name }}</strong>
+              <small>{{ amenity.description || 'Disponible para esta habitacion' }}</small>
+            </span>
+            <span class="amenity-check" aria-hidden="true">
+              <i class="fa-solid fa-check"></i>
+            </span>
+          </label>
+        </div>
+
+        <div class="tab-actions" *ngIf="amenities.length">
+          <button type="button" class="gh-mbtn gh-mbtn-light" (click)="resetFormFromRoom()" [disabled]="saving || !isDirtyAmenities">
+            Descartar cambios
+          </button>
+          <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="saveAmenities()" [disabled]="saving || !isDirtyAmenities">
+            {{ saving ? 'Guardando...' : 'Guardar amenidades' }}
+          </button>
+        </div>
+      </ng-container>
+
+      <!-- ================= TIPO Y TARIFA ================= -->
+      <ng-container *ngIf="activeTab === 'rate'">
+        <div class="gh-panel type-rate-panel">
+          <div class="panel-title-row">
+            <p class="gh-panel-title">Tipo de habitacion</p>
+            <button type="button" class="gh-mbtn gh-mbtn-light" (click)="requestRoomTypesManager()">
+              <i class="fa-solid fa-layer-group"></i>
+              Gestionar tipos
+            </button>
+          </div>
+
+          <div class="room-type-picker" *ngIf="roomTypes.length">
+            <label
+              class="room-type-option"
+              *ngFor="let roomType of roomTypes; trackBy: trackById"
+              [class.is-selected]="form.room_type === roomType.id">
+              <input
+                type="radio"
+                name="room-type"
+                [checked]="form.room_type === roomType.id"
+                (change)="selectRoomType(roomType.id)" />
+              <span class="type-option-icon" aria-hidden="true">
+                <i class="fa-solid fa-bed"></i>
+              </span>
+              <span class="type-option-copy">
+                <strong>{{ roomType.name }}</strong>
+                <small>{{ roomType.code || 'Sin codigo' }}</small>
+              </span>
+              <span class="type-option-meta">
+                <span>
+                  <i class="fa-solid fa-user-group"></i>
+                  {{ roomType.capacity ?? 1 }}
+                </span>
+                <span>
+                  <i class="fa-solid fa-bed"></i>
+                  {{ roomType.bed_count ?? 1 }} {{ roomType.bed_type || 'cama' }}
+                </span>
+              </span>
+              <span class="type-option-check" aria-hidden="true">
+                <i class="fa-solid fa-check"></i>
+              </span>
+            </label>
+          </div>
+
+          <p class="gh-empty" *ngIf="!roomTypes.length">
+            Aun no hay tipos de habitacion creados para este hotel.
+          </p>
+        </div>
+
+        <div class="gh-panel">
+          <div class="panel-title-row">
+            <p class="gh-panel-title">Tarifas disponibles</p>
+            <span class="gh-chip" *ngIf="availableRates.length">{{ availableRates.length }} activa(s)</span>
+          </div>
+
+          <div class="rate-options" *ngIf="availableRates.length">
+            <label
+              class="rate-option"
+              *ngFor="let rate of availableRates; trackBy: trackById"
+              [class.is-selected]="form.rate === rate.id">
+              <input
+                type="radio"
+                name="room-rate"
+                [checked]="form.rate === rate.id"
+                (change)="selectRate(rate.id)" />
+              <span class="rate-radio" aria-hidden="true">
+                <i class="fa-solid fa-check"></i>
+              </span>
+              <span class="rate-option-main">
+                <strong>{{ rate.name }}</strong>
+                <small>{{ rate.start_date || rate.end_date ? (formatDate(rate.start_date) + ' - ' + formatDate(rate.end_date)) : 'Tarifa permanente' }}</small>
+              </span>
+              <span class="rate-option-price">
+                {{ formatCurrency(rate.price) }}
+                <small>/ noche</small>
+              </span>
+            </label>
+          </div>
+
+          <p class="gh-empty" *ngIf="!availableRates.length">
+            {{ selectedRoomType
+              ? 'Este tipo de habitacion no tiene tarifa activa. Sin tarifa no se puede reservar.'
+              : 'Asigna primero un tipo de habitacion para poder tarifarla.' }}
+          </p>
+
+          <div class="tab-actions">
+            <button type="button" class="gh-mbtn gh-mbtn-light" (click)="clearRate()" [disabled]="saving || !form.rate">
+              Quitar tarifa
+            </button>
+            <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="requestRatesManager()">
+              <i class="fa-solid fa-tags"></i>
+              Gestionar tarifas
+            </button>
+            <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="saveRate()" [disabled]="saving || !isDirtyGeneral">
+              {{ saving ? 'Guardando...' : 'Guardar seleccion' }}
+            </button>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ================= RESERVA ================= -->
+      <ng-container *ngIf="activeTab === 'reservation'">
+        <p class="gh-empty" *ngIf="loadingPanel">Cargando reserva...</p>
+
+        <ng-container *ngIf="!loadingPanel">
+          <div class="gh-panel reservation-panel" *ngIf="activeReservation">
+            <div class="reservation-card-head">
+              <div class="reservation-identity">
+                <span class="reservation-avatar">
+                  <i class="fa-solid fa-user-check"></i>
+                </span>
+                <div>
+                  <span class="reservation-kicker">Reserva activa</span>
+                  <h3>
+                    {{ reservationDetail?.client_full_name || activeReservation.client?.full_name || activeReservation.client_name || 'Sin nombre' }}
+                  </h3>
+                </div>
+              </div>
+
+              <span class="reservation-state">
+                {{ activeReservation.status_label || activeReservation.status || '--' }}
+              </span>
+            </div>
+
+            <div class="reservation-contact" *ngIf="reservationDetail?.client_phone || reservationDetail?.client_email">
+              <span *ngIf="reservationDetail?.client_phone">
+                <i class="fa-solid fa-phone"></i>
+                {{ reservationDetail?.client_phone }}
+              </span>
+              <span *ngIf="reservationDetail?.client_email">
+                <i class="fa-regular fa-envelope"></i>
+                {{ reservationDetail?.client_email }}
+              </span>
+            </div>
+
+            <div class="checkout-timer" [ngClass]="checkoutCountdownClass">
+              <span class="checkout-timer-icon">
+                <i class="fa-regular fa-clock"></i>
+              </span>
+              <div>
+                <small>Tiempo disponible para salida</small>
+                <strong>{{ checkoutCountdownLabel }}</strong>
+                <span>Hasta {{ checkoutTargetLabel }}</span>
+              </div>
+            </div>
+
+            <div class="reservation-stay">
+              <div class="stay-point">
+                <span class="stay-icon is-start"><i class="fa-solid fa-right-to-bracket"></i></span>
+                <small>Entrada prevista</small>
+                <strong>{{ formatDate(activeReservation.expected_check_in) }}</strong>
+              </div>
+              <div class="stay-line" aria-hidden="true"></div>
+              <div class="stay-point">
+                <span class="stay-icon is-end"><i class="fa-solid fa-right-from-bracket"></i></span>
+                <small>Salida prevista</small>
+                <strong>{{ formatDate(activeReservation.expected_check_out) }}</strong>
+              </div>
+            </div>
+
+            <div class="reservation-actions">
+              <button
+                type="button"
+                class="gh-mbtn gh-mbtn-light"
+                (click)="confirmReservation()"
+                [disabled]="actionLoading || !canConfirmReservation">
+                <i class="fa-solid fa-check"></i>
+                Confirmar
+              </button>
+              <button
+                type="button"
+                class="gh-mbtn gh-mbtn-success"
+                (click)="checkIn()"
+                [disabled]="actionLoading || !canCheckIn">
+                <i class="fa-solid fa-right-to-bracket"></i>
+                Check-In
+              </button>
+              <button
+                type="button"
+                class="gh-mbtn gh-mbtn-danger"
+                (click)="checkOut()"
+                [disabled]="actionLoading || !canCheckOut">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                Check-Out
+              </button>
+              <button type="button" class="gh-mbtn gh-mbtn-light" (click)="openReservationsModule('detail')">
+                Ver reserva completa
+              </button>
+            </div>
+
+            <section class="reservation-consumption">
+              <header class="consumption-head">
+                <div>
+                  <span class="reservation-kicker">Consumos y cargos</span>
+                  <h4>{{ formatCurrency(reservationChargesTotal) }}</h4>
+                  <p>
+                    {{ activeReservationCharges.length }} movimiento(s) asociados a esta reserva.
+                    Saldo pendiente: {{ formatCurrency(reservationPendingTotal) }}.
+                  </p>
+                </div>
+                <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="openConsumptionCreator('item')">
+                  <i class="fa-solid fa-plus"></i>
+                  Agregar consumo
+                </button>
+              </header>
+
+              <p class="gh-empty" *ngIf="loadingReservationBilling">Cargando consumos...</p>
+
+              <div class="consumption-list" *ngIf="!loadingReservationBilling && activeReservationCharges.length">
+                <article class="consumption-row" *ngFor="let charge of activeReservationCharges; trackBy: trackById">
+                  <span class="consumption-icon">
+                    <i class="fa-solid fa-receipt"></i>
+                  </span>
+                  <div>
+                    <strong>{{ charge.description }}</strong>
+                    <small>
+                      {{ charge.charge_type_name || charge.charge_type_code || 'Cargo' }}
+                      &middot; {{ charge.quantity }} x {{ formatCurrency(charge.unit_price) }}
+                      &middot; {{ getChargeDateLabel(charge) }}
+                    </small>
+                  </div>
+                  <strong class="consumption-total">{{ formatCurrency(charge.total_amount) }}</strong>
+                </article>
+              </div>
+
+              <p class="gh-empty" *ngIf="!loadingReservationBilling && !activeReservationCharges.length">
+                Aun no hay consumos adicionales para esta reserva.
+              </p>
+            </section>
+          </div>
+
+          <div class="gh-panel" *ngIf="!activeReservation">
+            <p class="gh-panel-title">Sin reserva activa</p>
+            <p class="panel-text">Esta habitacion no tiene ninguna reserva en curso.</p>
+
+            <div class="tab-actions">
+              <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="openReservationCreator('reserve')">
+                <i class="fa-solid fa-plus"></i>
+                Crear reserva
+              </button>
+              <button type="button" class="gh-mbtn gh-mbtn-light" (click)="openReservationCreator('checkin')">
+                <i class="fa-solid fa-right-to-bracket"></i>
+                Check-In directo
+              </button>
+            </div>
+          </div>
+
+          <div class="gh-panel" *ngIf="canMarkAvailable">
+            <p class="gh-panel-title">Estado operativo</p>
+            <p class="panel-text">
+              La habitacion esta en <strong>{{ statusLabel }}</strong>. Puedes devolverla a disponible.
+            </p>
+            <div class="tab-actions">
+              <button type="button" class="gh-mbtn gh-mbtn-success" (click)="markAvailable()" [disabled]="saving">
+                Marcar como disponible
+              </button>
+            </div>
+          </div>
+        </ng-container>
+      </ng-container>
+
+      <!-- ================= LIMPIEZA Y MANTENIMIENTO ================= -->
+      <ng-container *ngIf="activeTab === 'operations'">
+        <p class="gh-empty" *ngIf="loadingOperations || loadingOperationCatalogs">Cargando operaciones...</p>
+
+        <ng-container *ngIf="!loadingOperations && !loadingOperationCatalogs">
+          <div class="operations-workspace">
+            <section class="operation-history">
+              <div class="operation-history-column">
+                <div class="operation-history-head">
+                  <div class="operation-section-title">
+                    <span class="operation-section-icon"><i class="fa-solid fa-broom"></i></span>
+                    <div>
+                      <p class="gh-panel-title">Limpiezas</p>
+                      <small>{{ openCleaningCount }} pendiente(s) - {{ cleaningTasks.length }} registro(s)</small>
+                    </div>
+                  </div>
+                  <div class="operation-head-actions">
+                    <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="openCleaningCreator()">
+                      <i class="fa-solid fa-plus"></i>
+                      Nueva limpieza
+                    </button>
+                    <button type="button" class="gh-mbtn gh-mbtn-light" (click)="goToOperationsModule('cleaning')">
+                      Ver modulo
+                    </button>
+                  </div>
+                </div>
+
+                <div class="operation-list" *ngIf="cleaningTasks.length; else noCleaningTasks">
+                  <article
+                    class="operation-row"
+                    *ngFor="let task of cleaningTasks; trackBy: trackById"
+                    [class.is-open]="isOpenStatus(task.status)">
+                    <span class="operation-row-marker"></span>
+                    <div class="operation-row-body">
+                      <div class="operation-row-top">
+                        <strong>{{ task.task_type_label || task.task_type || '--' }}</strong>
+                        <span class="gh-chip" [ngClass]="statusChipFor(task.status)">
+                          {{ task.status_label || task.status || '--' }}
+                        </span>
+                      </div>
+                      <small>Programada: {{ formatDate(task.scheduled_for) }}</small>
+                      <p *ngIf="task.notes">{{ task.notes }}</p>
+                    </div>
+                    <button
+                      type="button"
+                      class="gh-icon-btn"
+                      title="Marcar como completada"
+                      [disabled]="actionLoading || !isOpenStatus(task.status)"
+                      (click)="completeCleaningTask(task)">
+                      <i class="fa-solid fa-check"></i>
+                    </button>
+                  </article>
+                </div>
+
+                <ng-template #noCleaningTasks>
+                  <p class="gh-empty operation-empty">Sin tareas de limpieza para esta habitacion.</p>
+                </ng-template>
+              </div>
+
+              <div class="operation-history-column">
+                <div class="operation-history-head">
+                  <div class="operation-section-title">
+                    <span class="operation-section-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+                    <div>
+                      <p class="gh-panel-title">Mantenimientos</p>
+                      <small>{{ openMaintenanceCount }} abierta(s) - {{ maintenanceOrders.length }} registro(s)</small>
+                    </div>
+                  </div>
+                  <div class="operation-head-actions">
+                    <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="openMaintenanceCreator()">
+                      <i class="fa-solid fa-plus"></i>
+                      Nuevo mantenimiento
+                    </button>
+                    <button type="button" class="gh-mbtn gh-mbtn-light" (click)="goToOperationsModule('maintenance')">
+                      Ver modulo
+                    </button>
+                  </div>
+                </div>
+
+                <div class="operation-list" *ngIf="maintenanceOrders.length; else noMaintenanceOrders">
+                  <article
+                    class="operation-row"
+                    *ngFor="let order of maintenanceOrders; trackBy: trackById"
+                    [class.is-open]="isOpenStatus(order.status)">
+                    <span class="operation-row-marker"></span>
+                    <div class="operation-row-body">
+                      <div class="operation-row-top">
+                        <strong>{{ order.title }}</strong>
+                        <span class="gh-chip" [ngClass]="statusChipFor(order.status)">
+                          {{ order.status_label || order.status || '--' }}
+                        </span>
+                      </div>
+                      <small>
+                        {{ order.priority_label || order.priority || 'Sin prioridad' }} -
+                        {{ formatDateTime(order.estimated_completed_at) }}
+                      </small>
+                      <p *ngIf="order.description">{{ order.description }}</p>
+                    </div>
+                    <button
+                      type="button"
+                      class="gh-icon-btn"
+                      title="Marcar como completada"
+                      [disabled]="actionLoading || !isOpenStatus(order.status)"
+                      (click)="completeMaintenanceOrder(order)">
+                      <i class="fa-solid fa-check"></i>
+                    </button>
+                  </article>
+                </div>
+
+                <ng-template #noMaintenanceOrders>
+                  <p class="gh-empty operation-empty">Sin ordenes de mantenimiento para esta habitacion.</p>
+                </ng-template>
+              </div>
+            </section>
+          </div>
+
+          <div class="operation-dialog-backdrop" *ngIf="showCleaningCreator" (click)="closeCleaningCreator()">
+            <section class="operation-dialog" (click)="$event.stopPropagation()">
+              <div class="operation-dialog-head">
+                <div>
+                  <p class="gh-panel-title">Nueva limpieza</p>
+                  <small>Habitacion {{ roomNumber }}</small>
+                </div>
+                <button type="button" class="gh-icon-btn" (click)="closeCleaningCreator()" [disabled]="actionLoading">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+
+              <div class="operation-dialog-grid">
+                <label class="gh-field">
+                  <span>Tipo</span>
+                  <select [(ngModel)]="cleaningForm.task_type">
+                    <option *ngIf="!cleaningTaskTypes.length" [ngValue]="cleaningForm.task_type">
+                      Limpieza general
+                    </option>
+                    <option *ngFor="let type of cleaningTaskTypes; trackBy: trackById" [ngValue]="catalogValue(type)">
+                      {{ type.name }}
+                    </option>
+                  </select>
+                </label>
+
+                <label class="gh-field">
+                  <span>Programada</span>
+                  <input type="date" [(ngModel)]="cleaningForm.scheduled_for" />
+                </label>
+
+                <label class="gh-field operation-dialog-full">
+                  <span>Notas</span>
+                  <textarea rows="3" [(ngModel)]="cleaningForm.notes" placeholder="Detalle opcional para el equipo..."></textarea>
+                </label>
+              </div>
+
+              <div class="operation-dialog-actions">
+                <button type="button" class="gh-mbtn gh-mbtn-light" (click)="closeCleaningCreator()" [disabled]="actionLoading">
+                  Cancelar
+                </button>
+                <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="createCleaningTask()" [disabled]="actionLoading">
+                  Crear limpieza
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <div class="operation-dialog-backdrop" *ngIf="showMaintenanceCreator" (click)="closeMaintenanceCreator()">
+            <section class="operation-dialog" (click)="$event.stopPropagation()">
+              <div class="operation-dialog-head">
+                <div>
+                  <p class="gh-panel-title">Nuevo mantenimiento</p>
+                  <small>Habitacion {{ roomNumber }}</small>
+                </div>
+                <button type="button" class="gh-icon-btn" (click)="closeMaintenanceCreator()" [disabled]="actionLoading">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+
+              <div class="operation-dialog-grid">
+                <label class="gh-field operation-dialog-full">
+                  <span>Titulo</span>
+                  <input type="text" [(ngModel)]="maintenanceForm.title" placeholder="Ej: Revisar aire acondicionado" />
+                </label>
+
+                <label class="gh-field">
+                  <span>Prioridad</span>
+                  <select [(ngModel)]="maintenanceForm.priority">
+                    <option *ngIf="!maintenancePriorities.length" [ngValue]="maintenanceForm.priority">
+                      Media
+                    </option>
+                    <option *ngFor="let priority of maintenancePriorities; trackBy: trackById" [ngValue]="catalogValue(priority)">
+                      {{ priority.name }}
+                    </option>
+                  </select>
+                </label>
+
+                <label class="gh-field">
+                  <span>Fecha estimada</span>
+                  <input type="datetime-local" [(ngModel)]="maintenanceForm.estimated_completed_at" />
+                </label>
+
+                <label class="gh-field operation-dialog-full">
+                  <span>Descripcion</span>
+                  <textarea rows="3" [(ngModel)]="maintenanceForm.description" placeholder="Detalle del problema o solicitud..."></textarea>
+                </label>
+              </div>
+
+              <div class="operation-dialog-actions">
+                <button type="button" class="gh-mbtn gh-mbtn-light" (click)="closeMaintenanceCreator()" [disabled]="actionLoading">
+                  Cancelar
+                </button>
+                <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="createMaintenanceOrder()" [disabled]="actionLoading">
+                  Crear mantenimiento
+                </button>
+              </div>
+            </section>
+          </div>
+        </ng-container>
+      </ng-container>
+
+      <!-- ================= INVENTARIO ================= -->
+      <ng-container *ngIf="activeTab === 'inventory'">
+        <p class="gh-empty" *ngIf="loadingOperations">Cargando inventario...</p>
+
+        <ng-container *ngIf="!loadingOperations">
+          <div class="gh-panel inventory-panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="gh-panel-title">Inventario de habitacion</p>
+                <p class="panel-text">
+                  Marca los items que tendra esta habitacion y define la cantidad esperada.
+                </p>
+              </div>
+              <span class="gh-chip" [ngClass]="lowStockCount > 0 ? 'is-danger' : 'is-success'">
+                {{ activeInventoryCount }} asignado(s)
+              </span>
+            </div>
+
+            <p class="gh-empty" *ngIf="!roomInventoryItems.length">
+              No hay items marcados como inventario de habitacion. Crealos o editalos desde Items de inventario.
+            </p>
+
+            <div class="inventory-search" *ngIf="roomInventoryItems.length">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input
+                type="text"
+                [(ngModel)]="inventorySearch"
+                placeholder="Buscar item por nombre, SKU, tipo o unidad..." />
+              <button
+                type="button"
+                class="gh-icon-btn"
+                *ngIf="inventorySearch"
+                title="Limpiar busqueda"
+                (click)="clearInventorySearch()">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <p class="gh-empty" *ngIf="roomInventoryItems.length && !filteredRoomInventoryItems.length">
+              No hay items que coincidan con "{{ inventorySearch }}".
+            </p>
+
+            <div class="room-inventory-picker" *ngIf="filteredRoomInventoryItems.length">
+              <ng-container *ngFor="let item of filteredRoomInventoryItems; let itemIndex = index; trackBy: trackById">
+                <header class="inventory-category-head" *ngIf="shouldShowInventoryCategoryHead(item, itemIndex)">
+                  <div>
+                    <strong>{{ getItemCategoryLabel(item) }}</strong>
+                    <small>{{ getCategoryInventoryCount(item) }} item(s)</small>
+                  </div>
+                </header>
+
+                <article
+                  class="room-inventory-option"
+                  [class.is-selected]="isInventoryItemSelected(item.id)">
+                <label class="inventory-toggle">
+                  <input
+                    type="checkbox"
+                    [checked]="isInventoryItemSelected(item.id)"
+                    [disabled]="actionLoading"
+                    (change)="toggleRoomInventoryItem(item, $any($event.target).checked)" />
+                  <span aria-hidden="true">
+                    <i class="fa-solid fa-check"></i>
+                  </span>
+                </label>
+
+                <div class="inventory-item-copy">
+                  <strong>{{ item.name }}</strong>
+                  <small>
+                    {{ item.sku || 'Sin SKU' }} · Disponible: {{ getItemStockLabel(item) }}
+                  </small>
+                </div>
+
+                <span class="gh-chip" [ngClass]="getRoomInventoryItemStateClass(item)">
+                  {{ getRoomInventoryItemState(item) }}
+                </span>
+
+                <label class="inventory-number-field">
+                  <span>Cantidad</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    [value]="getInventoryQuantityForItem(item.id)"
+                    [disabled]="actionLoading || !isInventoryItemSelected(item.id)"
+                    (change)="updateRoomInventoryAmount(item, 'quantity', $any($event.target).value)" />
+                </label>
+
+                <label class="inventory-number-field" title="Cantidad minima esperada antes de marcar bajo minimo">
+                  <span>Min. reposicion</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    [value]="getInventoryMinimumForItem(item.id)"
+                    [disabled]="actionLoading || !isInventoryItemSelected(item.id)"
+                    (change)="updateRoomInventoryAmount(item, 'minimum_quantity', $any($event.target).value)" />
+                </label>
+                </article>
+              </ng-container>
+            </div>
+          </div>
+
+          <div class="tab-actions">
+            <button type="button" class="gh-mbtn gh-mbtn-light" (click)="goToInventoryModule()">
+              Ir al modulo de inventario
+            </button>
+          </div>
+        </ng-container>
+      </ng-container>
+    </div>
+
+    <footer class="gh-modal-foot">
+      <span class="gh-foot-note" *ngIf="isDirtyGeneral || isDirtyAmenities">Tienes cambios sin guardar.</span>
+      <button type="button" class="gh-mbtn gh-mbtn-light" (click)="close()" [disabled]="saving || actionLoading">
+        Cerrar
+      </button>
+    </footer>
+
+    <app-create-reservation
+      *ngIf="showReservationCreator"
+      [clients]="clients"
+      [origins]="origins"
+      [documentTypes]="documentTypes"
+      [reservationPolicies]="reservationPolicies"
+      [paymentMethods]="paymentMethods"
+      [depositStatuses]="depositStatuses"
+      [rooms]="[room]"
+      [rates]="rates"
+      [packages]="packages"
+      [initialRoomId]="room.id"
+      [initialCheckInMode]="reservationCreatorCheckInMode"
+      (closed)="closeReservationCreator()"
+      (created)="onReservationCreatedFromRoom()">
+    </app-create-reservation>
+
+    <div class="gh-modal-overlay nested-modal" *ngIf="showConsumptionCreator" (click)="closeConsumptionCreator()">
+      <section class="gh-modal is-narrow consumption-modal" (click)="$event.stopPropagation()">
+        <header class="gh-modal-head room-head-neutral">
+          <div>
+            <h2>Agregar consumo</h2>
+            <p>Registra productos de recepcion o cargos manuales en la reserva activa.</p>
+          </div>
+          <button type="button" class="gh-modal-close" (click)="closeConsumptionCreator()" title="Cerrar">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </header>
+
+        <div class="gh-modal-body">
+          <div class="consumption-mode">
+            <button
+              type="button"
+              [class.is-active]="consumptionMode === 'item'"
+              (click)="setConsumptionMode('item')">
+              <i class="fa-solid fa-basket-shopping"></i>
+              Producto recepcion
+            </button>
+            <button
+              type="button"
+              [class.is-active]="consumptionMode === 'manual'"
+              (click)="setConsumptionMode('manual')">
+              <i class="fa-solid fa-file-invoice-dollar"></i>
+              Cargo manual
+            </button>
+          </div>
+
+          <ng-container *ngIf="consumptionMode === 'item'">
+            <label class="gh-field">
+              <span>Buscar producto</span>
+              <input
+                type="text"
+                [(ngModel)]="consumptionSearch"
+                placeholder="Nombre, SKU o categoria..." />
+            </label>
+
+            <p class="gh-empty" *ngIf="loadingReceptionItems">Cargando inventario de recepcion...</p>
+
+            <div class="reception-item-list" *ngIf="!loadingReceptionItems && filteredReceptionItems.length">
+              <button
+                type="button"
+                class="reception-item-option"
+                *ngFor="let item of filteredReceptionItems; trackBy: trackById"
+                [class.is-selected]="getReceptionCartQuantity(item.id) > 0"
+                (click)="selectReceptionItem(item)">
+                <span>
+                  <strong>{{ item.name }}</strong>
+                  <small>
+                    {{ item.sku || 'Sin SKU' }} &middot;
+                    {{ getReceptionItemAvailable(item) }} de {{ getReceptionItemStockLabel(item) }} disponible(s)
+                  </small>
+                </span>
+                <strong>
+                  {{ formatCurrency(item.sale_price) }}
+                  <small *ngIf="getReceptionCartQuantity(item.id) > 0">x{{ getReceptionCartQuantity(item.id) }}</small>
+                </strong>
+              </button>
+            </div>
+
+            <p class="gh-empty" *ngIf="!loadingReceptionItems && !filteredReceptionItems.length">
+              No hay items de recepcion disponibles para vender.
+            </p>
+
+            <section class="reception-ticket" *ngIf="receptionCart.length">
+              <header>
+                <span>Ticket de productos</span>
+                <strong>{{ receptionCart.length }} item(s)</strong>
+              </header>
+
+              <article class="reception-ticket-line" *ngFor="let line of receptionCart; trackBy: trackByReceptionLine">
+                <div>
+                  <strong>{{ line.item.name }}</strong>
+                  <small>{{ formatCurrency(line.item.sale_price) }} c/u</small>
+                </div>
+                <div class="ticket-qty">
+                  <button type="button" (click)="decreaseReceptionItem(line)" [disabled]="actionLoading">-</button>
+                  <input
+                    type="number"
+                    min="1"
+                    [max]="line.item.stock"
+                    [ngModel]="line.quantity"
+                    (ngModelChange)="updateReceptionItemQuantity(line, $event)"
+                    [disabled]="actionLoading" />
+                  <button type="button" (click)="increaseReceptionItem(line)" [disabled]="actionLoading || getReceptionItemAvailable(line.item) <= 0">+</button>
+                </div>
+                <strong>{{ formatCurrency(getReceptionLineTotal(line)) }}</strong>
+                <button type="button" class="ticket-remove" (click)="removeReceptionItem(line)" [disabled]="actionLoading" title="Quitar">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </article>
+            </section>
+          </ng-container>
+
+          <div class="gh-form-grid" *ngIf="consumptionMode === 'manual'">
+            <label class="gh-field gh-span-all">
+              <span>Descripcion *</span>
+              <input
+                type="text"
+                [(ngModel)]="consumptionForm.description"
+                placeholder="Ej: Limpieza extra, late checkout..." />
+            </label>
+
+            <label class="gh-field">
+              <span>Cantidad</span>
+              <input type="number" min="1" step="1" [(ngModel)]="consumptionForm.quantity" />
+            </label>
+
+            <label class="gh-field">
+              <span>Valor unitario</span>
+              <input type="number" min="0" step="100" [(ngModel)]="consumptionForm.unit_price" />
+            </label>
+          </div>
+
+          <section class="payment-box">
+            <label class="payment-toggle">
+              <input type="checkbox" [(ngModel)]="consumptionForm.paid_now" />
+              <span>
+                <strong>Cobrar ahora</strong>
+                <small>Si no lo marcas, queda pendiente para el checkout.</small>
+              </span>
+            </label>
+
+            <div class="gh-form-grid" *ngIf="consumptionForm.paid_now">
+              <label class="gh-field">
+                <span>Metodo de pago *</span>
+                <select [(ngModel)]="consumptionForm.payment_method">
+                  <option [ngValue]="null">Selecciona metodo</option>
+                  <option *ngFor="let method of paymentMethods; trackBy: trackById" [ngValue]="method.id">
+                    {{ method.name }}
+                  </option>
+                </select>
+              </label>
+
+              <label class="gh-field">
+                <span>Referencia</span>
+                <input type="text" [(ngModel)]="consumptionForm.reference" placeholder="Comprobante o transaccion" />
+              </label>
+            </div>
+          </section>
+
+          <div class="consumption-summary">
+            <span>Total</span>
+            <strong>{{ formatCurrency(consumptionTotal) }}</strong>
+          </div>
+        </div>
+
+        <footer class="gh-modal-foot">
+          <button type="button" class="gh-mbtn gh-mbtn-light" (click)="closeConsumptionCreator()" [disabled]="actionLoading">
+            Cancelar
+          </button>
+          <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="submitConsumption()" [disabled]="!canCreateConsumption">
+            {{ actionLoading ? 'Registrando...' : (consumptionForm.paid_now ? 'Registrar y cobrar' : 'Agregar pendiente') }}
+          </button>
+        </footer>
+      </section>
+    </div>
+  </section>
+</div>

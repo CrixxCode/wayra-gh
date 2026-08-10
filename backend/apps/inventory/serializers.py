@@ -40,6 +40,7 @@ class ItemSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             "name",
             "sku",
             "description",
+            "item_purpose",
             "stock",
             "minimum_stock",
             "maximum_stock",
@@ -98,6 +99,15 @@ class ItemSerializer(TenantSerializerMixin, serializers.ModelSerializer):
         stock = attrs.get("stock", getattr(self.instance, "stock", 0))
         minimum_stock = attrs.get("minimum_stock", getattr(self.instance, "minimum_stock", 0))
         maximum_stock = attrs.get("maximum_stock", getattr(self.instance, "maximum_stock", 0))
+        item_purpose = attrs.get(
+            "item_purpose",
+            getattr(self.instance, "item_purpose", Item.Purpose.RECEPTION),
+        )
+
+        if item_purpose not in Item.Purpose.values:
+            raise serializers.ValidationError(
+                {"item_purpose": "Selecciona si el item es de habitacion o de recepcion."}
+            )
 
         if maximum_stock and minimum_stock > maximum_stock:
             raise serializers.ValidationError(
@@ -256,7 +266,8 @@ class RoomInventorySerializer(serializers.ModelSerializer):
                 floor__hotel_settings_id=user.hotel_settings_id
             )
             fields["item"].queryset = Item.objects.filter(
-                hotel_settings_id=user.hotel_settings_id
+                hotel_settings_id=user.hotel_settings_id,
+                item_purpose=Item.Purpose.ROOM,
             )
 
         return fields
@@ -285,6 +296,11 @@ class RoomInventorySerializer(serializers.ModelSerializer):
 
         if item is None:
             raise serializers.ValidationError({"item": "El item es obligatorio."})
+
+        if getattr(item, "item_purpose", None) != Item.Purpose.ROOM:
+            raise serializers.ValidationError(
+                {"item": "Solo los items de habitacion pueden asignarse a una habitacion."}
+            )
 
         room_hotel_settings_id = getattr(
             getattr(room, "floor", None),
@@ -384,6 +400,7 @@ class RoomInventorySerializer(serializers.ModelSerializer):
             locked_item = Item.objects.select_for_update().filter(
                 pk=requested_item.pk,
                 hotel_settings_id=requested_item.hotel_settings_id,
+                item_purpose=Item.Purpose.ROOM,
             ).first()
             if not locked_item:
                 raise serializers.ValidationError(
@@ -433,7 +450,8 @@ class RoomInventorySerializer(serializers.ModelSerializer):
                 for item in Item.objects.select_for_update().filter(
                     pk__in={old_item.pk, requested_item.pk}
                 ).filter(
-                    hotel_settings_id=expected_hotel_settings_id
+                    hotel_settings_id=expected_hotel_settings_id,
+                    item_purpose=Item.Purpose.ROOM,
                 )
             }
             if old_item.pk not in locked_items or requested_item.pk not in locked_items:

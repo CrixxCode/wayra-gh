@@ -20,10 +20,6 @@ const loadClientsComponent = () => import('./modules/clients/list-clients/list-c
 const loadReservationsComponent = () =>
   import('./modules/reservations/list-reservations/list-reservations').then((m) => m.ListReservations);
 const loadRoomsComponent = () => import('./modules/rooms/list-rooms/list-rooms').then((m) => m.ListRooms);
-const loadRoomTypesComponent = () =>
-  import('./modules/rooms/list-room-types/list-room-types').then((m) => m.ListRoomTypes);
-const loadRatesComponent = () => import('./modules/rooms/list-rates/list-rates').then((m) => m.ListRates);
-const loadAmenitiesComponent = () => import('./modules/rooms/amenities/amenities').then((m) => m.AmenitiesPage);
 const loadServicesComponent = () =>
   import('./modules/services/list-services/list-services').then((m) => m.ListServices);
 const loadBillingComponent = () => import('./modules/billing/list-bill/list-bill').then((m) => m.ListBill);
@@ -70,6 +66,8 @@ const loadSaasHotelsComponent = () =>
   import('./modules/saas/list-saas-hotels/list-saas-hotels').then((m) => m.ListSaasHotels);
 const loadDemoRequestsComponent = () =>
   import('./modules/saas/list-demo-requests/list-demo-requests').then((m) => m.ListDemoRequests);
+const loadGlobalAmenitiesComponent = () =>
+  import('./modules/saas/list-global-amenities/list-global-amenities').then((m) => m.ListGlobalAmenities);
 
 export const routes: Routes = [
     {
@@ -104,13 +102,15 @@ export const routes: Routes = [
             { path: 'clientes', loadComponent: loadClientsComponent },
             { path: 'reservas', loadComponent: loadReservationsComponent },
             { path: 'habitaciones', loadComponent: loadRoomsComponent },
-            { path: 'tipos-habitacion', loadComponent: loadRoomTypesComponent },
-            { path: 'room-types', redirectTo: 'tipos-habitacion', pathMatch: 'full' },
-            { path: 'tarifas-habitacion', loadComponent: loadRatesComponent },
-            { path: 'tarifas', redirectTo: 'tarifas-habitacion', pathMatch: 'full' },
-            { path: 'rates', redirectTo: 'tarifas-habitacion', pathMatch: 'full' },
-            { path: 'amenidades', loadComponent: loadAmenitiesComponent },
-            { path: 'amenities', redirectTo: 'amenidades', pathMatch: 'full' },
+            // Tipos, tarifas y amenidades se gestionan dentro de /habitaciones (modales).
+            // Se mantienen los redirects para no romper enlaces guardados ni recursos RBAC antiguos.
+            { path: 'tipos-habitacion', redirectTo: 'habitaciones', pathMatch: 'full' },
+            { path: 'room-types', redirectTo: 'habitaciones', pathMatch: 'full' },
+            { path: 'tarifas-habitacion', redirectTo: 'habitaciones', pathMatch: 'full' },
+            { path: 'tarifas', redirectTo: 'habitaciones', pathMatch: 'full' },
+            { path: 'rates', redirectTo: 'habitaciones', pathMatch: 'full' },
+            { path: 'amenidades', redirectTo: 'habitaciones', pathMatch: 'full' },
+            { path: 'amenities', redirectTo: 'habitaciones', pathMatch: 'full' },
             { path: 'catalogo-servicios', loadComponent: loadServicesComponent },
             { path: 'servicios', redirectTo: 'catalogo-servicios', pathMatch: 'full' },
             { path: 'services', redirectTo: 'catalogo-servicios', pathMatch: 'full' },
@@ -155,6 +155,7 @@ export const routes: Routes = [
             { path: 'saas-hoteles', loadComponent: loadSaasHotelsComponent, title: 'Hoteles Globales SaaS', data: { breadcrumbLabel: 'Hoteles Globales SaaS', platformAdminOnly: true } },
             { path: 'saas-hotels', redirectTo: 'saas-hoteles', pathMatch: 'full' },
             { path: 'saas-solicitudes-demo', loadComponent: loadDemoRequestsComponent, title: 'Solicitudes de Demo', data: { breadcrumbLabel: 'Solicitudes de Demo', platformAdminOnly: true } },
+            { path: 'saas-amenidades', loadComponent: loadGlobalAmenitiesComponent, title: 'Amenidades Globales', data: { breadcrumbLabel: 'Amenidades Globales', platformAdminOnly: true } },
             { path: 'master-data', component: MasterDataComponent, title: 'Master Data' },
             { path: '403', component: ForbiddenPage, title: 'Acceso Denegado', data: { breadcrumbLabel: 'Acceso denegado' } },
             { path: '404', component: NotFoundPage, title: 'Pagina No Encontrada', data: { breadcrumbLabel: 'Pagina no encontrada' } },

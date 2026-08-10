@@ -735,3 +735,911 @@
   border-color: var(--gh-border-strong) !important;
 }
 
+
+/* =========================================================================
+   Modal shell + tabs (modulo Habitaciones, reutilizable)
+   Solo usa tokens --gh-*, por lo que el modo oscuro funciona sin reglas extra.
+   ========================================================================= */
+.gh-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.gh-modal {
+  width: 100%;
+  max-width: 1040px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  border: 1px solid var(--gh-border);
+  border-radius: 16px;
+  box-shadow: var(--gh-shadow-strong);
+}
+
+.gh-modal.is-narrow {
+  max-width: 720px;
+}
+
+.gh-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--gh-border-soft);
+  background: var(--gh-surface-alt);
+}
+
+.gh-modal-head h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--gh-text-strong);
+}
+
+.gh-modal-head p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--gh-text-muted);
+}
+
+.gh-modal-close {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gh-border);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  cursor: pointer;
+}
+
+.gh-modal-close:hover {
+  background: var(--gh-surface-hover);
+  color: var(--gh-text-strong);
+}
+
+.gh-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 22px;
+}
+
+.gh-modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--gh-border-soft);
+  background: var(--gh-surface-alt);
+}
+
+.gh-modal-foot .gh-foot-note {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--gh-text-muted);
+}
+
+/* --- Tabs --- */
+.gh-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--gh-border-soft);
+  background: var(--gh-surface-alt);
+}
+
+.gh-tab {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--gh-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+
+.gh-tab:hover {
+  color: var(--gh-text-strong);
+}
+
+.gh-tab.is-active {
+  color: var(--gh-text-strong);
+  border-bottom-color: var(--gh-status-info-strong);
+}
+
+.gh-tab .gh-tab-count {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--gh-status-neutral-bg);
+  color: var(--gh-status-neutral-text);
+  font-size: 11px;
+  text-align: center;
+}
+
+/* --- Form primitives --- */
+.gh-form-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.gh-form-grid.is-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gh-form-grid .gh-span-all {
+  grid-column: 1 / -1;
+}
+
+.gh-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.gh-field > span {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gh-text-soft);
+}
+
+.gh-field input,
+.gh-field select,
+.gh-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 10px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  font-size: 14px;
+  outline: 0;
+}
+
+.gh-field input,
+.gh-field select {
+  height: 40px;
+  padding: 0 11px;
+}
+
+.gh-field textarea {
+  padding: 10px 11px;
+  min-height: 84px;
+  resize: vertical;
+}
+
+.gh-field input:focus,
+.gh-field select:focus,
+.gh-field textarea:focus {
+  border-color: var(--gh-search-focus);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+.gh-field.is-invalid input,
+.gh-field.is-invalid select,
+.gh-field.is-invalid textarea {
+  border-color: var(--gh-status-danger-strong);
+}
+
+.gh-field-error {
+  font-size: 12px;
+  color: var(--gh-status-danger-text);
+}
+
+.gh-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--gh-text);
+  cursor: pointer;
+}
+
+.gh-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--gh-status-info-strong);
+}
+
+/* --- Panels, empty states, chips --- */
+.gh-panel {
+  border: 1px solid var(--gh-border);
+  border-radius: 12px;
+  background: var(--gh-surface);
+  padding: 14px 16px;
+}
+
+.gh-panel + .gh-panel {
+  margin-top: 12px;
+}
+
+.gh-panel-title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gh-text-soft);
+}
+
+.gh-empty {
+  padding: 26px 16px;
+  text-align: center;
+  border: 1px dashed var(--gh-border-strong);
+  border-radius: 12px;
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-muted);
+  font-size: 13px;
+}
+
+.gh-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--gh-status-neutral-bg);
+  color: var(--gh-status-neutral-text);
+}
+
+.gh-chip.is-success {
+  background: var(--gh-status-success-bg);
+  color: var(--gh-status-success-text);
+}
+
+.gh-chip.is-info {
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+}
+
+.gh-chip.is-warn {
+  background: var(--gh-status-warn-bg);
+  color: var(--gh-status-warn-text);
+}
+
+.gh-chip.is-danger {
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+}
+
+/* --- Data table inside modals --- */
+.gh-modal-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--gh-border);
+  border-radius: 12px;
+}
+
+.gh-modal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.gh-modal-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gh-text-soft);
+  background: var(--gh-surface-alt);
+  border-bottom: 1px solid var(--gh-border);
+  white-space: nowrap;
+}
+
+.gh-modal-table td {
+  padding: 10px 12px;
+  color: var(--gh-text);
+  border-bottom: 1px solid var(--gh-border-soft);
+  vertical-align: middle;
+}
+
+.gh-modal-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+app-room-modal .inventory-panel .panel-title-row {
+  align-items: flex-start;
+}
+
+app-room-modal .room-inventory-picker {
+  display: grid;
+  gap: 10px;
+}
+
+app-room-modal .inventory-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 0 10px;
+  min-height: 42px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 12px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+}
+
+app-room-modal .inventory-search input {
+  width: 100%;
+  height: 40px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--gh-text-strong);
+}
+
+app-room-modal .inventory-category-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0 4px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--gh-brand);
+  border-radius: 10px;
+  background: var(--gh-surface);
+}
+
+app-room-modal .inventory-category-head strong {
+  display: block;
+  color: var(--gh-text-strong);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+app-room-modal .inventory-category-head small {
+  color: var(--gh-text-muted);
+  font-size: 12px;
+}
+
+app-room-modal .room-inventory-option {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr) auto 110px 110px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--gh-border);
+  border-radius: 14px;
+  background: var(--gh-surface-soft);
+}
+
+app-room-modal .room-inventory-option.is-selected {
+  border-color: var(--gh-brand);
+  background: var(--gh-brand-soft);
+}
+
+app-room-modal .reservation-consumption {
+  margin: 0 18px 18px;
+  padding: 14px;
+  border: 1px solid var(--gh-border);
+  border-radius: 14px;
+  background: var(--gh-surface);
+}
+
+app-room-modal .consumption-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gh-border-soft);
+}
+
+app-room-modal .consumption-head h4 {
+  margin: 0;
+  color: var(--gh-text-strong);
+  font-size: 20px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+app-room-modal .consumption-head p {
+  margin: 5px 0 0;
+  color: var(--gh-text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+app-room-modal .consumption-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+app-room-modal .consumption-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 12px;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 12px;
+  background: var(--gh-surface-soft);
+}
+
+app-room-modal .consumption-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--gh-status-info-border);
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+}
+
+app-room-modal .consumption-row strong {
+  color: var(--gh-text-strong);
+  font-size: 13px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+app-room-modal .consumption-row small {
+  display: block;
+  margin-top: 3px;
+  color: var(--gh-text-muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+app-room-modal .consumption-total {
+  white-space: nowrap;
+}
+
+app-room-modal .nested-modal {
+  z-index: 80;
+}
+
+app-room-modal .consumption-modal {
+  max-width: 720px;
+}
+
+app-room-modal .consumption-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+app-room-modal .consumption-mode button {
+  min-height: 44px;
+  border: 1px solid var(--gh-border);
+  border-radius: 12px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+app-room-modal .consumption-mode button.is-active {
+  border-color: var(--gh-status-info-border);
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+}
+
+app-room-modal .reception-item-list {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+  margin: 10px 0 14px;
+  padding-right: 4px;
+}
+
+app-room-modal .reception-item-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--gh-border);
+  border-radius: 12px;
+  background: var(--gh-surface-soft);
+  color: var(--gh-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+app-room-modal .reception-item-option:hover,
+app-room-modal .reception-item-option.is-selected {
+  border-color: var(--gh-status-info-border);
+  background: var(--gh-status-info-bg);
+}
+
+app-room-modal .reception-item-option span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+app-room-modal .reception-item-option strong {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  color: var(--gh-text-strong);
+  font-size: 13px;
+}
+
+app-room-modal .reception-item-option small {
+  color: var(--gh-text-muted);
+  font-size: 12px;
+}
+
+app-room-modal .reception-ticket {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 14px;
+  padding: 12px;
+  border: 1px solid var(--gh-border);
+  border-radius: 14px;
+  background: var(--gh-surface);
+}
+
+app-room-modal .reception-ticket header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--gh-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+app-room-modal .reception-ticket header strong {
+  color: var(--gh-text-strong);
+}
+
+app-room-modal .reception-ticket-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 118px auto 32px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 12px;
+  background: var(--gh-surface-soft);
+}
+
+app-room-modal .reception-ticket-line strong {
+  color: var(--gh-text-strong);
+  font-size: 13px;
+}
+
+app-room-modal .reception-ticket-line small {
+  display: block;
+  margin-top: 2px;
+  color: var(--gh-text-muted);
+  font-size: 12px;
+}
+
+app-room-modal .ticket-qty {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 48px) 30px;
+  gap: 4px;
+}
+
+app-room-modal .ticket-qty button,
+app-room-modal .ticket-remove {
+  height: 30px;
+  border: 1px solid var(--gh-border);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  cursor: pointer;
+}
+
+app-room-modal .ticket-qty button:disabled,
+app-room-modal .ticket-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+app-room-modal .ticket-qty input {
+  width: 100%;
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text-strong);
+  text-align: center;
+}
+
+app-room-modal .ticket-remove {
+  color: var(--gh-status-danger-text);
+  background: var(--gh-status-danger-bg);
+  border-color: var(--gh-status-danger-border);
+}
+
+app-room-modal .payment-box {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--gh-border);
+  border-radius: 14px;
+  background: var(--gh-surface-soft);
+}
+
+app-room-modal .payment-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--gh-text);
+  cursor: pointer;
+}
+
+app-room-modal .payment-toggle input {
+  width: 18px;
+  height: 18px;
+}
+
+app-room-modal .payment-toggle span {
+  display: grid;
+  gap: 2px;
+}
+
+app-room-modal .payment-toggle strong {
+  color: var(--gh-text-strong);
+  font-size: 13px;
+}
+
+app-room-modal .payment-toggle small {
+  color: var(--gh-text-muted);
+  font-size: 12px;
+}
+
+app-room-modal .consumption-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+}
+
+app-room-modal .consumption-summary span {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+app-room-modal .consumption-summary strong {
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+app-room-modal .inventory-toggle input {
+  position: absolute;
+  opacity: 0;
+}
+
+app-room-modal .inventory-toggle span {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 999px;
+  color: transparent;
+  background: var(--gh-surface);
+}
+
+app-room-modal .inventory-toggle input:checked + span {
+  border-color: var(--gh-brand);
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+}
+
+app-room-modal .inventory-item-copy {
+  min-width: 0;
+}
+
+app-room-modal .inventory-item-copy strong {
+  display: block;
+  color: var(--gh-text-strong);
+}
+
+app-room-modal .inventory-item-copy small {
+  color: var(--gh-text-muted);
+}
+
+app-room-modal .inventory-number-field {
+  display: grid;
+  gap: 4px;
+}
+
+app-room-modal .inventory-number-field span {
+  color: var(--gh-text-soft);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+app-room-modal .inventory-number-field input {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 10px;
+  background: var(--gh-surface);
+  color: var(--gh-text-strong);
+}
+
+@media (max-width: 980px) {
+  app-room-modal .room-inventory-option {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  app-room-modal .room-inventory-option > .gh-chip,
+  app-room-modal .inventory-number-field {
+    grid-column: 2;
+  }
+}
+
+.gh-modal-table tbody tr:hover {
+  background: var(--gh-surface-hover);
+}
+
+.gh-row-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.gh-icon-btn {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gh-border);
+  border-radius: 8px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.gh-icon-btn:hover:not(:disabled) {
+  background: var(--gh-surface-hover);
+  color: var(--gh-text-strong);
+}
+
+.gh-icon-btn.is-danger:hover:not(:disabled) {
+  border-color: var(--gh-status-danger-border);
+  color: var(--gh-status-danger-text);
+}
+
+.gh-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.gh-inline-alert {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.gh-inline-alert.is-error {
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+}
+
+.gh-inline-alert.is-info {
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+}
+
+/* --- Botones del modal: solo tokens, sin overrides de modo oscuro --- */
+.gh-mbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.gh-mbtn-light {
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  border-color: var(--gh-border-strong);
+}
+
+.gh-mbtn-light:hover:not(:disabled) {
+  background: var(--gh-surface-hover);
+  color: var(--gh-text-strong);
+}
+
+.gh-mbtn-dark {
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+  border-color: var(--gh-brand);
+}
+
+.gh-mbtn-dark:hover:not(:disabled) {
+  background: var(--gh-brand-hover);
+  border-color: var(--gh-brand-hover);
+}
+
+.gh-mbtn-danger {
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+  border-color: var(--gh-status-danger-border);
+}
+
+.gh-mbtn-success {
+  background: var(--gh-status-success-bg);
+  color: var(--gh-status-success-text);
+  border-color: var(--gh-status-success-border);
+}
+
+.gh-mbtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 820px) {
+  .gh-modal-overlay {
+    padding: 0;
+  }
+
+  .gh-modal {
+    max-width: 100%;
+    max-height: 100%;
+    height: 100%;
+    border-radius: 0;
+    border: 0;
+  }
+
+  .gh-form-grid,
+  .gh-form-grid.is-three {
+    grid-template-columns: 1fr;
+  }
+}

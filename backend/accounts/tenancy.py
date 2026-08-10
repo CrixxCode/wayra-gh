@@ -106,7 +106,25 @@ class TenantSerializerMixin:
 
         if actor and actor.is_authenticated:
             if self.is_global_admin():
-                return incoming_tenant
+                if incoming_tenant is not None:
+                    return incoming_tenant
+
+                request = self.context.get("request")
+                selected_tenant_id = get_requested_hotel_settings_id(request) if request else None
+                if selected_tenant_id is None or not self.tenant_field_name:
+                    return None
+
+                field = self.fields.get(self.tenant_field_name)
+                queryset = getattr(field, "queryset", None)
+                if queryset is None:
+                    return None
+
+                try:
+                    return queryset.get(pk=selected_tenant_id)
+                except queryset.model.DoesNotExist:
+                    raise serializers.ValidationError({
+                        self.tenant_field_name: "El hotel seleccionado no existe."
+                    })
 
             actor_tenant = self.get_actor_tenant()
             if actor_tenant is None:

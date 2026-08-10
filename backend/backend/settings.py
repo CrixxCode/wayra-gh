@@ -264,7 +264,9 @@ if not DEBUG:
 
 CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:4200,http://127.0.0.1:4200" if DEBUG else RAILWAY_PUBLIC_ORIGIN,
+    "http://localhost:4200,http://127.0.0.1:4200,http://localhost:4201,http://127.0.0.1:4201"
+    if DEBUG
+    else RAILWAY_PUBLIC_ORIGIN,
 )
 if not DEBUG:
     CORS_ALLOWED_ORIGINS = unique_list(
@@ -289,7 +291,9 @@ CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", default=not DEBUG)
 CSRF_COOKIE_SAMESITE = SESSION_COOKIE_SAMESITE
 CSRF_TRUSTED_ORIGINS = env_list(
     "CSRF_TRUSTED_ORIGINS",
-    "http://localhost:4200,http://127.0.0.1:4200" if DEBUG else RAILWAY_PUBLIC_ORIGIN,
+    "http://localhost:4200,http://127.0.0.1:4200,http://localhost:4201,http://127.0.0.1:4201"
+    if DEBUG
+    else RAILWAY_PUBLIC_ORIGIN,
 )
 if not DEBUG:
     CSRF_TRUSTED_ORIGINS = unique_list(

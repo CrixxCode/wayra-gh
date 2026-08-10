@@ -287,11 +287,15 @@ export class ReservationService {
     );
   }
 
-  listReservationGuests(filters?: { reservation?: number }): Observable<ReservationGuestI[]> {
+  listReservationGuests(filters?: { reservation?: number; search?: string }): Observable<ReservationGuestI[]> {
     let params = new HttpParams();
 
     if (filters?.reservation) {
       params = params.set('search', String(filters.reservation));
+    }
+
+    if (filters?.search?.trim()) {
+      params = params.set('search', filters.search.trim());
     }
 
     return this.http
@@ -381,6 +385,10 @@ export class ReservationService {
 
     if (normalized.notes !== undefined) {
       normalized.notes = normalized.notes ? String(normalized.notes).trim() : null;
+    }
+
+    if (normalized.total_discount !== undefined && normalized.total_discount !== null) {
+      normalized.total_discount = Number(normalized.total_discount);
     }
 
     if (normalized.policies !== undefined) {

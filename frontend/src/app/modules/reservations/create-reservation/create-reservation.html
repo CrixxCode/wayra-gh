@@ -15,23 +15,21 @@
     </header>
 
     <form [formGroup]="reservationForm" (ngSubmit)="submit()" class="drawer-body">
-      <nav class="reservation-stepper" aria-label="Flujo de creacion de reserva">
+      <nav class="wizard-steps" aria-label="Pasos de la reserva">
         <button
           type="button"
-          *ngFor="let step of steps; let idx = index"
-          [class.active]="idx === currentStepIndex"
-          [class.completed]="idx < currentStepIndex"
-          [disabled]="saving"
-          (click)="goToStep(idx)">
-          <span class="step-number">{{ idx + 1 }}</span>
-          <span class="step-copy">
-            <strong>{{ step.label }}</strong>
-            <small>{{ step.description }}</small>
+          *ngFor="let step of wizardSteps; let idx = index"
+          [class.is-active]="activeStep === step.key"
+          [class.is-complete]="idx < activeStepIndex"
+          (click)="selectStep(step.key)">
+          <span class="step-index">
+            <i [class]="idx < activeStepIndex ? 'fa-solid fa-check' : step.icon"></i>
           </span>
+          <span>{{ step.label }}</span>
         </button>
       </nav>
 
-      <section *ngIf="isStepActive('base')">
+      <section *ngIf="activeStep === 'base'">
         <h2>Informacion base</h2>
 
         <div class="grid two">
@@ -91,6 +89,11 @@
             <small class="field-error" *ngIf="getControlError('expected_check_out') as error">{{ error }}</small>
           </label>
 
+          <label>
+            <span>Descuento total</span>
+            <input type="number" formControlName="total_discount" min="0" step="0.01" placeholder="0" />
+          </label>
+
           <label class="full">
             <span>Notas internas</span>
             <textarea
@@ -103,7 +106,7 @@
         </div>
       </section>
 
-      <section *ngIf="isStepActive('payment')">
+      <section *ngIf="activeStep === 'payment'">
         <h2>Abono inicial (opcional)</h2>
 
         <div class="grid two">
@@ -150,7 +153,7 @@
         </div>
       </section>
 
-      <section *ngIf="isStepActive('rooms')">
+      <section *ngIf="activeStep === 'rooms'">
         <div class="section-head">
           <h2>Habitaciones de la reserva</h2>
           <button type="button" class="btn btn-ghost" (click)="addRoomLine()">
@@ -194,7 +197,7 @@
         </small>
       </section>
 
-      <section *ngIf="isStepActive('policies')">
+      <section *ngIf="activeStep === 'payment'">
         <div class="section-head">
           <h2>Politicas de la reserva</h2>
           <button type="button" class="btn btn-ghost" (click)="addPolicyLine()">
@@ -247,7 +250,7 @@
         <small class="field-help" *ngIf="selectedPoliciesCount === 0">Opcional. Agrega politicas si aplica.</small>
       </section>
 
-      <section *ngIf="isStepActive('guests')">
+      <section *ngIf="activeStep === 'guests'">
         <div class="section-head">
           <h2>Huespedes de la reserva</h2>
           <button type="button" class="btn btn-ghost" (click)="addGuestLine()">
@@ -256,44 +259,32 @@
           </button>
         </div>
 
-        <div class="guest-primary-controls">
-          <label class="inline-check">
-            <input type="checkbox" [checked]="contactIsPrimaryGuest" (change)="onContactAsPrimaryGuestToggle($event)" />
-            <span>El contacto tambien sera el huesped principal</span>
-          </label>
-          <button type="button" class="btn btn-ghost" (click)="useContactAsPrimaryGuest()">
-            <i class="fa-solid fa-user-check"></i>
-            Usar contacto como huesped principal
-          </button>
-        </div>
-
         <div formArrayName="guest_lines" class="guest-lines">
           <article
             class="guest-line"
             *ngFor="let guestControl of guestLines.controls; let idx = index; trackBy: trackByGuestLine"
             [formGroupName]="idx">
-            <div class="line-grid guest-grid">
-              <label class="guest-search-field full">
-                <span>Buscar huesped existente</span>
-                <div class="guest-search-box">
-                  <input
-                    type="text"
-                    [value]="guestSearchTerms[idx] || ''"
-                    placeholder="Nombre, documento, correo o telefono"
-                    (input)="onGuestSearchInput(idx, $event)" />
-                  <div class="guest-search-results" *ngIf="getGuestSearchResults(idx).length > 0">
-                    <button
-                      type="button"
-                      *ngFor="let client of getGuestSearchResults(idx); trackBy: trackById"
-                      (click)="selectGuestFromClient(idx, client)">
-                      <strong>{{ getClientOptionLabel(client) }}</strong>
-                      <small>{{ client.email || client.phone || 'Cliente registrado' }}</small>
-                    </button>
-                  </div>
-                </div>
-                <small class="field-help">Busca entre clientes registrados para autocompletar el huesped.</small>
-              </label>
+            <header class="guest-line-head">
+              <span class="guest-line-number">{{ idx + 1 }}</span>
+              <div class="guest-line-title">
+                <strong>Huesped {{ idx + 1 }}</strong>
+                <small>
+                  {{
+                    guestControl.get('first_name')?.value || guestControl.get('last_name')?.value
+                      ? (guestControl.get('first_name')?.value || '') + ' ' + (guestControl.get('last_name')?.value || '')
+                      : 'Completa los datos de identificacion'
+                  }}
+                  <ng-container *ngIf="guestControl.get('document_number')?.value">
+                    · Doc. {{ guestControl.get('document_number')?.value }}
+                  </ng-container>
+                </small>
+              </div>
+              <button type="button" class="row-btn danger" (click)="removeGuestLine(idx)" title="Eliminar huesped">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </header>
 
+            <div class="line-grid guest-grid">
               <label>
                 <span>Tipo doc *</span>
                 <select formControlName="document_type" [class.input-error]="isGuestFieldInvalid(idx, 'document_type')">
@@ -311,7 +302,21 @@
                   type="text"
                   formControlName="document_number"
                   placeholder="Numero documento"
+                  (input)="onGuestDocumentInput(idx)"
+                  (keyup.enter)="lookupGuestByDocument(idx)"
                   [class.input-error]="isGuestFieldInvalid(idx, 'document_number')" />
+                <small class="field-help is-lookup" *ngIf="getGuestLookupMessage(idx) as lookupMessage">
+                  {{ lookupMessage }}
+                </small>
+                <div class="guest-suggestions" *ngIf="getGuestLookupSuggestions(idx).length">
+                  <button
+                    type="button"
+                    *ngFor="let suggestion of getGuestLookupSuggestions(idx)"
+                    (click)="applyGuestSuggestion(idx, suggestion)">
+                    <strong>{{ suggestion.display_name }}</strong>
+                    <small>{{ suggestion.subtitle }}</small>
+                  </button>
+                </div>
                 <small class="field-error" *ngIf="getGuestFieldError(idx, 'document_number') as error">{{ error }}</small>
               </label>
 
@@ -334,12 +339,22 @@
 
               <label>
                 <span>Nacionalidad</span>
-                <input type="text" formControlName="nationality" placeholder="Pais" />
+                <select formControlName="nationality">
+                  <option value="">Selecciona pais</option>
+                  <option *ngFor="let country of countryOptions" [value]="country.name">
+                    {{ country.name }}
+                  </option>
+                </select>
               </label>
 
               <label>
                 <span>Grupo sanguineo</span>
-                <input type="text" formControlName="blood_type" placeholder="O+, AB-..." />
+                <select formControlName="blood_type">
+                  <option value="">Selecciona grupo sanguineo</option>
+                  <option *ngFor="let bloodType of bloodTypeOptions" [value]="bloodType">
+                    {{ bloodType }}
+                  </option>
+                </select>
               </label>
 
               <label>
@@ -352,12 +367,6 @@
                 <input type="text" formControlName="emergency_contact_phone" placeholder="Telefono" />
               </label>
             </div>
-
-            <div class="line-actions">
-              <button type="button" class="row-btn danger" (click)="removeGuestLine(idx)" title="Eliminar huesped">
-                <i class="fa-regular fa-trash-can"></i>
-              </button>
-            </div>
           </article>
         </div>
       </section>
@@ -366,11 +375,15 @@
       <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
       <footer class="drawer-footer">
-        <button type="button" class="btn btn-secondary" (click)="closeDrawer()" [disabled]="saving">Cancelar</button>
-        <button type="button" class="btn btn-secondary" *ngIf="!isFirstStep" (click)="previousStep()" [disabled]="saving">Anterior</button>
-        <button type="button" class="btn btn-primary" *ngIf="!isLastStep" (click)="nextStep()" [disabled]="saving">Siguiente</button>
-        <button type="submit" class="btn btn-primary" *ngIf="isLastStep" [disabled]="saving">
-          {{ saving ? 'Guardando...' : 'Guardar reserva' }}
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="isFirstStep ? closeDrawer() : previousStep()"
+          [disabled]="saving">
+          {{ isFirstStep ? 'Cancelar' : 'Anterior' }}
+        </button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving">
+          {{ primaryActionLabel }}
         </button>
       </footer>
     </form>

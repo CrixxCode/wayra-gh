@@ -88,6 +88,13 @@
       </label>
 
       <label class="gh-filter-field">
+        <span>Uso</span>
+        <select class="gh-filter-select" [(ngModel)]="purposeFilter" (change)="applyFilters()">
+          <option *ngFor="let purposeOption of purposeOptions" [ngValue]="purposeOption.value">{{ purposeOption.label }}</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
         <span>Tipo item</span>
         <select class="gh-filter-select" [(ngModel)]="selectedTypeFilter" (change)="applyFilters()">
           <option *ngFor="let tab of typeTabs; trackBy: trackByTab" [value]="tab.key">{{ tab.label }}</option>
@@ -207,6 +214,16 @@
                   {{ getItemTypeLabel(item) }}
                 </span>
 
+                <span
+                  class="cover-type"
+                  [ngStyle]="{
+                    'background-color': getItemPurposeTone(item).bg,
+                    color: getItemPurposeTone(item).color
+                  }">
+                  <i [class]="getItemPurposeIcon(item)"></i>
+                  {{ getItemPurposeLabel(item) }}
+                </span>
+
                 <span class="cover-badge" *ngIf="isHighlighted(group.key, item.id)">Top stock</span>
               </div>
 
@@ -297,6 +314,7 @@
                 <th>Codigo</th>
                 <th>Item</th>
                 <th>Categoria</th>
+                <th>Uso</th>
                 <th>Unidad</th>
                 <th>Stock actual</th>
                 <th>Min / Max</th>
@@ -329,6 +347,17 @@
                     }">
                     <span class="dot" [ngStyle]="{ 'background-color': getTypeBadgeTone(item).dot }"></span>
                     {{ getItemTypeLabel(item) }}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    class="table-category"
+                    [ngStyle]="{
+                      'background-color': getItemPurposeTone(item).bg,
+                      color: getItemPurposeTone(item).color
+                    }">
+                    <span class="dot" [ngStyle]="{ 'background-color': getItemPurposeTone(item).dot }"></span>
+                    {{ getItemPurposeLabel(item) }}
                   </span>
                 </td>
                 <td>{{ getUnitShortLabel(item) }}</td>

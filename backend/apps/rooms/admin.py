@@ -21,9 +21,9 @@ class AmenityAdmin(admin.ModelAdmin):
 
 @admin.register(Room)
 class RoomAdmin(admin.ModelAdmin):
-    list_display = ("id", "number", "room_type", "floor", "status")
-    list_filter = ("status", "room_type", "floor")
-    search_fields = ("number", "room_type__name", "status__code", "status__name")
+    list_display = ("id", "number", "room_type", "rate", "floor", "status")
+    list_filter = ("status", "room_type", "rate", "floor")
+    search_fields = ("number", "room_type__name", "rate__name", "status__code", "status__name")
 
 @admin.register(MaintenanceOrder)
 class MaintenanceOrderAdmin(admin.ModelAdmin):

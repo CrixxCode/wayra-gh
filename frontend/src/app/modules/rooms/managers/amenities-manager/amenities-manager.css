@@ -1,0 +1,119 @@
+:host {
+  display: block;
+}
+
+.amenities-embedded {
+  display: block;
+}
+
+.amenities-panel {
+  width: 100%;
+  border: 1px solid var(--gh-border);
+  border-radius: 14px;
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-card);
+  overflow: hidden;
+}
+
+.manager-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.manager-toolbar .gh-search-wrap {
+  flex: 1 1 260px;
+  max-width: 380px;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gh-icon-btn.is-on {
+  border-color: var(--gh-status-info-border);
+  color: var(--gh-status-info-text);
+  background: var(--gh-status-info-bg);
+}
+
+.form-panel {
+  margin-bottom: 16px;
+  background: var(--gh-surface-soft);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.icon-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+}
+
+.icon-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 6px;
+  border: 1px solid var(--gh-border);
+  border-radius: 10px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  cursor: pointer;
+}
+
+.icon-option i {
+  font-size: 17px;
+}
+
+.icon-option small {
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.icon-option:hover {
+  background: var(--gh-surface-hover);
+  color: var(--gh-text-strong);
+}
+
+.icon-option.is-selected {
+  border-color: var(--gh-status-info-strong);
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+}
+
+.amenity-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+  color: var(--gh-text-strong);
+}
+
+.amenity-name i {
+  width: 17px;
+  text-align: center;
+  color: var(--gh-status-info-strong);
+}
+
+.col-description {
+  max-width: 280px;
+  color: var(--gh-text-muted);
+}
+
+.col-actions {
+  width: 1%;
+  white-space: nowrap;
+}

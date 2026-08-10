@@ -15,6 +15,7 @@ import {
   errorActionAlert,
   successActionAlert
 } from '../../../services/action-alerts';
+import { HotelLocationCountry, loadHotelCountries } from '../../../shared/hotel-location-options';
 
 @Component({
   selector: 'app-user-register',
@@ -42,6 +43,7 @@ export class UserRegister {
   showHotelCreateModal = false;
   hotelCreateForm!: FormGroup;
   hotelCreating = false;
+  countryOptions: HotelLocationCountry[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -53,6 +55,7 @@ export class UserRegister {
   ) {}
 
   ngOnInit() {
+    void this.loadCountryOptions();
     this.form = this.fb.group({
       first_name: ['', Validators.required],
       last_name: ['', Validators.required],
@@ -201,6 +204,10 @@ export class UserRegister {
         });
       }
     });
+  }
+
+  private async loadCountryOptions(): Promise<void> {
+    this.countryOptions = await loadHotelCountries();
   }
 
   private resetForm(): void {

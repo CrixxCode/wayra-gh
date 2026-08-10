@@ -96,6 +96,7 @@ export interface ReservationWritePayloadI {
   real_check_in?: string | null;
   real_check_out?: string | null;
   promo_code?: string | null;
+  total_discount?: string | number | null;
   notes?: string | null;
   policies?: number[];
 }

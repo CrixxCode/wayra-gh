@@ -1,7 +1,13 @@
-from django.urls import reverse
-from rest_framework.test import APITestCase, APIClient
+from io import StringIO
+
+from django.core.management import call_command
+from django.test import TestCase
+from django.urls import get_resolver, reverse
+from rest_framework.request import Request
+from rest_framework.test import APIRequestFactory, APITestCase, APIClient
 from django.contrib.auth import get_user_model
 from accounts.models import JobTitle, Role, Resource, UserRole
+from accounts.serializers import UserSerializer
 from apps.hotel_settings.models import HotelSettings
 
 User = get_user_model()
@@ -521,3 +527,191 @@ class SessionLoginFirstAccessTests(APITestCase):
 
         self.assertEqual(second_response.status_code, 200)
         self.assertFalse(second_response.data.get("is_first_login"))
+
+
+# Metodo HTTP -> accion DRF equivalente. Varios `get_required_scopes()` deciden por
+# `self.action` y no solo por `request.method` (ver apps/billing/views.py::PaymentViewSet).
+_SCOPE_PROBE_ACTIONS = {
+    "get": "list",
+    "post": "create",
+    "put": "update",
+    "patch": "partial_update",
+    "delete": "destroy",
+}
+
+
+def _collect_declared_scopes():
+    """Todos los scopes que las vistas registradas pueden llegar a exigir.
+
+    Se recorre el resolver de URLs y se interroga a cada vista en vez de mantener una
+    lista fija, para que un ViewSet nuevo con un scope nuevo haga fallar esta prueba
+    hasta que el scope se agregue a `seed_rbac`.
+    """
+    factory = APIRequestFactory()
+    scopes: set[str] = set()
+
+    def probe(view_class):
+        declared = set(getattr(view_class, "required_scopes", None) or [])
+
+        for method, action in _SCOPE_PROBE_ACTIONS.items():
+            if not callable(getattr(view_class, "get_required_scopes", None)):
+                break
+            view = view_class()
+            view.action = action
+            view.format_kwarg = None
+            view.kwargs = {}
+            view.request = Request(getattr(factory, method)("/?include_deleted=true"))
+            try:
+                declared.update(view.get_required_scopes() or [])
+            except Exception:
+                # Una vista que necesita mas contexto del que se puede simular aporta,
+                # al menos, su `required_scopes` de clase.
+                continue
+
+        for scope in declared:
+            if not isinstance(scope, str) or not scope:
+                continue
+            scopes.add(scope)
+            # `HasResourcePermission` agrega `<scope>_deleted` en las lecturas con
+            # ?include_deleted=true, aunque la vista no lo declare.
+            if scope.endswith(".read"):
+                scopes.add(f"{scope}_deleted")
+
+    def walk(patterns):
+        for entry in patterns:
+            nested = getattr(entry, "url_patterns", None)
+            if nested is not None:
+                walk(nested)
+                continue
+
+            view_class = getattr(entry.callback, "cls", None)
+            if view_class is not None and getattr(view_class, "required_scopes", None):
+                probe(view_class)
+
+    walk(get_resolver().url_patterns)
+    return scopes
+
+
+class SeedRbacCoverageTests(TestCase):
+    """El seed debe dejar operativo un hotel nuevo sin parches manuales.
+
+    `apps/demo_requests/views.py::convert_request()` asigna el rol `admin` al primer
+    usuario de cada hotel convertido, y `permissionChildGuard` solo autoriza rutas
+    presentes en el menu del usuario. Si el seed no cubre un modulo, ese hotel se
+    queda sin la pantalla.
+    """
+
+    # Rutas del frontend que exigen entrada de menu (app.routes.ts, sin redirects,
+    # sin `platformAdminOnly` y sin las que el guard deja pasar siempre).
+    HOTEL_ROUTES = {
+        "/dashboard",
+        "/usuarios",
+        "/roles",
+        "/recursos",
+        "/clientes",
+        "/reservas",
+        "/habitaciones",
+        "/catalogo-servicios",
+        "/catalogo-paquetes",
+        "/promociones",
+        "/facturas",
+        "/pagos",
+        "/reembolsos",
+        "/consolidado-ingresos",
+        "/control-financiero",
+        "/egresos",
+        "/items",
+        "/inventario-habitaciones",
+        "/movimientos-inventario",
+        "/tareas-limpieza",
+        "/ordenes-mantenimiento",
+        "/reportes",
+        "/hotel-config",
+        "/master-data",
+    }
+
+    PLATFORM_ROUTES = {
+        "/saas-panel",
+        "/saas-hoteles",
+        "/saas-solicitudes-demo",
+        "/saas-amenidades",
+    }
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_rbac", stdout=StringIO())
+
+    def _menu_routes(self, user):
+        routes = set()
+
+        def walk(items):
+            for item in items or []:
+                route = (item.get("route") or "").strip()
+                if route:
+                    routes.add(route)
+                walk(item.get("children"))
+
+        walk(UserSerializer(user).data.get("menu"))
+        return routes
+
+    def _user_with_role(self, username, slug, hotel=None):
+        user = User.objects.create_user(
+            username=username,
+            email=f"{username}@example.com",
+            password="Pass12345!",
+            hotel_settings=hotel,
+        )
+        UserRole.objects.create(user=user, role=Role.objects.get(slug=slug), is_active=True)
+        return user
+
+    def test_every_declared_scope_has_an_active_resource(self):
+        declared = _collect_declared_scopes()
+        self.assertGreater(len(declared), 60, "El recorrido de URLs no encontro los ViewSets.")
+
+        active = set(Resource.objects.filter(is_active=True).values_list("key", flat=True))
+        missing = sorted(declared - active)
+
+        self.assertEqual(missing, [], f"Scopes sin Resource sembrado: {missing}")
+
+    def test_admin_role_covers_the_whole_operation(self):
+        keys = set(
+            Resource.objects.filter(
+                is_active=True,
+                roleresource__is_active=True,
+                roleresource__role__slug="admin",
+            ).values_list("key", flat=True)
+        )
+
+        # `amenities.write` se excluye a proposito: el catalogo es global y el ViewSet
+        # exige administrador de plataforma para escribirlo (AGENTS.md 5.14).
+        missing = sorted(_collect_declared_scopes() - keys - {"amenities.write"})
+
+        self.assertEqual(missing, [], f"El rol 'admin' no cubre: {missing}")
+
+    def test_new_hotel_admin_sees_every_hotel_route(self):
+        hotel = HotelSettings.objects.create(hotel_name="Hotel Recien Convertido")
+        user = self._user_with_role("nuevo_admin", "admin", hotel=hotel)
+
+        routes = self._menu_routes(user)
+        missing = sorted(self.HOTEL_ROUTES - routes)
+
+        self.assertEqual(missing, [], f"Rutas fuera del menu del hotel nuevo: {missing}")
+        self.assertEqual(
+            routes & self.PLATFORM_ROUTES,
+            set(),
+            "Un administrador de hotel no debe ver el menu del panel SaaS.",
+        )
+
+    def test_platform_admin_role_exposes_the_saas_menu(self):
+        user = self._user_with_role("admin_plataforma", "platform_admin")
+
+        routes = self._menu_routes(user)
+        missing = sorted(self.PLATFORM_ROUTES - routes)
+
+        self.assertEqual(missing, [], f"Rutas SaaS fuera del menu: {missing}")
+
+    def test_seed_is_idempotent(self):
+        before = Resource.objects.filter(is_active=True).count()
+        call_command("seed_rbac", stdout=StringIO())
+
+        self.assertEqual(Resource.objects.filter(is_active=True).count(), before)

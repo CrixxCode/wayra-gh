@@ -1,6 +1,3 @@
-import re
-import unicodedata
-
 from rest_framework import serializers
 
 from accounts.tenancy import TenantSerializerMixin, is_effective_global_admin
@@ -26,21 +23,18 @@ AMENITY_ICON_CATALOG = {
     "fa-solid fa-dumbbell",
 }
 
-class AmenitySerializer(TenantSerializerMixin, serializers.ModelSerializer):
-    tenant_field_name = "hotel_settings"
 
-    hotel_settings = serializers.PrimaryKeyRelatedField(
-        queryset=HotelSettings.objects.all(),
-        required=False,
-        allow_null=True,
-        write_only=True,
-    )
+def _format_time(value):
+    if not value:
+        return None
+    return value.strftime("%H:%M")
 
+
+class AmenitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Amenity
         fields = (
             "id",
-            "hotel_settings",
             "name",
             "description",
             "icon",
@@ -66,40 +60,18 @@ class AmenitySerializer(TenantSerializerMixin, serializers.ModelSerializer):
         return normalized
 
     def validate(self, attrs):
-        hotel = self.require_target_tenant(attrs)
-
-        actor = self.get_actor()
-        if (
-            self.instance
-            and actor
-            and actor.is_authenticated
-            and not self.is_global_admin()
-            and self.instance.hotel_settings_id != hotel.id
-        ):
-            raise serializers.ValidationError(
-                "No puedes modificar amenidades de otro hotel."
-            )
-
         name = attrs.get("name", getattr(self.instance, "name", None))
-        qs = Amenity.objects.filter(hotel_settings=hotel)
+        qs = Amenity.objects.all()
 
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
 
         if name and qs.filter(name=name.strip()).exists():
             raise serializers.ValidationError({
-                "name": "Ya existe una amenidad con este nombre en este hotel."
+                "name": "Ya existe una amenidad global con este nombre."
             })
 
         return attrs
-
-    def create(self, validated_data):
-        self.assign_target_tenant(validated_data)
-        return super().create(validated_data)
-
-    def update(self, instance, validated_data):
-        self.assign_target_tenant(validated_data)
-        return super().update(instance, validated_data)
 
 class RoomTypeSerializer(TenantSerializerMixin, serializers.ModelSerializer):
     tenant_field_name = "hotel_settings"
@@ -127,8 +99,11 @@ class RoomTypeSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "code", "created_at", "updated_at")
+        read_only_fields = ("id", "created_at", "updated_at")
         validators = []
+
+    def validate_code(self, value):
+        return str(value).strip().upper()
 
     def validate_name(self, value):
         normalized = str(value or "").strip()
@@ -151,7 +126,7 @@ class RoomTypeSerializer(TenantSerializerMixin, serializers.ModelSerializer):
                 "No puedes modificar tipos de habitacion de otro hotel."
             )
 
-        code = getattr(self.instance, "code", None)
+        code = attrs.get("code", getattr(self.instance, "code", None))
         qs = RoomType.objects.filter(hotel_settings=hotel)
 
         if self.instance:
@@ -165,42 +140,12 @@ class RoomTypeSerializer(TenantSerializerMixin, serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        hotel = self.assign_target_tenant(validated_data)
-        validated_data["code"] = self.generate_unique_code(
-            hotel,
-            validated_data.get("name"),
-        )
+        self.assign_target_tenant(validated_data)
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        validated_data.pop("code", None)
         self.assign_target_tenant(validated_data)
         return super().update(instance, validated_data)
-
-    @classmethod
-    def generate_unique_code(cls, hotel, name):
-        base_code = cls.build_code_base(name)
-        existing_codes = set(
-            RoomType.objects.filter(hotel_settings=hotel)
-            .values_list("code", flat=True)
-        )
-
-        candidate = base_code
-        suffix = 2
-        while candidate in existing_codes:
-            suffix_text = f"_{suffix}"
-            candidate = f"{base_code[:80 - len(suffix_text)]}{suffix_text}"
-            suffix += 1
-
-        return candidate
-
-    @staticmethod
-    def build_code_base(name):
-        normalized = unicodedata.normalize("NFKD", str(name or ""))
-        ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
-        code = re.sub(r"[^A-Za-z0-9]+", "_", ascii_name).strip("_").upper()
-        code = re.sub(r"_+", "_", code)
-        return (code or "TIPO_HABITACION")[:80]
 
 class RateSerializer(TenantSerializerMixin, serializers.ModelSerializer):
     tenant_field_name = "hotel_settings"
@@ -296,6 +241,18 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
         allow_null=True,
         required=False,
     )
+    rate = serializers.PrimaryKeyRelatedField(
+        queryset=Rate.objects.all(),
+        allow_null=True,
+        required=False,
+    )
+    rate_name = serializers.CharField(source="rate.name", read_only=True)
+    rate_price = serializers.DecimalField(
+        source="rate.price",
+        max_digits=10,
+        decimal_places=2,
+        read_only=True,
+    )
     room_type_name = serializers.CharField(source="room_type.name", read_only=True)
     room_type_capacity = serializers.IntegerField(source="room_type.capacity", read_only=True)
     floor_name = serializers.CharField(source="floor.name", read_only=True)
@@ -324,6 +281,9 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             "room_type",
             "room_type_name",
             "room_type_capacity",
+            "rate",
+            "rate_name",
+            "rate_price",
             "floor",
             "floor_name",
             "floor_number",
@@ -358,7 +318,7 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             fields["room_type"].queryset = RoomType.objects.filter(
                 hotel_settings_id=user.hotel_settings_id
             )
-            fields["amenity_ids"].queryset = Amenity.objects.filter(
+            fields["rate"].queryset = Rate.objects.filter(
                 hotel_settings_id=user.hotel_settings_id
             )
 
@@ -367,6 +327,7 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
     def validate(self, attrs):
         floor = attrs.get("floor", getattr(self.instance, "floor", None))
         room_type = attrs.get("room_type", getattr(self.instance, "room_type", None))
+        rate = attrs.get("rate", getattr(self.instance, "rate", None))
 
         if floor is None:
             raise serializers.ValidationError({
@@ -397,11 +358,19 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
                 "room_type": "El tipo de habitacion no pertenece al mismo hotel de la habitacion."
             })
 
-        amenities = attrs.get("amenities", None)
-        if amenities is not None and any(amenity.hotel_settings_id != hotel.id for amenity in amenities):
-            raise serializers.ValidationError({
-                "amenity_ids": "Todas las amenidades deben pertenecer al mismo hotel de la habitacion."
-            })
+        if rate:
+            if rate.hotel_settings_id != hotel.id:
+                raise serializers.ValidationError({
+                    "rate": "La tarifa no pertenece al hotel seleccionado."
+                })
+            if room_type is None:
+                raise serializers.ValidationError({
+                    "rate": "Asigna un tipo de habitacion antes de seleccionar una tarifa."
+                })
+            if rate.room_type_id != room_type.id:
+                raise serializers.ValidationError({
+                    "rate": "La tarifa debe pertenecer al tipo de habitacion seleccionado."
+                })
 
         return attrs
 
@@ -421,6 +390,7 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
                 "reservation",
                 "reservation__status",
                 "reservation__client",
+                "reservation__hotel_settings",
             )
             .filter(reservation__real_check_out__isnull=True)
             .exclude(reservation__status__code__in=INACTIVE_RESERVATION_STATUS_CODES)
@@ -443,6 +413,9 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             "status_label": reservation.status.name if reservation.status else None,
             "expected_check_in": reservation.expected_check_in,
             "expected_check_out": reservation.expected_check_out,
+            "expected_check_out_time": _format_time(
+                getattr(reservation.hotel_settings, "check_out_time", None)
+            ),
             "real_check_in": reservation.real_check_in,
             "real_check_out": reservation.real_check_out,
             "client_name": reservation.client.full_name if reservation.client_id else None,
@@ -691,7 +664,7 @@ class RoomPanelSerializer(serializers.ModelSerializer):
     status = serializers.CharField(source="status.code", read_only=True)
     status_label = serializers.CharField(source="status.name", read_only=True)
 
-    rate = serializers.SerializerMethodField()
+    rate = RateMiniSerializer(read_only=True)
     active_maintenance = serializers.SerializerMethodField()
     current_guest = serializers.SerializerMethodField()
     active_reservation = serializers.SerializerMethodField()
@@ -713,16 +686,6 @@ class RoomPanelSerializer(serializers.ModelSerializer):
             "active_reservation",
             "active_maintenance",
         )
-
-    def get_rate(self, obj):
-        if not obj.room_type:
-            return None
-
-        rate = obj.room_type.rates.filter(is_active=True).order_by("-created_at").first()
-        if not rate:
-            return None
-
-        return RateMiniSerializer(rate).data
 
     def get_active_maintenance(self, obj):
         maintenance = obj.maintenance_orders.filter(
@@ -754,6 +717,7 @@ class RoomPanelSerializer(serializers.ModelSerializer):
                 "reservation",
                 "reservation__status",
                 "reservation__client",
+                "reservation__hotel_settings",
             )
             .filter(reservation__real_check_out__isnull=True)
             .exclude(reservation__status__code__in=INACTIVE_RESERVATION_STATUS_CODES)
@@ -776,6 +740,9 @@ class RoomPanelSerializer(serializers.ModelSerializer):
             "status_label": reservation.status.name if reservation.status else None,
             "expected_check_in": reservation.expected_check_in,
             "expected_check_out": reservation.expected_check_out,
+            "expected_check_out_time": _format_time(
+                getattr(reservation.hotel_settings, "check_out_time", None)
+            ),
             "real_check_in": reservation.real_check_in,
             "real_check_out": reservation.real_check_out,
             "client": {

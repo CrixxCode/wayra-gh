@@ -2,6 +2,7 @@ export interface ItemI {
   id: number;
   hotel_settings: number;
   hotel_name?: string;
+  item_purpose: 'ROOM' | 'RECEPTION';
   item_type: number | null;
   item_type_name?: string;
   item_type_code?: string;
@@ -23,6 +24,7 @@ export interface ItemI {
 
 export interface ItemFormPayload {
   hotel_settings: number;
+  item_purpose: 'ROOM' | 'RECEPTION';
   item_type: number;
   unit_measure: number;
   name: string;

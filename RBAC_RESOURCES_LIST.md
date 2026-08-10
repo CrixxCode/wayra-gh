@@ -1,5 +1,13 @@
 # 🎯 LISTA COMPLETA DE RECURSOS RBAC ENCONTRADOS
 
+> ⚠️ **Documento histórico (escaneo del 4 de mayo de 2026).** Desde el 2026-08-10 la fuente única
+> de los recursos RBAC y del menú es
+> [`backend/accounts/management/commands/seed_rbac.py`](backend/accounts/management/commands/seed_rbac.py)
+> — ver [AGENTS.md 5.3](AGENTS.md#53-rbac-por-resourcekey-no-por-permisos-nativos-de-django).
+> Este escaneo ya no está completo: le faltan `services.*`, `packages.*` y `promotions.*`, y no
+> refleja los recursos de navegación ni el menú. La cobertura real la verifica la prueba
+> `accounts.tests.SeedRbacCoverageTests`.
+
 ## Búsqueda Realizada
 - **Patrón:** `required_scopes` y `permission_classes = [HasResourcePermission]`
 - **Total de Archivos:** 12

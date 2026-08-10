@@ -81,10 +81,10 @@ export class PosBar implements OnInit, OnChanges {
     this.loading = true;
     this.errorMessage = '';
 
-    this.itemsService.listItems({ ordering: 'name' }).subscribe({
+    this.itemsService.listItems({ ordering: 'name', item_purpose: 'RECEPTION' }).subscribe({
       next: (items) => {
         this.loading = false;
-        this.items = items.filter((item) => !!item.is_active);
+        this.items = items.filter((item) => !!item.is_active && this.isReceptionItem(item));
         this.buildCategories();
         this.applyFilters();
       },
@@ -333,6 +333,10 @@ export class PosBar implements OnInit, OnChanges {
     if (byCode) return byCode;
 
     return 'Sin categoria';
+  }
+
+  private isReceptionItem(item: ItemI): boolean {
+    return !item.item_purpose || item.item_purpose === 'RECEPTION';
   }
 
   private toNumber(value: unknown): number {

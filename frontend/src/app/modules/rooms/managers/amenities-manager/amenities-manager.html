@@ -1,0 +1,162 @@
+<div [ngClass]="embedded ? 'amenities-embedded' : 'gh-modal-overlay'" (click)="!embedded && close()">
+  <section [ngClass]="embedded ? 'amenities-panel' : 'gh-modal'" (click)="$event.stopPropagation()">
+    <header class="gh-modal-head">
+      <div>
+        <h2>Amenidades</h2>
+        <p>Catalogo de comodidades que puedes asignar a cada habitacion.</p>
+      </div>
+      <button type="button" class="gh-modal-close" (click)="close()" title="Cerrar" *ngIf="!embedded">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <div class="gh-modal-body">
+      <p class="gh-inline-alert" *ngIf="feedback" [ngClass]="feedbackKind === 'error' ? 'is-error' : 'is-info'">
+        {{ feedback }}
+      </p>
+
+      <div class="manager-toolbar">
+        <label class="gh-search-wrap search-field">
+          <span class="gh-search-label">Buscar</span>
+          <div class="gh-search-control">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input
+              class="gh-search-input"
+              type="text"
+              [(ngModel)]="search"
+              (input)="applyFilters()"
+              [disabled]="showDeleted"
+              placeholder="Nombre o descripcion..." />
+          </div>
+        </label>
+
+        <div class="toolbar-actions">
+          <span class="gh-chip is-success">{{ activeCount }} activas</span>
+          <span class="gh-chip">{{ inactiveCount }} inactivas</span>
+          <button
+            type="button"
+            class="gh-icon-btn"
+            [class.is-on]="showDeleted"
+            (click)="toggleDeletedView()"
+            [title]="showDeleted ? 'Ver amenidades vigentes' : 'Ver eliminadas (' + deletedAmenities.length + ')'">
+            <i class="fa-solid fa-trash-can-arrow-up"></i>
+          </button>
+          <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="openCreate()" *ngIf="!showDeleted">
+            <i class="fa-solid fa-plus"></i>
+            Nueva amenidad
+          </button>
+        </div>
+      </div>
+
+      <!-- Formulario inline -->
+      <div class="gh-panel form-panel" *ngIf="formMode !== 'closed'">
+        <p class="gh-panel-title">{{ formMode === 'edit' ? 'Editar amenidad' : 'Nueva amenidad' }}</p>
+
+        <div class="gh-form-grid">
+          <label class="gh-field">
+            <span>Nombre *</span>
+            <input type="text" [(ngModel)]="form.name" maxlength="100" placeholder="Ej: Aire acondicionado" />
+          </label>
+
+          <label class="gh-field">
+            <span>Estado</span>
+            <select [(ngModel)]="form.is_active">
+              <option [ngValue]="true">Activa</option>
+              <option [ngValue]="false">Inactiva</option>
+            </select>
+          </label>
+
+          <label class="gh-field gh-span-all">
+            <span>Descripcion</span>
+            <textarea [(ngModel)]="form.description" rows="2" placeholder="Detalle opcional..."></textarea>
+          </label>
+
+          <div class="gh-field gh-span-all">
+            <span>Icono *</span>
+            <div class="icon-grid">
+              <button
+                type="button"
+                class="icon-option"
+                *ngFor="let option of iconCatalog; trackBy: trackByIcon"
+                [class.is-selected]="form.icon === option.value"
+                (click)="selectIcon(option.value)"
+                [title]="option.label">
+                <i [class]="option.value"></i>
+                <small>{{ option.label }}</small>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="gh-mbtn gh-mbtn-light" (click)="closeForm()" [disabled]="saving">Cancelar</button>
+          <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="save()" [disabled]="saving">
+            {{ saving ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+      </div>
+
+      <p class="gh-empty" *ngIf="loading">Cargando amenidades...</p>
+
+      <p class="gh-empty" *ngIf="!loading && !visibleAmenities.length">
+        {{ showDeleted ? 'No hay amenidades eliminadas.' : 'Aun no hay amenidades. Crea la primera para poder asignarla a las habitaciones.' }}
+      </p>
+
+      <div class="gh-modal-table-wrap" *ngIf="!loading && visibleAmenities.length">
+        <table class="gh-modal-table">
+          <thead>
+            <tr>
+              <th>Amenidad</th>
+              <th>Descripcion</th>
+              <th *ngIf="!embedded">Uso</th>
+              <th>Estado</th>
+              <th class="col-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let amenity of visibleAmenities; trackBy: trackById">
+              <td>
+                <span class="amenity-name">
+                  <i [class]="amenity.icon || 'fa-solid fa-circle-check'"></i>
+                  {{ amenity.name }}
+                </span>
+              </td>
+              <td class="col-description">{{ amenity.description || '--' }}</td>
+              <td *ngIf="!embedded">{{ getUsageCount(amenity.id) }} hab.</td>
+              <td>
+                <span class="gh-chip" [ngClass]="amenity.is_active !== false ? 'is-success' : ''">
+                  {{ amenity.is_active !== false ? 'Activa' : 'Inactiva' }}
+                </span>
+              </td>
+              <td class="col-actions">
+                <div class="gh-row-actions">
+                  <ng-container *ngIf="!showDeleted">
+                    <button type="button" class="gh-icon-btn" title="Editar" (click)="openEdit(amenity)">
+                      <i class="fa-regular fa-pen-to-square"></i>
+                    </button>
+                    <button type="button" class="gh-icon-btn is-danger" title="Eliminar" (click)="askDelete(amenity)">
+                      <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                  </ng-container>
+                  <button
+                    type="button"
+                    class="gh-icon-btn"
+                    title="Restaurar"
+                    *ngIf="showDeleted"
+                    (click)="askRestore(amenity)">
+                    <i class="fa-solid fa-rotate-left"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer class="gh-modal-foot" *ngIf="!embedded || showDeleted">
+      <span class="gh-foot-note" *ngIf="showDeleted">Mostrando amenidades eliminadas.</span>
+      <button type="button" class="gh-mbtn gh-mbtn-light" (click)="close()" *ngIf="!embedded">Cerrar</button>
+    </footer>
+  </section>
+</div>
