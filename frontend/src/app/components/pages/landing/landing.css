@@ -56,6 +56,31 @@
   cursor: not-allowed;
 }
 
+.wayra-reveal {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wayra-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+.wayra-benefit-card,
+.wayra-feature-shell,
+.wayra-audience-card,
+.wayra-faq-item {
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.wayra-benefit-card:hover,
+.wayra-feature-shell:hover,
+.wayra-audience-card:hover,
+.wayra-faq-item:hover {
+  transform: translateY(-3px);
+}
+
 .wayra-header {
   border-bottom-color: var(--border) !important;
   background: rgba(255, 255, 255, 0.94) !important;
@@ -115,8 +140,27 @@
   padding: 0 0.8rem;
 }
 
-.wayra-header-login:hover {
+.wayra-header-secondary {
+  border: 1px solid rgba(44, 123, 229, 0.22);
+  background: var(--accent);
+  color: var(--primary);
+}
+
+.wayra-header-secondary:hover {
+  border-color: rgba(44, 123, 229, 0.36);
+  background: #dfefff;
+  color: var(--primary-hover);
+}
+
+.wayra-header-login {
+  border: 1px solid var(--border);
   background: var(--secondary);
+  color: var(--foreground);
+}
+
+.wayra-header-login:hover {
+  border-color: #cbd5e1;
+  background: #eef3f9;
 }
 
 .wayra-btn-primary,
@@ -291,6 +335,7 @@
 .wayra-dark-image {
   overflow: hidden;
   border-radius: 18px;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .wayra-image-card {
@@ -303,11 +348,17 @@
 .wayra-dark-image img {
   width: 100%;
   height: auto;
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .wayra-dark-image {
   border: 1px solid var(--ink-border);
   box-shadow: var(--shadow-elevated);
+}
+
+.wayra-image-card:hover img,
+.wayra-dark-image:hover img {
+  transform: scale(1.025);
 }
 
 .wayra-problem-section figure {
@@ -365,6 +416,12 @@
   border-radius: 12px;
   background: var(--accent);
   color: var(--primary);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.wayra-benefit-card:hover {
+  border-color: rgba(44, 123, 229, 0.28);
+  box-shadow: var(--shadow-card);
 }
 
 .wayra-operation-section,
@@ -375,6 +432,14 @@
 .wayra-operation-section p,
 .wayra-final-cta p {
   color: var(--ink-muted) !important;
+}
+
+.wayra-operation-section article {
+  padding-block: 1rem;
+}
+
+.wayra-operation-section article > p {
+  padding-right: clamp(0rem, 2vw, 1.5rem);
 }
 
 .wayra-inline-list,
@@ -389,6 +454,7 @@
 
 .wayra-inline-list {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-right: clamp(0rem, 2vw, 1.5rem);
 }
 
 .wayra-inline-list li,
@@ -403,6 +469,8 @@
 }
 
 .wayra-operation-section .wayra-inline-list li {
+  min-height: 44px;
+  padding: 0.45rem 0.65rem 0.45rem 0;
   color: var(--ink-foreground);
 }
 
@@ -428,6 +496,11 @@
   border-radius: 18px;
   background: var(--card);
   box-shadow: var(--shadow-card);
+}
+
+.wayra-feature-shell:hover {
+  border-color: rgba(44, 123, 229, 0.28);
+  box-shadow: 0 22px 56px rgba(17, 24, 39, 0.12);
 }
 
 .wayra-feature-tabs {
@@ -487,7 +560,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 1rem;
+  gap: 1.5rem;
   list-style: none;
 }
 
@@ -495,10 +568,11 @@
   position: relative;
   display: grid;
   gap: 1rem;
-  padding: 1.25rem;
+  padding: 1.35rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
 }
 
 .wayra-timeline-number {
@@ -510,12 +584,17 @@
   background: var(--ink);
   color: var(--ink-foreground);
   font-weight: 900;
+  transition: transform 0.2s ease, background-color 0.2s ease;
 }
 
 .wayra-audience-card {
   min-height: 210px;
   padding: 1.5rem;
   background: var(--card);
+}
+
+.wayra-audience-card:hover {
+  box-shadow: var(--shadow-card);
 }
 
 .wayra-trust-list {
@@ -535,6 +614,12 @@
   border-radius: var(--radius);
   background: var(--card);
   box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+}
+
+.wayra-faq-item:hover,
+.wayra-faq-item[open] {
+  border-color: rgba(44, 123, 229, 0.28);
+  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.08);
 }
 
 .wayra-faq-item summary {
@@ -585,28 +670,6 @@
   border-radius: 24px;
   text-align: center;
   box-shadow: var(--shadow-elevated);
-}
-
-.wayra-landing footer {
-  border-top: 1px solid var(--border);
-  background: var(--surface) !important;
-  color: var(--muted) !important;
-}
-
-.wayra-landing footer .wayra-heading,
-.wayra-landing footer h3 {
-  color: var(--foreground) !important;
-}
-
-.wayra-landing footer a,
-.wayra-landing footer button,
-.wayra-landing footer p {
-  color: var(--muted) !important;
-}
-
-.wayra-landing footer a:hover,
-.wayra-landing footer button:hover {
-  color: var(--foreground) !important;
 }
 
 .wayra-demo-overlay {
@@ -770,22 +833,48 @@ select.wayra-demo-input {
 
   .wayra-timeline {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2rem;
+    margin-top: 4.5rem !important;
   }
 
   .wayra-timeline::before {
     content: '';
     position: absolute;
-    top: 1.45rem;
-    right: 16%;
-    left: 16%;
+    top: 23px;
+    right: calc(16.666% + 2rem);
+    left: calc(16.666% + 2rem);
     height: 2px;
+    background: linear-gradient(90deg, transparent 0%, var(--border) 10%, var(--border) 90%, transparent 100%);
+  }
+
+  .wayra-timeline-step {
+    z-index: 1;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .wayra-timeline {
+    margin-top: 3rem !important;
+    padding-left: 1rem;
+  }
+
+  .wayra-timeline::before {
+    content: '';
+    position: absolute;
+    top: 1rem;
+    bottom: 1rem;
+    left: 23px;
+    width: 2px;
     background: var(--border);
   }
 
   .wayra-timeline-step {
-    padding-top: 0;
-    border: 0;
-    background: transparent;
+    grid-template-columns: 46px 1fr;
+    align-items: start;
   }
 }
 
@@ -847,5 +936,10 @@ select.wayra-demo-input {
     animation: none !important;
     scroll-behavior: auto !important;
     transition-duration: 0s !important;
+  }
+
+  .wayra-reveal {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }

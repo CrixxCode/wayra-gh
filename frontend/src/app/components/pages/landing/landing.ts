@@ -107,6 +107,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
   private readonly rolesService = inject(RolesService);
 
   private previousBodyOverflow = '';
+  private revealObserver: IntersectionObserver | null = null;
 
   readonly year = new Date().getFullYear();
 
@@ -503,7 +504,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
       title: 'Servicios',
       description:
         'Relaciona servicios, consumos, paquetes y promociones con la operación del hotel.',
-      icon: 'pi pi-concierge-bell',
+      icon: 'pi pi-shopping-bag',
     },
     {
       title: 'Reportes',
@@ -706,11 +707,14 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
     window.setTimeout(() => {
       this.scrollToCurrentHash();
+      this.setupLandingAnimations();
     });
   }
 
 
   ngOnDestroy(): void {
+    this.revealObserver?.disconnect();
+    this.revealObserver = null;
     this.unlockPageScroll();
   }
 
@@ -1186,6 +1190,64 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
     document.body.style.overflow =
       this.previousBodyOverflow;
+  }
+
+
+  private setupLandingAnimations(): void {
+
+    const animatedElements =
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '.wayra-reveal'
+        )
+      );
+
+    if (animatedElements.length === 0) {
+      return;
+    }
+
+    const prefersReducedMotion =
+      window.matchMedia(
+        '(prefers-reduced-motion: reduce)'
+      ).matches;
+
+    if (
+      prefersReducedMotion ||
+      !('IntersectionObserver' in window)
+    ) {
+      animatedElements.forEach((element) => {
+        element.classList.add('wayra-visible');
+      });
+
+      return;
+    }
+
+    this.revealObserver?.disconnect();
+
+    this.revealObserver =
+      new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) {
+              return;
+            }
+
+            const element =
+              entry.target as HTMLElement;
+
+            element.classList.add('wayra-visible');
+            this.revealObserver?.unobserve(element);
+          });
+        },
+        {
+          rootMargin: '0px 0px -12% 0px',
+          threshold: 0.14,
+        }
+      );
+
+    animatedElements.forEach((element) => {
+      this.revealObserver?.observe(element);
+    });
   }
 
 

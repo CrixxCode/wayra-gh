@@ -16,7 +16,7 @@
         (click)="scrollToSection($event, 'inicio')">
 
         <img
-          src="/logo-black.png"
+          src="/logo.png"
           alt="Wayra"
           class="h-9 w-auto sm:h-10" />
 
@@ -323,7 +323,7 @@
     ===================================================== -->
 
     <section
-      class="wayra-guest-band">
+      class="wayra-guest-band wayra-reveal">
 
       <div
         class="mx-auto grid max-w-7xl items-center gap-6 px-4 py-8 sm:px-6 lg:grid-cols-12 lg:px-8">
@@ -390,7 +390,7 @@
         class="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-12 lg:gap-14 lg:px-8">
 
         <figure
-          class="lg:col-span-7">
+          class="wayra-reveal lg:col-span-7">
 
           <div
             class="wayra-image-card">
@@ -407,7 +407,7 @@
 
 
         <article
-          class="lg:col-span-5">
+          class="wayra-reveal lg:col-span-5">
 
           <p
             class="text-xs font-bold uppercase tracking-[0.18em] text-rose-600">
@@ -563,7 +563,7 @@
               let benefit of benefits;
               trackBy: trackByIndex
             "
-            class="wayra-benefit-card">
+            class="wayra-benefit-card wayra-reveal">
 
             <div
               class="wayra-benefit-icon">
@@ -617,7 +617,7 @@
           class="grid items-center gap-12 lg:grid-cols-12 lg:gap-14">
 
           <article
-            class="lg:col-span-5">
+            class="wayra-reveal lg:col-span-5">
 
             <p
               class="text-xs font-bold uppercase tracking-[0.18em] text-emerald-400">
@@ -665,7 +665,7 @@
 
 
           <figure
-            class="lg:col-span-7">
+            class="wayra-reveal lg:col-span-7">
 
             <div
               class="wayra-dark-image">
@@ -735,7 +735,7 @@
 
 
         <div
-          class="wayra-feature-shell mt-10">
+          class="wayra-feature-shell wayra-reveal mt-10">
 
           <div
             class="wayra-feature-tabs"
@@ -951,7 +951,7 @@
         class="mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-12 lg:px-8">
 
         <figure
-          class="lg:col-span-7">
+          class="wayra-reveal lg:col-span-7">
 
           <div
             class="wayra-image-card">
@@ -976,7 +976,7 @@
 
 
         <article
-          class="lg:col-span-5">
+          class="wayra-reveal lg:col-span-5">
 
           <p
             class="text-xs font-bold uppercase tracking-[0.18em] text-sky-700">
@@ -1009,7 +1009,7 @@
                 let item of resultItems;
                 trackBy: trackByIndex
               "
-              class="flex gap-4">
+              class="wayra-result-item wayra-reveal flex gap-4">
 
               <div
                 class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
@@ -1081,7 +1081,7 @@
 
 
         <ol
-          class="wayra-timeline mt-12">
+          class="wayra-timeline mt-16">
 
           <li
             *ngFor="
@@ -1172,7 +1172,7 @@
               let audience of audiences;
               trackBy: trackByIndex
             "
-            class="wayra-audience-card">
+            class="wayra-audience-card wayra-reveal">
 
             <div
               class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
@@ -1252,7 +1252,8 @@
             *ngFor="
               let trustItem of trustItems;
               trackBy: trackByIndex
-            ">
+            "
+            class="wayra-reveal">
 
             <i
               class="pi pi-check">
@@ -1310,7 +1311,7 @@
               let index = index;
               trackBy: trackByIndex
             "
-            class="wayra-faq-item"
+            class="wayra-faq-item wayra-reveal"
             [open]="openFaqIndex === index"
             (toggle)="onFaqToggle($event, index)">
 
@@ -1340,7 +1341,7 @@
       class="bg-white px-4 pb-20 sm:px-6">
 
       <div
-        class="wayra-final-cta mx-auto max-w-7xl">
+        class="wayra-final-cta wayra-reveal mx-auto max-w-7xl">
 
         <p
           class="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">
@@ -1390,7 +1391,7 @@
   ======================================================= -->
 
   <footer
-    class="bg-slate-950 py-12 text-slate-300">
+    class="overflow-hidden border-t border-white/10 bg-slate-950 py-14 text-slate-400">
 
     <div
       class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
@@ -1399,18 +1400,25 @@
         class="md:col-span-2">
 
         <a
-          class="inline-flex items-center gap-3"
+          class="inline-flex items-center gap-3 no-underline"
           href="#inicio"
           (click)="scrollToSection($event, 'inicio')">
 
           <img
-            src="/logo-white.png"
+            src="/logo.png"
             alt="Wayra"
-            class="h-10 w-auto" />
+            class="h-11 w-11 rounded-xl" />
 
-          <span
-            class="wayra-heading text-xl font-extrabold text-white">
-            Wayra
+          <span>
+            <strong
+              class="wayra-heading block text-xl font-extrabold text-white">
+              Wayra
+            </strong>
+
+            <small
+              class="block text-xs font-bold text-slate-500">
+              Gestion hotelera SaaS
+            </small>
           </span>
 
         </a>
@@ -1423,27 +1431,48 @@
 
         </p>
 
+        <div
+          class="mt-5 flex flex-wrap gap-2"
+          aria-label="Tipos de alojamientos">
+
+          <span
+            class="rounded-full border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-300">
+            Hoteles
+          </span>
+
+          <span
+            class="rounded-full border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-300">
+            Hostales
+          </span>
+
+          <span
+            class="rounded-full border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-300">
+            Apartahoteles
+          </span>
+
+        </div>
+
       </div>
 
 
       <div>
 
         <h3
-          class="text-sm font-bold uppercase tracking-widest text-slate-100">
+          class="text-xs font-black uppercase tracking-[0.14em] text-white">
 
           Navegación
 
         </h3>
 
         <div
-          class="mt-4 space-y-2">
+          class="mt-4 grid gap-2">
 
           <a
             *ngFor="
               let link of navLinks;
               trackBy: trackByIndex
             "
-            class="block text-sm text-slate-400 transition hover:text-white"
+            class="block min-h-9 text-sm font-semibold text-slate-400 transition hover:text-white"
             href="#{{ link.sectionId }}"
             (click)="scrollToSection($event, link.sectionId)">
 
@@ -1459,27 +1488,48 @@
       <div>
 
         <h3
-          class="text-sm font-bold uppercase tracking-widest text-slate-100">
+          class="text-xs font-black uppercase tracking-[0.14em] text-white">
 
           Acciones
 
         </h3>
 
         <div
-          class="mt-4 space-y-2">
+          class="mt-4 grid gap-2">
 
           <button
             type="button"
-            class="block text-left text-sm text-slate-400 transition hover:text-white"
+            class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-sky-500/15 px-3 text-left text-sm font-bold text-white transition hover:bg-sky-500/25"
             (click)="openDemoModal($event)">
+
+            <i
+              class="pi pi-calendar-plus text-sky-400">
+            </i>
 
             Solicitar una demo
 
           </button>
 
           <a
-            class="block text-sm text-slate-400 transition hover:text-white"
+            class="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold text-slate-400 transition hover:bg-white/10 hover:text-white"
+            routerLink="/reservas"
+            [queryParams]="{ action: 'CHECKIN' }">
+
+            <i
+              class="pi pi-id-card text-sky-400">
+            </i>
+
+            Hacer check-in online
+
+          </a>
+
+          <a
+            class="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold text-slate-400 transition hover:bg-white/10 hover:text-white"
             routerLink="/login">
+
+            <i
+              class="pi pi-sign-in text-sky-400">
+            </i>
 
             Iniciar sesión
 
@@ -1493,7 +1543,7 @@
 
 
     <div
-      class="mx-auto mt-10 max-w-7xl border-t border-slate-800 px-4 pt-6 text-xs text-slate-500 sm:px-6 lg:px-8">
+      class="mx-auto mt-10 max-w-7xl border-t border-white/10 px-4 pt-6 text-xs text-slate-500 sm:px-6 lg:px-8">
 
       <p>
         Wayra SaaS hotelero.

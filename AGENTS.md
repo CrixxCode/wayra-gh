@@ -682,6 +682,120 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-11 — Logo de footer sin fondo blanco
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se retiro la clase `bg-white` del logo del footer de la landing para evitar el
+  recuadro blanco sobre el fondo oscuro.
+- **Por qué:** el fondo blanco hacia que el logo se percibiera como una pieza separada del footer
+  y no como parte integrada de la marca.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.html`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-11 — Footer mejorado con accion de check-in
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se rediseño el footer de la landing con una composicion dark mas pulida,
+  bloque de marca, etiquetas de publico objetivo, enlaces con mejor jerarquia e iconografia en
+  acciones. Se agrego la accion `Hacer check-in online` usando la ruta existente
+  `/reservas?action=CHECKIN`.
+- **Por qué:** el footer necesitaba verse mas alineado con la identidad SaaS B2B de Wayra y ofrecer
+  el acceso de check-in tambien desde el cierre de la pagina.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-11 — Retiro de animaciones en Como funciona
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se retiro la animacion de entrada y el hover animado de los pasos del timeline
+  en la seccion `Como funciona` de la landing.
+- **Por qué:** esa seccion debia mantenerse estatica para verse mas estable dentro del recorrido
+  visual de la landing.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-11 — Animaciones sutiles en landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se agregaron animaciones progresivas con `IntersectionObserver` y CSS a bloques,
+  cards, imágenes, timeline, FAQ, elementos de analítica, confianza y CTA final de la landing.
+  También se añadieron estados hover sutiles y fallback para `prefers-reduced-motion`.
+- **Por qué:** la landing necesitaba mayor sensación de producto vivo y mejor feedback visual sin
+  sumar una dependencia externa ni aumentar innecesariamente el peso del frontend.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.ts`,
+  `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-11 — Espaciado en Producto en accion
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se agrego padding al bloque de texto y a la lista de checks de la seccion
+  `Producto en accion` de la landing.
+- **Por qué:** el parrafo y los checks necesitaban mas aire interno para mejorar legibilidad y
+  composicion visual.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.css`.
+- **Impacto:** cambio visual frontend sin migraciones ni cambios de API.
+
+---
+
+### 2026-08-11 — Ajuste de timeline en seccion Como funciona
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se aumento el espacio entre el titulo de `Como funciona` y el timeline, se
+  mejoro la linea conectora horizontal en desktop y se agrego una variante vertical conectada para
+  mobile.
+- **Por qué:** el timeline se veia demasiado pegado al encabezado y la composicion necesitaba una
+  separacion mas clara para leerse correctamente.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`.
+- **Impacto:** cambio visual frontend sin migraciones ni cambios de API.
+
+---
+
+### 2026-08-11 — Icono de servicios en analitica de landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** se cambio el icono de `Servicios` en la seccion `Analitica y control` de
+  `pi-concierge-bell` a `pi-shopping-bag`, una clase disponible en la version instalada de
+  PrimeIcons.
+- **Por qué:** `pi-concierge-bell` no existe en el paquete actual y por eso el icono no cargaba en
+  la landing.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.ts`.
+- **Impacto:** cambio visual frontend sin migraciones ni cambios de API.
+
+---
+
+### 2026-08-11 — Botones secundarios visibles en header landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se agregaron fondo, borde y color a los enlaces de `Check-in online` e
+  `Iniciar sesión` del header de la landing para que se perciban como botones secundarios.
+- **Por qué:** esos enlaces necesitaban mayor affordance visual sin competir con el CTA principal
+  `Solicitar una demo`.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.css`.
+- **Impacto:** cambio visual frontend sin migraciones ni cambios de API.
+
+---
+
 ### 2026-08-11 — Cursores interactivos en landing
 
 - **Autor:** Codex, a solicitud de rastor65
