@@ -16,6 +16,7 @@ User = get_user_model()
 class PublicJobTitleCatalogTests(APITestCase):
     def test_public_job_titles_returns_active_titles_without_authentication(self):
         admin_role = Role.objects.create(name="Administrador", slug="admin")
+        manager_role = Role.objects.create(name="Gerente", slug="manager")
         active_title = JobTitle.objects.create(
             role=admin_role,
             name="Administrador general",
@@ -30,6 +31,13 @@ class PublicJobTitleCatalogTests(APITestCase):
             is_active=False,
             sort_order=2,
         )
+        JobTitle.objects.create(
+            role=manager_role,
+            name="Gerente general",
+            slug="gerente-general",
+            is_active=True,
+            sort_order=1,
+        )
 
         response = self.client.get("/api/roles/public-job-titles/")
 
@@ -37,6 +45,7 @@ class PublicJobTitleCatalogTests(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["id"], str(active_title.id))
         self.assertEqual(response.data[0]["name"], "Administrador general")
+        self.assertEqual(response.data[0]["role_id"], str(admin_role.id))
 
 
 class FilterOrderingTests(APITestCase):
@@ -715,3 +724,15 @@ class SeedRbacCoverageTests(TestCase):
         call_command("seed_rbac", stdout=StringIO())
 
         self.assertEqual(Resource.objects.filter(is_active=True).count(), before)
+
+    def test_seed_creates_admin_only_public_job_title_catalog(self):
+        self.assertGreater(JobTitle.objects.filter(is_active=True).count(), 0)
+
+        response = self.client.get("/api/roles/public-job-titles/")
+
+        self.assertEqual(response.status_code, 200)
+        names = {entry["name"] for entry in response.data}
+        self.assertIn("Administrador general", names)
+        self.assertNotIn("Gerente general", names)
+        self.assertNotIn("Recepcionista", names)
+        self.assertTrue(all(entry["role_id"] == str(Role.objects.get(slug="admin").id) for entry in response.data))

@@ -371,12 +371,16 @@ class RoleViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
     def public_job_titles(self, request):
         """
         GET /api/roles/public-job-titles/
-        Devuelve cargos activos para formularios publicos.
+        Devuelve cargos activos de administrador para formularios publicos.
         """
         seen_names = set()
         job_titles = []
 
-        for job_title in JobTitle.objects.filter(is_active=True).order_by("sort_order", "name"):
+        for job_title in JobTitle.objects.filter(
+            is_active=True,
+            role__slug="admin",
+            role__is_active=True,
+        ).order_by("sort_order", "name"):
             normalized_name = str(job_title.name or "").strip().lower()
             if not normalized_name or normalized_name in seen_names:
                 continue

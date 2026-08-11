@@ -270,6 +270,28 @@ swiper-slide-active img {
   border-color: var(--auth-brand-hover) !important;
 }
 
+.login-home-link {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid var(--auth-border);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--auth-brand);
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.login-home-link:hover {
+  border-color: var(--auth-brand);
+  background: rgba(15, 31, 65, 0.06);
+  color: var(--auth-brand-hover);
+}
+
 @media (max-width: 640px) {
   .login-shell {
     padding: 1rem;

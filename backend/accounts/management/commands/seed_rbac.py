@@ -28,7 +28,7 @@ reproducible. Los roles creados a mano por un hotel no se tocan.
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
-from accounts.models import Resource, Role, RoleResource
+from accounts.models import JobTitle, Resource, Role, RoleResource
 
 User = get_user_model()
 
@@ -471,6 +471,71 @@ ROLES = {
 }
 
 
+JOB_TITLE_CATALOG = {
+    "admin": [
+        "Administrador del sistema",
+        "Administrador general",
+        "Propietario del hotel",
+        "Dueno del alojamiento",
+        "Director general",
+        "Representante legal",
+    ],
+    "manager": [
+        "Gerente general",
+        "Gerente operativo",
+        "Gerente administrativo",
+        "Jefe de recepcion",
+        "Jefe de reservas",
+        "Jefe de habitaciones",
+        "Jefe de limpieza",
+        "Jefe de mantenimiento",
+        "Jefe financiero",
+        "Coordinador de operaciones",
+        "Supervisor de recepcion",
+        "Supervisor de turno",
+        "Encargado de hotel",
+        "Responsable de facturacion",
+        "Responsable de inventario",
+        "Responsable de reportes",
+    ],
+    "staff": [
+        "Recepcionista",
+        "Auxiliar de recepcion",
+        "Asistente de reservas",
+        "Auxiliar administrativo",
+        "Cajero",
+        "Auxiliar de caja",
+        "Auxiliar de facturacion",
+        "Camarera de habitaciones",
+        "Auxiliar de habitaciones",
+        "Ama de llaves",
+        "Auxiliar de limpieza",
+        "Auxiliar de lavanderia",
+        "Tecnico de mantenimiento",
+        "Auxiliar de mantenimiento",
+        "Botones",
+        "Portero",
+        "Vigilante",
+        "Auxiliar de compras",
+        "Auxiliar de inventario",
+        "Almacenista",
+        "Cocinero",
+        "Auxiliar de cocina",
+        "Mesero",
+        "Bartender",
+        "Personal de restaurante",
+        "Personal de eventos",
+        "Auxiliar de servicios generales",
+        "Auxiliar de atencion al cliente",
+    ],
+    "platform_admin": [
+        "Administrador de plataforma",
+        "Administrador SaaS",
+        "Auditor del sistema",
+    ],
+}
+
+
 class Command(BaseCommand):
     help = "Crea o actualiza los Resources, el menu lateral, los roles base y el superusuario demo."
 
@@ -494,6 +559,7 @@ class Command(BaseCommand):
 
         if not options["only_resources"]:
             self._seed_roles()
+            self._seed_job_titles()
             self._seed_superuser()
 
         if options["assign_admin"]:
@@ -627,6 +693,42 @@ class Command(BaseCommand):
 
             verb = "CREADO " if created else "actualizado"
             self.stdout.write(f"      {verb} -> {slug} ({len(resources)} recursos)")
+
+    # -- cargos ------------------------------------------------------------
+
+    def _seed_job_titles(self):
+        self.stdout.write("  Creando/actualizando cargos...")
+
+        total = 0
+        created_total = 0
+        for role_slug, titles in JOB_TITLE_CATALOG.items():
+            role = Role.objects.filter(slug=role_slug, is_active=True).first()
+            if role is None:
+                self.stdout.write(
+                    self.style.WARNING(f"      No existe el rol activo '{role_slug}' para sembrar cargos.")
+                )
+                continue
+
+            for index, title in enumerate(titles, start=1):
+                _, created = JobTitle.objects.update_or_create(
+                    role=role,
+                    slug=self._slugify_title(title),
+                    defaults={
+                        "name": title,
+                        "description": "",
+                        "is_active": True,
+                        "sort_order": index,
+                    },
+                )
+                total += 1
+                created_total += int(created)
+
+        self.stdout.write(f"      {total} cargos ({created_total} nuevos).")
+
+    def _slugify_title(self, title):
+        from django.utils.text import slugify
+
+        return slugify(title)
 
     # -- usuarios ----------------------------------------------------------
 
