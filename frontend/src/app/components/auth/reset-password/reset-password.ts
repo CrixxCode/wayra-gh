@@ -43,7 +43,6 @@ export class ResetPasswordComponent implements OnInit {
         'login/fondo-login-7.jpg',
         'login/fondo-login-8.jpg',
         'login/fondo-login-9.jpg',
-        'login/fondo-login-10.jpg',
     ];
 
     constructor(

@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-08-10
+**Última actualización:** 2026-08-11
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -681,6 +681,121 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > debe escribirse en el momento del cambio.
 
 ---
+
+### 2026-08-11 — Cursores interactivos en landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se ajustaron los cursores de la landing para que links, botones, acordeones y
+  tabs usen puntero interactivo, mientras los controles deshabilitados mantengan cursor de no
+  disponible.
+- **Por qué:** la landing necesitaba comunicar mejor qué elementos son accionables y cuáles no.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.css`.
+- **Impacto:** cambio visual frontend sin migraciones ni cambios de API.
+
+---
+
+### 2026-08-11 — Rediseño senior de landing SaaS B2B
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se evolucionó la landing existente de Wayra sin crear una landing paralela:
+  header compacto, hero con dashboard protagonista, bloque separado para huéspedes, problema con
+  composición texto/imagen, transición ligera de beneficios, producto en acción, selector de
+  funcionalidades por casos de uso reales, analítica y control, timeline de funcionamiento,
+  sección de público objetivo, bloque de confianza verificable, FAQ ampliado y CTA final. Se
+  reemplazó el CSS acumulado por una hoja encapsulada más compacta y se conservaron los bindings y
+  la lógica funcional del modal de solicitud de demo.
+- **Por qué:** la landing necesitaba mejorar jerarquía visual, storytelling, conversión y ritmo
+  compositivo, evitando una sucesión de tarjetas repetidas y dando mayor protagonismo al producto y
+  a las imágenes existentes en `frontend/public/landing/`.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.ts`,
+  `frontend/src/app/components/pages/landing/landing.css`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API. El CTA de check-in usa la ruta
+  operativa existente `/reservas?action=CHECKIN`, protegida por el flujo actual de autenticación.
+
+---
+
+### 2026-08-11 — Adaptacion de TS externo a landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se tradujo la logica util del TypeScript de referencia al componente Angular de
+  la landing: alineacion correcta al abrir enlaces con hash y comportamiento de FAQ tipo acordeon
+  con estado del componente.
+- **Por qué:** el TS pegado estaba pensado para una pagina estatica con listeners manuales y rutas
+  simuladas; en Angular convenia mantener la navegacion, el menu movil y la solicitud de demo ya
+  existentes, agregando solo la interaccion faltante sin duplicar el flujo real de demo.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.ts`,
+  `frontend/src/app/components/pages/landing/landing.html`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+---
+
+### 2026-08-11 — Adaptacion de CSS externo a landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se adapto el CSS de referencia a la landing Angular usando variables locales
+  dentro de `.wayra-landing`, con ajustes de paleta, botones, hero, tarjetas, secciones oscuras,
+  FAQ, formulario del modal de demo y estados responsive.
+- **Por qué:** la landing ya tenia la estructura del HTML de referencia y necesitaba adoptar su
+  lenguaje visual sin convertir el CSS pegado en estilos globales que afectaran otras vistas.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.css`.
+- **Impacto:** cambio visual frontend sin migraciones ni cambios de API.
+
+---
+
+### 2026-08-11 — Adaptacion de HTML externo a landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se adapto el HTML de referencia a la landing Angular: navegacion publica con
+  Funcionalidades, Beneficios, Como funciona y FAQ; nueva seccion de beneficios, bloque de ahorro
+  operativo, preguntas frecuentes y estilos propios para esos bloques. Se mantuvo el modal real de
+  solicitud de demo en lugar de duplicar el formulario estatico del HTML de referencia.
+- **Por qué:** la landing necesitaba incorporar la narrativa y estructura del HTML proporcionado sin
+  romper el flujo existente de solicitudes de demo ni agregar una ruta de check-in inexistente.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.ts`,
+  `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-11 — Boton de regreso a landing en autenticacion
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se agrego un enlace tipo boton "Volver al inicio" en las vistas de login,
+  recuperacion de contrasena y restablecimiento de contrasena, apuntando a la landing publica `/`.
+- **Por qué:** los usuarios que llegan a una pantalla de autenticacion necesitaban una salida clara
+  para volver a la pagina publica sin usar el navegador.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/auth/login/`,
+  `frontend/src/app/components/auth/forgot-password/`, `frontend/src/app/components/auth/reset-password/`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-11 — Cargos publicos para solicitudes de demo
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** `seed_rbac` ahora siembra un catalogo base de `JobTitle` para los roles
+  `admin`, `manager`, `staff` y `platform_admin`; el endpoint publico
+  `/api/roles/public-job-titles/` devuelve solo cargos activos del rol `admin`; se agrego una prueba
+  que garantiza que una base recien sembrada expone ese catalogo publico de administradores.
+- **Por qué:** el formulario publico de solicitud de demo no puede pedir rol porque el usuario aun
+  no existe; como al convertir la solicitud el primer usuario recibe el rol `admin`, el cargo debe
+  seleccionarse desde un catalogo publico plano limitado a cargos administrativos.
+- **Archivos/áreas afectadas:** `backend/accounts/management/commands/seed_rbac.py`,
+  `backend/accounts/views.py`, `backend/accounts/tests.py`.
+- **Impacto:** sin migraciones ni cambios de API. Ejecutar `python manage.py seed_rbac` en bases
+  existentes para crear/actualizar los cargos base.
 
 ### 2026-08-10 — `seed_rbac` completo y reproducible (deuda técnica 9)
 
