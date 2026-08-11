@@ -100,6 +100,26 @@ DOMAIN_KEYS = {prefix for prefix, _, _, _ in DOMAINS}
 
 
 # ---------------------------------------------------------------------------
+# 1b. Permisos finos que no son un dominio completo
+# ---------------------------------------------------------------------------
+# (key, nombre, descripcion, ruta backend)
+
+EXTRA_PERMISSIONS = [
+    (
+        "rooms.read_guest_data",
+        "Ver datos del huesped en habitaciones",
+        "Documento del huesped y saldo por cobrar dentro de /api/rooms/. Sin este "
+        "recurso, esos campos viajan en null.",
+        # link_backend vacio a proposito: no debe activar el fallback por path (5.3).
+        "",
+    ),
+]
+
+# Roles que operan la recepcion y por lo tanto necesitan cobrar e identificar huespedes.
+GUEST_DATA_ROLE_SLUGS = ["admin", "manager", "staff"]
+
+
+# ---------------------------------------------------------------------------
 # 2. Recursos de navegacion que no corresponden a un ViewSet
 # ---------------------------------------------------------------------------
 # (key, nombre, descripcion, link_backend)
@@ -351,6 +371,8 @@ STAFF_READ_DOMAINS = STAFF_WRITE_DOMAINS + [
 
 COMMON_KEYS = ["dashboard.view", "profile.read", "auth.password.change"]
 
+GUEST_DATA_KEYS = [key for key, _, _, _ in EXTRA_PERMISSIONS]
+
 
 def _read(prefix):
     return f"{prefix}.read"
@@ -418,21 +440,28 @@ def _staff_keys():
     return sorted(set(keys))
 
 
+def _with_guest_data(slug, keys):
+    """Los roles de recepcion ven documento y saldo; los demas, no."""
+    if slug in GUEST_DATA_ROLE_SLUGS:
+        return sorted(set(keys) | set(GUEST_DATA_KEYS))
+    return keys
+
+
 ROLES = {
     "admin": {
         "name": "Administrador",
         "description": "Administrador del hotel: acceso total a la operacion y a la configuracion.",
-        "keys": _admin_keys(),
+        "keys": _with_guest_data("admin", _admin_keys()),
     },
     "manager": {
         "name": "Gerente",
         "description": "Gestiona la operacion completa del hotel, sin administrar usuarios ni RBAC.",
-        "keys": _manager_keys(),
+        "keys": _with_guest_data("manager", _manager_keys()),
     },
     "staff": {
         "name": "Personal",
         "description": "Recepcion: reservas, huespedes, habitaciones y cobros del dia a dia.",
-        "keys": _staff_keys(),
+        "keys": _with_guest_data("staff", _staff_keys()),
     },
     "platform_admin": {
         "name": "Administrador de plataforma",
@@ -505,7 +534,7 @@ class Command(BaseCommand):
                     api_path,
                 )
 
-        for key, name, description, link_backend in NAV_RESOURCES:
+        for key, name, description, link_backend in NAV_RESOURCES + EXTRA_PERMISSIONS:
             specs.setdefault(key, base(name, description, link_backend))
 
         for key, name, icon, link, order, parent_key in MENU:

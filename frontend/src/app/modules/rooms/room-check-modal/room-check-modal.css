@@ -1,0 +1,419 @@
+/* Solo tokens --gh-*: el modo oscuro sale del mismo lugar que el resto (AGENTS 5.15). */
+
+.check-modal .gh-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.check-state {
+  padding: 18px 4px;
+  color: var(--gh-text-muted);
+  text-align: center;
+}
+
+.check-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.check-summary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.check-summary-row > span {
+  color: var(--gh-text-muted);
+  font-size: 0.8rem;
+}
+
+.check-summary-row > strong {
+  color: var(--gh-text-strong);
+  font-size: 0.88rem;
+  text-align: right;
+}
+
+.check-summary-row small {
+  color: var(--gh-text-soft);
+  font-weight: 500;
+}
+
+.check-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.check-block h3 {
+  color: var(--gh-text-strong);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.check-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.check-block-head small {
+  display: block;
+  margin-top: 2px;
+  color: var(--gh-text-muted);
+  font-size: 0.78rem;
+}
+
+.check-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--gh-status-neutral-border);
+  border-radius: 11px;
+  background: var(--gh-status-neutral-bg);
+  color: var(--gh-status-neutral-text);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.check-alert.is-warning {
+  border-color: var(--gh-status-warn-border);
+  background: var(--gh-status-warn-bg);
+  color: var(--gh-status-warn-text);
+}
+
+.check-alert.is-error {
+  border-color: var(--gh-status-danger-border);
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+}
+
+.check-alert.is-info {
+  border-color: var(--gh-status-info-border);
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+}
+
+/* ------------------------------------------------------------- check-in */
+
+.guest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.guest-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--gh-border);
+  border-radius: 11px;
+  background: var(--gh-surface);
+}
+
+.guest-row.is-verified {
+  border-color: var(--gh-status-success-border);
+  background: var(--gh-status-success-bg);
+}
+
+.guest-row.is-missing {
+  border-style: dashed;
+  border-color: var(--gh-status-warn-border);
+}
+
+.guest-row label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  cursor: pointer;
+}
+
+.guest-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.guest-info strong {
+  color: var(--gh-text-strong);
+  font-size: 0.88rem;
+}
+
+.guest-info small {
+  color: var(--gh-text-muted);
+  font-size: 0.77rem;
+}
+
+.guest-info .guest-extra {
+  color: var(--gh-text-soft);
+}
+
+.guest-state i {
+  color: var(--gh-text-muted);
+}
+
+.guest-row.is-verified .guest-state i {
+  color: var(--gh-status-success-strong);
+}
+
+.check-progress {
+  color: var(--gh-text-muted);
+  font-size: 0.79rem;
+  text-align: right;
+}
+
+/* ------------------------------------------------------------ check-out */
+
+.check-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.check-fact {
+  padding: 10px 12px;
+  border: 1px solid var(--gh-border);
+  border-radius: 11px;
+  background: var(--gh-surface-soft);
+}
+
+.check-fact.is-alert {
+  border-color: var(--gh-status-danger-border);
+  background: var(--gh-status-danger-bg);
+}
+
+.check-fact span {
+  display: block;
+  color: var(--gh-text-muted);
+  font-size: 0.75rem;
+}
+
+.check-fact strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--gh-text-strong);
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+
+.check-fact.is-alert strong {
+  color: var(--gh-status-danger-text);
+}
+
+.inventory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+}
+
+.inventory-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 11px;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  font-size: 0.8rem;
+}
+
+.inventory-list strong {
+  color: var(--gh-status-warn-text);
+}
+
+.check-alert.is-success {
+  border-color: var(--gh-status-success-border);
+  background: var(--gh-status-success-bg);
+  color: var(--gh-status-success-text);
+}
+
+/* --------------------------------------------------------------- consumos */
+
+.consumption-block,
+.payment-block {
+  padding: 11px 12px;
+  border: 1px solid var(--gh-border);
+  border-radius: 12px;
+  background: var(--gh-surface-soft);
+}
+
+.consumption-block > header,
+.payment-block > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.consumption-block h4,
+.payment-block h4 {
+  color: var(--gh-text-strong);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.consumption-block > header strong {
+  color: var(--gh-text-strong);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.consumption-empty {
+  color: var(--gh-text-muted);
+  font-size: 0.79rem;
+}
+
+.consumption-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  list-style: none;
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.consumption-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--gh-surface);
+  font-size: 0.8rem;
+}
+
+.consumption-name {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  color: var(--gh-text);
+}
+
+.consumption-name small {
+  color: var(--gh-text-soft);
+  font-size: 0.72rem;
+}
+
+.consumption-list strong {
+  color: var(--gh-text-strong);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ cobro */
+
+.payment-block {
+  border-color: var(--gh-status-warn-border);
+  background: var(--gh-status-warn-bg);
+}
+
+.payment-block > header span {
+  color: var(--gh-status-warn-text);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.payment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 9px;
+}
+
+.payment-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.payment-grid label > span {
+  color: var(--gh-text-muted);
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.payment-grid select,
+.payment-grid input {
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  font-size: 0.84rem;
+  outline: 0;
+  min-width: 0;
+}
+
+.payment-grid select:focus,
+.payment-grid input:focus {
+  border-color: var(--gh-search-focus);
+}
+
+.payment-amount {
+  display: flex;
+  gap: 6px;
+}
+
+.payment-amount input {
+  flex: 1;
+}
+
+.payment-amount button {
+  padding: 0 10px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.payment-amount button:hover:not(:disabled) {
+  border-color: var(--gh-search-focus);
+  color: var(--gh-text-strong);
+}
+
+.payment-account {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid var(--gh-status-info-border);
+  border-radius: 9px;
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+  font-size: 0.79rem;
+}
+
+.payment-hint {
+  margin-top: 7px;
+  color: var(--gh-text-muted);
+  font-size: 0.76rem;
+}
+
+.payment-submit {
+  margin-top: 9px;
+  width: 100%;
+  justify-content: center;
+}
+
+.check-actions {
+  display: flex;
+  gap: 8px;
+}

@@ -240,6 +240,17 @@ class InvoiceChargeSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"invoice": "La factura no pertenece al hotel del usuario autenticado."}
                 )
+
+        # El metodo de pago es del hotel (AGENTS.md 5.16): cobrar una factura con el
+        # metodo de otro hotel mezclaria catalogos entre tenants.
+        payment_method = attrs.get(
+            "payment_method", getattr(self.instance, "payment_method", None)
+        )
+        if invoice and payment_method:
+            if payment_method.hotel_settings_id != invoice.reservation.hotel_settings_id:
+                raise serializers.ValidationError(
+                    {"payment_method": "El metodo de pago no pertenece al hotel de la factura."}
+                )
             if charge and charge.reservation.hotel_settings_id != user.hotel_settings_id:
                 raise serializers.ValidationError(
                     {"charge": "El cargo no pertenece al hotel del usuario autenticado."}

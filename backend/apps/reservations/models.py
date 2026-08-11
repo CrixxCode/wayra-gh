@@ -290,11 +290,11 @@ class ReservationDeposit(models.Model):
     )
     deposit_date = models.DateField()
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    # Metodo de pago del hotel (ver hotel_settings.PaymentMethod).
     payment_method = models.ForeignKey(
-        MasterData,
+        "hotel_settings.PaymentMethod",
         on_delete=models.PROTECT,
         related_name="reservation_deposits_by_payment_method",
-        limit_choices_to={"group": MasterData.Group.PAYMENT_METHOD},
     )
     reference = models.CharField(max_length=100, blank=True, null=True)
     status = models.ForeignKey(

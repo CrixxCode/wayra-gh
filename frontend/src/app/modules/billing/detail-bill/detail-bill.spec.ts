@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { PaymentMethodService } from '../../../services/payment-method';
 import { of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
 
@@ -17,6 +18,10 @@ describe('DetailBill', () => {
     await TestBed.configureTestingModule({
       imports: [DetailBill],
       providers: [
+        {
+          provide: PaymentMethodService,
+          useValue: { listPaymentMethods: () => of([]) }
+        },
         {
           provide: BillingService,
           useValue: {

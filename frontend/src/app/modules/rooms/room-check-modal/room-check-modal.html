@@ -1,0 +1,250 @@
+<div class="gh-modal-overlay" (click)="close()">
+  <div class="gh-modal is-narrow check-modal" (click)="$event.stopPropagation()">
+    <header class="gh-modal-head">
+      <div>
+        <h2>{{ title }}</h2>
+        <p>{{ subtitle }}</p>
+      </div>
+      <button type="button" class="gh-modal-close" (click)="close()" [disabled]="submitting">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <div class="gh-modal-body">
+      <p class="check-state" *ngIf="loading">Cargando la reserva...</p>
+
+      <p class="check-alert is-error" *ngIf="!loading && errorMessage">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        {{ errorMessage }}
+      </p>
+
+      <ng-container *ngIf="!loading && reservation">
+        <!-- Ficha de la reserva, comun a las dos acciones -->
+        <section class="gh-panel check-summary">
+          <div class="check-summary-row">
+            <span>Titular</span>
+            <strong>{{ holderName }}</strong>
+          </div>
+          <div class="check-summary-row">
+            <span>Documento</span>
+            <strong>{{ holderDocument }}</strong>
+          </div>
+          <div class="check-summary-row">
+            <span>Estadia</span>
+            <strong>
+              {{ reservation.expected_check_in }} &rarr; {{ reservation.expected_check_out }}
+              <small *ngIf="reservation.total_nights">({{ reservation.total_nights }} noche(s))</small>
+            </strong>
+          </div>
+          <div class="check-summary-row">
+            <span>Reserva</span>
+            <strong>#{{ reservation.id }} · {{ reservation.status_name || reservation.status_code }}</strong>
+          </div>
+        </section>
+
+        <!-- ====================== CHECK-IN ====================== -->
+        <ng-container *ngIf="mode === 'check-in'">
+          <section class="check-block">
+            <header class="check-block-head">
+              <div>
+                <h3>Huespedes que ingresan</h3>
+                <small>Contrasta cada documento fisico contra lo registrado.</small>
+              </div>
+              <button type="button" class="gh-mbtn gh-mbtn-light" *ngIf="hasGuests" (click)="verifyAllGuests()">
+                {{ verifiedGuestCount === guests.length ? 'Quitar todo' : 'Verificar todo' }}
+              </button>
+            </header>
+
+            <p class="check-alert is-warning" *ngIf="!hasGuests">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              La reserva no tiene huespedes registrados. Registralos antes de dar el ingreso.
+            </p>
+
+            <p class="check-alert is-warning" *ngIf="guestsWithoutDocument > 0">
+              <i class="fa-solid fa-id-card"></i>
+              {{ guestsWithoutDocument }} huesped(es) sin documento registrado. Completa el dato en la
+              reserva antes de confirmar el ingreso.
+            </p>
+
+            <ul class="guest-list">
+              <li
+                class="guest-row"
+                *ngFor="let entry of guests; trackBy: trackByGuest"
+                [class.is-verified]="entry.verified"
+                [class.is-missing]="!entry.hasDocument">
+                <label>
+                  <input type="checkbox" [checked]="entry.verified" (change)="toggleGuest(entry)" />
+                  <span class="guest-info">
+                    <strong>{{ guestName(entry) }}</strong>
+                    <small>{{ guestDocumentLabel(entry) }}</small>
+                    <small class="guest-extra" *ngIf="entry.guest.nationality">
+                      {{ entry.guest.nationality }}
+                    </small>
+                  </span>
+                </label>
+                <span class="guest-state">
+                  <i [class]="entry.verified ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle'"></i>
+                </span>
+              </li>
+            </ul>
+
+            <p class="check-progress" *ngIf="hasGuests">
+              {{ verifiedGuestCount }} de {{ guests.length }} verificados
+            </p>
+          </section>
+        </ng-container>
+
+        <!-- ====================== CHECK-OUT ====================== -->
+        <ng-container *ngIf="mode === 'check-out'">
+          <section class="check-block">
+            <h3>Antes de cerrar la estadia</h3>
+
+            <div class="check-facts">
+              <article class="check-fact" [class.is-alert]="!isSettled" *ngIf="!moneyIsHidden">
+                <span>{{ isSettled ? 'Saldo' : 'Falta por cobrar' }}</span>
+                <strong>{{ amountDueLabel }}</strong>
+              </article>
+
+              <article class="check-fact" *ngIf="!moneyIsHidden">
+                <span>Pagado</span>
+                <strong>{{ totalPaidLabel }} <small>de {{ totalChargedLabel }}</small></strong>
+              </article>
+
+              <article class="check-fact" [class.is-alert]="lowInventory.length > 0">
+                <span>Inventario bajo minimo</span>
+                <strong>{{ lowInventory.length }} item(s)</strong>
+              </article>
+            </div>
+
+            <p class="check-alert is-info" *ngIf="moneyIsHidden">
+              <i class="fa-solid fa-lock"></i>
+              No tienes permiso para ver el saldo de la reserva. El cobro queda a cargo de quien
+              tenga acceso a facturacion.
+            </p>
+
+            <!-- Detalle de consumos: que fue exactamente lo que consumio el huesped -->
+            <section class="consumption-block" *ngIf="!moneyIsHidden">
+              <header>
+                <h4>Consumos y cargos</h4>
+                <strong>{{ chargesTotalLabel }}</strong>
+              </header>
+
+              <p class="consumption-empty" *ngIf="!charges.length">
+                Sin consumos registrados en esta estadia.
+              </p>
+
+              <ul class="consumption-list" *ngIf="charges.length">
+                <li *ngFor="let charge of charges; trackBy: trackByCharge">
+                  <span class="consumption-name">
+                    {{ charge.description }}
+                    <small *ngIf="chargeUnitLabel(charge)">{{ chargeUnitLabel(charge) }}</small>
+                  </span>
+                  <strong>{{ chargeTotalLabel(charge) }}</strong>
+                </li>
+              </ul>
+            </section>
+
+            <!-- Cobro: sin saldo en cero no se cierra la estadia -->
+            <section class="payment-block" *ngIf="!moneyIsHidden && !isSettled">
+              <header>
+                <h4>Registrar pago</h4>
+                <span>Falta {{ amountDueLabel }}</span>
+              </header>
+
+              <div class="payment-grid">
+                <label>
+                  <span>Metodo de pago</span>
+                  <select [(ngModel)]="paymentForm.payment_method" [disabled]="registeringPayment">
+                    <option [ngValue]="null" disabled>Selecciona...</option>
+                    <option *ngFor="let method of paymentMethods" [ngValue]="method.id">
+                      {{ method.name }}
+                    </option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>Monto</span>
+                  <div class="payment-amount">
+                    <input
+                      type="number"
+                      min="0"
+                      [max]="amountDue"
+                      [(ngModel)]="paymentForm.amount"
+                      [disabled]="registeringPayment" />
+                    <button type="button" (click)="payFullAmount()" [disabled]="registeringPayment">
+                      Todo
+                    </button>
+                  </div>
+                </label>
+
+                <label>
+                  <span>Referencia (opcional)</span>
+                  <input
+                    type="text"
+                    [(ngModel)]="paymentForm.reference"
+                    [disabled]="registeringPayment"
+                    placeholder="Voucher, transferencia..." />
+                </label>
+              </div>
+
+              <p class="payment-account" *ngIf="selectedAccountNumber">
+                <i class="fa-solid fa-building-columns"></i>
+                Cuenta destino: <strong>{{ selectedAccountNumber }}</strong>
+              </p>
+
+              <p class="payment-hint">{{ paymentAmountHint }}</p>
+
+              <p class="check-alert is-warning" *ngIf="!paymentMethods.length">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                No hay metodos de pago configurados. Agregalos en Master Data para poder cobrar.
+              </p>
+
+              <p class="check-alert is-error" *ngIf="paymentError">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                {{ paymentError }}
+              </p>
+
+              <button
+                type="button"
+                class="gh-mbtn gh-mbtn-dark payment-submit"
+                [disabled]="!canRegisterPayment"
+                (click)="registerPayment()">
+                <i class="fa-solid fa-cash-register"></i>
+                {{ registeringPayment ? 'Registrando...' : 'Registrar pago' }}
+              </button>
+            </section>
+
+            <p class="check-alert is-success" *ngIf="!moneyIsHidden && isSettled">
+              <i class="fa-solid fa-circle-check"></i>
+              Saldo en cero. {{ paymentFeedback || 'La estadia esta lista para cerrarse.' }}
+            </p>
+
+            <ul class="inventory-list" *ngIf="lowInventory.length">
+              <li *ngFor="let line of lowInventory; trackBy: trackByInventory">
+                <span>{{ line.item_name || 'Item' }}</span>
+                <strong>{{ line.quantity }} / {{ line.minimum_quantity }}</strong>
+              </li>
+            </ul>
+
+            <p class="check-alert is-info">
+              <i class="fa-solid fa-broom"></i>
+              Al confirmar, la habitacion queda en limpieza y se crea la tarea de salida.
+            </p>
+          </section>
+        </ng-container>
+      </ng-container>
+    </div>
+
+    <footer class="gh-modal-foot">
+      <span class="gh-foot-note">{{ blockingReason }}</span>
+      <div class="check-actions">
+        <button type="button" class="gh-mbtn gh-mbtn-light" (click)="close()" [disabled]="submitting">
+          Cancelar
+        </button>
+        <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="confirm()" [disabled]="!canConfirm">
+          {{ confirmLabel }}
+        </button>
+      </div>
+    </footer>
+  </div>
+</div>

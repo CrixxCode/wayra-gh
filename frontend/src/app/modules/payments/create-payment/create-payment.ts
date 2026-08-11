@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { PaymentMethodI } from '../../../services/payment-method';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MasterDataI } from '../../../components/pages/master-data/master-data-model';
@@ -15,7 +16,7 @@ import { BillingService } from '../../../services/billing';
 export class CreatePayment implements OnChanges {
   @Input() invoiceId: number | null = null;
   @Input() pendingAmount: number | null = null;
-  @Input() paymentMethods: MasterDataI[] = [];
+  @Input() paymentMethods: PaymentMethodI[] = [];
 
   @Output() created = new EventEmitter<PaymentI>();
   @Output() cancelled = new EventEmitter<void>();

@@ -13,7 +13,7 @@ from apps.billing.serializers import ChargeSerializer
 from apps.billing.services import get_or_create_default_charge_type
 from apps.billing.views import ChargeViewSet
 from apps.clients.models import Client
-from apps.hotel_settings.models import HotelFloor, HotelSettings
+from apps.hotel_settings.models import HotelFloor, HotelSettings, PaymentMethod
 from apps.inventory.models import InventoryMovement, Item
 from apps.master_data.models import MasterData
 from apps.packages.models import Package
@@ -77,7 +77,9 @@ class BillingAutomationTestCase(TestCase):
             1,
         )
         self.service_type = self._md(MasterData.Group.SERVICE_TYPE, "ROOMSERVICE", "Room Service", 1)
-        self.payment_method = self._md(MasterData.Group.PAYMENT_METHOD, "EFECTIVO", "Efectivo", 1)
+        self.payment_method = PaymentMethod.objects.create(
+            hotel_settings=self.hotel_settings, code="EFECTIVO", name="Efectivo"
+        )
         self.payment_refund_status_pending = self._md(
             MasterData.Group.PAYMENT_REFUND_STATUS,
             "PENDIENTE",
@@ -835,7 +837,6 @@ class BillingApiFilterAndPaginationTestCase(TestCase):
             1,
         )
         self.charge_type = self._md(MasterData.Group.CHARGE_TYPE, "OTRO", "Otro", 1)
-        self.payment_method = self._md(MasterData.Group.PAYMENT_METHOD, "EFECTIVO", "Efectivo", 1)
         self.invoice_status = self._md(MasterData.Group.INVOICE_STATUS, "BORRADOR", "Borrador", 1)
         self.credit_note_status = self._md(
             MasterData.Group.CREDIT_NOTE_STATUS,
@@ -872,6 +873,9 @@ class BillingApiFilterAndPaginationTestCase(TestCase):
         self.client_api = APIClient()
         self.client_api.force_login(self.user)
         self.hotel_settings = HotelSettings.objects.create(hotel_name="Hotel Billing API")
+        self.payment_method = PaymentMethod.objects.create(
+            hotel_settings=self.hotel_settings, code="EFECTIVO", name="Efectivo"
+        )
         self.user.hotel_settings = self.hotel_settings
         self.user.save(update_fields=["hotel_settings"])
         self.client_api.force_login(self.user)

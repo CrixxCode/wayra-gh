@@ -7,6 +7,7 @@ import { Observable, catchError, forkJoin, of } from 'rxjs';
 import { RoomService } from '../../../services/room';
 import { ReservationService } from '../../../services/reservation';
 import { MasterDataService } from '../../../services/master-data.service';
+import { PaymentMethodI, PaymentMethodService } from '../../../services/payment-method';
 import { ClientsService } from '../../../services/client';
 import { PackagesService } from '../../../services/package';
 import { CleaningTasksService } from '../../../services/cleaning-task';
@@ -25,6 +26,7 @@ import { PackageI } from '../../packages/package-model';
 import { RoomInventoryI } from '../../room-inventory/room-inventory-model';
 import { ChargeI, InvoiceI } from '../../billing/billing-model';
 import { CreateReservation } from '../../reservations/create-reservation/create-reservation';
+import { RoomCheckModal, RoomCheckMode } from '../room-check-modal/room-check-modal';
 import { ReservationDetailI, ReservationPolicyI } from '../../reservations/reservation-model';
 import {
   AmenityI,
@@ -63,7 +65,7 @@ type ReceptionCartLine = {
 @Component({
   selector: 'app-room-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, CreateReservation],
+  imports: [CommonModule, FormsModule, CreateReservation, RoomCheckModal],
   templateUrl: './room-modal.html',
   styleUrls: ['./room-modal.css']
 })
@@ -116,7 +118,7 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
   clients: ClientI[] = [];
   origins: MasterDataI[] = [];
   documentTypes: MasterDataI[] = [];
-  paymentMethods: MasterDataI[] = [];
+  paymentMethods: PaymentMethodI[] = [];
   depositStatuses: MasterDataI[] = [];
   reservationPolicies: ReservationPolicyI[] = [];
   packages: PackageI[] = [];
@@ -126,6 +128,8 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
   maintenanceStatuses: MasterDataI[] = [];
 
   showReservationCreator = false;
+  showCheckModal = false;
+  checkModalMode: RoomCheckMode = 'check-in';
   reservationCreatorCheckInMode = false;
   showConsumptionCreator = false;
   consumptionMode: ReservationConsumptionMode = 'item';
@@ -175,6 +179,7 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
   currentTime = new Date();
 
   constructor(
+    private paymentMethodService: PaymentMethodService,
     private roomService: RoomService,
     private reservationService: ReservationService,
     private masterDataService: MasterDataService,
@@ -854,18 +859,33 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
     this.runReservationAction(this.reservationService.confirmReservation(id));
   }
 
+  /**
+   * El ingreso y la salida pasan por el modal de verificacion, igual que desde la
+   * tarjeta: si aqui se ejecutaran directo, bastaria con abrir la habitacion para
+   * saltarse el control de documentos y de saldo.
+   */
   checkIn(): void {
-    const id = this.activeReservation?.id;
-    if (!id || !this.canCheckIn) return;
-    this.runReservationAction(this.reservationService.checkInReservation(id));
+    if (!this.activeReservation?.id || !this.canCheckIn) return;
+    this.checkModalMode = 'check-in';
+    this.showCheckModal = true;
   }
 
   checkOut(): void {
-    const id = this.activeReservation?.id;
-    if (!id || !this.canCheckOut) return;
-    this.runReservationAction(this.reservationService.checkOutReservation(id), {
-      openOperationsTab: true
-    });
+    if (!this.activeReservation?.id || !this.canCheckOut) return;
+    this.checkModalMode = 'check-out';
+    this.showCheckModal = true;
+  }
+
+  closeCheckModal(): void {
+    this.showCheckModal = false;
+  }
+
+  onCheckConfirmed(): void {
+    const wasCheckOut = this.checkModalMode === 'check-out';
+    this.showCheckModal = false;
+    this.dirty = true;
+    this.actionLoading = true;
+    this.refreshRoomAfterReservationAction(wasCheckOut);
   }
 
   openReservationCreator(mode: 'reserve' | 'checkin'): void {
@@ -1872,9 +1892,9 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
       documentTypes: this.masterDataService
         .listMasterData({ group: 'DOCUMENT_TYPE', is_active: 'true', ordering: 'sort_order,name' })
         .pipe(catchError(() => of([] as MasterDataI[]))),
-      paymentMethods: this.masterDataService
-        .listMasterData({ group: 'PAYMENT_METHOD', is_active: 'true', ordering: 'sort_order,name' })
-        .pipe(catchError(() => of([] as MasterDataI[]))),
+      paymentMethods: this.paymentMethodService
+        .listPaymentMethods()
+        .pipe(catchError(() => of([] as PaymentMethodI[]))),
       depositStatuses: this.masterDataService
         .listMasterData({ group: 'RESERVATION_DEPOSIT_STATUS', is_active: 'true', ordering: 'sort_order,name' })
         .pipe(catchError(() => of([] as MasterDataI[]))),
@@ -1898,7 +1918,7 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
         this.clients = clients;
         this.origins = this.dedupeMasterDataByCode(origins);
         this.documentTypes = this.dedupeMasterDataByCode(documentTypes);
-        this.paymentMethods = this.dedupeMasterDataByCode(paymentMethods);
+        this.paymentMethods = paymentMethods;
         this.depositStatuses = this.dedupeMasterDataByCode(depositStatuses);
         this.packages = packages;
         this.reservationPolicies = reservationPolicies;

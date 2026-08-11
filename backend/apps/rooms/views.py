@@ -9,6 +9,7 @@ from accounts.soft_delete import LogicalDeleteViewSetMixin
 from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
 from apps.reservations.services import sync_room_status_for_room_ids
 from .models import Rate, Amenity, Room, MaintenanceOrder, CleaningTask, RoomType
+from .operations import build_room_operations_map
 from .serializers import (
     RoomTypeSerializer,
     RateSerializer,
@@ -153,6 +154,21 @@ class RoomViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
     def get_permissions(self):
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
+
+    def get_serializer(self, *args, **kwargs):
+        """Precalcula las señales operativas de toda la página en un solo bloque.
+
+        Sin esto, `RoomSerializer.get_operations()` haría siete consultas por
+        habitación; con el mapa en el contexto son siete para la página completa.
+        """
+        serializer = super().get_serializer(*args, **kwargs)
+
+        instance = args[0] if args else None
+        if instance is not None and "room_operations" not in serializer.context:
+            rooms = list(instance) if kwargs.get("many") else [instance]
+            serializer.context["room_operations"] = build_room_operations_map(rooms)
+
+        return serializer
 
     def get_queryset(self):
         queryset = super().get_queryset()

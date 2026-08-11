@@ -921,4 +921,12 @@
       </section>
     </div>
   </section>
+
+  <app-room-check-modal
+    *ngIf="showCheckModal && room"
+    [room]="room"
+    [mode]="checkModalMode"
+    (closed)="closeCheckModal()"
+    (confirmed)="onCheckConfirmed()">
+  </app-room-check-modal>
 </div>

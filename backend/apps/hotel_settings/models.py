@@ -1,3 +1,6 @@
+import re
+import unicodedata
+
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -195,3 +198,92 @@ class ReservationPolicy(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.hotel_settings.hotel_name}"
+
+
+class PaymentMethod(models.Model):
+    """Metodos de pago **propios de cada hotel** (ver AGENTS.md 5.16).
+
+    Un metodo se define con tres cosas: nombre, tipo y —si es transferencia— el numero
+    de cuenta al que se consigna. El `code` no lo escribe el usuario: se deriva del
+    nombre, porque varias pantallas de facturacion lo usan para elegir icono y etiqueta,
+    y porque su unicidad por hotel es lo que impide dos metodos con el mismo nombre.
+    """
+
+    class MethodType(models.TextChoices):
+        CASH = "EFECTIVO", "Efectivo"
+        TRANSFER = "TRANSFERENCIA", "Transferencia"
+
+    hotel_settings = models.ForeignKey(
+        "hotel_settings.HotelSettings",
+        on_delete=models.CASCADE,
+        related_name="payment_methods",
+    )
+
+    name = models.CharField(max_length=120)
+    method_type = models.CharField(
+        max_length=20,
+        choices=MethodType.choices,
+        default=MethodType.CASH,
+    )
+    # Solo aplica a transferencias; en efectivo se guarda vacio.
+    account_number = models.CharField(max_length=60, blank=True, null=True)
+
+    # Derivado del nombre, no editable desde la UI.
+    code = models.CharField(max_length=40)
+
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "payment_method"
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["hotel_settings", "code"],
+                name="uq_payment_method_hotel_code",
+            )
+        ]
+
+    @property
+    def requires_account_number(self) -> bool:
+        return self.method_type == self.MethodType.TRANSFER
+
+    @staticmethod
+    def build_code(name: str) -> str:
+        """`Nequi Bancolombia` -> `NEQUI_BANCOLOMBIA`."""
+        normalized = unicodedata.normalize("NFD", str(name or ""))
+        without_accents = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+        slug = re.sub(r"[^A-Za-z0-9]+", "_", without_accents).strip("_").upper()
+        return slug[:40]
+
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = str(self.name).strip()
+        self.code = self.build_code(self.name)
+
+        if not self.requires_account_number:
+            # Un metodo en efectivo no arrastra numero de cuenta.
+            self.account_number = None
+        elif self.account_number:
+            self.account_number = str(self.account_number).strip()
+
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        errors = {}
+
+        if not str(self.name or "").strip():
+            errors["name"] = "El nombre del metodo de pago es obligatorio."
+        elif not self.build_code(self.name):
+            errors["name"] = "El nombre debe tener al menos una letra o numero."
+
+        if self.requires_account_number and not str(self.account_number or "").strip():
+            errors["account_number"] = "Una transferencia necesita numero de cuenta."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self):
+        return f"{self.name} ({self.hotel_settings.hotel_name})"

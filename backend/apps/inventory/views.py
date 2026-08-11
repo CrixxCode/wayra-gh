@@ -167,6 +167,17 @@ class RoomInventoryViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets
             item__item_purpose=Item.Purpose.ROOM,
         ).order_by("-id")
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # `?room=<id>`: la revision de salida necesita el inventario de una sola
+        # habitacion, no el del hotel entero.
+        room = (self.request.query_params.get("room") or "").strip()
+        if room.isdigit():
+            queryset = queryset.filter(room_id=int(room))
+
+        return queryset
+
     def get_required_scopes(self):
         if self.request.method in ("POST", "PUT", "PATCH", "DELETE"):
             return ["room-inventory.write"]

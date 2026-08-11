@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, catchError, map, of, switchMap } from 'rxjs';
+import { Observable, catchError, map, of, switchMap, tap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
+import { CACHE_TTL, ResourceCache } from './resource-cache';
 import {
   AmenityI,
   HotelFloorI,
@@ -29,8 +30,65 @@ export class RoomService {
 
   constructor(
     private http: HttpClient,
-    private auth: AuthService
+    private auth: AuthService,
+    private cache: ResourceCache
   ) {}
+
+  // ------------------------------------------------------------------ cache
+  //
+  // Cache-aside sobre las lecturas del modulo (ver `resource-cache.ts`). Los catalogos
+  // viven 5 minutos porque solo cambian cuando alguien los edita; las habitaciones, 20
+  // segundos, porque recepcion no puede ver un estado viejo. Toda escritura invalida lo
+  // que corresponde, asi que el TTL es solo la red de seguridad.
+
+  private static readonly ROOMS_KEY = 'rooms';
+  private static readonly ROOM_TYPES_KEY = 'room-types';
+  private static readonly AMENITIES_KEY = 'amenities';
+  private static readonly RATES_KEY = 'rates';
+  private static readonly FLOORS_KEY = 'hotel-floors';
+
+  /** Clave estable a partir de los filtros: dos llamadas iguales comparten entrada. */
+  private cacheKey(prefix: string, filters?: Record<string, unknown>): string {
+    const entries = Object.entries(filters || {})
+      .filter(([, value]) => value !== undefined && value !== null && value !== '')
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`);
+    return entries.length ? `${prefix}:${entries.join('&')}` : prefix;
+  }
+
+  /** Tras crear, editar, borrar o restaurar una habitacion. */
+  private invalidateRooms(): void {
+    this.cache.invalidate(RoomService.ROOMS_KEY);
+  }
+
+  /**
+   * Para cambios que ocurren **fuera** de este servicio y que igual mueven el estado
+   * de una habitacion: check-in, check-out, confirmar reserva, cerrar una limpieza.
+   * Sin esto, el listado cacheado seguiria mostrando el estado anterior hasta que
+   * venciera el TTL.
+   */
+  invalidateRoomsCache(): void {
+    this.invalidateRooms();
+  }
+
+  /**
+   * Un cambio de catalogo tambien afecta al listado: la tarjeta muestra el nombre del
+   * tipo y el precio de la tarifa.
+   */
+  private invalidateCatalog(key: string): void {
+    this.cache.invalidateAll([key, RoomService.ROOMS_KEY]);
+  }
+
+  /** Vacia todo el cache del modulo. Util al cambiar de hotel. */
+  invalidateRoomModuleCache(): void {
+    this.cache.invalidateAll([
+      RoomService.ROOMS_KEY,
+      RoomService.ROOM_TYPES_KEY,
+      RoomService.AMENITIES_KEY,
+      RoomService.RATES_KEY,
+      RoomService.FLOORS_KEY
+    ]);
+  }
 
   listRooms(filters?: {
     search?: string;
@@ -39,6 +97,8 @@ export class RoomService {
     ordering?: string;
     include_inactive?: boolean;
     include_deleted?: boolean;
+    /** Salta el cache y lo repuebla: es lo que usa el boton de refrescar. */
+    forceRefresh?: boolean;
   }): Observable<RoomI[]> {
     let params = new HttpParams();
 
@@ -66,9 +126,15 @@ export class RoomService {
       params = params.set('include_deleted', String(filters.include_deleted));
     }
 
-    return this.http
-      .get<RoomI[] | { results?: RoomI[] }>(this.roomsUrl, { withCredentials: true, params })
-      .pipe(map((res) => this.unwrapArray<RoomI>(res)));
+    return this.cache.get(
+      this.cacheKey(RoomService.ROOMS_KEY, { ...filters, forceRefresh: undefined }),
+      () =>
+        this.http
+          .get<RoomI[] | { results?: RoomI[] }>(this.roomsUrl, { withCredentials: true, params })
+          .pipe(map((res) => this.unwrapArray<RoomI>(res))),
+      CACHE_TTL.OPERATIONAL,
+      filters?.forceRefresh
+    );
   }
 
   getRoomById(id: number): Observable<RoomI> {
@@ -84,7 +150,7 @@ export class RoomService {
       this.roomsUrl,
       this.normalizePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateRooms()));
   }
 
   updateRoom(id: number, payload: RoomFormPayload): Observable<RoomI> {
@@ -92,7 +158,7 @@ export class RoomService {
       `${this.roomsUrl}${id}/`,
       this.normalizePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateRooms()));
   }
 
   updateRoomRate(id: number, rate: number | null): Observable<RoomI> {
@@ -102,6 +168,9 @@ export class RoomService {
       { rate: normalizedRate },
       this.auth.buildCsrfRequestOptions()
     ).pipe(
+      // Se invalida apenas responde el PATCH, antes de la relectura, para que nadie
+      // alcance a leer el listado viejo entre las dos peticiones.
+      tap(() => this.invalidateRooms()),
       switchMap((updated) =>
         this.getRoomById(id).pipe(
           map((fresh) => ({ ...updated, ...fresh })),
@@ -112,11 +181,15 @@ export class RoomService {
   }
 
   deleteRoom(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.roomsUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http
+      .delete<void>(`${this.roomsUrl}${id}/`, this.auth.buildCsrfRequestOptions())
+      .pipe(tap(() => this.invalidateRooms()));
   }
 
   restoreRoom(id: number): Observable<RoomI> {
-    return this.http.post<RoomI>(`${this.roomsUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions());
+    return this.http
+      .post<RoomI>(`${this.roomsUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions())
+      .pipe(tap(() => this.invalidateRooms()));
   }
 
   listRoomTypes(filters?: {
@@ -143,9 +216,17 @@ export class RoomService {
       params = params.set('include_deleted', String(filters.include_deleted));
     }
 
-    return this.http
-      .get<RoomTypeI[] | { results?: RoomTypeI[] }>(this.roomTypesUrl, { withCredentials: true, params })
-      .pipe(map((res) => this.unwrapArray<RoomTypeI>(res)));
+    return this.cache.get(
+      this.cacheKey(RoomService.ROOM_TYPES_KEY, filters as Record<string, unknown>),
+      () =>
+        this.http
+          .get<RoomTypeI[] | { results?: RoomTypeI[] }>(this.roomTypesUrl, {
+            withCredentials: true,
+            params
+          })
+          .pipe(map((res) => this.unwrapArray<RoomTypeI>(res))),
+      CACHE_TTL.CATALOG
+    );
   }
 
   getRoomTypeById(id: number): Observable<RoomTypeI> {
@@ -157,7 +238,7 @@ export class RoomService {
       this.roomTypesUrl,
       this.normalizeCreateRoomTypePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateCatalog(RoomService.ROOM_TYPES_KEY)));
   }
 
   updateRoomType(id: number, payload: Partial<RoomTypeFormPayload>): Observable<RoomTypeI> {
@@ -165,15 +246,23 @@ export class RoomService {
       `${this.roomTypesUrl}${id}/`,
       this.normalizePatchRoomTypePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateCatalog(RoomService.ROOM_TYPES_KEY)));
   }
 
   deleteRoomType(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.roomTypesUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http
+      .delete<void>(`${this.roomTypesUrl}${id}/`, this.auth.buildCsrfRequestOptions())
+      .pipe(tap(() => this.invalidateCatalog(RoomService.ROOM_TYPES_KEY)));
   }
 
   restoreRoomType(id: number): Observable<RoomTypeI> {
-    return this.http.post<RoomTypeI>(`${this.roomTypesUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions());
+    return this.http
+      .post<RoomTypeI>(
+        `${this.roomTypesUrl}${id}/restore/`,
+        {},
+        this.auth.buildCsrfRequestOptions()
+      )
+      .pipe(tap(() => this.invalidateCatalog(RoomService.ROOM_TYPES_KEY)));
   }
 
   listAmenities(filters?: {
@@ -190,9 +279,17 @@ export class RoomService {
       params = params.set('include_deleted', String(filters.include_deleted));
     }
 
-    return this.http
-      .get<AmenityI[] | { results?: AmenityI[] }>(this.amenitiesUrl, { withCredentials: true, params })
-      .pipe(map((res) => this.unwrapArray<AmenityI>(res)));
+    return this.cache.get(
+      this.cacheKey(RoomService.AMENITIES_KEY, filters as Record<string, unknown>),
+      () =>
+        this.http
+          .get<AmenityI[] | { results?: AmenityI[] }>(this.amenitiesUrl, {
+            withCredentials: true,
+            params
+          })
+          .pipe(map((res) => this.unwrapArray<AmenityI>(res))),
+      CACHE_TTL.CATALOG
+    );
   }
 
   createAmenity(payload: Partial<AmenityI>): Observable<AmenityI> {
@@ -200,7 +297,7 @@ export class RoomService {
       this.amenitiesUrl,
       this.normalizeAmenityPayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateCatalog(RoomService.AMENITIES_KEY)));
   }
 
   updateAmenity(id: number, payload: Partial<AmenityI>): Observable<AmenityI> {
@@ -208,15 +305,19 @@ export class RoomService {
       `${this.amenitiesUrl}${id}/`,
       this.normalizeAmenityPayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateCatalog(RoomService.AMENITIES_KEY)));
   }
 
   deleteAmenity(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.amenitiesUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http
+      .delete<void>(`${this.amenitiesUrl}${id}/`, this.auth.buildCsrfRequestOptions())
+      .pipe(tap(() => this.invalidateCatalog(RoomService.AMENITIES_KEY)));
   }
 
   restoreAmenity(id: number): Observable<AmenityI> {
-    return this.http.post<AmenityI>(`${this.amenitiesUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions());
+    return this.http
+      .post<AmenityI>(`${this.amenitiesUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions())
+      .pipe(tap(() => this.invalidateCatalog(RoomService.AMENITIES_KEY)));
   }
 
   listRates(filters?: {
@@ -253,9 +354,14 @@ export class RoomService {
       params = params.set('include_deleted', String(filters.include_deleted));
     }
 
-    return this.http
-      .get<RateI[] | { results?: RateI[] }>(this.ratesUrl, { withCredentials: true, params })
-      .pipe(map((res) => this.unwrapArray<RateI>(res)));
+    return this.cache.get(
+      this.cacheKey(RoomService.RATES_KEY, filters as Record<string, unknown>),
+      () =>
+        this.http
+          .get<RateI[] | { results?: RateI[] }>(this.ratesUrl, { withCredentials: true, params })
+          .pipe(map((res) => this.unwrapArray<RateI>(res))),
+      CACHE_TTL.CATALOG
+    );
   }
 
   getRateById(id: number): Observable<RateI> {
@@ -267,7 +373,7 @@ export class RoomService {
       this.ratesUrl,
       this.normalizeCreateRatePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateCatalog(RoomService.RATES_KEY)));
   }
 
   updateRate(id: number, payload: Partial<RateFormPayload>): Observable<RateI> {
@@ -275,21 +381,32 @@ export class RoomService {
       `${this.ratesUrl}${id}/`,
       this.normalizePatchRatePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateCatalog(RoomService.RATES_KEY)));
   }
 
   deleteRate(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.ratesUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http
+      .delete<void>(`${this.ratesUrl}${id}/`, this.auth.buildCsrfRequestOptions())
+      .pipe(tap(() => this.invalidateCatalog(RoomService.RATES_KEY)));
   }
 
   restoreRate(id: number): Observable<RateI> {
-    return this.http.post<RateI>(`${this.ratesUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions());
+    return this.http
+      .post<RateI>(`${this.ratesUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions())
+      .pipe(tap(() => this.invalidateCatalog(RoomService.RATES_KEY)));
   }
 
   listFloors(): Observable<HotelFloorI[]> {
-    return this.http
-      .get<HotelFloorI[] | { results?: HotelFloorI[] }>(this.floorsUrl, { withCredentials: true })
-      .pipe(map((res) => this.unwrapArray<HotelFloorI>(res)));
+    return this.cache.get(
+      RoomService.FLOORS_KEY,
+      () =>
+        this.http
+          .get<HotelFloorI[] | { results?: HotelFloorI[] }>(this.floorsUrl, {
+            withCredentials: true
+          })
+          .pipe(map((res) => this.unwrapArray<HotelFloorI>(res))),
+      CACHE_TTL.CATALOG
+    );
   }
 
   private unwrapArray<T>(res: unknown): T[] {

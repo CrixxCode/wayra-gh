@@ -3,9 +3,8 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
-import { MasterDataI } from '../../../components/pages/master-data/master-data-model';
 import { BillingService } from '../../../services/billing';
-import { MasterDataService } from '../../../services/master-data.service';
+import { PaymentMethodI, PaymentMethodService } from '../../../services/payment-method';
 import { ReservationService } from '../../../services/reservation';
 import { InvoiceI, PaymentI } from '../../billing/billing-model';
 import { ReservationI } from '../../reservations/reservation-model';
@@ -31,7 +30,7 @@ export class ListPayments implements OnInit {
   filteredPayments: PaymentI[] = [];
   invoicesMap = new Map<number, InvoiceI>();
   reservationsMap = new Map<number, ReservationI>();
-  paymentMethods: MasterDataI[] = [];
+  paymentMethods: PaymentMethodI[] = [];
 
   search = '';
   methodFilter = 'ALL';
@@ -54,9 +53,9 @@ export class ListPayments implements OnInit {
   ];
 
   constructor(
+    private paymentMethodService: PaymentMethodService,
     private billingService: BillingService,
-    private reservationService: ReservationService,
-    private masterDataService: MasterDataService
+    private reservationService: ReservationService
   ) {}
 
   ngOnInit(): void {
@@ -148,9 +147,9 @@ export class ListPayments implements OnInit {
             })
           )
         ),
-      paymentMethods: this.masterDataService
-        .listMasterData({ group: 'PAYMENT_METHOD', is_active: 'true', ordering: 'sort_order,name' })
-        .pipe(catchError(() => of([] as MasterDataI[])))
+      paymentMethods: this.paymentMethodService
+        .listPaymentMethods()
+        .pipe(catchError(() => of([] as PaymentMethodI[])))
     }).subscribe({
       next: ({ payments, invoices, reservationsPage, paymentMethods }) => {
         this.loading = false;

@@ -11,6 +11,12 @@ import { errorActionAlert, successActionAlert } from '../../../services/action-a
 import { openActionConfirmation } from '../../../services/action-confirmations';
 import { HotelSettingsService } from '../../../services/hotel-settings';
 import { MasterDataService } from '../../../services/master-data.service';
+import {
+  PaymentMethodI,
+  PaymentMethodPayloadI,
+  PaymentMethodService,
+  PaymentMethodType
+} from '../../../services/payment-method';
 import { ReservationService } from '../../../services/reservation';
 import { FinancialControlConfigPayload, FinancialControlService } from '../../../services/financial-control';
 import { ReservationPolicyI, ReservationPolicyPayloadI } from '../../../modules/reservations/reservation-model';
@@ -23,7 +29,7 @@ import {
 } from '../../../shared/hotel-location-options';
 import { HotelFloor, HotelSettings as HotelSettingsModel } from './hotel-setting-model';
 
-type SettingsTab = 'general' | 'contact' | 'structure' | 'operation' | 'policies';
+type SettingsTab = 'general' | 'contact' | 'structure' | 'operation' | 'policies' | 'payments';
 type SettingsForm = {
   hotel_name: string;
   legal_name: string;
@@ -103,6 +109,16 @@ export class HotelSettings implements OnInit {
   settingsId: number | null = null;
   updatedAt: string | null = null;
   selectedHotelSettingsId: number | null = null;
+
+  // ------------------------------------------------------- metodos de pago
+  // Catalogo propio del hotel (AGENTS.md 5.16). Antes vivia en MasterData, que es
+  // global: editar un metodo lo cambiaba para todos los hoteles de la plataforma.
+  paymentMethods: PaymentMethodI[] = [];
+  paymentMethodsLoading = false;
+  paymentMethodsError = '';
+  paymentMethodSaving = false;
+  editingPaymentMethodId: number | null = null;
+  paymentMethodForm: PaymentMethodPayloadI = this.emptyPaymentMethodForm();
   isCreatingHotel = false;
   superAdminHotelOptions: HotelSettingsModel[] = [];
 
@@ -138,6 +154,7 @@ export class HotelSettings implements OnInit {
     { key: 'structure', label: 'Estructura', icon: 'fa-solid fa-layer-group' },
     { key: 'policies', label: 'Politicas de Reserva', icon: 'fa-solid fa-file-contract' },
     { key: 'operation', label: 'Operación', icon: 'fa-regular fa-clock' },
+    { key: 'payments', label: 'Metodos de Pago', icon: 'fa-solid fa-credit-card' },
   ];
 
   readonly currencyOptions = [
@@ -161,6 +178,7 @@ export class HotelSettings implements OnInit {
     private masterDataService: MasterDataService,
     private reservationService: ReservationService,
     private financialControlService: FinancialControlService,
+    private paymentMethodService: PaymentMethodService,
     private confirmationService: ConfirmationService
   ) {}
 
@@ -220,6 +238,15 @@ export class HotelSettings implements OnInit {
 
   get canManageSelectedHotel(): boolean {
     return !this.isSuperAdmin || this.selectedHotelSettingsId !== null || this.isCreatingHotel;
+  }
+
+  /**
+   * El administrador de plataforma no tiene hotel propio (ver AGENTS.md 5.4), asi que
+   * debe elegir cual configura. Mientras no lo haga, el formulario esta bloqueado — y
+   * sin este aviso la pantalla parece rota o parece faltar un permiso.
+   */
+  get mustSelectHotel(): boolean {
+    return this.isSuperAdmin && !this.isCreatingHotel && this.selectedHotelSettingsId === null;
   }
 
   get activePoliciesCount(): number {
@@ -776,7 +803,15 @@ export class HotelSettings implements OnInit {
         const hasPreferredSelection =
           preferredId !== null &&
           this.superAdminHotelOptions.some((hotel) => hotel.id === preferredId);
-        this.selectedHotelSettingsId = hasPreferredSelection ? preferredId : null;
+
+        // Con un solo hotel gestionable, elegirlo no es una decision: se preselecciona
+        // para no dejar la pantalla bloqueada sin motivo.
+        const onlyOption =
+          this.superAdminHotelOptions.length === 1
+            ? this.toOptionalPositiveInt(this.superAdminHotelOptions[0].id)
+            : null;
+
+        this.selectedHotelSettingsId = hasPreferredSelection ? preferredId : onlyOption;
         this.isCreatingHotel = false;
 
         if (!this.selectedHotelSettingsId) {
@@ -935,6 +970,8 @@ export class HotelSettings implements OnInit {
       this.clearPoliciesCollection();
     }
 
+    this.loadPaymentMethods();
+
     if (this.canReadFinancialConfig) {
       this.loadFinancialConfigForCurrentHotel();
     } else {
@@ -963,6 +1000,152 @@ export class HotelSettings implements OnInit {
         this.policyTypes = [...policyTypes];
         this.penaltyTypes = [...penaltyTypes];
         this.applyPolicyCatalogDefaults();
+      }
+    });
+  }
+
+  // ------------------------------------------------- metodos de pago (CRUD)
+
+  readonly paymentMethodTypes: Array<{ value: PaymentMethodType; label: string }> = [
+    { value: 'EFECTIVO', label: 'Efectivo' },
+    { value: 'TRANSFERENCIA', label: 'Transferencia' }
+  ];
+
+  private emptyPaymentMethodForm(): PaymentMethodPayloadI {
+    return { name: '', method_type: 'EFECTIVO', account_number: '', is_active: true };
+  }
+
+  /** El numero de cuenta solo aplica a transferencias. */
+  get paymentMethodNeedsAccount(): boolean {
+    return this.paymentMethodForm.method_type === 'TRANSFERENCIA';
+  }
+
+  get isEditingPaymentMethod(): boolean {
+    return this.editingPaymentMethodId !== null;
+  }
+
+  get canSavePaymentMethod(): boolean {
+    if (this.paymentMethodSaving || this.isActiveTabReadOnly) return false;
+    if (!this.paymentMethodForm.name.trim()) return false;
+    if (this.paymentMethodNeedsAccount) {
+      return String(this.paymentMethodForm.account_number || '').trim().length > 0;
+    }
+    return true;
+  }
+
+  get activePaymentMethodsCount(): number {
+    return this.paymentMethods.filter((method) => method.is_active).length;
+  }
+
+  loadPaymentMethods(): void {
+    if (!this.canManageSelectedHotel) {
+      this.paymentMethods = [];
+      return;
+    }
+
+    this.paymentMethodsLoading = true;
+    this.paymentMethodsError = '';
+
+    // `include_inactive`: en la configuracion se ven todos, para poder reactivarlos.
+    this.paymentMethodService
+      .listPaymentMethods({ include_inactive: true, forceRefresh: true })
+      .subscribe({
+        next: (methods) => {
+          this.paymentMethodsLoading = false;
+          this.paymentMethods = methods;
+        },
+        error: () => {
+          this.paymentMethodsLoading = false;
+          this.paymentMethods = [];
+          this.paymentMethodsError = 'No se pudieron cargar los metodos de pago.';
+        }
+      });
+  }
+
+  editPaymentMethod(method: PaymentMethodI): void {
+    this.editingPaymentMethodId = method.id;
+    this.paymentMethodForm = {
+      name: method.name,
+      method_type: method.method_type,
+      account_number: method.account_number || '',
+      is_active: method.is_active
+    };
+  }
+
+  cancelPaymentMethodEdit(): void {
+    this.editingPaymentMethodId = null;
+    this.paymentMethodForm = this.emptyPaymentMethodForm();
+  }
+
+  savePaymentMethod(): void {
+    if (!this.canSavePaymentMethod) return;
+
+    const needsAccount = this.paymentMethodNeedsAccount;
+    const payload: PaymentMethodPayloadI = {
+      name: this.paymentMethodForm.name.trim(),
+      method_type: this.paymentMethodForm.method_type,
+      // En efectivo no se manda cuenta: el backend la descarta igual.
+      account_number: needsAccount
+        ? String(this.paymentMethodForm.account_number || '').trim()
+        : null,
+      is_active: this.paymentMethodForm.is_active ?? true
+    };
+
+    this.paymentMethodSaving = true;
+    this.paymentMethodsError = '';
+
+    const request$ = this.editingPaymentMethodId
+      ? this.paymentMethodService.updatePaymentMethod(this.editingPaymentMethodId, payload)
+      : this.paymentMethodService.createPaymentMethod(payload);
+
+    request$.subscribe({
+      next: () => {
+        this.paymentMethodSaving = false;
+        const wasEditing = this.isEditingPaymentMethod;
+        this.cancelPaymentMethodEdit();
+        this.loadPaymentMethods();
+        this.successMessage = wasEditing
+          ? successActionAlert('update', 'metodo de pago')
+          : successActionAlert('create', 'metodo de pago');
+      },
+      error: (error) => {
+        this.paymentMethodSaving = false;
+        this.paymentMethodsError =
+          error?.error?.name?.[0] ||
+          error?.error?.account_number?.[0] ||
+          error?.error?.detail ||
+          'No se pudo guardar el metodo de pago.';
+      }
+    });
+  }
+
+  togglePaymentMethodActive(method: PaymentMethodI): void {
+    if (this.isActiveTabReadOnly) return;
+
+    this.paymentMethodService
+      .updatePaymentMethod(method.id, { is_active: !method.is_active })
+      .subscribe({
+        next: () => this.loadPaymentMethods(),
+        error: () => {
+          this.paymentMethodsError = 'No se pudo cambiar el estado del metodo de pago.';
+        }
+      });
+  }
+
+  deletePaymentMethod(method: PaymentMethodI): void {
+    if (this.isActiveTabReadOnly) return;
+
+    // Borrado logico: los pagos ya registrados siguen apuntando al metodo.
+    openActionConfirmation(this.confirmationService, {
+      action: 'delete',
+      target: `metodo de pago ${method.name}`,
+      onAccept: () => {
+        this.paymentMethodService.deletePaymentMethod(method.id).subscribe({
+          next: () => this.loadPaymentMethods(),
+          error: () => {
+            this.paymentMethodsError = 'No se pudo eliminar el metodo de pago.';
+          }
+        });
       }
     });
   }

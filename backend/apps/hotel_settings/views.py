@@ -17,8 +17,8 @@ from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
 from apps.master_data.models import MasterData
 from apps.rooms.models import Room
 
-from .models import HotelFloor, HotelSettings, ReservationPolicy
-from .serializers import HotelFloorSerializer, HotelSettingsSerializer, ReservationPolicySerializer
+from .models import HotelFloor, HotelSettings, PaymentMethod, ReservationPolicy
+from .serializers import PaymentMethodSerializer, HotelFloorSerializer, HotelSettingsSerializer, ReservationPolicySerializer
 
 
 class HotelSettingsViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
@@ -585,6 +585,37 @@ class ReservationPolicyViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, view
     def get_required_scopes(self):
         if self.request.method in ("POST", "PUT", "PATCH", "DELETE"):
             return ["reservation-policies.write"]
+        return self.required_scopes
+
+    def get_permissions(self):
+        self.required_scopes = self.get_required_scopes()
+        return super().get_permissions()
+
+
+class PaymentMethodViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
+    """Catalogo de metodos de pago de cada hotel.
+
+    Comparte los scopes de `hotel_settings` a proposito: es configuracion del hotel y se
+    administra desde la misma pantalla, asi que quien puede configurar el hotel puede
+    definir con que se le cobra a los huespedes.
+    """
+
+    queryset = PaymentMethod.objects.select_related("hotel_settings").all()
+    serializer_class = PaymentMethodSerializer
+    pagination_class = OptionalPageNumberPagination
+    permission_classes = [HasResourcePermission]
+    tenant_filter = "hotel_settings"
+
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["code", "name", "account_number"]
+    ordering_fields = ["name", "method_type", "created_at"]
+    ordering = ["name"]
+
+    required_scopes = ["hotel_settings.read"]
+
+    def get_required_scopes(self):
+        if self.request.method in ("POST", "PUT", "PATCH", "DELETE"):
+            return ["hotel_settings.write"]
         return self.required_scopes
 
     def get_permissions(self):

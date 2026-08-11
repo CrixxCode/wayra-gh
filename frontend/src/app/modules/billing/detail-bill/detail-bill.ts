@@ -5,6 +5,7 @@ import { ConfirmationService } from 'primeng/api';
 import { MasterDataI } from '../../../components/pages/master-data/master-data-model';
 import { BillingService } from '../../../services/billing';
 import { MasterDataService } from '../../../services/master-data.service';
+import { PaymentMethodI, PaymentMethodService } from '../../../services/payment-method';
 import { PackagesService } from '../../../services/package';
 import { ReservationService } from '../../../services/reservation';
 import { ServicesService } from '../../../services/service';
@@ -202,7 +203,7 @@ export class DetailBill implements OnChanges {
   creditNotes: CreditNoteI[] = [];
   groupedCharges: ChargeGroupI[] = [];
   chargeTypes: MasterDataI[] = [];
-  paymentMethods: MasterDataI[] = [];
+  paymentMethods: PaymentMethodI[] = [];
   creditNoteStatuses: MasterDataI[] = [];
   services: ServiceI[] = [];
   packages: PackageI[] = [];
@@ -219,6 +220,7 @@ export class DetailBill implements OnChanges {
   }
 
   constructor(
+    private paymentMethodService: PaymentMethodService,
     private billingService: BillingService,
     private reservationService: ReservationService,
     private masterDataService: MasterDataService,
@@ -604,9 +606,9 @@ export class DetailBill implements OnChanges {
       chargeTypes: this.masterDataService
         .listMasterData({ group: 'CHARGE_TYPE', is_active: 'true', ordering: 'sort_order,name' })
         .pipe(catchError(() => of([] as MasterDataI[]))),
-      paymentMethods: this.masterDataService
-        .listMasterData({ group: 'PAYMENT_METHOD', is_active: 'true', ordering: 'sort_order,name' })
-        .pipe(catchError(() => of([] as MasterDataI[]))),
+      paymentMethods: this.paymentMethodService
+        .listPaymentMethods()
+        .pipe(catchError(() => of([] as PaymentMethodI[]))),
       creditNoteStatuses: this.masterDataService
         .listMasterData({ group: 'CREDIT_NOTE_STATUS', is_active: 'true', ordering: 'sort_order,name' })
         .pipe(catchError(() => of([] as MasterDataI[]))),

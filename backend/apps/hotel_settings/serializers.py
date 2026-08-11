@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from accounts.tenancy import TenantSerializerMixin
 
-from .models import HotelFloor, HotelSettings, ReservationPolicy
+from .models import HotelFloor, HotelSettings, PaymentMethod, ReservationPolicy
 
 
 class HotelFloorSerializer(TenantSerializerMixin, serializers.ModelSerializer):
@@ -244,6 +244,97 @@ class ReservationPolicySerializer(TenantSerializerMixin, serializers.ModelSerial
                     raise serializers.ValidationError(
                         {"penalty_value": "Percentage penalty cannot be greater than 100."}
                     )
+
+        return attrs
+
+    def create(self, validated_data):
+        self.assign_target_tenant(validated_data)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        self.assign_target_tenant(validated_data)
+        return super().update(instance, validated_data)
+
+
+class PaymentMethodSerializer(TenantSerializerMixin, serializers.ModelSerializer):
+    """Metodo de pago propio del hotel (ver AGENTS.md 5.16).
+
+    El cliente solo manda nombre, tipo y —si es transferencia— numero de cuenta. El
+    `code` se deriva del nombre en el modelo y viaja de solo lectura, porque varias
+    pantallas de facturacion lo usan para elegir icono y etiqueta.
+    """
+
+    tenant_field_name = "hotel_settings"
+
+    hotel_settings = serializers.PrimaryKeyRelatedField(
+        queryset=HotelSettings.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    code = serializers.CharField(read_only=True)
+    method_type_label = serializers.CharField(source="get_method_type_display", read_only=True)
+
+    class Meta:
+        model = PaymentMethod
+        fields = (
+            "id",
+            "hotel_settings",
+            "name",
+            "method_type",
+            "method_type_label",
+            "account_number",
+            "code",
+            "is_active",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "code", "created_at", "updated_at")
+        # DRF deduce un `UniqueTogetherValidator` de la UniqueConstraint del modelo, y
+        # ese validador vuelve **obligatorio** `hotel_settings` en el cuerpo. Aqui el
+        # hotel no lo manda el cliente: lo resuelve `TenantSerializerMixin`. El duplicado
+        # se valida abajo, ya contra el hotel resuelto.
+        validators = []
+
+    def validate_name(self, value):
+        name = str(value or "").strip()
+        if not name:
+            raise serializers.ValidationError("El nombre del metodo de pago es obligatorio.")
+        if not PaymentMethod.build_code(name):
+            raise serializers.ValidationError("El nombre debe tener al menos una letra o numero.")
+        return name
+
+    def validate(self, attrs):
+        hotel = self.require_target_tenant(attrs)
+
+        name = attrs.get("name", getattr(self.instance, "name", None))
+        method_type = attrs.get(
+            "method_type",
+            getattr(self.instance, "method_type", PaymentMethod.MethodType.CASH),
+        )
+        account_number = attrs.get(
+            "account_number", getattr(self.instance, "account_number", None)
+        )
+
+        if method_type == PaymentMethod.MethodType.TRANSFER:
+            if not str(account_number or "").strip():
+                raise serializers.ValidationError(
+                    {"account_number": "Una transferencia necesita numero de cuenta."}
+                )
+        else:
+            # En efectivo el numero de cuenta no aplica: se descarta si venia.
+            attrs["account_number"] = None
+
+        # Dos metodos con el mismo nombre generarian el mismo codigo.
+        duplicates = PaymentMethod.objects.filter(
+            hotel_settings=hotel, code=PaymentMethod.build_code(name)
+        )
+        if self.instance:
+            duplicates = duplicates.exclude(pk=self.instance.pk)
+
+        if duplicates.exists():
+            raise serializers.ValidationError(
+                {"name": "Ya existe un metodo de pago con ese nombre en este hotel."}
+            )
 
         return attrs
 

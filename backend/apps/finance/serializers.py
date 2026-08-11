@@ -78,7 +78,17 @@ class ExpenseSerializer(TenantSerializerMixin, serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
-        self.require_target_tenant(attrs)
+        hotel = self.require_target_tenant(attrs)
+
+        # El metodo de pago pertenece al hotel (AGENTS.md 5.16).
+        payment_method = attrs.get(
+            "payment_method", getattr(self.instance, "payment_method", None)
+        )
+        if payment_method and hotel and payment_method.hotel_settings_id != hotel.id:
+            raise serializers.ValidationError(
+                {"payment_method": "El metodo de pago no pertenece a este hotel."}
+            )
+
         return attrs
 
     def create(self, validated_data):

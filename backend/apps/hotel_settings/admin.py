@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import HotelSettings, HotelFloor, ReservationPolicy
+from .models import HotelSettings, HotelFloor, PaymentMethod, ReservationPolicy
 
 
 class HotelFloorInline(admin.TabularInline):
@@ -50,3 +50,12 @@ class ReservationPolicyAdmin(admin.ModelAdmin):
     )
     search_fields = ("name", "description")
     list_filter = ("is_active", "policy_type", "penalty_type", "hotel_settings")
+
+@admin.register(PaymentMethod)
+class PaymentMethodAdmin(admin.ModelAdmin):
+    list_display = ("name", "method_type", "account_number", "hotel_settings", "is_active")
+    list_filter = ("hotel_settings", "method_type", "is_active")
+    # `autocomplete_fields` de otros admins (depositos, egresos) exige esta busqueda.
+    search_fields = ("name", "code", "hotel_settings__hotel_name")
+    ordering = ("hotel_settings", "name")
+    readonly_fields = ("code",)

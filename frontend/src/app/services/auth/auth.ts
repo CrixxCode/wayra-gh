@@ -53,6 +53,38 @@ export interface SessionLoginResponse {
 export const isEffectivePlatformAdmin = (user?: MeResponse | null): boolean =>
   Boolean(user?.is_superuser) && !user?.hotel_settings;
 
+/** `users_read`, `users-read` y `users.read` son la misma clave para el backend. */
+const scopeVariants = (scope: string): string[] => {
+  const normalized = String(scope || '').trim().toLowerCase();
+  if (!normalized) return [];
+  return [...new Set([normalized, normalized.replace(/_/g, '-'), normalized.replace(/-/g, '_')])];
+};
+
+/**
+ * Replica el motor de `accounts.permissions.HasResourcePermission` para decidir en el
+ * frontend si mostrar algo que el backend igualmente filtra. **No es un control de
+ * acceso**: sirve para no pintar controles que no van a traer datos.
+ */
+export const hasResourceScope = (user: MeResponse | null | undefined, scope: string): boolean => {
+  if (!user) return false;
+  if (isEffectivePlatformAdmin(user)) return true;
+
+  const keys = new Set((user.resource_keys || []).flatMap(scopeVariants));
+  if (keys.has('*')) return true;
+
+  const variants = scopeVariants(scope);
+  if (variants.some((variant) => keys.has(variant))) return true;
+
+  // Comodin por dominio: `rooms.*` cubre `rooms.read_guest_data`.
+  return variants.some((variant) => {
+    const separator = variant.lastIndexOf('.');
+    if (separator < 0) return false;
+    return scopeVariants(`${variant.slice(0, separator)}.*`).some((wildcard) =>
+      keys.has(wildcard)
+    );
+  });
+};
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly apiBase = environment.API_URI.replace(/\/$/, '');

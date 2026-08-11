@@ -1,8 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
+import { AuthService, hasResourceScope } from '../../../services/auth/auth';
+import { MotionService } from '../../../services/motion';
+import { CleaningTasksService } from '../../../services/cleaning-task';
+import { ReservationService } from '../../../services/reservation';
 import { RoomService } from '../../../services/room';
+import { CleaningTaskI } from '../../cleaning-tasks/cleaning-task-model';
 import {
   AmenityI,
   HotelFloorI,
@@ -12,11 +17,50 @@ import {
   RoomVisualStatus
 } from '../room-model';
 import { CreateRoom } from '../create-room/create-room';
+import { RoomCheckModal, RoomCheckMode } from '../room-check-modal/room-check-modal';
 import { RoomModal } from '../room-modal/room-modal';
 import { RoomTypesManager } from '../managers/room-types-manager/room-types-manager';
 import { RatesManager } from '../managers/rates-manager/rates-manager';
 
-type ViewMode = 'cards' | 'table';
+type ViewMode = 'cards' | 'table' | 'board';
+type RoomQuickAction = 'confirm' | 'check-in' | 'check-out' | 'complete-cleaning' | 'manage';
+type OperationalFilter =
+  | 'ALL'
+  | 'NEEDS_ACTION'
+  | 'CHECKIN_READY'
+  | 'CHECKOUT_SOON'
+  | 'CLEANING'
+  | 'MAINTENANCE'
+  | 'PENDING_BALANCE'
+  | 'UNCONFIGURED';
+
+/**
+ * Indicador compacto de la tarjeta: un hecho que la habitacion arrastra y que recepcion
+ * debe ver sin abrirla. El *estado* no va aqui, lo dice el chip de la cabecera; estos
+ * son solo los pendientes (saldo, consumos, limpieza, mantenimiento, inventario).
+ */
+export type RoomBadge = {
+  key: string;
+  icon: string;
+  label: string;
+  title: string;
+  tone: 'danger' | 'warning' | 'info';
+};
+
+/**
+ * Tarjeta del resumen del dia. No es un conteo por estado (para eso estan las
+ * pestanas de estado): cada una responde "que toca hacer" y al pulsarla filtra el
+ * tablero por ese trabajo.
+ */
+export type DaySummaryCard = {
+  key: string;
+  label: string;
+  icon: string;
+  tone: 'danger' | 'warning' | 'info' | 'success';
+  count: number;
+  note: string;
+  filter: OperationalFilter;
+};
 
 type StatusStyle = {
   bg: string;
@@ -36,6 +80,13 @@ export type FloorGroup = {
   rooms: RoomI[];
 };
 
+/** Columna del tablero: un estado operativo y las habitaciones que estan en el. */
+export type BoardColumn = {
+  key: RoomVisualStatus;
+  label: string;
+  rooms: RoomI[];
+};
+
 @Component({
   selector: 'app-list-rooms',
   standalone: true,
@@ -44,6 +95,7 @@ export type FloorGroup = {
     FormsModule,
     CreateRoom,
     RoomModal,
+    RoomCheckModal,
     RoomTypesManager,
     RatesManager
   ],
@@ -53,10 +105,14 @@ export type FloorGroup = {
 export class ListRooms implements OnInit, OnDestroy {
   loading = false;
   errorMessage = '';
+  quickActionError = '';
+  /** `rooms.read_guest_data`: documento del huesped y saldo por cobrar. */
+  canReadGuestData = false;
 
   rooms: RoomI[] = [];
   filteredRooms: RoomI[] = [];
   floorGroups: FloorGroup[] = [];
+  boardColumns: BoardColumn[] = [];
 
   floors: HotelFloorI[] = [];
   roomTypes: RoomTypeI[] = [];
@@ -65,12 +121,15 @@ export class ListRooms implements OnInit, OnDestroy {
 
   search = '';
   statusFilter: RoomVisualStatus | 'ALL' = 'ALL';
+  operationalFilter: OperationalFilter = 'ALL';
   floorFilter: number | 'ALL' = 'ALL';
   viewMode: ViewMode = 'cards';
 
   // Modales
   showCreateDrawer = false;
   selectedRoom: RoomI | null = null;
+  checkModalRoom: RoomI | null = null;
+  checkModalMode: RoomCheckMode = 'check-in';
   showRoomTypesManager = false;
   showRatesManager = false;
   ratesManagerFocusTypeId: number | null = null;
@@ -78,7 +137,9 @@ export class ListRooms implements OnInit, OnDestroy {
   private roomTypeMap = new Map<number, RoomTypeI>();
   private rateMap = new Map<number, RateI>();
   private roomOverrides = new Map<number, RoomI>();
+  private quickActionLoadingIds = new Set<string>();
   private countdownTimer: ReturnType<typeof setInterval> | null = null;
+  private revealFrame: number | null = null;
   currentTime = new Date();
 
   readonly statusTabs: Array<{ key: RoomVisualStatus | 'ALL'; label: string }> = [
@@ -89,6 +150,22 @@ export class ListRooms implements OnInit, OnDestroy {
     { key: 'POR_SALIR_HOY', label: 'Por salir hoy' },
     { key: 'MANTENIMIENTO', label: 'Mantenimiento' },
     { key: 'SIN_CONFIGURAR', label: 'Sin configurar' }
+  ];
+
+  /**
+   * Columnas del tablero. Las seis primeras son el recorrido normal de una habitacion
+   * y se muestran siempre, aunque esten vacias, para que recepcion lea el hotel en la
+   * misma posicion todos los dias. Las dos ultimas solo aparecen si tienen algo.
+   */
+  readonly boardStatuses: Array<{ key: RoomVisualStatus; label: string; always: boolean }> = [
+    { key: 'DISPONIBLE', label: 'Disponibles', always: true },
+    { key: 'RESERVADA', label: 'Reservadas', always: true },
+    { key: 'OCUPADA', label: 'Ocupadas', always: true },
+    { key: 'POR_SALIR_HOY', label: 'Por salir', always: true },
+    { key: 'LIMPIEZA', label: 'Limpieza', always: true },
+    { key: 'MANTENIMIENTO', label: 'Mantenimiento', always: true },
+    { key: 'SIN_CONFIGURAR', label: 'Sin configurar', always: false },
+    { key: 'FUERA_DE_SERVICIO', label: 'Fuera de servicio', always: false }
   ];
 
   readonly statusOptions: Array<{ value: RoomVisualStatus | 'ALL'; label: string }> = [
@@ -103,12 +180,91 @@ export class ListRooms implements OnInit, OnDestroy {
     { value: 'SIN_CONFIGURAR', label: 'Sin configurar' }
   ];
 
-  constructor(private roomService: RoomService) {}
+  /** Filtros visibles: los de datos del huesped se caen sin `rooms.read_guest_data`. */
+  get visibleOperationalFilters(): Array<{
+    key: OperationalFilter;
+    label: string;
+    icon: string;
+    hint: string;
+  }> {
+    if (this.canReadGuestData) return this.operationalFilters;
+    return this.operationalFilters.filter((filter) => filter.key !== 'PENDING_BALANCE');
+  }
+
+  readonly operationalFilters: Array<{
+    key: OperationalFilter;
+    label: string;
+    icon: string;
+    hint: string;
+  }> = [
+    {
+      key: 'ALL',
+      label: 'Todas',
+      icon: 'fa-solid fa-border-all',
+      hint: 'Sin filtro operativo'
+    },
+    {
+      key: 'NEEDS_ACTION',
+      label: 'Requieren accion',
+      icon: 'fa-solid fa-bolt',
+      hint: 'Cualquier habitacion con algo pendiente ahora mismo'
+    },
+    {
+      key: 'CHECKIN_READY',
+      label: 'Check-in listo',
+      icon: 'fa-solid fa-right-to-bracket',
+      hint: 'Reservas confirmadas que ya pueden ingresar'
+    },
+    {
+      key: 'CHECKOUT_SOON',
+      label: 'Salida proxima',
+      icon: 'fa-regular fa-clock',
+      hint: 'Salidas dentro de las proximas 4 horas o ya vencidas'
+    },
+    {
+      key: 'CLEANING',
+      label: 'Limpieza pendiente',
+      icon: 'fa-solid fa-broom',
+      hint: 'En estado limpieza o con tareas de limpieza abiertas'
+    },
+    {
+      key: 'MAINTENANCE',
+      label: 'Mantenimiento abierto',
+      icon: 'fa-solid fa-screwdriver-wrench',
+      hint: 'En mantenimiento o con ordenes sin cerrar'
+    },
+    {
+      key: 'PENDING_BALANCE',
+      label: 'Por cobrar',
+      icon: 'fa-solid fa-money-bill-wave',
+      hint: 'Saldo de la reserva pendiente o consumos aun sin facturar'
+    },
+    {
+      key: 'UNCONFIGURED',
+      label: 'Sin configurar',
+      icon: 'fa-solid fa-triangle-exclamation',
+      hint: 'Sin tipo o sin tarifa: no se pueden reservar'
+    }
+  ];
+
+  constructor(
+    private roomService: RoomService,
+    private reservationService: ReservationService,
+    private cleaningTasksService: CleaningTasksService,
+    private authService: AuthService,
+    private motion: MotionService,
+    private hostRef: ElementRef<HTMLElement>,
+    private zone: NgZone
+  ) {}
 
   ngOnInit(): void {
+    this.loadGuestDataPermission();
     this.loadModuleData();
     this.countdownTimer = setInterval(() => {
       this.currentTime = new Date();
+      // Los filtros y conteos de "salida proxima" dependen de la hora: sin recalcular,
+      // una habitacion cuya salida vence deja de aparecer hasta el proximo refresco.
+      this.applyFilters();
     }, 60000);
   }
 
@@ -116,6 +272,53 @@ export class ListRooms implements OnInit, OnDestroy {
     if (this.countdownTimer) {
       clearInterval(this.countdownTimer);
     }
+    if (this.revealFrame !== null) {
+      cancelAnimationFrame(this.revealFrame);
+    }
+    this.motion.killWithin(this.hostRef.nativeElement);
+  }
+
+  // --------------------------------------------------------------- animacion
+
+  /**
+   * Entrada escalonada de la vista.
+   *
+   * Se dispara cuando **cambia el contenido** (carga inicial, cambio de vista, cambio
+   * de filtro operativo o de estado), nunca en cada tecla del buscador: animar mientras
+   * se escribe se siente como parpadeo, no como fluidez.
+   *
+   * Corre fuera de la zona de Angular porque GSAP anima con `requestAnimationFrame`;
+   * dentro de la zona dispararia una deteccion de cambios por frame.
+   */
+  private scheduleReveal(): void {
+    if (this.motion.prefersReducedMotion) return;
+    if (this.revealFrame !== null) cancelAnimationFrame(this.revealFrame);
+
+    this.zone.runOutsideAngular(() => {
+      // Un frame de espera para que Angular ya haya pintado las tarjetas nuevas.
+      this.revealFrame = requestAnimationFrame(() => {
+        this.revealFrame = null;
+        const host = this.hostRef.nativeElement;
+
+        this.motion.reveal(host.querySelectorAll('.stat-card'), { stagger: 0.045, y: 14 });
+        this.motion.reveal(host.querySelectorAll('.floor-block, .board-column'), {
+          stagger: 0.06,
+          y: 16,
+          delay: 0.05
+        });
+        this.motion.reveal(host.querySelectorAll('.room-card, .board-room'), {
+          stagger: 0.015,
+          y: 10,
+          duration: 0.28,
+          delay: 0.08
+        });
+        this.motion.reveal(host.querySelectorAll('.table-card tbody tr'), {
+          stagger: 0.012,
+          y: 8,
+          duration: 0.24
+        });
+      });
+    });
   }
 
   // ------------------------------------------------------------- indicadores
@@ -152,14 +355,132 @@ export class ListRooms implements OnInit, OnDestroy {
     return this.rooms.filter((room) => !this.isRoomConfigured(room)).length;
   }
 
+  get urgentMaintenanceCount(): number {
+    return this.rooms.filter((room) => (room.operations?.urgent_maintenance || 0) > 0).length;
+  }
+
+  get pendingBalanceTotal(): number {
+    return this.rooms.reduce((total, room) => total + this.getPendingTotal(room), 0);
+  }
+
+  get unbilledChargesTotal(): number {
+    return this.rooms.reduce((total, room) => total + this.getUnbilledCharges(room), 0);
+  }
+
+  get occupancyLabel(): string {
+    if (!this.totalRooms) return 'Sin habitaciones registradas';
+    return `${this.availableCount} disponibles de ${this.totalRooms} · ${this.occupiedCount} ocupadas`;
+  }
+
+  /**
+   * Resumen del dia: seis frentes de trabajo, cada uno con su atajo de filtro.
+   * Reemplaza a los conteos por estado, que ya viven en las pestanas de abajo.
+   */
+  get daySummary(): DaySummaryCard[] {
+    const urgent = this.urgentMaintenanceCount;
+    const pendingBalance = this.getOperationalCount('PENDING_BALANCE');
+
+    const cards: DaySummaryCard[] = [
+      {
+        key: 'check-in',
+        label: 'Check-ins listos',
+        icon: 'fa-solid fa-right-to-bracket',
+        tone: 'success',
+        count: this.getOperationalCount('CHECKIN_READY'),
+        note: `${this.reservedCount} reservada(s) en total`,
+        filter: 'CHECKIN_READY'
+      },
+      {
+        key: 'check-out',
+        label: 'Salidas proximas',
+        icon: 'fa-regular fa-clock',
+        tone: 'warning',
+        count: this.getOperationalCount('CHECKOUT_SOON'),
+        note: `${this.leavingTodayCount} salida(s) hoy`,
+        filter: 'CHECKOUT_SOON'
+      },
+      {
+        key: 'cleaning',
+        label: 'Limpieza pendiente',
+        icon: 'fa-solid fa-broom',
+        tone: 'info',
+        count: this.getOperationalCount('CLEANING'),
+        note: 'Bloquea la proxima venta',
+        filter: 'CLEANING'
+      },
+      {
+        key: 'maintenance',
+        label: 'Mantenimiento',
+        icon: 'fa-solid fa-screwdriver-wrench',
+        tone: 'danger',
+        count: this.getOperationalCount('MAINTENANCE'),
+        note: urgent ? `${urgent} urgente(s)` : 'Sin ordenes urgentes',
+        filter: 'MAINTENANCE'
+      },
+      {
+        key: 'balance',
+        label: 'Por cobrar',
+        icon: 'fa-solid fa-money-bill-wave',
+        tone: 'danger',
+        count: pendingBalance,
+        note: pendingBalance
+          ? `${this.formatMoney(this.pendingBalanceTotal)} de saldo · ${this.formatMoney(this.unbilledChargesTotal)} en consumos`
+          : 'Todo cobrado',
+        filter: 'PENDING_BALANCE'
+      },
+      {
+        key: 'unconfigured',
+        label: 'Sin configurar',
+        icon: 'fa-solid fa-triangle-exclamation',
+        tone: 'warning',
+        count: this.getOperationalCount('UNCONFIGURED'),
+        note: 'No se pueden reservar',
+        filter: 'UNCONFIGURED'
+      }
+    ];
+
+    if (this.canReadGuestData) return cards;
+    return cards.filter((card) => card.key !== 'balance');
+  }
+
+  trackBySummary(_: number, card: DaySummaryCard): string {
+    return card.key;
+  }
+
   // ------------------------------------------------------------------ carga
 
-  loadModuleData(): void {
+  /**
+   * El backend ya devuelve los montos en null sin `rooms.read_guest_data`; esto solo
+   * evita pintar el filtro y la tarjeta de saldo, que sin permiso mostrarian un cero
+   * enganoso.
+   */
+  private loadGuestDataPermission(): void {
+    this.authService
+      .getUserInfo()
+      .pipe(catchError(() => of(null)))
+      .subscribe((user) => {
+        this.canReadGuestData = hasResourceScope(user, 'rooms.read_guest_data');
+        if (!this.canReadGuestData && this.operationalFilter === 'PENDING_BALANCE') {
+          this.selectOperationalFilter('ALL');
+        }
+      });
+  }
+
+  /**
+   * `forceRefresh` es lo que usa el boton de actualizar: salta el cache-aside y lo
+   * repuebla. La carga normal se sirve del cache, que es lo que evita repetir las
+   * cinco peticiones cada vez que se entra a la vista.
+   */
+  loadModuleData(forceRefresh = false): void {
     this.loading = true;
     this.errorMessage = '';
 
+    if (forceRefresh) {
+      this.roomService.invalidateRoomModuleCache();
+    }
+
     forkJoin({
-      rooms: this.roomService.listRooms().pipe(catchError(() => of([] as RoomI[]))),
+      rooms: this.roomService.listRooms({ forceRefresh }).pipe(catchError(() => of([] as RoomI[]))),
       roomTypes: this.roomService.listRoomTypes().pipe(catchError(() => of([] as RoomTypeI[]))),
       amenities: this.roomService.listAmenities().pipe(catchError(() => of([] as AmenityI[]))),
       floors: this.roomService.listFloors().pipe(catchError(() => of([] as HotelFloorI[]))),
@@ -175,6 +496,7 @@ export class ListRooms implements OnInit, OnDestroy {
         this.buildMaps();
         this.applyFilters();
         this.syncSelectedRoom();
+        this.scheduleReveal();
       },
       error: () => {
         this.loading = false;
@@ -184,7 +506,8 @@ export class ListRooms implements OnInit, OnDestroy {
   }
 
   refreshRooms(): void {
-    this.roomService.listRooms().subscribe({
+    // Siempre fresco: se llama despues de una accion, cuando el cache ya no vale.
+    this.roomService.listRooms({ forceRefresh: true }).subscribe({
       next: (rooms) => {
         this.rooms = rooms.map((room) => {
           const override = this.roomOverrides.get(room.id);
@@ -214,39 +537,59 @@ export class ListRooms implements OnInit, OnDestroy {
   // --------------------------------------------------------------- filtrado
 
   applyFilters(): void {
-    const searchValue = this.search.toLowerCase().trim();
+    // Cada palabra se exige por separado, asi "juan 101" encuentra al huesped Juan en
+    // la 101 y no habitaciones que solo cumplen una de las dos condiciones.
+    const searchTerms = this.normalizeText(this.search).split(/\s+/).filter(Boolean);
 
     this.filteredRooms = this.rooms.filter((room) => {
       const visualStatus = this.getVisualStatus(room);
       const statusMatch = this.statusFilter === 'ALL' ? true : visualStatus === this.statusFilter;
+      const operationalMatch = this.matchesOperationalFilter(room, this.operationalFilter);
       const floorMatch = this.floorFilter === 'ALL' ? true : room.floor === this.floorFilter;
 
-      const roomType = this.getRoomType(room);
-      const searchPool = [
-        room.number,
-        room.notes || '',
-        room.floor_name || '',
-        room.room_type_name || '',
-        roomType?.name || '',
-        roomType?.bed_type || ''
-      ]
-        .join(' ')
-        .toLowerCase();
+      const searchMatch =
+        !searchTerms.length ||
+        (() => {
+          const pool = this.buildSearchPool(room);
+          return searchTerms.every((term) => pool.includes(term));
+        })();
 
-      const searchMatch = !searchValue || searchPool.includes(searchValue);
-      return statusMatch && floorMatch && searchMatch;
+      return statusMatch && operationalMatch && floorMatch && searchMatch;
     });
 
     this.floorGroups = this.buildFloorGroups(this.filteredRooms);
+    this.boardColumns = this.buildBoardColumns(this.filteredRooms);
   }
 
   selectStatus(status: RoomVisualStatus | 'ALL'): void {
     this.statusFilter = status;
     this.applyFilters();
+    this.scheduleReveal();
+  }
+
+  selectOperationalFilter(filter: OperationalFilter): void {
+    this.operationalFilter = filter;
+    this.applyFilters();
+    this.scheduleReveal();
+  }
+
+  /** Desde el resumen del dia: volver a pulsar la misma tarjeta quita el filtro. */
+  toggleOperationalFilter(filter: OperationalFilter): void {
+    this.selectOperationalFilter(this.operationalFilter === filter ? 'ALL' : filter);
+  }
+
+  clearFilters(): void {
+    this.search = '';
+    this.statusFilter = 'ALL';
+    this.operationalFilter = 'ALL';
+    this.floorFilter = 'ALL';
+    this.applyFilters();
   }
 
   setViewMode(mode: ViewMode): void {
+    if (this.viewMode === mode) return;
     this.viewMode = mode;
+    this.scheduleReveal();
   }
 
   // ---------------------------------------------------------------- modales
@@ -346,6 +689,19 @@ export class ListRooms implements OnInit, OnDestroy {
     return this.rooms.filter((room) => this.getVisualStatus(room) === status).length;
   }
 
+  getOperationalCount(filter: OperationalFilter): number {
+    return this.rooms.filter((room) => this.matchesOperationalFilter(room, filter)).length;
+  }
+
+  hasActiveFilters(): boolean {
+    return (
+      this.search.trim().length > 0 ||
+      this.statusFilter !== 'ALL' ||
+      this.operationalFilter !== 'ALL' ||
+      this.floorFilter !== 'ALL'
+    );
+  }
+
   getRoomTypeName(room: RoomI): string {
     return this.getRoomType(room)?.name || room.room_type_name || 'Sin tipo';
   }
@@ -377,11 +733,7 @@ export class ListRooms implements OnInit, OnDestroy {
     const asNumber = Number(price);
     if (Number.isNaN(asNumber)) return `${price}`;
 
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      maximumFractionDigits: 0
-    }).format(asNumber);
+    return this.formatMoney(asNumber);
   }
 
   getStatusLabel(room: RoomI): string {
@@ -407,8 +759,111 @@ export class ListRooms implements OnInit, OnDestroy {
     }
   }
 
+  getQuickActionLabel(room: RoomI): string {
+    switch (this.getQuickAction(room)) {
+      case 'confirm':
+        return 'Confirmar';
+      case 'check-in':
+        return 'Check-In';
+      case 'check-out':
+        return 'Check-Out';
+      case 'complete-cleaning':
+        return 'Completar';
+      default:
+        return 'Gestionar';
+    }
+  }
+
+  getQuickActionIcon(room: RoomI): string {
+    switch (this.getQuickAction(room)) {
+      case 'confirm':
+        return 'fa-solid fa-check';
+      case 'check-in':
+        return 'fa-solid fa-right-to-bracket';
+      case 'check-out':
+        return 'fa-solid fa-right-from-bracket';
+      case 'complete-cleaning':
+        return 'fa-solid fa-check-double';
+      default:
+        return 'fa-solid fa-sliders';
+    }
+  }
+
+  getQuickActionClass(room: RoomI): string {
+    return `quick-action-${this.getQuickAction(room)}`;
+  }
+
+  hasSecondaryManageAction(room: RoomI): boolean {
+    return this.getQuickAction(room) !== 'manage';
+  }
+
+  isQuickActionLoading(room: RoomI): boolean {
+    return this.quickActionLoadingIds.has(this.getQuickActionLoadingKey(room));
+  }
+
+  runQuickAction(room: RoomI): void {
+    this.quickActionError = '';
+    const action = this.getQuickAction(room);
+    if (action === 'manage') {
+      this.openRoom(room);
+      return;
+    }
+
+    // El ingreso y la salida no se ejecutan de un clic: abren la verificacion.
+    // Entrar sin contrastar documentos, o cerrar sin mirar saldo e inventario, son
+    // los dos errores caros de recepcion.
+    if ((action === 'check-in' || action === 'check-out') && room.active_reservation?.id) {
+      this.openCheckModal(room, action);
+      return;
+    }
+
+    const reservationId = room.active_reservation?.id;
+    const loadingKey = this.getQuickActionLoadingKey(room, action);
+    if (this.quickActionLoadingIds.has(loadingKey)) return;
+    this.quickActionLoadingIds.add(loadingKey);
+
+    if (action === 'confirm' && reservationId) {
+      this.reservationService.confirmReservation(reservationId).subscribe({
+        next: () => this.finishQuickAction(room.id, loadingKey),
+        error: () => this.failQuickAction(loadingKey, 'No se pudo confirmar la reserva.')
+      });
+      return;
+    }
+
+    if (action === 'complete-cleaning') {
+      this.completeFirstOpenCleaningTask(room, loadingKey);
+      return;
+    }
+
+    this.quickActionLoadingIds.delete(loadingKey);
+    this.openRoom(room);
+  }
+
+  // ------------------------------------------------- verificacion de ingreso/salida
+
+  openCheckModal(room: RoomI, mode: RoomCheckMode): void {
+    this.checkModalRoom = room;
+    this.checkModalMode = mode;
+  }
+
+  closeCheckModal(): void {
+    this.checkModalRoom = null;
+  }
+
+  onCheckConfirmed(): void {
+    const roomId = this.checkModalRoom?.id;
+    this.closeCheckModal();
+    this.roomService.invalidateRoomsCache();
+    if (roomId) this.refreshRoomById(roomId);
+  }
+
   getStatusStyle(room: RoomI): StatusStyle {
-    switch (this.getVisualStatus(room)) {
+    return this.getStatusStyleFor(this.getVisualStatus(room));
+  }
+
+  /** Mismo vocabulario de color para la tabla, el chip y las columnas del tablero. */
+  getStatusStyleFor(status: RoomVisualStatus): StatusStyle {
+    switch (status) {
       case 'DISPONIBLE':
         return {
           bg: 'var(--gh-status-success-bg)',
@@ -485,7 +940,11 @@ export class ListRooms implements OnInit, OnDestroy {
   }
 
   getCardStatusClass(room: RoomI): string {
-    switch (this.getVisualStatus(room)) {
+    return this.getStatusClassFor(this.getVisualStatus(room));
+  }
+
+  getStatusClassFor(status: RoomVisualStatus): string {
+    switch (status) {
       case 'DISPONIBLE':
         return 'is-available';
       case 'OCUPADA':
@@ -582,6 +1041,10 @@ export class ListRooms implements OnInit, OnDestroy {
     return group.key;
   }
 
+  trackByColumn(_: number, column: BoardColumn): string {
+    return column.key;
+  }
+
   // ---------------------------------------------------------------- privados
 
   private buildMaps(): void {
@@ -639,6 +1102,34 @@ export class ListRooms implements OnInit, OnDestroy {
     }
 
     return ordered;
+  }
+
+  /**
+   * Agrupa por estado operativo, no por piso: en el tablero el piso pasa a ser un dato
+   * dentro de la tarjeta. Respeta los filtros activos, asi que el tablero muestra lo
+   * mismo que las otras vistas, solo que ordenado por lo que hay que hacer.
+   */
+  private buildBoardColumns(rooms: RoomI[]): BoardColumn[] {
+    const byStatus = new Map<RoomVisualStatus, RoomI[]>();
+
+    for (const room of rooms) {
+      const status = this.getVisualStatus(room);
+      if (!byStatus.has(status)) byStatus.set(status, []);
+      byStatus.get(status)!.push(room);
+    }
+
+    const columns: BoardColumn[] = [];
+    for (const definition of this.boardStatuses) {
+      const columnRooms = byStatus.get(definition.key) || [];
+      if (!definition.always && !columnRooms.length) continue;
+
+      columnRooms.sort((a, b) =>
+        (a.number || '').localeCompare(b.number || '', 'es', { numeric: true })
+      );
+      columns.push({ key: definition.key, label: definition.label, rooms: columnRooms });
+    }
+
+    return columns;
   }
 
   private buildRangeLabel(rooms: RoomI[]): string {
@@ -709,6 +1200,292 @@ export class ListRooms implements OnInit, OnDestroy {
 
   private isRoomConfigured(room: RoomI): boolean {
     return !!room.room_type && !!this.getRoomRateId(room);
+  }
+
+  private matchesOperationalFilter(room: RoomI, filter: OperationalFilter): boolean {
+    if (filter === 'ALL') return true;
+
+    switch (filter) {
+      case 'NEEDS_ACTION':
+        return this.roomNeedsAction(room);
+      case 'CHECKIN_READY':
+        return this.isCheckInReady(room);
+      case 'CHECKOUT_SOON':
+        return this.isCheckoutSoon(room);
+      case 'CLEANING':
+        return this.hasPendingCleaning(room);
+      case 'MAINTENANCE':
+        return this.hasOpenMaintenance(room);
+      case 'PENDING_BALANCE':
+        return this.hasPendingBalance(room);
+      case 'UNCONFIGURED':
+        return !this.isRoomConfigured(room);
+      default:
+        return true;
+    }
+  }
+
+  private roomNeedsAction(room: RoomI): boolean {
+    const visualStatus = this.getVisualStatus(room);
+    return (
+      visualStatus === 'SIN_CONFIGURAR' ||
+      visualStatus === 'POR_SALIR_HOY' ||
+      this.hasPendingCleaning(room) ||
+      this.hasOpenMaintenance(room) ||
+      this.hasPendingBalance(room) ||
+      this.isCheckInReady(room) ||
+      this.getQuickAction(room) === 'confirm'
+    );
+  }
+
+  /**
+   * El estado `LIMPIEZA` de la habitacion y las tareas de limpieza son cosas
+   * distintas: una habitacion puede quedar ocupada con una tarea abierta, o marcada
+   * en limpieza sin tarea registrada. Para recepcion las dos cuentan como pendiente.
+   */
+  hasPendingCleaning(room: RoomI): boolean {
+    if (this.getVisualStatus(room) === 'LIMPIEZA') return true;
+    return (room.operations?.pending_cleaning || 0) > 0;
+  }
+
+  hasOpenMaintenance(room: RoomI): boolean {
+    if (this.getVisualStatus(room) === 'MANTENIMIENTO') return true;
+    return (room.operations?.open_maintenance || 0) > 0;
+  }
+
+  /** Hay algo por cobrar o, al menos, consumos que todavia no se han facturado. */
+  hasPendingBalance(room: RoomI): boolean {
+    return this.getPendingTotal(room) > 0 || this.getUnbilledCharges(room) > 0;
+  }
+
+  /**
+   * Saldo de la reserva, no de facturacion. Se usa `reservation_pending` a proposito:
+   * es el numero que muestra el modal, y antes la tarjeta mostraba el de facturacion,
+   * que puede ser muy distinto (una reserva sin facturar da 0 en uno y el total en el
+   * otro).
+   */
+  getPendingTotal(room: RoomI): number {
+    return this.toAmount(room.operations?.reservation_pending);
+  }
+
+  getUnbilledCharges(room: RoomI): number {
+    return this.toAmount(room.operations?.unbilled_charges);
+  }
+
+  getPendingTotalLabel(room: RoomI): string {
+    return this.formatMoney(this.getPendingTotal(room));
+  }
+
+  getUnbilledChargesLabel(room: RoomI): string {
+    return this.formatMoney(this.getUnbilledCharges(room));
+  }
+
+  hasLowInventory(room: RoomI): boolean {
+    return (room.operations?.low_inventory || 0) > 0;
+  }
+
+  /** Salida vencida o dentro de las proximas 2 horas: la ventana en la que hay que actuar. */
+  isCheckoutUrgent(room: RoomI): boolean {
+    if (!['OCUPADA', 'POR_SALIR_HOY'].includes(this.getVisualStatus(room))) return false;
+
+    const target = this.getCheckoutTarget(room);
+    if (!target) return false;
+
+    return target.getTime() - this.currentTime.getTime() <= 2 * 60 * 60 * 1000;
+  }
+
+  /**
+   * Indicadores de la tarjeta, ordenados por urgencia: primero lo que cuesta dinero o
+   * bloquea la salida, despues lo que bloquea la proxima venta.
+   */
+  getCardBadges(room: RoomI): RoomBadge[] {
+    const badges: RoomBadge[] = [];
+
+    if (this.isCheckoutUrgent(room)) {
+      const expired = this.getCheckoutCountdownClass(room) === 'is-expired';
+      badges.push({
+        key: 'checkout',
+        icon: 'fa-regular fa-clock',
+        label: expired ? 'Salida vencida' : this.getCheckoutBadgeLabel(room),
+        title: expired
+          ? 'La salida ya paso de la hora acordada.'
+          : `Salida prevista: ${this.getCheckoutCountdownLabel(room).toLowerCase()}.`,
+        tone: expired ? 'danger' : 'warning'
+      });
+    }
+
+    if (this.getPendingTotal(room) > 0) {
+      badges.push({
+        key: 'balance',
+        icon: 'fa-solid fa-money-bill-wave',
+        label: this.getPendingTotalLabel(room),
+        title: `Saldo de la reserva: ${this.getPendingTotalLabel(room)} (estadia y cargos, menos abonos).`,
+        tone: 'danger'
+      });
+    }
+
+    // Los consumos sin facturar son la sorpresa clasica del check-out: el huesped no
+    // los ha visto en ninguna factura y hay que cobrarlos en el mostrador.
+    if (this.getUnbilledCharges(room) > 0) {
+      badges.push({
+        key: 'charges',
+        icon: 'fa-solid fa-receipt',
+        label: `Consumos ${this.getUnbilledChargesLabel(room)}`,
+        title: `${this.getUnbilledChargesLabel(room)} en cargos que aun no entran en ninguna factura.`,
+        tone: 'warning'
+      });
+    }
+
+    const maintenance = room.operations?.open_maintenance || 0;
+    if (this.hasOpenMaintenance(room)) {
+      badges.push({
+        key: 'maintenance',
+        icon: 'fa-solid fa-screwdriver-wrench',
+        label: this.withCount('Mantenimiento', maintenance),
+        title: maintenance
+          ? `${maintenance} orden(es) de mantenimiento sin cerrar.`
+          : 'La habitacion esta marcada en mantenimiento.',
+        tone: 'danger'
+      });
+    }
+
+    const cleaning = room.operations?.pending_cleaning || 0;
+    if (this.hasPendingCleaning(room)) {
+      badges.push({
+        key: 'cleaning',
+        icon: 'fa-solid fa-broom',
+        label: this.withCount('Limpieza', cleaning),
+        title: cleaning
+          ? `${cleaning} tarea(s) de limpieza abiertas.`
+          : 'La habitacion esta marcada en limpieza.',
+        tone: 'info'
+      });
+    }
+
+    const lowInventory = room.operations?.low_inventory || 0;
+    if (lowInventory > 0) {
+      badges.push({
+        key: 'inventory',
+        icon: 'fa-solid fa-boxes-stacked',
+        label: this.withCount('Inventario bajo', lowInventory),
+        title: `${lowInventory} item(s) por debajo del minimo de la habitacion.`,
+        tone: 'warning'
+      });
+    }
+
+    return badges;
+  }
+
+  hasCardBadges(room: RoomI): boolean {
+    return this.getCardBadges(room).length > 0;
+  }
+
+  trackByBadge(_: number, badge: RoomBadge): string {
+    return badge.key;
+  }
+
+  private getCheckoutBadgeLabel(room: RoomI): string {
+    const target = this.getCheckoutTarget(room);
+    if (!target) return 'Salida hoy';
+
+    const totalMinutes = Math.ceil((target.getTime() - this.currentTime.getTime()) / 60000);
+    if (totalMinutes <= 60) return `Sale en ${Math.max(totalMinutes, 1)} min`;
+
+    const hours = Math.floor(totalMinutes / 60);
+    return `Sale en ${hours} h`;
+  }
+
+  private withCount(label: string, count: number): string {
+    return count > 1 ? `${label} (${count})` : label;
+  }
+
+  private isCheckInReady(room: RoomI): boolean {
+    if (this.getVisualStatus(room) !== 'RESERVADA') return false;
+    const reservation = room.active_reservation;
+    if (!reservation) return false;
+
+    const status = this.normalizeCode(reservation.status);
+    if (['PENDIENTE', 'PENDING'].includes(status)) return false;
+
+    const checkIn = this.parseDate(reservation.expected_check_in);
+    if (!checkIn) return true;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    checkIn.setHours(0, 0, 0, 0);
+    return checkIn.getTime() <= today.getTime();
+  }
+
+  private isCheckoutSoon(room: RoomI): boolean {
+    if (!['OCUPADA', 'POR_SALIR_HOY'].includes(this.getVisualStatus(room))) return false;
+    const target = this.getCheckoutTarget(room);
+    if (!target) return false;
+
+    const diffMs = target.getTime() - this.currentTime.getTime();
+    return diffMs <= 4 * 60 * 60 * 1000;
+  }
+
+  private getQuickAction(room: RoomI): RoomQuickAction {
+    const visualStatus = this.getVisualStatus(room);
+    const reservationStatus = this.normalizeCode(room.active_reservation?.status);
+
+    if (visualStatus === 'RESERVADA') {
+      if (['PENDIENTE', 'PENDING'].includes(reservationStatus)) return 'confirm';
+      return 'check-in';
+    }
+
+    if (visualStatus === 'OCUPADA' || visualStatus === 'POR_SALIR_HOY') {
+      return 'check-out';
+    }
+
+    if (visualStatus === 'LIMPIEZA') {
+      return 'complete-cleaning';
+    }
+
+    return 'manage';
+  }
+
+  private getQuickActionLoadingKey(room: RoomI, action = this.getQuickAction(room)): string {
+    return `${room.id}:${action}`;
+  }
+
+  private finishQuickAction(roomId: number, loadingKey: string): void {
+    this.quickActionLoadingIds.delete(loadingKey);
+    // La accion la ejecuto otro servicio (reservas, limpieza), asi que el cache del
+    // listado no se entero: hay que invalidarlo a mano.
+    this.roomService.invalidateRoomsCache();
+    this.refreshRoomById(roomId);
+  }
+
+  private failQuickAction(loadingKey: string, message: string): void {
+    this.quickActionLoadingIds.delete(loadingKey);
+    this.quickActionError = message;
+  }
+
+  private completeFirstOpenCleaningTask(room: RoomI, loadingKey: string): void {
+    this.cleaningTasksService
+      .listCleaningTasks({ include_inactive: true })
+      .pipe(catchError(() => of([] as CleaningTaskI[])))
+      .subscribe((tasks) => {
+        const task = tasks.find((item) => {
+          const sameRoom = Number(item.room) === room.id;
+          const status = this.normalizeCode(String(item.status_label || item.status || ''));
+          return sameRoom && ['PENDIENTE', 'EN_PROCESO', 'ENPROCESO'].includes(status);
+        });
+
+        if (!task) {
+          this.quickActionLoadingIds.delete(loadingKey);
+          this.openRoom(room);
+          return;
+        }
+
+        this.cleaningTasksService
+          .updateCleaningTask(task.id, { status: 'COMPLETADA', completed_at: this.toDateTimeLocal(new Date()) })
+          .subscribe({
+            next: () => this.finishQuickAction(room.id, loadingKey),
+            error: () => this.failQuickAction(loadingKey, 'No se pudo completar la limpieza.')
+          });
+      });
   }
 
   private isPorSalirHoy(room: RoomI): boolean {
@@ -785,6 +1562,75 @@ export class ListRooms implements OnInit, OnDestroy {
 
   private normalizeCode(value: string | undefined): string {
     return String(value || '').trim().toUpperCase();
+  }
+
+  /**
+   * Texto contra el que se busca una habitacion. La operacion real no busca
+   * "habitacion 101": busca "Juan", el documento que tiene en la mano, o el numero de
+   * la reserva. Todo eso tiene que caer aqui.
+   */
+  private buildSearchPool(room: RoomI): string {
+    const roomType = this.getRoomType(room);
+    const reservation = room.active_reservation;
+    const rateId = this.getRoomRateId(room);
+    const rate = rateId ? this.rateMap.get(rateId) : null;
+
+    return this.normalizeText(
+      [
+        room.number,
+        room.notes,
+        room.floor_name,
+        room.room_type_name,
+        roomType?.name,
+        roomType?.code,
+        roomType?.bed_type,
+        rate?.name,
+        this.getStatusLabel(room),
+        reservation?.client_name,
+        reservation?.client_document,
+        reservation?.client?.full_name,
+        reservation?.client?.document_number,
+        reservation?.status_label,
+        // La reserva se busca por numero, con o sin almohadilla.
+        reservation?.id ? `#${reservation.id} ${reservation.id}` : '',
+        room.amenities?.map((amenity) => amenity.name).join(' ')
+      ]
+        .filter(Boolean)
+        .join(' ')
+    );
+  }
+
+  /** Minusculas y sin tildes, para que "jose" encuentre a "José". */
+  private normalizeText(value: string | null | undefined): string {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .trim()
+      .toLowerCase();
+  }
+
+  /** Los montos llegan como string decimal desde el backend. */
+  private toAmount(value: string | number | null | undefined): number {
+    if (value === null || value === undefined || value === '') return 0;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private formatMoney(value: number): string {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0
+    }).format(value);
+  }
+
+  private toDateTimeLocal(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    const hours = `${date.getHours()}`.padStart(2, '0');
+    const minutes = `${date.getMinutes()}`.padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   }
 
   private formatFileDate(date: Date): string {

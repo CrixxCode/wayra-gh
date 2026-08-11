@@ -10,6 +10,7 @@ import { MasterDataI } from '../../../components/pages/master-data/master-data-m
 import { ClientI } from '../../clients/client-model';
 import { RateI, RoomI } from '../../rooms/room-model';
 import { MasterDataService } from '../../../services/master-data.service';
+import { PaymentMethodI, PaymentMethodService } from '../../../services/payment-method';
 import { ClientsService } from '../../../services/client';
 import { RoomService } from '../../../services/room';
 import { PaginatedResponseI, ReservationService } from '../../../services/reservation';
@@ -85,7 +86,7 @@ export class ListReservations implements OnInit {
   statuses: MasterDataI[] = [];
   origins: MasterDataI[] = [];
   documentTypes: MasterDataI[] = [];
-  paymentMethods: MasterDataI[] = [];
+  paymentMethods: PaymentMethodI[] = [];
   depositStatuses: MasterDataI[] = [];
   clients: ClientI[] = [];
   rooms: RoomI[] = [];
@@ -132,6 +133,7 @@ export class ListReservations implements OnInit {
   ];
 
   constructor(
+    private paymentMethodService: PaymentMethodService,
     private reservationService: ReservationService,
     private masterDataService: MasterDataService,
     private clientsService: ClientsService,
@@ -244,9 +246,9 @@ export class ListReservations implements OnInit {
       documentTypes: this.masterDataService
         .listMasterData({ group: 'DOCUMENT_TYPE', is_active: 'true', ordering: 'sort_order,name' })
         .pipe(catchError(() => of([] as MasterDataI[]))),
-      paymentMethods: this.masterDataService
-        .listMasterData({ group: 'PAYMENT_METHOD', is_active: 'true', ordering: 'sort_order,name' })
-        .pipe(catchError(() => of([] as MasterDataI[]))),
+      paymentMethods: this.paymentMethodService
+        .listPaymentMethods()
+        .pipe(catchError(() => of([] as PaymentMethodI[]))),
       depositStatuses: this.masterDataService
         .listMasterData({ group: 'RESERVATION_DEPOSIT_STATUS', is_active: 'true', ordering: 'sort_order,name' })
         .pipe(catchError(() => of([] as MasterDataI[]))),
@@ -281,7 +283,7 @@ export class ListReservations implements OnInit {
         this.statuses = this.dedupeMasterDataByCode(statuses);
         this.origins = this.dedupeMasterDataByCode(origins);
         this.documentTypes = this.dedupeMasterDataByCode(documentTypes);
-        this.paymentMethods = this.dedupeMasterDataByCode(paymentMethods);
+        this.paymentMethods = paymentMethods;
         this.depositStatuses = this.dedupeMasterDataByCode(depositStatuses);
         this.clients = clients;
         this.rooms = rooms;

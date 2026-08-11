@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { PaymentMethodService } from '../../../services/payment-method';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
@@ -17,6 +18,10 @@ describe('ListReservations', () => {
     await TestBed.configureTestingModule({
       imports: [ListReservations],
       providers: [
+        {
+          provide: PaymentMethodService,
+          useValue: { listPaymentMethods: () => of([]) }
+        },
         provideRouter([]),
         {
           provide: ReservationService,

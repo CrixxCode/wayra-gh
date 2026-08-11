@@ -229,8 +229,11 @@ controlan el acceso — un solo registro `Resource` define a la vez el permiso, 
 la ruta del backend, el ícono y el orden en el menú.
 
 **Detalles del motor que hay que respetar:**
-- **Normalización de separadores:** `users_read` ≡ `users-read` ≡ `users.read`. El motor genera las
-  variantes automáticamente; no hace falta duplicar recursos.
+- **Normalización de separadores:** el motor intercambia **guion y guion bajo**, pero **no el
+  punto**. `invoicesandpayment.read_deleted` ≡ `invoicesandpayment.read-deleted`, y
+  `users_read` ≡ `users-read`; pero `users_read` **no** equivale a `users.read`. La clave siempre se
+  escribe `<dominio>.<accion>` con punto — verificado contra
+  `HasResourcePermission._scope_variants` el 2026-08-10.
 - **Comodines:** la clave `*` da acceso total; `dominio.*` da acceso a todas las acciones de ese
   dominio.
 - **Admin global:** `is_effective_global_admin(user)` (superusuario **sin** `hotel_settings`)
@@ -471,6 +474,53 @@ ambos temas sin una línea extra.
 un token para un caso legítimo, agregarlo a `:root` y a su bloque de modo oscuro, no improvisar un
 override por componente.
 
+### 5.16 Métodos de pago por hotel, fuera de `MasterData`
+
+**Decisión:** los métodos de pago viven en `hotel_settings.PaymentMethod`, con FK a
+`HotelSettings` y unicidad `(hotel_settings, code)`. Se administran en la pestaña **Métodos de
+Pago** de `/hotel-config` y se exponen en `GET /api/payment-methods/`, filtrados por
+`TenantScopeMixin`.
+
+**Un método se define con tres cosas:** `name`, `method_type` (`EFECTIVO` o `TRANSFERENCIA`) y
+`account_number`. La cuenta **solo aplica a transferencias**: el formulario oculta el campo en
+efectivo y tanto el serializer como `PaymentMethod.save()` la descartan, para que no quede un dato
+huérfano que después alguien lea como válido. Al cobrar por transferencia, el modal de check-out
+muestra la cuenta destino — es el número que recepción le dicta al huésped, y por eso se guarda
+junto al método y no en una nota suelta.
+
+**`code` no lo escribe el usuario:** se deriva del nombre (`Nequi Bancolombia` → `NEQUI_BANCOLOMBIA`,
+sin tildes) en `PaymentMethod.save()`. Existe porque las pantallas de facturación lo usan para
+elegir ícono y etiqueta (`payment_method_code`), y porque su unicidad por hotel es lo que impide
+dos métodos con el mismo nombre. **Al renombrar un método cambia su código**, así que si en el
+futuro alguna lógica llegara a comparar códigos, hay que revisar esto primero.
+
+**Por qué:** antes estaban en `MasterData` con `group='PAYMENT_METHOD'`, una tabla **global sin FK a
+hotel** cuyo ViewSet no tiene tenancy. Como `master_data.write` está en los roles `admin` y
+`manager`, cualquier administrador de hotel podía renombrar o desactivar un método de pago **para
+todos los hoteles de la plataforma**. No era una preferencia de modelado: era una fuga de
+multi-tenancy, la misma clase de problema que ya se corrigió con las amenidades (5.14). El síntoma
+estaba en los datos: el catálogo global acumulaba duplicados (`CASH` junto a `EFECTIVO`, `CARD`
+junto a `TARJETA`) y un typo ya activo, `TRASNFER`.
+
+**La distinción que hay que respetar:** `MasterData` mezcla dos cosas distintas.
+
+- **Enums del sistema** — `ROOM_STATUS`, `RESERVATION_STATUS`, `INVOICE_STATUS`, `CLEANING_STATUS`,
+  `MAINTENANCE_STATUS`, `INVENTORY_MOVEMENT_TYPE`. El código compara estos códigos **literalmente**;
+  si un hotel los edita, rompe la lógica. Son globales y no deberían ser editables por un hotel.
+- **Catálogos de negocio** — configuración que legítimamente varía por hotel.
+
+`PAYMENT_METHOD` era del segundo grupo y por eso salió. **`EXPENSE_CATEGORY`, `CHARGE_TYPE`,
+`SERVICE_TYPE` y `MEAL_PLAN` también lo son y siguen en la tabla global**: si alguno estorba, el
+camino ya está trazado por este cambio.
+
+**Al programar:**
+- Para cobrar o registrar un pago, usar `PaymentMethodService.listPaymentMethods()` en el frontend;
+  **nunca** `listMasterData({group: 'PAYMENT_METHOD'})`, que ya no alimenta nada.
+- Los tres FK que apuntan al catálogo (`billing.Payment`, `finance.Expense`,
+  `reservations.ReservationDeposit`) validan en su serializer que el método pertenezca al hotel del
+  registro.
+- Un hotel **sin métodos activos no puede cobrar ni cerrar un check-out**. La pestaña lo advierte.
+
 ---
 
 ## 6. Módulos funcionales
@@ -681,6 +731,585 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > debe escribirse en el momento del cambio.
 
 ---
+
+### 2026-08-11 — Configuración del Hotel: decir por qué está bloqueada
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix (usabilidad)
+- **Síntoma reportado:** con el usuario `admin`, `/hotel-config` no dejaba editar nada.
+- **Diagnóstico:** **no había ningún fallo de permisos ni de backend.** Se verificó que el usuario
+  tiene `hotel_settings.write`, que `canEdit` se resuelve en `true`, que `GET /api/hotel-settings/`
+  devuelve los hoteles y que `PATCH /api/hotel-settings/<id>/` responde 200. Lo que ocurría es que
+  `admin` es **administrador de plataforma** (superusuario sin hotel, ver 5.4) y el formulario se
+  bloquea hasta que elige *qué* hotel configurar — algo correcto, porque si no editaría un hotel al
+  azar. El problema era que **eso no se decía en ninguna parte**: la única pista era un texto gris
+  pequeño a la derecha del selector, y el resultado parecía una pantalla rota o una falta de
+  permisos.
+- **Qué se hizo:**
+  1. **Aviso explícito** cuando falta elegir hotel: *"Eres administrador de plataforma: elige
+     primero el hotel que quieres configurar. Hasta entonces los campos están bloqueados para no
+     editar el hotel equivocado."* Se muestra con el getter nuevo `mustSelectHotel`.
+  2. **Preselección automática** cuando el administrador solo gestiona **un** hotel: ahí elegir no
+     es una decisión, y dejaba la pantalla bloqueada sin motivo.
+  3. **Cinco pruebas** que fijan la matriz de bloqueo: sin hotel elegido, con hotel elegido,
+     creando un hotel, siendo administrador de hotel (que nunca debe elegir nada) y sin permiso de
+     escritura.
+- **De paso se confirmó** que el selector solo lista 4 de los 9 hoteles porque los otros 5 están
+  **borrados lógicamente**. Es el comportamiento correcto de 5.5, no un filtro que falte.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/hotel-settings/`
+  (`.ts`, `.html`, `.spec.ts`).
+- **Impacto:** ninguno en backend ni en API. Requiere recargar el frontend.
+- **Verificación:** frontend `npm run lint`, `npm run test:ci` (131 pruebas, 5 nuevas) y
+  `npm run build:ci` en verde.
+
+### 2026-08-11 — Un método de pago: nombre, tipo y número de cuenta
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor
+- **Qué se hizo:** el modelo recién creado tenía código, descripción y orden — campos que el usuario
+  tenía que llenar sin que aportaran nada a la operación. Se redujo a lo que un método de pago
+  realmente es.
+  1. **Campos nuevos:** `method_type` (`EFECTIVO` / `TRANSFERENCIA`) y `account_number`.
+  2. **Campos retirados:** `description` y `sort_order`. La lista ahora se ordena por nombre.
+  3. **El número de cuenta solo aparece en transferencias.** El formulario oculta el campo, y tanto
+     el serializer como `save()` lo descartan si el método es en efectivo, para no dejar un dato
+     huérfano que después alguien lea como válido.
+  4. **`code` pasó a derivarse del nombre** y salió del formulario. Se conservó porque
+     `payment_method_code` alimenta íconos y etiquetas en seis lugares de facturación, y porque su
+     unicidad por hotel es lo que impide dos métodos con el mismo nombre — el mensaje de error ahora
+     habla de nombres, no de códigos.
+  5. **La cuenta destino se muestra al cobrar.** Si el método elegido en el check-out es una
+     transferencia, el panel de cobro muestra el número de cuenta.
+  6. **Clasificación de lo existente.** `hotel_settings/0007` marca como transferencia los métodos
+     cuyo nombre o código sugiere movimiento bancario (`TRANSFER`, `NEQUI`, `PSE`, `QR`, `BANCO`…) y
+     el resto como efectivo. Es una heurística, y por eso **quedan sin número de cuenta a
+     propósito**: obliga al hotel a completarlo y de paso a revisar la clasificación.
+- **Por qué:** un catálogo se llena una vez y se consulta todos los días; cada campo que no sirve
+  para cobrar es fricción en el alta y ruido en el selector.
+- **Consecuencia a tener presente:** los códigos históricos se conservaron tal cual (`CASH`,
+  `TRASNFER`…), pero cualquier método que se **edite** desde ahora regenerará su código desde el
+  nombre. En un hotel con nombres duplicados —la base local tiene dos "Efectivo", herencia del
+  catálogo global— editar uno choca con el otro y el serializer lo rechaza con "Ya existe un metodo
+  de pago con ese nombre". Es el comportamiento correcto y además hace visible el duplicado, pero
+  conviene limpiarlos.
+- **Archivos/áreas afectadas:** `backend/apps/hotel_settings/` (`models.py`, `serializers.py`,
+  `views.py`, `admin.py`, `tests.py`, migración `0007`),
+  `frontend/src/app/services/payment-method.ts`,
+  `frontend/src/app/components/pages/hotel-settings/` (`.ts`, `.html`),
+  `frontend/src/app/modules/rooms/room-check-modal/` (`.ts`, `.html`, `.css`),
+  `frontend/src/app/modules/reservations/create-reservation/create-reservation.ts`.
+- **Impacto:** **requiere `python manage.py migrate`**. Cambio de contrato de API:
+  `/api/payment-methods/` pierde `description` y `sort_order`, y gana `method_type`,
+  `method_type_label` y `account_number`; `code` pasa a ser de solo lectura. Requiere recargar el
+  frontend.
+- **Verificación:** backend `manage.py test` completo en verde (220 pruebas, 4 nuevas sobre tipo y
+  cuenta). Frontend `npm run lint`, `npm run test:ci` (126 pruebas) y `npm run build:ci` en verde.
+
+### 2026-08-11 — Métodos de pago propios de cada hotel (nueva sección 5.16)
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat / security
+- **Decisión de arquitectura:** consultada y aprobada por rastor65 antes de implementar. Se agrega
+  la sección **5.16**; el detalle del porqué está allí.
+- **Qué se hizo:**
+  1. **Modelo nuevo `hotel_settings.PaymentMethod`** con FK a hotel y unicidad
+     `(hotel_settings, code)`, registrado en el admin de Django.
+  2. **Migración de datos en cinco pasos.** `hotel_settings/0006` copia a cada hotel los métodos
+     **activos** del catálogo global, preservando código, nombre y orden. Después, una migración por
+     app (`billing/0007`, `finance/0005`, `reservations/0010`) repunta su FK con el patrón
+     *agregar campo anulable → mapear → borrar el viejo → renombrar*, y el mapeo usa `get_or_create`
+     para no perder registros históricos que apunten a métodos que estaban inactivos. Resultado en
+     la base local: **46 métodos en 9 hoteles, cero nulos y cero referencias cruzadas entre hoteles**.
+  3. **API `/api/payment-methods/`** con `TenantScopeMixin` y borrado lógico. Comparte los scopes
+     `hotel_settings.read/write`: es configuración del hotel y se administra en la misma pantalla,
+     así que **no hace falta correr `seed_rbac`** ni crear recursos RBAC nuevos.
+  4. **Pestaña "Métodos de Pago"** en `/hotel-config`: alta, edición, activar/desactivar y eliminar,
+     con aviso explícito cuando el hotel no tiene ninguno.
+  5. **Los seis consumidores del frontend** (facturas, egresos, pagos, reservas, modal de habitación
+     y modal de check-in/check-out) pasaron al catálogo del hotel, junto con los cuatro componentes
+     hijos que reciben la lista por `@Input`.
+  6. **Validación de tenancy** en los serializers de `Payment`, `Expense` y `ReservationDeposit`:
+     cobrar con el método de otro hotel devuelve 400.
+- **Detalle que costó encontrar:** DRF deduce un `UniqueTogetherValidator` de la `UniqueConstraint`
+  del modelo, y ese validador vuelve **obligatorio** `hotel_settings` en el cuerpo de la petición —
+  justo el campo que `TenantSerializerMixin` resuelve solo. Se desactiva con `validators = []` en el
+  `Meta` y el duplicado se valida a mano contra el hotel ya resuelto. Cualquier modelo nuevo con
+  unicidad que incluya el tenant se va a topar con lo mismo.
+- **Archivos/áreas afectadas:** `backend/apps/hotel_settings/` (`models.py`, `serializers.py`,
+  `views.py`, `urls.py`, `admin.py`, `tests.py`, migraciones `0005`–`0006`),
+  `backend/apps/billing/`, `backend/apps/finance/`, `backend/apps/reservations/` (modelo, serializer,
+  migración y fixtures de prueba), `frontend/src/app/services/payment-method.ts` (nuevo),
+  `frontend/src/app/components/pages/hotel-settings/`, y los seis módulos consumidores.
+- **Impacto:**
+  - **Requiere `python manage.py migrate`.** Las migraciones son reversibles: el `reverse` devuelve
+    los FK al catálogo global. Aun así, como en Railway corren solas al desplegar (sección 10),
+    conviene respaldar antes.
+  - **Los métodos globales de `MasterData` quedan huérfanos**: ya no alimentan ninguna pantalla. No
+    se borran en esta entrada; conviene limpiarlos por separado, ya sin prisa.
+  - Un hotel **sin métodos activos no puede cobrar ni cerrar un check-out**.
+  - Los duplicados y el typo `TRASNFER` **se copiaron tal cual** a cada hotel: los códigos solo se
+    muestran, nunca se comparan en lógica, y reescribirlos habría cambiado datos históricos sin
+    pedirlo. Ahora cada hotel puede corregir los suyos desde la pestaña.
+- **Verificación:** backend `manage.py test` completo en verde (216 pruebas, 4 nuevas de aislamiento
+  entre hoteles). Frontend `npm run lint`, `npm run test:ci` (126 pruebas) y `npm run build:ci` en
+  verde. Migraciones aplicadas a la base local con backup en
+  `backend/db.before-payment-methods.*.sqlite3`.
+
+### 2026-08-10 — El check-out cobra: no se cierra la estadía con saldo pendiente
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** el modal de salida tenía una casilla de "confirmo que el saldo quedó gestionado",
+  que es una declaración de intenciones, no un cobro. Se reemplazó por un cobro real.
+  1. **Panel de cobro.** Método de pago (desde `MasterData.PAYMENT_METHOD`), monto —precargado con
+     el saldo completo, con botón *Todo*— y referencia opcional. El pago se registra contra la
+     factura por defecto de la reserva, por el mismo camino que ya usa el cobro inmediato de un
+     consumo en el modal de habitación.
+  2. **El cierre se bloquea hasta que el saldo esté en cero.** `blockingReason` pasó a decir
+     *"Falta cobrar $X antes de cerrar la estadía"*. Tras cada pago se relee la reserva, así que
+     `pending_amount` baja hasta cero y ahí se habilita *Confirmar salida*. Se admiten abonos
+     parciales: el panel avisa cuánto quedaría por cobrar.
+  3. **Detalle de consumos** debajo del saldo: qué consumió el huésped, con cantidad × precio
+     unitario y total. **Excluye los cargos automáticos** (estadía y paquete), que ya están en el
+     saldo y no son "lo que consumió".
+  4. **Fuente del saldo.** Se dejó de leer `operations.reservation_pending` de la tarjeta y se pasó
+     a `reservation.pending_amount`, que es el mismo número pero **se puede releer** después de cada
+     pago. La tarjeta es una foto; aquí hace falta el valor vivo.
+  5. **Errores del backend a la vista.** Si el pago se rechaza (por ejemplo, monto mayor al saldo de
+     la factura), se muestra el mensaje del servidor en vez de un fallo genérico.
+- **Por qué:** una casilla de confirmación no cobra nada. El saldo olvidado en la salida es la
+  pérdida más común de recepción, y el sistema tenía toda la información para impedirlo.
+- **Suposición verificada antes de construir:** `Payment.clean()` limita el monto al saldo de la
+  **factura**, mientras que el modal muestra el saldo de la **reserva**. Si esos dos números se
+  separaran, el panel pediría cobrar algo que el backend rechazaría. Los signals de
+  `apps/billing/signals.py` mantienen `invoice.subtotal` igual al total de la reserva, así que
+  coinciden — y se agregó `test_full_payment_of_the_reservation_balance_is_accepted` para que siga
+  siendo cierto.
+- **Archivos/áreas afectadas:** `backend/apps/rooms/tests.py`,
+  `frontend/src/app/modules/rooms/room-check-modal/` (`.ts`, `.html`, `.css`, `.spec.ts`).
+- **Impacto:** sin migraciones ni cambios de API. **Requiere métodos de pago configurados** en
+  Master Data (`PAYMENT_METHOD`); si no hay ninguno, el panel lo dice y no se puede cobrar ni
+  cerrar. Sin `rooms.read_guest_data` el saldo no es visible y el cierre **no** se bloquea: queda a
+  cargo de quien tenga acceso a facturación. Requiere recargar el frontend.
+- **Verificación:** backend `manage.py test` completo en verde (212 pruebas, 1 nueva). Frontend
+  `npm run lint`, `npm run test:ci` (126 pruebas, 6 nuevas) y `npm run build:ci` en verde.
+
+### 2026-08-10 — Se quita el panel de estado de la tarjeta de habitación
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor
+- **Qué se hizo:** se eliminó el bloque `room-signal` de la tarjeta —la caja con ícono, título y
+  frase del tipo *"Lista para vender · Tipo y tarifa configurados"* o *"Configuracion pendiente ·
+  Asigna tipo y tarifa antes de reservar"*—. Se borraron sus seis métodos
+  (`getCardSignalIcon/Title/Text/Class/Style` y `getCardSignalTone`) y sus estilos.
+- **Por qué:** repetía lo que la tarjeta ya decía. El estado sale en el chip de la cabecera y en el
+  color del borde superior; los pendientes concretos salen en los indicadores compactos de la
+  Fase 3. El panel ocupaba una franja por tarjeta para no aportar información nueva, y en una
+  cuadrícula de habitaciones esa franja se multiplica por cada unidad.
+- **Qué NO se perdió:** el aviso de configuración incompleta sigue a nivel de página
+  (`setup-hint`, *"N habitación(es) sin configuración completa"*), y el estado *Sin configurar*
+  sigue teniendo su chip, su color y su filtro.
+- **Archivos/áreas afectadas:** `frontend/src/app/modules/rooms/list-rooms/`
+  (`.ts`, `.html`, `.css`).
+- **Impacto:** ninguno en backend ni en API. La tarjeta queda más corta, que ayuda a la densidad
+  que buscaba la Fase 9. Requiere recargar el frontend.
+- **Verificación:** frontend `npm run lint`, `npm run test:ci` (120 pruebas) y `npm run build:ci`
+  en verde.
+
+### 2026-08-10 — Cache-aside de lecturas y animaciones con GSAP en habitaciones
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat / perf
+- **Qué se hizo:** dos cosas independientes que pidió el usuario para `/habitaciones`.
+
+  **1. Cache-aside (`frontend/src/app/services/resource-cache.ts`).**
+  - `ResourceCache.get(key, loader, ttl, forceRefresh)` implementa el patrón clásico: el
+    llamador consulta el caché; si falla, va al servidor y **el llamador** rellena la entrada.
+    El caché no sabe cargar nada por su cuenta.
+  - **Agrupa peticiones en vuelo**: si tres componentes piden lo mismo antes de que llegue la
+    respuesta, se hace una sola petición. Abrir habitaciones disparaba los mismos catálogos desde
+    el listado y desde el modal.
+  - **Invalidación por prefijo**: `invalidate('rates')` tira también `rates:room_type=3`.
+  - **TTL por naturaleza del dato**: catálogos (tipos, tarifas, amenidades, pisos) 5 minutos,
+    porque solo cambian cuando alguien los edita; habitaciones 20 segundos, porque recepción no
+    puede ver un estado viejo. El TTL es la red de seguridad, no el mecanismo principal: **las 17
+    escrituras de `RoomService` invalidan lo que corresponde** en cuanto responden.
+  - Un cambio de catálogo invalida además el listado, porque la tarjeta muestra el nombre del tipo
+    y el precio de la tarifa.
+  - El botón de actualizar usa `forceRefresh`, que salta el caché **y lo repuebla**, para no
+    dejarlo desincronizado.
+
+  **2. Animaciones con GSAP (`frontend/src/app/services/motion.ts`).**
+  - `MotionService.reveal()` hace la entrada escalonada; `pulse()` resalta un valor que cambió.
+  - **Un solo lugar respeta `prefers-reduced-motion`.** Si el sistema pide menos movimiento no se
+    anima nada y los elementos quedan visibles — el riesgo real de saltarse una animación es dejar
+    el contenido en `opacity: 0`, y hay una prueba para eso.
+  - En el listado la entrada se dispara **cuando cambia el contenido** (carga, cambio de vista,
+    cambio de filtro), nunca en cada tecla del buscador: animar mientras se escribe se siente como
+    parpadeo, no como fluidez.
+  - Corre con `runOutsideAngular`: GSAP anima con `requestAnimationFrame` y dentro de la zona
+    dispararía una detección de cambios por frame.
+  - `clearProps` al terminar, para no dejar transformaciones pegadas que peleen con el CSS.
+- **Por qué:** la vista pedía cinco recursos cada vez que se entraba, aunque los catálogos no
+  hubieran cambiado en horas. Y la carga aparecía de golpe, sin jerarquía visual.
+- **Hueco de caché que hubo que cerrar:** las acciones rápidas y el check-in/check-out los ejecutan
+  otros servicios (reservas, limpieza), así que el caché del listado no se enteraba y seguía
+  sirviendo el estado anterior hasta que venciera el TTL. Se expuso
+  `RoomService.invalidateRoomsCache()` y se llama tras cada acción. Hay una prueba que lo fija.
+- **Archivos/áreas afectadas:** `frontend/package.json` (dependencia `gsap`),
+  `frontend/src/app/services/resource-cache.ts` y `.spec.ts` (nuevos),
+  `frontend/src/app/services/motion.ts` y `.spec.ts` (nuevos),
+  `frontend/src/app/services/room.ts`,
+  `frontend/src/app/modules/rooms/list-rooms/` (`.ts`, `.html`, `.spec.ts`).
+- **Impacto:** sin cambios de backend. **Dependencia nueva: `gsap` ^3.15** — cubierta por su
+  licencia estándar sin costo. Como `/habitaciones` es una ruta *lazy*, GSAP cae casi entero en su
+  propio chunk: el bundle inicial pasó de 36.55 kB a 39.37 kB por encima del presupuesto (+2.8 kB);
+  quien nunca abre habitaciones no la descarga.
+- **Nota sobre el caché:** es **por pestaña y en memoria**; se pierde al recargar. No hay
+  invalidación entre usuarios: si otro recepcionista cambia una habitación, este cliente puede ver
+  el estado anterior hasta 20 segundos. Se eligió a conciencia frente a un caché persistente, que
+  en una consola de recepción es más peligroso que útil.
+- **Verificación:** frontend `npm run lint`, `npm run test:ci` (120 pruebas, 14 nuevas) y
+  `npm run build:ci` en verde. Backend `manage.py test` completo en verde (211 pruebas), sin
+  cambios.
+- **Nota de proceso:** se corrió Prettier 3 sobre `room.ts` y metió ~90 líneas de comas finales que
+  el resto del repositorio no usa. Se revirtió y se reaplicó el cambio a mano. **Prettier no está en
+  `devDependencies` y su configuración en `package.json` no fija `trailingComma`**, así que
+  ejecutarlo hoy reformatea archivos enteros. Conviene fijarlo antes de usarlo.
+
+### 2026-08-10 — Fase 10: verificación obligatoria en check-in y check-out
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** hasta ahora el ingreso y la salida se ejecutaban **con un clic**, tanto desde la
+  tarjeta como desde el modal de habitación. Un check-in de un clic deja entrar huéspedes sin
+  contrastar documentos; un check-out de un clic cierra la estadía sin mirar saldo ni inventario.
+  Se agregó un paso de verificación obligatorio.
+  1. **Componente nuevo `modules/rooms/room-check-modal/`**, con dos modos.
+  2. **Check-in — verificación de identidad.** Muestra la ficha de la reserva (titular, documento
+     del titular, estadía, noches, número y estado) y **la lista de huéspedes que ingresan**, cada
+     uno con su tipo y número de documento, nacionalidad y una casilla de verificado. El botón de
+     confirmar **no se habilita** hasta marcar a todos. Si la reserva no tiene huéspedes
+     registrados, se bloquea con instrucción explícita; si alguno no tiene documento, se avisa
+     aparte y su fila se marca en ámbar.
+  3. **Check-out — revisión de cierre.** Muestra saldo de la reserva, consumos sin facturar,
+     inventario por debajo del mínimo (con el detalle de ítems y su cantidad vs. mínimo) y el aviso
+     de que se creará la tarea de limpieza de salida. Si hay dinero pendiente, exige marcar una
+     casilla haciéndose cargo de que quedó gestionado.
+  4. **Las dos vías pasan por aquí.** Se conectó tanto en la acción rápida de la tarjeta como en la
+     pestaña *Reserva* del modal de habitación. Si solo se hubiera cambiado la tarjeta, bastaría
+     con abrir la habitación para saltarse el control.
+  5. **Confirmar una reserva pendiente sigue siendo directo:** no mueve huéspedes ni dinero.
+- **Por qué:** son los dos momentos donde recepción compromete al hotel. La verificación de
+  documentos en el ingreso es además un requisito de registro de huéspedes, y el saldo olvidado en
+  la salida es la pérdida más común y más difícil de recuperar.
+- **Cambio menor de API:** `RoomInventoryViewSet` acepta `?room=<id>`. La revisión de salida
+  necesita el inventario de una habitación y el endpoint solo sabía devolver el del hotel entero.
+  Se resolvió con el mismo filtrado manual por query param que ya usa `RoomViewSet`.
+- **Archivos/áreas afectadas:** `backend/apps/inventory/views.py`, `backend/apps/inventory/tests.py`,
+  `frontend/src/app/services/room-inventory.ts`,
+  `frontend/src/app/modules/rooms/room-check-modal/` (nuevo: `.ts`, `.html`, `.css`, `.spec.ts`),
+  `frontend/src/app/modules/rooms/list-rooms/` (`.ts`, `.html`, `.spec.ts`),
+  `frontend/src/app/modules/rooms/room-modal/` (`.ts`, `.html`).
+- **Impacto:** sin migraciones ni recursos RBAC nuevos. El modal reutiliza
+  `GET /api/reservations/<id>/`, que ya traía los huéspedes. Si el usuario no tiene
+  `rooms.read_guest_data`, el check-out avisa que no puede ver el saldo en vez de mostrar cero, y no
+  exige la casilla. Requiere recargar el frontend.
+- **Verificación:** backend `manage.py test` completo en verde (211 pruebas, 3 nuevas). Frontend
+  `npm run lint`, `npm run test:ci` (106 pruebas, 12 nuevas) y `npm run build:ci` en verde. Entre
+  las pruebas nuevas hay tres que fijan que la acción rápida **ya no llama** a `checkInReservation`
+  ni a `checkOutReservation` directamente.
+
+### 2026-08-10 — Fase 8: consumos en la tarjeta y saldo consistente con el modal
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat / fix
+- **Qué se hizo:** octava fase del rediseño de `/habitaciones`. Al ir a mostrar los consumos
+  aparecieron **dos defectos de las fases anteriores**, y esta entrada es sobre todo su corrección.
+  1. **La tarjeta y el modal mostraban saldos distintos.** El modal usa
+     `Reservation.pending_amount` (estadía + paquete + cargos − descuentos − abonos) y la tarjeta
+     usaba el saldo de *facturación* (facturas emitidas sin pagar + cargos sin facturar). En la base
+     local, la habitación 37 mostraba **$300.000 en la tarjeta y $150.000 en el modal**, y la 34
+     mostraba $450.000 contra $0. Ahora `operations` expone **`reservation_pending`**, calculado con
+     el mismo `apps.reservations.services.get_reservation_financials` que alimenta el modal, y la
+     tarjeta usa ese. Los tres campos de facturación siguen en la respuesta, documentados como la
+     mirada desde facturación.
+  2. **`unbilled_charges` contaba las noches como consumos.** La consulta tomaba todos los cargos
+     sin factura, incluidos los `is_automatic` —que son la estadía y el paquete—. El indicador
+     habría dicho "Consumos $245.000" cuando el minibar eran $45.000. Se excluyen los automáticos,
+     con el mismo criterio que `additional_charges_total`.
+  3. **Indicador de consumos, ya sí.** La tarjeta separa dos chips: **saldo de la reserva** (rojo) y
+     **`Consumos $45.000`** (ámbar). Son cosas distintas: el saldo es lo que debe; los consumos sin
+     facturar son la sorpresa clásica del check-out, porque el huésped no los ha visto en ninguna
+     factura. Una reserva puede estar saldada y aun así arrastrar consumos por cobrar.
+  4. **Resumen y filtro.** La tarjeta *Con saldo* pasó a llamarse **Por cobrar**, su nota separa
+     `$X de saldo · $Y en consumos`, y el filtro incluye las habitaciones que solo tienen consumos
+     sin facturar.
+  5. **Eficiencia.** `get_reservation_financials` respeta el caché de prefetch, así que se
+     precargan `rooms_detail`, `charges` e `invoices→payments→refunds` en la consulta de reservas
+     activas. El listado pasó de 13 a 21 consultas para 36 habitaciones: sigue siendo constante.
+- **Por qué:** antes de un check-out, recepción necesita ver lo que falta cobrar y, sobre todo, lo
+  que todavía no se ha facturado. Y dos cifras distintas para la misma habitación erosionan la
+  confianza en la pantalla más rápido que no mostrar nada.
+- **Archivos/áreas afectadas:** `backend/apps/rooms/operations.py`,
+  `backend/apps/rooms/serializers.py`, `backend/apps/rooms/tests.py`,
+  `frontend/src/app/modules/rooms/room-model.ts`,
+  `frontend/src/app/modules/rooms/list-rooms/` (`.ts`, `.spec.ts`).
+- **Impacto:** sin migraciones. `GET /api/rooms/` gana `operations.reservation_pending` (aditivo, y
+  sujeto a `rooms.read_guest_data`). **Cambio de significado:** `operations.unbilled_charges` ya no
+  incluye cargos automáticos; si algún cliente lo usaba como "total sin facturar", ahora devuelve
+  menos. Requiere recargar el frontend.
+- **Verificación:** backend `manage.py test` completo en verde (208 pruebas, 2 nuevas, incluida una
+  que amarra el saldo de la tarjeta al de la reserva para que no vuelvan a divergir). Frontend
+  `npm run lint`, `npm run test:ci` (94 pruebas, 2 nuevas) y `npm run build:ci` en verde.
+- **Nota:** la **Fase 7** del plan (CTA "Asignar tipo y tarifa" en habitaciones sin configurar) se
+  descartó por decisión de rastor65: innecesaria y con riesgo de generar inconvenientes.
+
+### 2026-08-10 — Scope propio para los datos del huésped (`rooms.read_guest_data`)
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** security
+- **Qué se hizo:** las Fases 2 y 6 pusieron el **saldo por cobrar** y el **documento del huésped**
+  dentro de `/api/rooms/`, o sea al alcance de cualquier rol con `rooms.read` —incluido uno de
+  limpieza que solo debería ver el estado de la habitación—. Se separaron detrás de un recurso
+  propio.
+  1. **Recurso nuevo `rooms.read_guest_data`.** Sin él, `/api/rooms/` devuelve
+     `active_reservation.client_document` y los tres montos de `operations` en **`null`**.
+     Se eligió `null` y no `"0.00"` a propósito: cero significa "no debe nada", que es una
+     afirmación distinta a "no te corresponde saberlo".
+  2. **También en el modal.** `RoomPanelSerializer` aplica el mismo criterio a
+     `client.document_number`; si no, bastaba con abrir la habitación para esquivar la restricción.
+  3. **Helper reutilizable.** `accounts.permissions.user_has_scopes(user, scopes)` permite decidir
+     dentro de un serializer sin duplicar la normalización de separadores ni los comodines del
+     motor RBAC. Es la primera vez que se consulta un scope fuera de `HasResourcePermission`.
+  4. **`seed_rbac`.** Se agregó la lista `EXTRA_PERMISSIONS` para permisos finos que no son un
+     dominio completo, y el recurso se asigna a `admin`, `manager` y `staff` —los tres roles que
+     operan recepción—, así que **ningún rol base pierde nada**. La capacidad de retirarlo queda
+     disponible para roles nuevos.
+  5. **Frontend.** `hasResourceScope()` en `services/auth/auth.ts` replica el motor del backend
+     para *no pintar* controles que no traerían datos: sin el scope desaparecen el filtro
+     *Con saldo* y su tarjeta del resumen, y el indicador de saldo no se dibuja. **No es un control
+     de acceso** —ese lo hace el backend—, es evitar mostrar un cero engañoso.
+- **Por qué:** es información personal y financiera del huésped. Que viajara con `rooms.read` fue
+  un efecto lateral de las fases anteriores, no una decisión.
+- **Corrección incluida:** `user_has_scopes` consultaba `user.resource_keys()` una vez por
+  habitación y por campo, reintroduciendo el N+1 que `build_room_operations_map` evita. La prueba
+  `test_signals_are_resolved_in_bulk` lo detectó (40 consultas contra un límite de 40) y se
+  memorizó la decisión en el contexto del serializer, que es el mismo para toda la petición.
+- **Corrección de la bitácora:** la sección 5.3 afirmaba que `users_read` ≡ `users-read` ≡
+  `users.read`. Es falso: `HasResourcePermission._scope_variants` intercambia guion y guion bajo,
+  pero **no el punto**. Verificado ejecutando el motor. La sección quedó corregida.
+- **Archivos/áreas afectadas:** `backend/accounts/permissions.py`,
+  `backend/accounts/management/commands/seed_rbac.py`, `backend/apps/rooms/serializers.py`,
+  `backend/apps/rooms/tests.py`, `frontend/src/app/services/auth/auth.ts`,
+  `frontend/src/app/modules/rooms/room-model.ts`,
+  `frontend/src/app/modules/rooms/list-rooms/` (`.ts`, `.html`, `.spec.ts`), `AGENTS.md`.
+- **Impacto:** **hay que correr `python manage.py seed_rbac`** para crear el recurso y asignarlo.
+  Sin eso, los roles existentes dejan de ver saldo y documento en el tablero (el resto sigue igual).
+  Sin migraciones. Cambio de contrato de API: los tres montos de `operations` y
+  `client_document` pasan a ser anulables.
+- **Verificación:** backend `manage.py test` completo en verde (206 pruebas, 3 nuevas). Frontend
+  `npm run lint`, `npm run test:ci` (92 pruebas, 4 nuevas) y `npm run build:ci` en verde. Se aplicó
+  `seed_rbac` a la base local: 116 recursos, `admin` 104 / `manager` 67 / `staff` 39.
+
+### 2026-08-10 — Fase 6: búsqueda inteligente en el tablero de habitaciones
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** sexta fase del rediseño de `/habitaciones`.
+  1. **Backend.** `active_reservation` expone `client_document`. Es el dato con el que recepción
+     identifica de verdad al huésped y no viajaba en el listado, así que era imposible buscar por él
+     sin abrir la reserva.
+  2. **El buscador dejó de mirar solo la habitación.** El pool de búsqueda ahora incluye número,
+     notas, piso, tipo (nombre y código), tipo de cama, nombre de la tarifa, estado visible,
+     amenidades, y de la reserva activa: nombre del huésped, documento, estado y número de reserva
+     —este último con y sin almohadilla, así `4522` y `#4522` funcionan igual—.
+  3. **Todos los términos, no cualquiera.** La consulta se parte por espacios y cada palabra se
+     exige por separado: `juan piso 2` encuentra a Juan en el piso 2, no todo lo que tenga "juan"
+     **o** "piso 2".
+  4. **Sin tildes ni mayúsculas.** Consulta y contenido se normalizan con `NFD`, así que `jose`
+     encuentra a `José` y `PEREZ` a `Pérez`.
+- **Por qué:** la operación real busca "Juan" o el número de documento que el huésped tiene en la
+  mano, casi nunca "habitación 101". El buscador anterior solo cubría número, notas, piso, tipo y
+  nombre del huésped, y era sensible a tildes.
+- **Comportamiento aceptado a propósito:** la coincidencia es por subcadena también en los números,
+  así que escribir `20` ya filtra `201` y `202` mientras se teclea. Como efecto lateral, un término
+  de un solo dígito coincide con cualquier número que lo contenga. Hay una prueba que fija esto para
+  que nadie lo "arregle" sin querer.
+- **Archivos/áreas afectadas:** `backend/apps/rooms/serializers.py`,
+  `frontend/src/app/modules/rooms/room-model.ts`,
+  `frontend/src/app/modules/rooms/list-rooms/` (`.ts`, `.html`, `.spec.ts`).
+- **Impacto:** sin migraciones. `GET /api/rooms/` gana `active_reservation.client_document`
+  (aditivo). **Nota de privacidad:** el documento del huésped queda al alcance de cualquier rol con
+  `rooms.read`, igual que el saldo desde la Fase 2. Requiere recargar el frontend.
+- **Verificación:** frontend `npm run lint`, `npm run test:ci` (88 pruebas, 7 nuevas) y
+  `npm run build:ci` en verde. Backend `manage.py test` completo en verde (203 pruebas). El campo
+  nuevo del serializer no lleva prueba propia: replica la línea de `client_name`, que tampoco la
+  tenía, y la conducta que importa —encontrar por documento— sí está cubierta en el frontend.
+
+### 2026-08-10 — Fase 5: vista de tablero por estado en habitaciones
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** quinta fase del rediseño de `/habitaciones`. Cambio **solo de frontend**.
+  1. **Tercer modo de vista.** Junto a cuadrícula y tabla se agregó **tablero**, con columnas por
+     estado operativo: Disponibles, Reservadas, Ocupadas, Por salir, Limpieza y Mantenimiento.
+  2. **Columnas estables.** Esas seis se muestran siempre, aunque estén vacías, para que recepción
+     encuentre el hotel en la misma posición todos los días. *Sin configurar* y *Fuera de servicio*
+     solo aparecen si tienen habitaciones, para no meter ruido permanente.
+  3. **Agrupa por estado, no por piso.** En el tablero el piso baja a ser un dato dentro de la
+     tarjeta. Es deliberado: la cuadrícula responde "dónde está" y el tablero "en qué fase está".
+  4. **Tarjeta compacta.** En la columna se muestra número, piso, huésped (o tipo si no hay
+     reserva), los indicadores de la Fase 3 y la acción rápida de la Fase 1. No repite el chip de
+     estado, que ya es la columna.
+  5. **Respeta los filtros.** El tablero se arma desde `filteredRooms`, así que buscador, estado,
+     piso y filtros operativos siguen mandando.
+  6. **Reutilización de color.** `getStatusStyle(room)` se partió en `getStatusStyleFor(status)` y
+     `getCardStatusClass(room)` en `getStatusClassFor(status)`, para que las columnas usen el mismo
+     vocabulario de color que el chip y la tabla en vez de inventar uno nuevo.
+- **Por qué:** recepción escanea el hotel por fase de trabajo, no por ubicación. Con las columnas,
+  "qué tengo que hacer ahora" se lee de un vistazo sin filtrar nada.
+- **Corrección incluida:** el temporizador que refresca el contador de salida actualizaba la hora
+  pero no recalculaba filtros ni conteos. Una habitación cuya salida vencía no entraba al filtro de
+  *salida próxima* hasta el siguiente refresco manual. Ahora el tick de cada minuto vuelve a aplicar
+  los filtros.
+- **Archivos/áreas afectadas:** `frontend/src/app/modules/rooms/list-rooms/`
+  (`.ts`, `.html`, `.css`, `.spec.ts`).
+- **Impacto:** ninguno en el backend: sin migraciones, sin cambios de API, sin recursos RBAC nuevos.
+  Requiere recargar el frontend.
+- **Verificación:** frontend `npm run lint`, `npm run test:ci` (81 pruebas, 4 nuevas) y
+  `npm run build:ci` en verde. Backend `manage.py test` completo en verde (203 pruebas) para
+  confirmar que nada se movió.
+
+### 2026-08-10 — Fase 4: resumen del día accionable en habitaciones
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** cuarta fase del rediseño de `/habitaciones`.
+  1. **Backend — mantenimiento urgente.** `operations` gana `urgent_maintenance`: el subconjunto de
+     órdenes abiertas con prioridad `URGENTE` o `ALTA`. Sale de la misma consulta que
+     `open_maintenance`, filtrada, así que no agrega viajes a la base.
+  2. **Frontend — las tarjetas superiores dejaron de ser conteos.** Antes mostraban
+     Disponibles / Reservadas / Ocupadas / Por salir hoy / Mantenimiento, que es exactamente lo que
+     ya dicen las pestañas de estado justo debajo. Ahora son seis frentes de trabajo:
+     **Check-ins listos**, **Salidas próximas**, **Limpieza pendiente**, **Mantenimiento**,
+     **Con saldo** y **Sin configurar**. Cada una lleva una nota con el contexto que el número
+     solo no da (`1 urgente(s)`, `$100.000 por cobrar`, `2 salida(s) hoy`).
+  3. **Las tarjetas filtran.** Pulsar una aplica su filtro operativo y la deja marcada; volver a
+     pulsarla lo quita. Es el mismo estado que la barra de prioridades, así que las dos vistas
+     quedan sincronizadas.
+  4. **Las que están en cero se apagan.** Con `is-clear` pierden el color y el número se atenúa:
+     la vista se va sola a lo que sí tiene trabajo.
+  5. **La ocupación se movió al encabezado** (`8 disponibles de 36 · 12 ocupadas`), que es el único
+     dato que se perdía al reemplazar los conteos.
+  6. **Presupuesto de CSS.** Se subió `anyComponentStyle` de 16/24 kB a 20/28 kB en
+     `frontend/angular.json`. Dos pantallas ya estaban por encima (`list-reservations.css` 17.81 kB,
+     `list-rooms.css` 17.75 kB) y el umbral de 16 kB se rompía con cualquier función nueva. De paso,
+     los tonos de las tarjetas se rehicieron con un token por tarjeta (`--stat-bg/-border/-text`) en
+     vez de cinco reglas de color, lo que dejó el CSS más corto que antes del cambio.
+- **Por qué:** los conteos por estado duplicaban las pestañas y no le decían a recepción qué hacer.
+  Un tablero de recepción tiene que abrir con el trabajo del día, no con un censo de habitaciones.
+- **Archivos/áreas afectadas:** `backend/apps/rooms/operations.py`,
+  `backend/apps/rooms/serializers.py`, `backend/apps/rooms/tests.py`, `frontend/angular.json`,
+  `frontend/src/app/modules/rooms/room-model.ts`,
+  `frontend/src/app/modules/rooms/list-rooms/` (`.ts`, `.html`, `.css`, `.spec.ts`).
+- **Impacto:** sin migraciones. `GET /api/rooms/` gana `operations.urgent_maintenance` (aditivo).
+  El cambio de presupuesto solo afecta las advertencias del build; para revertirlo, devolver
+  `anyComponentStyle` a `16kB` / `24kB` en `frontend/angular.json`. Requiere recargar el frontend.
+- **Verificación:** backend `manage.py test` completo en verde (203 pruebas, 1 nueva). Frontend
+  `npm run lint`, `npm run test:ci` (77 pruebas, 6 nuevas) y `npm run build:ci` en verde: ya no
+  queda ninguna advertencia de CSS por componente. Sigue la advertencia del *bundle* inicial
+  (36.17 kB sobre 2 MB), que es anterior a estas fases.
+
+### 2026-08-10 — Fase 3: indicadores visuales en la tarjeta de habitación
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** tercera fase del rediseño de `/habitaciones`.
+  1. **Backend — inventario bajo mínimo.** `apps/rooms/operations.py` agrega `low_inventory` al
+     objeto `operations`: cuenta los ítems de la habitación con `quantity < minimum_quantity`.
+     Un `minimum_quantity = 0` se interpreta como "sin mínimo definido", no como "todo falta".
+     Se calcula en el mismo bloque que las demás señales, sin consultas extra por habitación.
+  2. **Frontend — fila de indicadores.** La tarjeta muestra chips compactos con lo que la
+     habitación arrastra: **salida vencida / sale en X**, **saldo**, **mantenimiento**,
+     **limpieza** e **inventario bajo**. Se ordenan por urgencia (primero lo que cuesta dinero o
+     bloquea la salida) y se pluralizan solo cuando hay más de un pendiente. El chip de saldo
+     muestra el total y detalla en el tooltip cuánto es factura sin pagar y cuánto consumo sin
+     facturar. Los mismos chips aparecen en la vista de tabla, bajo el estado.
+  3. **División de responsabilidades en la tarjeta.** El bloque `room-signal` que ya existía dice
+     *qué hacer ahora* (una sola acción sugerida); los chips nuevos dicen *qué hay* (hechos
+     acumulados). Son cosas distintas y por eso conviven en vez de reemplazarse.
+- **Por qué:** un check-out apurado con saldo pendiente o con inventario faltante es el error más
+  caro de recepción, y hasta ahora esa información solo aparecía abriendo la habitación y
+  navegando entre pestañas del modal.
+- **Archivos/áreas afectadas:** `backend/apps/rooms/operations.py`,
+  `backend/apps/rooms/serializers.py`, `backend/apps/rooms/tests.py`,
+  `frontend/src/app/modules/rooms/room-model.ts`,
+  `frontend/src/app/modules/rooms/list-rooms/` (`.ts`, `.html`, `.css`, `.spec.ts`).
+- **Impacto:** sin migraciones. `GET /api/rooms/` gana `operations.low_inventory` (aditivo).
+  Igual que en la Fase 2, las señales viajan dentro de `rooms.read`. Requiere recargar el frontend.
+- **Verificación:** backend `manage.py test` completo en verde (202 pruebas, 1 nueva). Frontend
+  `npm run lint`, `npm run test:ci` (71 pruebas, 6 nuevas) y `npm run build:ci` en verde.
+- **Deuda que deja:** el build empezó a avisar que `list-rooms.css` supera el presupuesto de 16 kB
+  por 777 bytes. El archivo ya estaba en ~15.7 kB antes de esta fase, así que el presupuesto se
+  iba a romper con la siguiente función igual; `list-reservations.css` lleva rato por encima
+  (17.81 kB). Está **pendiente decidir** si se sube el presupuesto por componente en
+  `angular.json` o si se extraen estilos compartidos a `styles.css`.
+
+### 2026-08-10 — Fase 2: filtros operativos y señales de habitación
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** segunda fase del rediseño de `/habitaciones` como consola de recepción.
+  1. **Backend — señales operativas.** `apps/rooms/operations.py` calcula **en bloque**, para las
+     habitaciones de una página, tres cosas que antes obligaban a abrir la habitación: tareas de
+     limpieza abiertas, órdenes de mantenimiento sin cerrar y lo que el huésped todavía debe.
+     `RoomSerializer` las expone en un objeto `operations`:
+     `{pending_cleaning, open_maintenance, pending_balance, unbilled_charges, pending_total}`.
+     El saldo se calcula con la misma fórmula que
+     `apps.billing.services.get_invoice_reconciliation` (`pendiente = total − (pagado − reembolsado)`),
+     y `unbilled_charges` son los cargos de la reserva activa que aún no entraron a una factura.
+  2. **Consulta en bloque, no N+1.** `RoomViewSet.get_serializer()` arma el mapa una sola vez por
+     página y lo pasa por contexto; el serializer solo lo consulta. Son ~7 consultas para toda la
+     página en vez de 7 por habitación. El serializer conserva un fallback por si se usa suelto.
+  3. **Frontend — tres filtros nuevos.** La barra de prioridades pasó de 6 a 8 atajos: se agregaron
+     *Mantenimiento abierto* y *Con saldo*, y *Limpieza* pasó a ser *Limpieza pendiente*.
+     Limpieza y mantenimiento ya no miran solo `room.status`: una habitación ocupada con una tarea
+     de limpieza abierta ahora aparece en el filtro, y una disponible con una orden de mantenimiento
+     sin cerrar también. *Requieren acción* incorpora las tres señales nuevas.
+  4. **Detalles de UI.** Cada chip lleva un `title` que explica su criterio, y los chips en cero se
+     muestran en borde punteado y atenuados para que la vista se vaya sola a lo que sí tiene trabajo.
+- **Por qué:** los filtros anteriores solo podían razonar con lo que la tarjeta ya tenía —estado y
+  reserva activa—, así que "con saldo pendiente", "con limpieza pendiente" y "con mantenimiento
+  abierto" eran imposibles de resolver en el frontend. Recepción necesita ver esas tres cosas sin
+  abrir la habitación; el saldo, en particular, es el error más caro de un check-out apurado.
+- **Archivos/áreas afectadas:** `backend/apps/rooms/operations.py` (nuevo),
+  `backend/apps/rooms/serializers.py`, `backend/apps/rooms/views.py`, `backend/apps/rooms/tests.py`,
+  `frontend/src/app/modules/rooms/room-model.ts`,
+  `frontend/src/app/modules/rooms/list-rooms/` (`.ts`, `.html`, `.css`, `.spec.ts`).
+- **Impacto:** sin migraciones. `GET /api/rooms/` gana el campo `operations` (aditivo, no rompe
+  clientes). No hay recursos RBAC nuevos: las señales viajan dentro de `rooms.read`, así que un rol
+  que ve habitaciones ve el saldo de la reserva activa — si eso no es deseable habría que separarlo
+  en un scope propio. Requiere recargar el frontend.
+- **Verificación:** backend `manage.py test` completo en verde (201 pruebas, 3 nuevas, entre ellas
+  una que falla si el listado vuelve a consultar por habitación). Frontend `npm run lint`,
+  `npm run test:ci` (65 pruebas, 6 nuevas) y `npm run build:ci` en verde. De paso se arregló
+  `list-rooms.spec.ts`, que quedó fallando en la Fase 1 porque el componente empezó a inyectar
+  `ReservationService` y `CleaningTasksService` y el spec no los proveía.
 
 ### 2026-08-10 — `seed_rbac` completo y reproducible (deuda técnica 9)
 
@@ -1766,4 +2395,34 @@ para que nadie los "descubra" y los cambie sin contexto.
 - **Que se hizo:** la pestaña Inventario del modal de habitacion ahora ordena los items por categoria y muestra un encabezado visual por cada categoria; el campo `Minimo` se renombro a `Min. reposicion` para explicar mejor su funcion.
 - **Por que:** con muchos items era dificil ubicar rapidamente una dotacion concreta, y la etiqueta `Minimo` no comunicaba que es el umbral para alertar reposicion.
 - **Archivos/areas afectadas:** `frontend/src/app/modules/rooms/room-modal/room-modal.ts`, `frontend/src/app/modules/rooms/room-modal/room-modal.html`, `frontend/src/styles.css`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-10 - Acciones rapidas por estado en tarjetas de habitaciones
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** las tarjetas de habitaciones ahora muestran una accion principal contextual segun el estado: confirmar reserva pendiente, hacer check-in, hacer check-out o completar la primera limpieza abierta. Cuando hay una accion operativa, se mantiene un boton secundario para abrir la gestion completa de la habitacion.
+- **Por que:** recepcion necesita resolver acciones frecuentes desde el tablero sin abrir el modal completo para cada operacion simple.
+- **Archivos/areas afectadas:** `frontend/src/app/modules/rooms/list-rooms/list-rooms.ts`, `frontend/src/app/modules/rooms/list-rooms/list-rooms.html`, `frontend/src/app/modules/rooms/list-rooms/list-rooms.css`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API; las acciones reutilizan los endpoints existentes de reservas y limpieza.
+
+### 2026-08-10 - Prioridades operativas en tablero de habitaciones
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** el tablero de habitaciones incorpora filtros de prioridad para ver rapidamente habitaciones que requieren accion, check-in listo, salida proxima, limpieza y habitaciones sin configurar. El buscador tambien considera el nombre del huesped activo y se agrego una accion para limpiar filtros combinados.
+- **Por que:** cuando el hotel tiene muchas habitaciones, filtrar solo por estado obliga a revisar demasiado; las prioridades guian el trabajo diario de recepcion.
+- **Archivos/areas afectadas:** `frontend/src/app/modules/rooms/list-rooms/list-rooms.ts`, `frontend/src/app/modules/rooms/list-rooms/list-rooms.html`, `frontend/src/app/modules/rooms/list-rooms/list-rooms.css`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-10 - Resumen operativo en tarjetas de habitaciones
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** cada tarjeta de habitacion muestra un bloque compacto con la senal operativa principal: configuracion pendiente, reserva pendiente, check-in listo, salida proxima, limpieza, mantenimiento o lista para vender. La senal usa icono, titulo y texto breve con colores segun prioridad.
+- **Por que:** el usuario debe entender que pasa con una habitacion sin abrir el modal ni interpretar solo el color del borde o la etiqueta de estado.
+- **Archivos/areas afectadas:** `frontend/src/app/modules/rooms/list-rooms/list-rooms.ts`, `frontend/src/app/modules/rooms/list-rooms/list-rooms.html`, `frontend/src/app/modules/rooms/list-rooms/list-rooms.css`.
 - **Impacto:** cambio frontend sin migraciones ni cambios de API.

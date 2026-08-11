@@ -31,11 +31,11 @@ class Expense(models.Model):
         related_name="expenses_by_category",
         limit_choices_to={"group": MasterData.Group.EXPENSE_CATEGORY},
     )
+    # Metodo de pago del hotel (ver hotel_settings.PaymentMethod).
     payment_method = models.ForeignKey(
-        MasterData,
+        "hotel_settings.PaymentMethod",
         on_delete=models.PROTECT,
         related_name="expenses_by_payment_method",
-        limit_choices_to={"group": MasterData.Group.PAYMENT_METHOD},
         blank=True,
         null=True,
     )

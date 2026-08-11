@@ -8,6 +8,7 @@ import { DetailExpense } from '../detail-expense/detail-expense';
 import { ExpenseI } from '../expense-model';
 import { HotelSettingsService } from '../../../services/hotel-settings';
 import { MasterDataService } from '../../../services/master-data.service';
+import { PaymentMethodI, PaymentMethodService } from '../../../services/payment-method';
 import { ExpenseService } from '../../../services/expense';
 
 type ExpenseActivityFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
@@ -28,7 +29,7 @@ export class ListExpenses implements OnInit {
   expenses: ExpenseI[] = [];
   filteredExpenses: ExpenseI[] = [];
   expenseCategories: MasterDataI[] = [];
-  paymentMethods: MasterDataI[] = [];
+  paymentMethods: PaymentMethodI[] = [];
 
   search = '';
   activityFilter: ExpenseActivityFilter = 'ACTIVE';
@@ -47,6 +48,7 @@ export class ListExpenses implements OnInit {
   ];
 
   constructor(
+    private paymentMethodService: PaymentMethodService,
     private expenseService: ExpenseService,
     private masterDataService: MasterDataService,
     private hotelSettingsService: HotelSettingsService
@@ -146,9 +148,9 @@ export class ListExpenses implements OnInit {
       expenseCategories: this.masterDataService
         .listMasterData({ group: 'EXPENSE_CATEGORY', is_active: 'true', ordering: 'sort_order,name' })
         .pipe(catchError(() => of([] as MasterDataI[]))),
-      paymentMethods: this.masterDataService
-        .listMasterData({ group: 'PAYMENT_METHOD', is_active: 'true', ordering: 'sort_order,name' })
-        .pipe(catchError(() => of([] as MasterDataI[]))),
+      paymentMethods: this.paymentMethodService
+        .listPaymentMethods()
+        .pipe(catchError(() => of([] as PaymentMethodI[]))),
       settings: this.hotelSettingsService.getCurrentSettings().pipe(catchError(() => of(null)))
     }).subscribe({
       next: ({ expenses, expenseCategories, paymentMethods, settings }) => {

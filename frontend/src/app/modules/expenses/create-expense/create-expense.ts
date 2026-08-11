@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { PaymentMethodI } from '../../../services/payment-method';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MasterDataI } from '../../../components/pages/master-data/master-data-model';
@@ -26,7 +27,7 @@ export class CreateExpense implements OnChanges {
 
   @Input() hotelSettingsId: number | null = null;
   @Input() expenseCategories: MasterDataI[] = [];
-  @Input() paymentMethods: MasterDataI[] = [];
+  @Input() paymentMethods: PaymentMethodI[] = [];
 
   @Output() created = new EventEmitter<ExpenseI>();
   @Output() cancelled = new EventEmitter<void>();

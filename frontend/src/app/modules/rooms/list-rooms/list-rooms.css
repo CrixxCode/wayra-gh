@@ -59,20 +59,81 @@
   color: var(--gh-status-info-text);
 }
 
+.setup-hint.is-error {
+  border-color: var(--gh-status-danger-border);
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+}
+
 /* ---------------------------------------------------------------- metricas */
+/* Resumen del dia: cada tarjeta es un frente de trabajo y un atajo de filtro. El tono
+   sale de un token por tarjeta, para no repetir la terna fondo/borde/texto por color. */
 .stats-grid {
   margin-top: 24px;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
 }
 
 .stat-card {
+  --stat-bg: var(--gh-status-neutral-bg);
+  --stat-border: var(--gh-status-neutral-border);
+  --stat-text: var(--gh-status-neutral-text);
+  padding: 16px 18px;
   border: 1px solid var(--gh-border);
+  border-top: 3px solid var(--stat-border);
   border-radius: 14px;
   background: var(--gh-surface);
-  padding: 16px 18px;
   box-shadow: var(--gh-shadow-soft-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.stat-card.tone-success {
+  --stat-bg: var(--gh-status-success-bg);
+  --stat-border: var(--gh-status-success-border);
+  --stat-text: var(--gh-status-success-text);
+}
+
+.stat-card.tone-warning {
+  --stat-bg: var(--gh-status-warn-bg);
+  --stat-border: var(--gh-status-warn-border);
+  --stat-text: var(--gh-status-warn-text);
+}
+
+.stat-card.tone-danger {
+  --stat-bg: var(--gh-status-danger-bg);
+  --stat-border: var(--gh-status-danger-border);
+  --stat-text: var(--gh-status-danger-text);
+}
+
+.stat-card.tone-info {
+  --stat-bg: var(--gh-status-info-bg);
+  --stat-border: var(--gh-status-info-border);
+  --stat-text: var(--gh-status-info-text);
+}
+
+/* Sin pendientes: la tarjeta sigue ahi, pero deja de pedir atencion. */
+.stat-card.is-clear {
+  --stat-bg: var(--gh-status-neutral-bg);
+  --stat-border: var(--gh-border);
+  --stat-text: var(--gh-text-muted);
+}
+
+.stat-card.is-clear .stat-value {
+  color: var(--gh-text-muted);
+}
+
+.stat-card:hover {
+  box-shadow: var(--gh-shadow-hover);
+  transform: translateY(-2px);
+}
+
+.stat-card.active {
+  border-color: var(--gh-brand);
+  border-top-color: var(--gh-brand);
+  box-shadow: var(--gh-shadow-hover);
 }
 
 .stat-head {
@@ -94,32 +155,9 @@
   display: grid;
   place-items: center;
   border-radius: 9px;
+  background: var(--stat-bg);
+  color: var(--stat-text);
   font-size: 0.8rem;
-}
-
-.stat-icon.green {
-  background: var(--gh-status-success-bg);
-  color: var(--gh-status-success-text);
-}
-
-.stat-icon.blue {
-  background: var(--gh-status-info-bg);
-  color: var(--gh-status-info-text);
-}
-
-.stat-icon.violet {
-  background: var(--gh-status-violet-bg);
-  color: var(--gh-status-violet-text);
-}
-
-.stat-icon.yellow {
-  background: var(--gh-status-warn-bg);
-  color: var(--gh-status-warn-text);
-}
-
-.stat-icon.red {
-  background: var(--gh-status-danger-bg);
-  color: var(--gh-status-danger-text);
 }
 
 .stat-value {
@@ -134,6 +172,16 @@
   margin-top: 6px;
   font-size: 0.8rem;
   color: var(--gh-text-soft);
+}
+
+.page-occupancy {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--gh-text-soft);
+  font-size: 0.84rem;
+  font-weight: 600;
 }
 
 /* ---------------------------------------------------------------- filtros */
@@ -212,6 +260,99 @@
 .filter-actions-inline button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.filter-actions-inline .clear-filters-btn {
+  border-color: var(--gh-status-warn-border);
+  background: var(--gh-status-warn-bg);
+  color: var(--gh-status-warn-text);
+}
+
+.priority-filter {
+  margin-top: 14px;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 14px;
+  background: var(--gh-surface-soft);
+}
+
+.priority-filter > div:first-child span {
+  display: block;
+  color: var(--gh-text-strong);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.priority-filter > div:first-child small {
+  display: block;
+  margin-top: 4px;
+  color: var(--gh-text-muted);
+  font-size: 0.78rem;
+}
+
+.priority-filter-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.priority-filter-options button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border: 1px solid var(--gh-border);
+  border-radius: 10px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.priority-filter-options button:hover {
+  border-color: var(--gh-search-focus);
+  background: var(--gh-surface-hover);
+  color: var(--gh-text-strong);
+}
+
+.priority-filter-options button.active {
+  border-color: var(--gh-brand);
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+}
+
+.priority-filter-options button span {
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--gh-status-neutral-bg);
+  color: var(--gh-status-neutral-text);
+  font-size: 0.72rem;
+}
+
+.priority-filter-options button.active span {
+  background: rgba(255, 255, 255, 0.22);
+  color: var(--gh-on-brand);
+}
+
+/* Un filtro sin resultados sigue siendo clickeable, pero no compite por la mirada. */
+.priority-filter-options button.is-empty:not(.active) {
+  border-style: dashed;
+  color: var(--gh-text-muted);
+  opacity: 0.65;
+}
+
+.priority-filter-options button.is-empty:not(.active):hover {
+  opacity: 1;
 }
 
 .status-tabs {
@@ -503,6 +644,58 @@
   color: var(--gh-text-soft);
 }
 
+/* Indicadores compactos: solo lo pendiente (saldo, consumos, limpieza, mantenimiento,
+   inventario, salida vencida). El estado de la habitacion no se repite aqui: ya lo dice
+   el chip de la cabecera. */
+.room-badges {
+  margin-top: 10px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.room-badges.is-compact {
+  margin-top: 6px;
+}
+
+.room-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border: 1px solid var(--gh-status-neutral-border);
+  border-radius: 999px;
+  background: var(--gh-status-neutral-bg);
+  color: var(--gh-status-neutral-text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.room-badge i {
+  font-size: 0.7rem;
+}
+
+.room-badge.badge-danger {
+  border-color: var(--gh-status-danger-border);
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+}
+
+.room-badge.badge-warning {
+  border-color: var(--gh-status-warn-border);
+  background: var(--gh-status-warn-bg);
+  color: var(--gh-status-warn-text);
+}
+
+.room-badge.badge-info {
+  border-color: var(--gh-status-info-border);
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+}
+
 .reservation-info {
   margin-top: 12px;
   padding: 10px 12px;
@@ -556,6 +749,8 @@
 .room-actions {
   margin-top: auto;
   padding-top: 14px;
+  display: flex;
+  gap: 8px;
 }
 
 .action-btn {
@@ -574,9 +769,71 @@
   cursor: pointer;
 }
 
+.action-btn:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .action-btn:hover {
   background: var(--gh-brand-hover);
   border-color: var(--gh-brand-hover);
+}
+
+.card-main-btn {
+  flex: 1 1 auto;
+}
+
+.card-secondary-btn {
+  width: 42px;
+  flex: 0 0 42px;
+  padding: 0;
+  border-color: var(--gh-border);
+  background: var(--gh-surface);
+  color: var(--gh-text);
+}
+
+.card-secondary-btn:hover {
+  border-color: var(--gh-brand);
+  background: var(--gh-surface-soft);
+  color: var(--gh-brand);
+}
+
+.quick-action-confirm,
+.quick-action-check-in {
+  border-color: var(--gh-status-success-border);
+  background: var(--gh-status-success-bg);
+  color: var(--gh-status-success-text);
+}
+
+.quick-action-confirm:hover,
+.quick-action-check-in:hover {
+  border-color: var(--gh-status-success-strong);
+  background: var(--gh-status-success-strong);
+  color: var(--gh-on-brand);
+}
+
+.quick-action-check-out {
+  border-color: var(--gh-status-danger-border);
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+}
+
+.quick-action-check-out:hover {
+  border-color: var(--gh-status-danger-strong);
+  background: var(--gh-status-danger-strong);
+  color: var(--gh-on-brand);
+}
+
+.quick-action-complete-cleaning {
+  border-color: var(--gh-status-info-border);
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+}
+
+.quick-action-complete-cleaning:hover {
+  border-color: var(--gh-status-info-strong);
+  background: var(--gh-status-info-strong);
+  color: var(--gh-on-brand);
 }
 
 .add-room-card {
@@ -613,6 +870,144 @@
 .add-room-card small {
   font-size: 0.78rem;
   color: var(--gh-text-soft);
+}
+
+/* --------------------------------------------------------------- tablero */
+/* Columnas por estado. El piso deja de ser el criterio de agrupacion y pasa a ser un
+   dato dentro de la tarjeta: en el tablero lo que importa es en que fase esta cada
+   habitacion, no donde queda. */
+.board {
+  margin-top: 22px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(232px, 1fr);
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  align-items: start;
+}
+
+.board-column {
+  border: 1px solid var(--gh-border);
+  border-top: 3px solid var(--gh-status-neutral-border);
+  border-radius: 14px;
+  background: var(--gh-surface-soft);
+  overflow: hidden;
+}
+
+.board-column.is-available {
+  border-top-color: var(--gh-status-success-strong);
+}
+
+.board-column.is-reserved,
+.board-column.is-occupied,
+.board-column.is-cleaning {
+  border-top-color: var(--gh-status-info-strong);
+}
+
+.board-column.is-leaving-today,
+.board-column.is-unconfigured {
+  border-top-color: var(--gh-status-warn-strong);
+}
+
+.board-column.is-maintenance {
+  border-top-color: var(--gh-status-danger-strong);
+}
+
+.board-column-head {
+  padding: 11px 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--gh-border-soft);
+  background: var(--gh-surface);
+}
+
+.board-column-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--gh-text-strong);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.board-column-count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--gh-status-neutral-bg);
+  color: var(--gh-status-neutral-text);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.board-column-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  max-height: 64vh;
+  overflow-y: auto;
+}
+
+.board-column-empty {
+  padding: 14px 4px;
+  color: var(--gh-text-muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.board-room {
+  padding: 10px 11px;
+  border: 1px solid var(--gh-border);
+  border-radius: 11px;
+  background: var(--gh-surface);
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.board-room:hover {
+  box-shadow: var(--gh-shadow-hover);
+  transform: translateY(-1px);
+}
+
+.board-room > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.board-room > header strong {
+  color: var(--gh-text-strong);
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+
+.board-room > header small {
+  color: var(--gh-text-soft);
+  font-size: 0.72rem;
+}
+
+.board-room-guest,
+.board-room-meta {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--gh-text-muted);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-room .action-btn {
+  margin-top: 9px;
+  width: 100%;
 }
 
 /* ----------------------------------------------------------------- tabla */
@@ -728,6 +1123,14 @@
   .filter-actions-inline {
     grid-column: 1 / -1;
   }
+
+  .priority-filter {
+    grid-template-columns: 1fr;
+  }
+
+  .priority-filter-options {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 720px) {
@@ -741,6 +1144,11 @@
 
   .filters-grid {
     grid-template-columns: 1fr;
+  }
+
+  .priority-filter-options button {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .floor-block {

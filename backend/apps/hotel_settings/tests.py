@@ -1,9 +1,11 @@
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
-from rest_framework.test import APIClient, APITestCase
+from django.test import TestCase
+from rest_framework.test import APIClient, APIRequestFactory, APITestCase, force_authenticate
 
 from accounts.models import Resource, Role, SoftDeleteMarker
-from apps.hotel_settings.models import HotelFloor, HotelSettings, ReservationPolicy
+from apps.hotel_settings.models import HotelFloor, HotelSettings, PaymentMethod, ReservationPolicy
+from apps.hotel_settings.views import PaymentMethodViewSet
 from apps.master_data.models import MasterData
 from apps.rooms.models import Room
 
@@ -366,3 +368,126 @@ class HotelSettingsSuperAdminClearTests(APITestCase):
                 object_id=str(room.id),
             ).exists()
         )
+
+
+class PaymentMethodTenancyTests(TestCase):
+    """Cada hotel administra sus metodos de pago sin ver ni tocar los de otro."""
+
+    def setUp(self):
+        self.factory = APIRequestFactory()
+
+        self.hotel_a = HotelSettings.objects.create(hotel_name="Hotel A")
+        self.hotel_b = HotelSettings.objects.create(hotel_name="Hotel B")
+
+        self.cash_a = PaymentMethod.objects.create(
+            hotel_settings=self.hotel_a, code="EFECTIVO", name="Efectivo"
+        )
+        PaymentMethod.objects.create(
+            hotel_settings=self.hotel_b, code="NEQUI", name="Nequi"
+        )
+
+        self.user_a = self._user("hotel_a_admin", self.hotel_a)
+
+    def _user(self, username, hotel):
+        user = get_user_model().objects.create_user(
+            username=username, password="test-pass-123", hotel_settings=hotel
+        )
+        role = Role.objects.create(name=f"Role {username}", slug=f"role-{username}")
+        for key in ("hotel_settings.read", "hotel_settings.write"):
+            resource, _ = Resource.objects.get_or_create(key=key, defaults={"name": key})
+            role.resources.add(resource)
+        user.roles.add(role)
+        return user
+
+    def _list(self, user):
+        request = self.factory.get("/api/payment-methods/")
+        force_authenticate(request, user=user)
+        response = PaymentMethodViewSet.as_view({"get": "list"})(request)
+        self.assertEqual(response.status_code, 200, response.data)
+        return response.data
+
+    def test_each_hotel_only_sees_its_own_methods(self):
+        rows = self._list(self.user_a)
+
+        self.assertEqual([row["code"] for row in rows], ["EFECTIVO"])
+
+    def test_two_hotels_can_share_the_same_code(self):
+        # Lo que era imposible con el catalogo global y su unicidad (group, code).
+        method = PaymentMethod.objects.create(
+            hotel_settings=self.hotel_b, code="EFECTIVO", name="Efectivo"
+        )
+
+        self.assertNotEqual(method.id, self.cash_a.id)
+        self.assertEqual(PaymentMethod.objects.filter(code="EFECTIVO").count(), 2)
+
+    def test_name_cannot_repeat_inside_the_same_hotel(self):
+        request = self.factory.post(
+            "/api/payment-methods/", {"name": "efectivo"}, format="json"
+        )
+        force_authenticate(request, user=self.user_a)
+
+        response = PaymentMethodViewSet.as_view({"post": "create"})(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("name", response.data["errors"])
+
+    def test_created_method_belongs_to_the_user_hotel(self):
+        request = self.factory.post(
+            "/api/payment-methods/", {"name": "Nequi"}, format="json"
+        )
+        force_authenticate(request, user=self.user_a)
+
+        response = PaymentMethodViewSet.as_view({"post": "create"})(request)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        created = PaymentMethod.objects.get(pk=response.data["id"])
+        self.assertEqual(created.hotel_settings_id, self.hotel_a.id)
+        # El codigo se deriva del nombre; el usuario nunca lo escribe.
+        self.assertEqual(created.code, "NEQUI")
+        self.assertEqual(created.method_type, PaymentMethod.MethodType.CASH)
+
+    def test_transfer_requires_account_number(self):
+        request = self.factory.post(
+            "/api/payment-methods/",
+            {"name": "Bancolombia", "method_type": "TRANSFERENCIA"},
+            format="json",
+        )
+        force_authenticate(request, user=self.user_a)
+
+        response = PaymentMethodViewSet.as_view({"post": "create"})(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("account_number", response.data["errors"])
+
+    def test_cash_method_discards_the_account_number(self):
+        request = self.factory.post(
+            "/api/payment-methods/",
+            {"name": "Caja menor", "method_type": "EFECTIVO", "account_number": "123-456"},
+            format="json",
+        )
+        force_authenticate(request, user=self.user_a)
+
+        response = PaymentMethodViewSet.as_view({"post": "create"})(request)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertIsNone(PaymentMethod.objects.get(pk=response.data["id"]).account_number)
+
+    def test_transfer_keeps_its_account_number(self):
+        request = self.factory.post(
+            "/api/payment-methods/",
+            {"name": "Bancolombia", "method_type": "TRANSFERENCIA", "account_number": "123-456"},
+            format="json",
+        )
+        force_authenticate(request, user=self.user_a)
+
+        response = PaymentMethodViewSet.as_view({"post": "create"})(request)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        created = PaymentMethod.objects.get(pk=response.data["id"])
+        self.assertEqual(created.account_number, "123-456")
+        self.assertEqual(created.code, "BANCOLOMBIA")
+
+    def test_code_is_derived_from_the_name_without_accents(self):
+        self.assertEqual(PaymentMethod.build_code("Transferencia Bancaria"), "TRANSFERENCIA_BANCARIA")
+        self.assertEqual(PaymentMethod.build_code("Codigo QR"), "CODIGO_QR")
+        self.assertEqual(PaymentMethod.build_code("Tarjeta débito"), "TARJETA_DEBITO")

@@ -9,7 +9,7 @@ from rest_framework.test import APIClient, APITestCase
 from apps.clients.models import Client
 from apps.billing.models import Charge, Invoice, Payment
 from apps.billing.services import ensure_default_invoice_for_reservation
-from apps.hotel_settings.models import HotelFloor, HotelSettings, ReservationPolicy
+from apps.hotel_settings.models import HotelFloor, HotelSettings, PaymentMethod, ReservationPolicy
 from apps.inventory.models import InventoryMovement, Item, RoomInventory
 from apps.master_data.models import MasterData
 from apps.packages.models import Package
@@ -126,8 +126,8 @@ class ReservationFlowTestCase(TestCase):
             MasterData.Group.RESERVATION_STATUS, "FINALIZADA", "Finalizada", 3
         )
         self.reservation_origin = self._md(MasterData.Group.RESERVATION_ORIGIN, "WEB", "Web", 1)
-        self.payment_method_cash = self._md(
-            MasterData.Group.PAYMENT_METHOD, "EFECTIVO", "Efectivo", 1
+        self.payment_method_cash = PaymentMethod.objects.create(
+            hotel_settings=self.hotel_settings, code="EFECTIVO", name="Efectivo"
         )
         self.deposit_status_validated = self._md(
             MasterData.Group.RESERVATION_DEPOSIT_STATUS, "VALIDADO", "Validado", 1
@@ -975,7 +975,6 @@ class ReservationApiFlowTestCase(APITestCase):
             MasterData.Group.MAINTENANCE_PRIORITY, "URGENTE", "Urgente", 4
         )
         self.reservation_origin = self._md(MasterData.Group.RESERVATION_ORIGIN, "WEB", "Web", 1)
-        self.payment_method_cash = self._md(MasterData.Group.PAYMENT_METHOD, "EFECTIVO", "Efectivo", 1)
         self.deposit_status_validated = self._md(
             MasterData.Group.RESERVATION_DEPOSIT_STATUS, "VALIDADO", "Validado", 1
         )
@@ -989,6 +988,9 @@ class ReservationApiFlowTestCase(APITestCase):
         self.hotel_settings = HotelSettings.objects.create(
             hotel_name="Hotel API Test",
             check_in_time=time(0, 0),
+        )
+        self.payment_method_cash = PaymentMethod.objects.create(
+            hotel_settings=self.hotel_settings, code="EFECTIVO", name="Efectivo"
         )
         self.floor = HotelFloor.objects.create(
             hotel_settings=self.hotel_settings,

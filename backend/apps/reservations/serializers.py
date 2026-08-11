@@ -29,7 +29,7 @@ from apps.reservations.services import (
     sync_reservation_room_pricing_and_occupancy,
     validate_reservation_deposit_rules,
 )
-from apps.hotel_settings.models import ReservationPolicy, HotelSettings
+from apps.hotel_settings.models import PaymentMethod, ReservationPolicy, HotelSettings
 from accounts.tenancy import TenantSerializerMixin, is_effective_global_admin
 from apps.clients.models import Client
 from apps.inventory.models import Item
@@ -451,7 +451,9 @@ class ReservationDepositSerializer(serializers.Serializer):
     deposit_date = serializers.DateField(required=False, allow_null=True, write_only=True)
     amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     payment_method = serializers.PrimaryKeyRelatedField(
-        queryset=MasterData.objects.filter(group=MasterData.Group.PAYMENT_METHOD, is_active=True),
+        # Catalogo del hotel, no global (AGENTS.md 5.16). El filtro por hotel se aplica
+        # en `validate`, donde ya se conoce la reserva.
+        queryset=PaymentMethod.objects.filter(is_active=True),
         required=True,
     )
     payment_method_name = serializers.CharField(source="payment_method.name", read_only=True)

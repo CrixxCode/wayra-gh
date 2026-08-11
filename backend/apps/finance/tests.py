@@ -17,7 +17,7 @@ from apps.finance.models import (
     OperationalAlert,
 )
 from apps.finance.services import sync_operational_alerts_for_hotel
-from apps.hotel_settings.models import HotelFloor, HotelSettings
+from apps.hotel_settings.models import HotelFloor, HotelSettings, PaymentMethod
 from apps.master_data.models import MasterData
 from apps.reservations.models import Reservation, ReservationRoom
 from apps.rooms.models import Room, RoomType
@@ -771,7 +771,6 @@ class OperationalAlertsAutomationTests(TestCase):
         self.reservation_status = self._md(MasterData.Group.RESERVATION_STATUS, "FINALIZADA", "Finalizada")
         self.reservation_origin = self._md(MasterData.Group.RESERVATION_ORIGIN, "WEB", "Web")
         self.invoice_status = self._md(MasterData.Group.INVOICE_STATUS, "PAGADA", "Pagada")
-        self.payment_method = self._md(MasterData.Group.PAYMENT_METHOD, "EFECTIVO", "Efectivo")
         self.refund_status_approved = self._md(
             MasterData.Group.PAYMENT_REFUND_STATUS,
             "APROBADO",
@@ -787,6 +786,9 @@ class OperationalAlertsAutomationTests(TestCase):
             legal_name="Hotel Alertas SAS",
             city="Riohacha",
             currency="COP",
+        )
+        self.payment_method = PaymentMethod.objects.create(
+            hotel_settings=self.hotel, code="EFECTIVO", name="Efectivo"
         )
         self.floor = HotelFloor.objects.create(
             hotel_settings=self.hotel,

@@ -7,6 +7,8 @@ from accounts.models import Resource, Role, SoftDeleteMarker, User
 from apps.hotel_settings.models import HotelFloor, HotelSettings
 from apps.inventory.models import InventoryMovement, InventoryRestockAlert, Item, RoomInventory
 from apps.inventory.serializers import RoomInventorySerializer
+from apps.master_data.models import MasterData
+from apps.rooms.models import Room, RoomType
 from apps.inventory.views import (
     InventoryMovementViewSet,
     ItemViewSet,
@@ -692,3 +694,93 @@ class InventoryMovementDeletedListPermissionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         visible_ids = [row["id"] for row in response.data]
         self.assertIn(self.movement.id, visible_ids)
+
+
+class RoomInventoryRoomFilterTests(TestCase):
+    """`?room=<id>`: la revision de salida pide el inventario de una sola habitacion."""
+
+    def _md(self, group, code, name=None):
+        return MasterData.objects.update_or_create(
+            group=group,
+            code=code,
+            defaults={"name": name or code.title(), "sort_order": 1, "is_active": True},
+        )[0]
+
+    def setUp(self):
+        self.factory = APIRequestFactory()
+
+        room_status = self._md(MasterData.Group.ROOM_STATUS, "DISPONIBLE", "Disponible")
+        item_type = self._md(MasterData.Group.ITEM_TYPE, "AMENITY", "Amenidad")
+        unit_measure = self._md(MasterData.Group.UNIT_MEASURE, "UND", "Unidad")
+
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Filtro")
+        floor = HotelFloor.objects.create(
+            hotel_settings=self.hotel,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=2,
+        )
+        room_type = RoomType.objects.create(
+            hotel_settings=self.hotel, code="STD", name="Standard", capacity=2
+        )
+        self.room_a = Room.objects.create(
+            number="101", room_type=room_type, floor=floor, status=room_status
+        )
+        self.room_b = Room.objects.create(
+            number="102", room_type=room_type, floor=floor, status=room_status
+        )
+
+        item = Item.objects.create(
+            hotel_settings=self.hotel,
+            item_type=item_type,
+            unit_measure=unit_measure,
+            name="Toalla",
+            sku="TOW-900",
+            stock=50,
+            minimum_stock=5,
+            maximum_stock=100,
+            cost_price=1000,
+            sale_price=2000,
+            is_active=True,
+            item_purpose=Item.Purpose.ROOM,
+        )
+        RoomInventory.objects.create(
+            room=self.room_a, item=item, quantity=1, minimum_quantity=3, is_active=True
+        )
+        RoomInventory.objects.create(
+            room=self.room_b, item=item, quantity=4, minimum_quantity=3, is_active=True
+        )
+
+        self.user = User.objects.create_user(
+            username="inventory_reader",
+            password="test-pass-123",
+            hotel_settings=self.hotel,
+        )
+        role = Role.objects.create(name="Inventory Reader", slug="inventory-reader")
+        resource, _ = Resource.objects.get_or_create(
+            key="room-inventory.read",
+            defaults={"name": "Room Inventory Read", "link_backend": "/api/room-inventory/"},
+        )
+        role.resources.add(resource)
+        self.user.roles.add(role)
+
+    def _list(self, query=""):
+        request = self.factory.get(f"/api/room-inventory/{query}")
+        force_authenticate(request, user=self.user)
+        response = RoomInventoryViewSet.as_view({"get": "list"})(request)
+        self.assertEqual(response.status_code, 200, response.data)
+        return response.data
+
+    def test_without_filter_returns_the_whole_hotel(self):
+        self.assertEqual(len(self._list()), 2)
+
+    def test_room_filter_narrows_to_one_room(self):
+        rows = self._list(f"?room={self.room_a.id}")
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["room"], self.room_a.id)
+
+    def test_invalid_room_filter_is_ignored(self):
+        # Un valor no numerico no debe romper la vista ni vaciar el listado.
+        self.assertEqual(len(self._list("?room=abc")), 2)

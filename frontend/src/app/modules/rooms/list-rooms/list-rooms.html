@@ -3,6 +3,10 @@
     <div>
       <h1>Habitaciones</h1>
       <p>Inventario de habitaciones, estados y movimientos de huespedes.</p>
+      <p class="page-occupancy" *ngIf="!loading">
+        <i class="fa-solid fa-hotel"></i>
+        {{ occupancyLabel }}
+      </p>
     </div>
 
     <div class="header-actions">
@@ -38,51 +42,27 @@
     Asignalo abriendo la habitacion o desde el boton <strong>Tipos</strong>.
   </p>
 
-  <section class="stats-grid">
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Disponibles</span>
-        <span class="stat-icon green"><i class="fa-solid fa-check"></i></span>
-      </div>
-      <div class="stat-value">{{ availableCount }}</div>
-      <div class="stat-note">de {{ totalRooms }} hab.</div>
-    </article>
+  <p class="setup-hint is-error" *ngIf="quickActionError">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    {{ quickActionError }}
+  </p>
 
-    <article class="stat-card">
+  <section class="stats-grid" aria-label="Resumen del dia">
+    <button
+      type="button"
+      class="stat-card"
+      *ngFor="let card of daySummary; trackBy: trackBySummary"
+      [ngClass]="['tone-' + card.tone, card.count ? '' : 'is-clear']"
+      [class.active]="operationalFilter === card.filter"
+      [title]="card.count ? 'Filtrar el tablero por: ' + card.label : card.label + ': nada pendiente'"
+      (click)="toggleOperationalFilter(card.filter)">
       <div class="stat-head">
-        <span>Reservadas</span>
-        <span class="stat-icon violet"><i class="fa-regular fa-calendar-check"></i></span>
+        <span>{{ card.label }}</span>
+        <span class="stat-icon"><i [class]="card.icon"></i></span>
       </div>
-      <div class="stat-value">{{ reservedCount }}</div>
-      <div class="stat-note">de {{ totalRooms }} hab.</div>
-    </article>
-
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Ocupadas</span>
-        <span class="stat-icon blue"><i class="fa-solid fa-user-group"></i></span>
-      </div>
-      <div class="stat-value">{{ occupiedCount }}</div>
-      <div class="stat-note">de {{ totalRooms }} hab.</div>
-    </article>
-
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Por salir hoy</span>
-        <span class="stat-icon yellow"><i class="fa-solid fa-right-from-bracket"></i></span>
-      </div>
-      <div class="stat-value">{{ leavingTodayCount }}</div>
-      <div class="stat-note">de {{ totalRooms }} hab.</div>
-    </article>
-
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Mantenimiento</span>
-        <span class="stat-icon red"><i class="fa-solid fa-screwdriver-wrench"></i></span>
-      </div>
-      <div class="stat-value">{{ maintenanceCount }}</div>
-      <div class="stat-note">de {{ totalRooms }} hab.</div>
-    </article>
+      <div class="stat-value">{{ card.count }}</div>
+      <div class="stat-note">{{ card.note }}</div>
+    </button>
   </section>
 
   <section class="filters-card">
@@ -96,7 +76,7 @@
             type="text"
             [(ngModel)]="search"
             (input)="applyFilters()"
-            placeholder="Numero o descripcion..." />
+            placeholder="Numero, huesped, documento, reserva o estado..." />
         </div>
       </label>
 
@@ -123,14 +103,46 @@
         <button type="button" [class.active]="viewMode === 'table'" (click)="setViewMode('table')" title="Vista tabla">
           <i class="fa-solid fa-list"></i>
         </button>
-        <button type="button" [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')" title="Vista cuadricula">
+        <button type="button" [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')" title="Vista cuadricula por piso">
           <i class="fa-solid fa-grip"></i>
         </button>
-        <button type="button" (click)="loadModuleData()" [disabled]="loading" title="Actualizar">
+        <button type="button" [class.active]="viewMode === 'board'" (click)="setViewMode('board')" title="Vista tablero por estado">
+          <i class="fa-solid fa-table-columns"></i>
+        </button>
+        <button type="button" (click)="loadModuleData(true)" [disabled]="loading" title="Actualizar">
           <i class="fa-solid fa-rotate-right"></i>
         </button>
         <button type="button" (click)="exportCsv()" title="Exportar">
           <i class="fa-solid fa-download"></i>
+        </button>
+        <button
+          type="button"
+          *ngIf="hasActiveFilters()"
+          class="clear-filters-btn"
+          (click)="clearFilters()"
+          title="Limpiar filtros">
+          <i class="fa-solid fa-filter-circle-xmark"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="priority-filter">
+      <div>
+        <span>Prioridades</span>
+        <small>Atajos para trabajo de recepcion</small>
+      </div>
+
+      <div class="priority-filter-options">
+        <button
+          type="button"
+          *ngFor="let filter of visibleOperationalFilters"
+          [class.active]="operationalFilter === filter.key"
+          [class.is-empty]="filter.key !== 'ALL' && getOperationalCount(filter.key) === 0"
+          [title]="filter.hint"
+          (click)="selectOperationalFilter(filter.key)">
+          <i [class]="filter.icon"></i>
+          {{ filter.label }}
+          <span>{{ getOperationalCount(filter.key) }}</span>
         </button>
       </div>
     </div>
@@ -189,6 +201,17 @@
           </p>
           <p class="room-price">{{ getPriceLabel(room) }}<small>/ noche</small></p>
 
+          <div class="room-badges" *ngIf="hasCardBadges(room)">
+            <span
+              class="room-badge"
+              *ngFor="let badge of getCardBadges(room); trackBy: trackByBadge"
+              [ngClass]="'badge-' + badge.tone"
+              [title]="badge.title">
+              <i [class]="badge.icon"></i>
+              {{ badge.label }}
+            </span>
+          </div>
+
           <div class="reservation-info" *ngIf="hasReservationInfo(room)">
             <p>
               <i class="fa-regular fa-user"></i>
@@ -210,9 +233,22 @@
           </p>
 
           <div class="room-actions">
-            <button type="button" class="action-btn card-main-btn" (click)="$event.stopPropagation(); openRoom(room)">
+            <button
+              type="button"
+              class="action-btn card-main-btn"
+              [ngClass]="getQuickActionClass(room)"
+              [disabled]="isQuickActionLoading(room)"
+              (click)="$event.stopPropagation(); runQuickAction(room)">
+              <i [class]="isQuickActionLoading(room) ? 'fa-solid fa-spinner fa-spin' : getQuickActionIcon(room)"></i>
+              {{ isQuickActionLoading(room) ? 'Procesando...' : getQuickActionLabel(room) }}
+            </button>
+            <button
+              type="button"
+              class="action-btn card-secondary-btn"
+              *ngIf="hasSecondaryManageAction(room)"
+              title="Gestionar habitacion"
+              (click)="$event.stopPropagation(); openRoom(room)">
               <i class="fa-solid fa-sliders"></i>
-              Gestionar
             </button>
           </div>
         </article>
@@ -229,6 +265,65 @@
       </div>
     </section>
   </ng-container>
+
+  <!-- ============ Vista tablero por estado ============ -->
+  <section class="board" *ngIf="!loading && !errorMessage && filteredRooms.length && viewMode === 'board'">
+    <article
+      class="board-column"
+      *ngFor="let column of boardColumns; trackBy: trackByColumn"
+      [ngClass]="getStatusClassFor(column.key)">
+      <header class="board-column-head">
+        <span class="board-column-title">
+          <span class="status-dot" [ngStyle]="{ 'background-color': getStatusStyleFor(column.key).dot }"></span>
+          {{ column.label }}
+        </span>
+        <span class="board-column-count">{{ column.rooms.length }}</span>
+      </header>
+
+      <div class="board-column-body">
+        <p class="board-column-empty" *ngIf="!column.rooms.length">Sin habitaciones</p>
+
+        <article
+          class="board-room"
+          *ngFor="let room of column.rooms; trackBy: trackByRoom"
+          (click)="openRoom(room)">
+          <header>
+            <strong>{{ room.number }}</strong>
+            <small>{{ room.floor_name || 'Sin piso' }}</small>
+          </header>
+
+          <p class="board-room-guest" *ngIf="hasReservationInfo(room)">
+            <i class="fa-regular fa-user"></i>
+            {{ getGuestLabel(room) }}
+          </p>
+          <p class="board-room-meta" *ngIf="!hasReservationInfo(room)">
+            {{ getCardTypeSummary(room) }}
+          </p>
+
+          <div class="room-badges is-compact" *ngIf="hasCardBadges(room)">
+            <span
+              class="room-badge"
+              *ngFor="let badge of getCardBadges(room); trackBy: trackByBadge"
+              [ngClass]="'badge-' + badge.tone"
+              [title]="badge.title">
+              <i [class]="badge.icon"></i>
+              {{ badge.label }}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            class="action-btn card-main-btn"
+            [ngClass]="getQuickActionClass(room)"
+            [disabled]="isQuickActionLoading(room)"
+            (click)="$event.stopPropagation(); runQuickAction(room)">
+            <i [class]="isQuickActionLoading(room) ? 'fa-solid fa-spinner fa-spin' : getQuickActionIcon(room)"></i>
+            {{ isQuickActionLoading(room) ? 'Procesando...' : getQuickActionLabel(room) }}
+          </button>
+        </article>
+      </div>
+    </article>
+  </section>
 
   <!-- ============ Vista tabla ============ -->
   <section class="table-card" *ngIf="!loading && !errorMessage && filteredRooms.length && viewMode === 'table'">
@@ -262,6 +357,17 @@
                 <span class="status-dot" [ngStyle]="{ 'background-color': getStatusStyle(room).dot }"></span>
                 {{ getStatusLabel(room) }}
               </span>
+
+              <div class="room-badges is-compact" *ngIf="hasCardBadges(room)">
+                <span
+                  class="room-badge"
+                  *ngFor="let badge of getCardBadges(room); trackBy: trackByBadge"
+                  [ngClass]="'badge-' + badge.tone"
+                  [title]="badge.title">
+                  <i [class]="badge.icon"></i>
+                  {{ badge.label }}
+                </span>
+              </div>
             </td>
             <td>{{ room.floor_name || '--' }}</td>
             <td class="notes-cell">{{ room.notes || '--' }}</td>
@@ -303,6 +409,14 @@
     (manageRates)="openRatesManager($event)"
     (manageRoomTypes)="openRoomTypesManager()">
   </app-room-modal>
+
+  <app-room-check-modal
+    *ngIf="checkModalRoom"
+    [room]="checkModalRoom"
+    [mode]="checkModalMode"
+    (closed)="closeCheckModal()"
+    (confirmed)="onCheckConfirmed()">
+  </app-room-check-modal>
 
   <app-room-types-manager
     *ngIf="showRoomTypesManager"

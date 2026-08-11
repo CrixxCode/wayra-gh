@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from accounts.permissions import user_has_scopes
 from accounts.tenancy import TenantSerializerMixin, is_effective_global_admin
 from apps.hotel_settings.models import HotelFloor, HotelSettings
 from apps.master_data.models import MasterData
@@ -9,6 +10,7 @@ from apps.reservations.services import (
     is_reservation_in_house,
 )
 from .models import Rate, Amenity, Room, MaintenanceOrder, CleaningTask, RoomType
+from .operations import EMPTY_SIGNALS, build_room_operations_map
 
 AMENITY_ICON_CATALOG = {
     "fa-solid fa-bed",
@@ -28,6 +30,36 @@ def _format_time(value):
     if not value:
         return None
     return value.strftime("%H:%M")
+
+
+# Datos personales y financieros del huesped que viajan en el listado de habitaciones.
+# Recepcion los necesita para cobrar y para identificar a quien tiene enfrente; un rol
+# operativo que solo mira el estado de las habitaciones, no.
+GUEST_DATA_SCOPE = "rooms.read_guest_data"
+
+
+_GUEST_DATA_CACHE_KEY = "_can_read_guest_data"
+
+
+def _can_read_guest_data(context) -> bool:
+    """El resultado se memoriza en el contexto: es el mismo para toda la peticion.
+
+    Sin la cache, `user.resource_keys()` consultaba la base una vez por habitacion y
+    por campo, que era justo el N+1 que `build_room_operations_map` evita.
+    """
+    if _GUEST_DATA_CACHE_KEY in context:
+        return context[_GUEST_DATA_CACHE_KEY]
+
+    request = context.get("request")
+    if request is None:
+        # Sin request no hay a quien preguntarle: se asume uso interno (comandos,
+        # servicios) y se devuelve el dato completo.
+        allowed = True
+    else:
+        allowed = user_has_scopes(getattr(request, "user", None), [GUEST_DATA_SCOPE])
+
+    context[_GUEST_DATA_CACHE_KEY] = allowed
+    return allowed
 
 
 class AmenitySerializer(serializers.ModelSerializer):
@@ -262,6 +294,7 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
     status = MasterDataCodeField(group=MasterData.Group.ROOM_STATUS)
     status_label = serializers.CharField(source="status.name", read_only=True)
     active_reservation = serializers.SerializerMethodField()
+    operations = serializers.SerializerMethodField()
 
     amenities = AmenitySerializer(many=True, read_only=True)
     amenity_ids = serializers.PrimaryKeyRelatedField(
@@ -291,6 +324,7 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             "status",
             "status_label",
             "active_reservation",
+            "operations",
             "notes",
             "amenities",
             "amenity_ids",
@@ -419,7 +453,47 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             "real_check_in": reservation.real_check_in,
             "real_check_out": reservation.real_check_out,
             "client_name": reservation.client.full_name if reservation.client_id else None,
+            # El documento es como recepcion identifica al huesped de verdad: se expone
+            # para que el buscador del tablero pueda encontrarlo sin abrir la reserva,
+            # pero solo a quien tenga el scope de datos del huesped.
+            "client_document": (
+                reservation.client.document_number
+                if reservation.client_id and _can_read_guest_data(self.context)
+                else None
+            ),
         }
+
+    def get_operations(self, obj):
+        """Limpieza pendiente, mantenimiento abierto y saldo por cobrar.
+
+        `RoomViewSet` precalcula el mapa para toda la página y lo deja en el contexto;
+        el fallback es para cuando el serializer se usa suelto (una sola habitación).
+        """
+        cached = self.context.get("room_operations")
+        if cached is None:
+            cached = build_room_operations_map([obj])
+
+        signals = cached.get(obj.id, EMPTY_SIGNALS)
+        # `null` (y no "0.00") cuando el usuario no puede ver plata: cero significaria
+        # "no debe nada", que es una afirmacion distinta a "no te corresponde saberlo".
+        show_money = _can_read_guest_data(self.context)
+
+        def money(key):
+            return f"{signals[key]:.2f}" if show_money else None
+
+        return {
+            "pending_cleaning": signals["pending_cleaning"],
+            "open_maintenance": signals["open_maintenance"],
+            "urgent_maintenance": signals["urgent_maintenance"],
+            "low_inventory": signals["low_inventory"],
+            # Saldo de la reserva: el mismo que muestra el modal.
+            "reservation_pending": money("reservation_pending"),
+            # Los tres de abajo son la mirada desde facturacion, no desde la reserva.
+            "pending_balance": money("pending_balance"),
+            "unbilled_charges": money("unbilled_charges"),
+            "pending_total": money("pending_total"),
+        }
+
 
 class MaintenanceOrderSerializer(TenantSerializerMixin, serializers.ModelSerializer):
     tenant_field_name = "hotel_settings"
@@ -748,8 +822,12 @@ class RoomPanelSerializer(serializers.ModelSerializer):
             "client": {
                 "id": reservation.client_id,
                 "full_name": reservation.client.full_name if reservation.client_id else None,
+                # Mismo criterio que en el listado: sin el scope, el documento no viaja.
+                # Si no, bastaria con abrir el modal para esquivar la restriccion.
                 "document_number": (
-                    reservation.client.document_number if reservation.client_id else None
+                    reservation.client.document_number
+                    if reservation.client_id and _can_read_guest_data(self.context)
+                    else None
                 ),
             },
         }

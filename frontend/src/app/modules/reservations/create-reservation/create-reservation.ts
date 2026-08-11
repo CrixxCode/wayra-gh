@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { PaymentMethodI } from '../../../services/payment-method';
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { AbstractControl, ReactiveFormsModule, UntypedFormArray, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -39,7 +40,7 @@ export class CreateReservation implements OnChanges, OnInit {
   @Input() origins: MasterDataI[] = [];
   @Input() documentTypes: MasterDataI[] = [];
   @Input() reservationPolicies: ReservationPolicyI[] = [];
-  @Input() paymentMethods: MasterDataI[] = [];
+  @Input() paymentMethods: PaymentMethodI[] = [];
   @Input() depositStatuses: MasterDataI[] = [];
   @Input() rooms: RoomI[] = [];
   @Input() rates: RateI[] = [];
@@ -170,10 +171,10 @@ export class CreateReservation implements OnChanges, OnInit {
       .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es-CO'));
   }
 
-  get availablePaymentMethods(): MasterDataI[] {
+  get availablePaymentMethods(): PaymentMethodI[] {
     return [...this.paymentMethods]
       .filter((method) => method.is_active !== false)
-      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es-CO'));
   }
 
   get hasInitialDepositAmount(): boolean {

@@ -177,11 +177,11 @@ class Payment(models.Model):
         on_delete=models.CASCADE,
         related_name="payments",
     )
+    # Metodo de pago del hotel, no del catalogo global (ver hotel_settings.PaymentMethod).
     payment_method = models.ForeignKey(
-        MasterData,
+        "hotel_settings.PaymentMethod",
         on_delete=models.PROTECT,
         related_name="payments_by_method",
-        limit_choices_to={"group": MasterData.Group.PAYMENT_METHOD},
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_date = models.DateTimeField(auto_now_add=True)

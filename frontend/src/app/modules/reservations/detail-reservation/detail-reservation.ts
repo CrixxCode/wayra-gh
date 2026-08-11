@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { PaymentMethodI } from '../../../services/payment-method';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
@@ -39,7 +40,7 @@ type CheckoutInventoryLine = {
 export class DetailReservation implements OnChanges {
   @Input() reservationId: number | null = null;
   @Input() preloaded: ReservationDetailI | null = null;
-  @Input() paymentMethods: MasterDataI[] = [];
+  @Input() paymentMethods: PaymentMethodI[] = [];
   @Input() depositStatuses: MasterDataI[] = [];
 
   @Output() closed = new EventEmitter<void>();

@@ -44,6 +44,21 @@
               }
             </div>
           </div>
+
+          <!-- Sin hotel elegido, todo el formulario esta deshabilitado. Decirlo, porque
+               si no la pantalla parece rota o parece que faltaran permisos. -->
+          @if (mustSelectHotel) {
+            <p
+              class="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800"
+            >
+              <i class="fa-solid fa-circle-info mt-0.5"></i>
+              <span>
+                Eres administrador de plataforma: <strong>elige primero el hotel</strong> que quieres
+                configurar. Hasta entonces los campos estan bloqueados para no editar el hotel
+                equivocado.
+              </span>
+            </p>
+          }
         </div>
       </section>
     }
@@ -786,6 +801,162 @@
             >
               Restaurar
             </button>
+          </article>
+        </section>
+      }
+
+      @if (activeTab === 'payments') {
+        <section class="grid gap-4 xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+          <!-- Alta y edicion -->
+          <article class="min-w-0 space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div class="flex items-start gap-3">
+              <span class="grid h-9 w-9 place-items-center rounded-full bg-emerald-50 text-emerald-600">
+                <i class="fa-solid fa-credit-card"></i>
+              </span>
+              <div>
+                <h3 class="text-base font-semibold text-gray-900">
+                  {{ isEditingPaymentMethod ? 'Editar metodo de pago' : 'Nuevo metodo de pago' }}
+                </h3>
+                <p class="text-sm text-gray-500">
+                  Los metodos son propios de este hotel y son los que apareceran al cobrar.
+                </p>
+              </div>
+            </div>
+
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Nombre</span>
+              <input
+                type="text"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                [(ngModel)]="paymentMethodForm.name"
+                [disabled]="isActiveTabReadOnly"
+                placeholder="Efectivo, Nequi, Bancolombia..." />
+            </label>
+
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tipo</span>
+              <select
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                [(ngModel)]="paymentMethodForm.method_type"
+                [disabled]="isActiveTabReadOnly">
+                @for (type of paymentMethodTypes; track type.value) {
+                  <option [ngValue]="type.value">{{ type.label }}</option>
+                }
+              </select>
+            </label>
+
+            <!-- El numero de cuenta solo tiene sentido en transferencias. -->
+            @if (paymentMethodNeedsAccount) {
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Numero de cuenta
+                </span>
+                <input
+                  type="text"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  [(ngModel)]="paymentMethodForm.account_number"
+                  [disabled]="isActiveTabReadOnly"
+                  placeholder="Cuenta o numero destino" />
+                <small class="mt-1 block text-xs text-gray-500">
+                  Es la cuenta a la que el huesped consigna.
+                </small>
+              </label>
+            }
+
+            @if (paymentMethodsError) {
+              <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ paymentMethodsError }}</p>
+            }
+
+            <div class="flex gap-2">
+              <button
+                type="button"
+                class="flex-1 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                [disabled]="!canSavePaymentMethod"
+                (click)="savePaymentMethod()">
+                {{ paymentMethodSaving ? 'Guardando...' : (isEditingPaymentMethod ? 'Guardar cambios' : 'Agregar metodo') }}
+              </button>
+              @if (isEditingPaymentMethod) {
+                <button
+                  type="button"
+                  class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700"
+                  (click)="cancelPaymentMethodEdit()">
+                  Cancelar
+                </button>
+              }
+            </div>
+          </article>
+
+          <!-- Listado -->
+          <article class="min-w-0 space-y-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h3 class="text-base font-semibold text-gray-900">Metodos de este hotel</h3>
+                <p class="text-sm text-gray-500">
+                  {{ activePaymentMethodsCount }} activo(s) de {{ paymentMethods.length }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600"
+                (click)="loadPaymentMethods()"
+                [disabled]="paymentMethodsLoading">
+                <i class="fa-solid fa-rotate-right"></i>
+              </button>
+            </div>
+
+            @if (paymentMethodsLoading) {
+              <p class="py-6 text-center text-sm text-gray-500">Cargando metodos de pago...</p>
+            } @else if (!paymentMethods.length) {
+              <p class="rounded-lg bg-amber-50 px-3 py-3 text-sm text-amber-800">
+                Este hotel no tiene metodos de pago. Sin al menos uno activo no se podran registrar
+                cobros ni cerrar un check-out.
+              </p>
+            } @else {
+              <ul class="divide-y divide-gray-100">
+                @for (method of paymentMethods; track method.id) {
+                  <li class="flex items-center justify-between gap-3 py-3">
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-semibold text-gray-900">
+                        {{ method.name }}
+                        @if (!method.is_active) {
+                          <span class="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">Inactivo</span>
+                        }
+                      </p>
+                      <p class="truncate text-xs text-gray-500">
+                        {{ method.method_type_label || method.method_type }}
+                        @if (method.account_number) {
+                          · Cuenta {{ method.account_number }}
+                        }
+                      </p>
+                    </div>
+
+                    <div class="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        class="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-600"
+                        [disabled]="isActiveTabReadOnly"
+                        (click)="togglePaymentMethodActive(method)">
+                        {{ method.is_active ? 'Desactivar' : 'Activar' }}
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-600"
+                        [disabled]="isActiveTabReadOnly"
+                        (click)="editPaymentMethod(method)">
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600"
+                        [disabled]="isActiveTabReadOnly"
+                        (click)="deletePaymentMethod(method)">
+                        Eliminar
+                      </button>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
           </article>
         </section>
       }

@@ -22,12 +22,17 @@ export class RoomInventoryService {
   ) {}
 
   listRoomInventory(filters?: {
+    room?: number;
     search?: string;
     ordering?: string;
     include_inactive?: boolean;
     include_deleted?: boolean;
   }): Observable<RoomInventoryI[]> {
     let params = new HttpParams();
+
+    if (typeof filters?.room === 'number') {
+      params = params.set('room', String(filters.room));
+    }
 
     if (filters?.search?.trim()) {
       params = params.set('search', filters.search.trim());

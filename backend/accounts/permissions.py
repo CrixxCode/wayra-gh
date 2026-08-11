@@ -149,3 +149,21 @@ class HasResourcePermission(BasePermission):
                     extra_scopes.append(deleted_scope)
 
         return [*scopes, *extra_scopes]
+
+
+def user_has_scopes(user, scopes) -> bool:
+    """Devuelve True si el usuario cumple **todos** los scopes indicados.
+
+    Sirve para decisiones *dentro* de una vista que ya pasó el permiso de entrada —por
+    ejemplo, ocultar un campo sensible en el serializer— sin duplicar la normalizacion
+    de separadores ni el manejo de comodines que ya hace `HasResourcePermission`.
+    """
+    if not user or not user.is_authenticated:
+        return False
+
+    if is_effective_global_admin(user):
+        return True
+
+    checker = HasResourcePermission()
+    user_keys = checker._normalize_scope_keys(user.resource_keys())
+    return checker._has_required_scopes(user_keys, list(scopes))

@@ -73,6 +73,33 @@ export interface HotelFloorI {
   range_display?: string;
 }
 
+/**
+ * Señales operativas que `/api/rooms/` calcula en bloque para el tablero de recepcion:
+ * limpieza pendiente, mantenimiento abierto y lo que el huesped todavia debe.
+ * Los montos llegan como string decimal para no perder precision.
+ */
+export interface RoomOperationsI {
+  pending_cleaning: number;
+  open_maintenance: number;
+  /** Subconjunto de open_maintenance con prioridad alta o urgente. */
+  urgent_maintenance: number;
+  /** Items de la habitacion por debajo de su minimo. */
+  low_inventory: number;
+  // Los montos llegan en `null` cuando el usuario no tiene `rooms.read_guest_data`.
+  // `null` significa "no te corresponde verlo"; "0.00" significa "no debe nada".
+  /**
+   * Lo que el huesped debe por la reserva activa: estadia + paquete + cargos, menos
+   * descuentos y abonos. Es el mismo numero que muestra el modal de la habitacion.
+   */
+  reservation_pending: string | null;
+  /** Facturas emitidas y sin pagar de la reserva activa. */
+  pending_balance: string | null;
+  /** Cargos de la reserva activa que aun no se facturan (consumos). */
+  unbilled_charges: string | null;
+  /** pending_balance + unbilled_charges. */
+  pending_total: string | null;
+}
+
 export interface RoomI {
   id: number;
   number: string;
@@ -91,6 +118,7 @@ export interface RoomI {
   floor_name?: string;
   florr_number?: number;
   active_reservation?: RoomActiveReservationI | null;
+  operations?: RoomOperationsI | null;
 }
 
 export interface RoomRateMiniI {
@@ -131,6 +159,7 @@ export interface RoomActiveReservationI {
   real_check_in?: string | null;
   real_check_out?: string | null;
   client_name?: string | null;
+  client_document?: string | null;
   client?: {
     id?: number | null;
     full_name?: string | null;
