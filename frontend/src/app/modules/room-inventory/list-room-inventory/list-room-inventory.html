@@ -1,4 +1,5 @@
 <div class="room-inventory-page">
+  <ng-container *ngIf="!embedded">
   <header class="page-header">
     <div>
       <h1>Inventario por Habitacion</h1>
@@ -10,7 +11,9 @@
       Nueva asignacion
     </button>
   </header>
+  </ng-container>
 
+  <ng-container *ngIf="!embedded">
   <section class="stats-grid">
     <article class="stat-card">
       <div class="stat-head">
@@ -57,6 +60,7 @@
       <div class="stat-note">items asignados</div>
     </article>
   </section>
+  </ng-container>
 
   <section class="gh-filters-card">
     <div class="gh-filters-grid room-inventory-filters-grid">
@@ -110,7 +114,11 @@
       </div>
 
       <div class="gh-action-group">
-        <button type="button" class="gh-btn gh-btn-light" (click)="refreshRoomInventory()" [disabled]="loading">
+        <button
+          type="button"
+          class="gh-btn gh-btn-light"
+          (click)="refreshRoomInventory(true)"
+          [disabled]="loading || refreshing">
           <i class="fa-solid fa-rotate-right"></i>
           Actualizar
         </button>
@@ -181,43 +189,73 @@
     </p>
   </section>
 
-  <section class="catalog-sections" *ngIf="!loading && !errorMessage && filteredRoomInventory.length > 0">
+  <section
+    class="catalog-sections"
+    [class.is-refreshing]="refreshing"
+    *ngIf="!loading && !errorMessage && filteredRoomInventory.length > 0">
     <ng-container *ngIf="viewMode === 'cards'; else tableView">
       <div class="rooms-grid">
-        <article class="room-summary-card" *ngFor="let group of groupedRoomInventory; trackBy: trackByGroup" (click)="openRoomDetail(group)">
-          <div class="room-summary-cover" [ngStyle]="{ background: getGroupTone(group).cover }">
-            <span
-              class="room-coverage-chip"
-              [ngStyle]="{
-                'background-color': getRoomCoverageTone(group).bg,
-                color: getRoomCoverageTone(group).color
-              }">
-              {{ getRoomCoverageLabel(group) }}
-            </span>
-          </div>
-
-          <div class="room-summary-body">
-            <h3>{{ group.label }}</h3>
-            <p>{{ getRoomItemsPreview(group) }}</p>
-
-            <div class="room-summary-metrics">
-              <div>
-                <span>Items</span>
-                <strong>{{ getRoomTotalItems(group) }}</strong>
-              </div>
-              <div>
-                <span>Activos</span>
-                <strong>{{ getRoomActiveItems(group) }}</strong>
-              </div>
-              <div>
-                <span>Bajo min.</span>
-                <strong>{{ getRoomLowCoverageItems(group) }}</strong>
-              </div>
-              <div>
-                <span>Unidades</span>
-                <strong>{{ getRoomTotalUnits(group) }}</strong>
+        <article
+          class="gh-inv-card is-clickable"
+          *ngFor="let group of groupedRoomInventory; trackBy: trackByGroup"
+          [ngStyle]="{
+            '--inv-tone': getRoomCoverageBarColor(group),
+            '--inv-tone-soft': getRoomCoverageTone(group).bg
+          }"
+          (click)="openRoomDetail(group)">
+          <div class="gh-inv-head">
+            <span class="gh-inv-icon"><i class="fa-solid fa-bed"></i></span>
+            <div class="gh-inv-titles">
+              <h3 [title]="group.label">{{ group.label }}</h3>
+              <div class="gh-inv-tags">
+                <span class="gh-inv-tag">{{ getRoomTotalItems(group) }} item(s)</span>
+                <span class="gh-inv-tag">{{ getRoomTotalUnits(group) }} unidades</span>
               </div>
             </div>
+          </div>
+
+          <div class="gh-inv-body">
+            <!-- Cobertura: cuanta de su dotacion esta completa, sin contar linea a linea. -->
+            <div class="gh-inv-gauge">
+              <div class="gh-inv-gauge-top">
+                <span class="gh-inv-amount">
+                  <strong>{{ getRoomCoveragePercent(group) }}%</strong>
+                  <span>de la dotacion completa</span>
+                </span>
+
+                <span
+                  class="gh-inv-state"
+                  [ngStyle]="{
+                    'background-color': getRoomCoverageTone(group).bg,
+                    color: getRoomCoverageTone(group).color
+                  }">
+                  {{ getRoomCoverageLabel(group) }}
+                </span>
+              </div>
+
+              <div class="gh-inv-bar">
+                <i [style.width.%]="getRoomCoveragePercent(group)"></i>
+              </div>
+
+              <div class="gh-inv-scale">
+                <span>{{ getRoomActiveItems(group) }} activos</span>
+                <span>{{ getRoomLowCoverageItems(group) }} bajo minimo</span>
+              </div>
+            </div>
+
+            <dl class="gh-inv-meta">
+              <div class="is-wide">
+                <dt>Contiene</dt>
+                <dd [title]="getRoomItemsPreview(group)">{{ getRoomItemsPreview(group) }}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="gh-inv-foot" (click)="$event.stopPropagation()">
+            <button type="button" class="gh-inv-btn is-primary" (click)="openRoomDetail(group)">
+              <i class="fa-regular fa-eye"></i>
+              Ver dotacion
+            </button>
           </div>
         </article>
       </div>
@@ -335,8 +373,10 @@
   <app-detail-room-inventory
     *ngIf="selectedRoomGroup"
     [roomGroup]="selectedRoomGroup"
+    [savingRecordId]="savingRecordId"
     (closed)="closeDetail()"
     (statusRequested)="toggleRoomInventoryStatus($event)"
+    (quantityRequested)="updateRecordQuantity($event)"
     (deleteRequested)="confirmDelete($event)">
   </app-detail-room-inventory>
 </div>

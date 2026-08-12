@@ -1,6 +1,5 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
 import { BillingService } from '../../../services/billing';
@@ -12,7 +11,7 @@ import { InvoiceI, PaymentI, PaymentRefundI } from '../../billing/billing-model'
 @Component({
   selector: 'app-detail-payment',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule],
   templateUrl: './detail-payment.html',
   styleUrls: ['./detail-payment.css']
 })
@@ -23,9 +22,11 @@ export class DetailPayment implements OnInit, OnChanges {
   @Output() closed = new EventEmitter<void>();
   @Output() paymentUpdated = new EventEmitter<PaymentI>();
 
+  /** Pide abrir el modal de reembolso para este pago. */
+  @Output() refundRequested = new EventEmitter<PaymentI>();
+
   loading = false;
   updating = false;
-  submittingRefund = false;
   errorMessage = '';
   infoMessage = '';
   isAdmin = false;
@@ -35,21 +36,12 @@ export class DetailPayment implements OnInit, OnChanges {
   invoicePayments: PaymentI[] = [];
   invoiceRefunds: PaymentRefundI[] = [];
   paymentRefunds: PaymentRefundI[] = [];
-  readonly refundForm;
 
   constructor(
     private billingService: BillingService,
     private confirmationService: ConfirmationService,
-    private fb: FormBuilder,
     private authService: AuthService
-  ) {
-    this.refundForm = this.fb.nonNullable.group({
-      amount: [0, [Validators.required, Validators.min(1)]],
-      reason: ['', [Validators.required, Validators.maxLength(500)]],
-      reference: ['', [Validators.maxLength(100)]],
-      notes: ['', [Validators.maxLength(1000)]]
-    });
-  }
+  ) {}
 
   ngOnInit(): void {
     this.loadUserContext();
@@ -110,11 +102,6 @@ export class DetailPayment implements OnInit, OnChanges {
     return refundable > 0 ? refundable : 0;
   }
 
-  get canRegisterRefund(): boolean {
-    if (!this.activePayment?.is_active || this.loading || this.submittingRefund || this.updating) return false;
-    return this.paymentRefundableAmount > 0;
-  }
-
   get paymentStatusLabel(): string {
     return this.activePayment?.is_active ? 'Activo' : 'Inactivo';
   }
@@ -171,65 +158,16 @@ export class DetailPayment implements OnInit, OnChanges {
     });
   }
 
-  registerRefund(): void {
-    if (!this.activePayment || !this.canRegisterRefund || this.submittingRefund) return;
-
-    if (this.refundForm.invalid) {
-      this.refundForm.markAllAsTouched();
-      return;
-    }
-
-    const amount = this.toNumber(this.refundForm.value.amount);
-    if (amount <= 0) {
-      this.errorMessage = 'El monto del reembolso debe ser mayor a 0.';
-      return;
-    }
-
-    if (amount > this.paymentRefundableAmount) {
-      this.errorMessage = 'El monto supera el saldo reembolsable de este pago.';
-      return;
-    }
-
-    const reason = String(this.refundForm.value.reason || '').trim();
-    if (!reason) {
-      this.errorMessage = 'Debes indicar el motivo del reembolso.';
-      return;
-    }
-
-    this.submittingRefund = true;
-    this.errorMessage = '';
-    this.infoMessage = '';
-
-    this.billingService
-      .createPaymentRefund({
-        payment: this.activePayment.id,
-        amount: this.roundAmount(amount),
-        reason,
-        reference: this.normalizeOptionalText(this.refundForm.value.reference),
-        notes: this.normalizeOptionalText(this.refundForm.value.notes)
-      })
-      .subscribe({
-        next: () => {
-          this.submittingRefund = false;
-          this.infoMessage = 'Reembolso registrado en estado pendiente. Un administrador debe aprobarlo.';
-          this.loadDetail();
-        },
-        error: (error) => {
-          this.submittingRefund = false;
-          this.errorMessage = this.extractErrorMessage(error, errorActionAlert('register', 'reembolso'));
-        }
-      });
-  }
-
-  resetRefundForm(): void {
-    this.refundForm.reset({
-      amount: this.roundAmount(this.getSuggestedRefundAmount()),
-      reason: '',
-      reference: '',
-      notes: ''
-    });
-    this.refundForm.markAsPristine();
-    this.refundForm.markAsUntouched();
+  /**
+   * El reembolso no se registra aqui.
+   *
+   * Consultar un pago y devolver dinero son dos intenciones distintas: la primera se
+   * repasa, la segunda se decide. El formulario vive en `RefundPayment`, que ademas
+   * recalcula el saldo reembolsable en el momento de decidir.
+   */
+  requestRefund(): void {
+    if (!this.activePayment?.is_active) return;
+    this.refundRequested.emit(this.activePayment);
   }
 
   formatCurrency(value: number): string {
@@ -328,7 +266,6 @@ export class DetailPayment implements OnInit, OnChanges {
       this.invoicePayments = [];
       this.invoiceRefunds = [];
       this.paymentRefunds = [];
-      this.resetRefundForm();
       return;
     }
 
@@ -340,10 +277,6 @@ export class DetailPayment implements OnInit, OnChanges {
     this.invoicePayments = [];
     this.invoiceRefunds = [];
     this.paymentRefunds = [];
-
-    if (!this.submittingRefund) {
-      this.resetRefundForm();
-    }
 
     this.loading = true;
     this.errorMessage = '';
@@ -378,9 +311,6 @@ export class DetailPayment implements OnInit, OnChanges {
           .filter((refund) => Number(refund.payment) === payment.id)
           .sort((a, b) => b.id - a.id);
 
-        if (!this.submittingRefund) {
-          this.resetRefundForm();
-        }
       },
       error: () => {
         this.loading = false;

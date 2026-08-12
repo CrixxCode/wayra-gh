@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.conf import settings
 from django.db import models
 
 from apps.master_data.models import MasterData
@@ -188,6 +189,16 @@ class Payment(models.Model):
     reference = models.CharField(max_length=100, blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+
+    # Quien registro el cobro. Anulable porque los pagos anteriores a este campo no
+    # tienen autor, y `SET_NULL` para que dar de baja a un empleado no borre el pago.
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_payments",
+        blank=True,
+        null=True,
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

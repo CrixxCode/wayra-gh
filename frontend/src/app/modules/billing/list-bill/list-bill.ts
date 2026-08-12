@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
 import { MasterDataI } from '../../../components/pages/master-data/master-data-model';
@@ -22,7 +22,17 @@ type InvoiceViewMode = 'cards' | 'table';
   styleUrls: ['./list-bill.css']
 })
 export class ListBill implements OnInit {
+  /** Dentro del contenedor de facturacion: sin encabezado ni metricas propias. */
+  @Input() embedded = false;
+
+  /** Un cambio aqui mueve las cifras de las otras dos pestañas. */
+  @Output() changed = new EventEmitter<void>();
+
+  /** Solo la primera carga: es la unica que puede dejar la pantalla vacia. */
   loading = false;
+
+  /** Recarga posterior a una accion: la tabla sigue en pantalla. */
+  refreshing = false;
   errorMessage = '';
   infoMessage = '';
 
@@ -94,14 +104,17 @@ export class ListBill implements OnInit {
     return this.formatCurrency(total);
   }
 
-  loadBillingData(): void {
-    this.loading = true;
+  loadBillingData(options: { silent?: boolean; force?: boolean } = {}): void {
+    // Una recarga silenciosa no toca `loading`, asi que la tabla no se desmonta y
+    // la pantalla no parpadea con cada accion.
+    if (options.silent) this.refreshing = true;
+    else this.loading = true;
     this.errorMessage = '';
     this.infoMessage = '';
 
     forkJoin({
       invoices: this.billingService
-        .listInvoices({ ordering: '-id', include_inactive: true })
+        .listInvoices({ ordering: '-id', include_inactive: true, forceRefresh: options.force })
         .pipe(catchError(() => of([] as InvoiceI[]))),
       reservationsPage: this.reservationService
         .listReservationsPage({ include_finished: true, ordering: '-id', page: 1, page_size: 100 })
@@ -121,6 +134,7 @@ export class ListBill implements OnInit {
     }).subscribe({
       next: ({ invoices, reservationsPage, invoiceStatuses }) => {
         this.loading = false;
+        this.refreshing = false;
         this.invoices = [...invoices].sort((a, b) => b.id - a.id);
         this.invoiceStatuses = invoiceStatuses;
         this.reservationsMap = new Map(
@@ -135,13 +149,24 @@ export class ListBill implements OnInit {
       },
       error: () => {
         this.loading = false;
+        this.refreshing = false;
         this.errorMessage = 'No fue posible cargar el modulo de facturacion.';
       }
     });
   }
 
-  refreshBillingData(): void {
-    this.loadBillingData();
+  /**
+   * Recarga tras una accion, o a peticion del boton "Actualizar".
+   *
+   * `force` **solo** para el boton: una escritura ya invalido el cache desde el servicio,
+   * asi que la recarga posterior va al servidor igual. Forzarla ademas anula la
+   * deduplicacion de peticiones en vuelo del `ResourceCache`, y entonces esta lista y su
+   * contenedor piden lo mismo dos veces. Con unos pocos clics seguidos eso agotaba el
+   * limite de peticiones por minuto y la API respondia 429.
+   */
+  refreshBillingData(force = false): void {
+    this.changed.emit();
+    this.loadBillingData({ silent: true, force });
   }
 
   exportCsv(): void {
@@ -306,7 +331,7 @@ export class ListBill implements OnInit {
   getGuestLabel(invoice: InvoiceI): string {
     const reservation = this.reservationsMap.get(invoice.reservation) || null;
     if (reservation?.client_full_name?.trim()) return reservation.client_full_name.trim();
-    return `Reserva #${invoice.reservation}`;
+    return 'Reserva sin codigo';
   }
 
   getGuestDocument(invoice: InvoiceI): string {

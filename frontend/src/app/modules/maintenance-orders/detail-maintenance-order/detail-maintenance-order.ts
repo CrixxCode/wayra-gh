@@ -36,7 +36,7 @@ export class DetailMaintenanceOrder {
       return `Habitacion ${this.maintenanceOrderData.room_number.trim()}`;
     }
     if (typeof this.maintenanceOrderData.room === 'number' && this.maintenanceOrderData.room > 0) {
-      return `Habitacion #${this.maintenanceOrderData.room}`;
+      return 'Habitacion sin numero';
     }
     return 'Habitacion no definida';
   }

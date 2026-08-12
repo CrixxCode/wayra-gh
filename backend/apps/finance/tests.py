@@ -787,9 +787,11 @@ class OperationalAlertsAutomationTests(TestCase):
             city="Riohacha",
             currency="COP",
         )
-        self.payment_method = PaymentMethod.objects.create(
-            hotel_settings=self.hotel, code="EFECTIVO", name="Efectivo"
-        )
+        self.payment_method = PaymentMethod.objects.get_or_create(
+            hotel_settings=self.hotel,
+            code="EFECTIVO",
+            defaults={"name": "Efectivo"}
+        )[0]
         self.floor = HotelFloor.objects.create(
             hotel_settings=self.hotel,
             floor_number=1,

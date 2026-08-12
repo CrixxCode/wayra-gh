@@ -1,0 +1,100 @@
+<div class="ops-page">
+  <header class="ops-header">
+    <div class="ops-title">
+      <h1>Limpieza y mantenimiento</h1>
+      <p>
+        El trabajo pendiente sobre las habitaciones: lo que hay que limpiar, lo que hay
+        que reparar, y que habitaciones estan esperando las dos cosas.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      class="ops-refresh"
+      (click)="loadSummary(true, true)"
+      [disabled]="loading || refreshing"
+      title="Actualizar">
+      <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
+      Actualizar
+    </button>
+  </header>
+
+  <!-- Resumen: cada tarjeta lleva a la pestaña donde se resuelve -->
+  <section class="ops-metrics" aria-label="Resumen del trabajo pendiente">
+    <button
+      type="button"
+      class="ops-metric"
+      *ngFor="let metric of metrics; trackBy: trackByMetric"
+      [ngClass]="'tone-' + metric.tone"
+      (click)="selectTab(metric.tab)">
+      <span class="metric-icon"><i [class]="metric.icon"></i></span>
+      <span class="metric-body">
+        <span class="metric-label">{{ metric.label }}</span>
+        <strong class="metric-value">{{ metric.value }}</strong>
+        <small class="metric-note">{{ metric.note }}</small>
+      </span>
+    </button>
+  </section>
+
+  <nav class="ops-tabs" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      class="ops-tab"
+      *ngFor="let tab of tabs; trackBy: trackByTab"
+      [class.is-active]="activeTab === tab.key"
+      [attr.aria-selected]="activeTab === tab.key"
+      [title]="tab.hint"
+      (click)="selectTab(tab.key)">
+      <i [class]="tab.icon"></i>
+      <span class="tab-label">{{ tab.label }}</span>
+      <span class="tab-count">{{ tabCount(tab.key) }}</span>
+    </button>
+  </nav>
+
+  <!-- Rastro de la habitacion que se viene siguiendo desde el tablero. -->
+  <div class="ops-focus" *ngIf="focus">
+    <span>
+      <i class="fa-solid fa-crosshairs"></i>
+      Viendo el trabajo de <strong>{{ focus.label }}</strong>
+    </span>
+
+    <div class="ops-focus-jumps">
+      <button type="button" *ngIf="activeTab !== 'cleaning'" (click)="followRoom(focus, 'cleaning')">
+        Su limpieza
+      </button>
+      <button type="button" *ngIf="activeTab !== 'maintenance'" (click)="followRoom(focus, 'maintenance')">
+        Su mantenimiento
+      </button>
+      <button type="button" *ngIf="activeTab !== 'rooms'" (click)="followRoom(focus, 'rooms')">
+        Volver al tablero
+      </button>
+      <button type="button" class="is-clear" (click)="clearFocus()" title="Dejar de seguir">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </div>
+
+  <section class="ops-panel">
+    <!-- Cada lista se monta solo cuando su pestaña esta activa. -->
+    <app-room-workload
+      *ngIf="activeTab === 'rooms'"
+      [rooms]="roomsWithWork"
+      (openWork)="followRoom($event.room, $event.tab)">
+    </app-room-workload>
+
+    <app-list-cleaning-tasks
+      *ngIf="activeTab === 'cleaning'"
+      [embedded]="true"
+      [focusRoomId]="focus?.id ?? null"
+      (changed)="onWorkChanged()">
+    </app-list-cleaning-tasks>
+
+    <app-list-maintenance-orders
+      *ngIf="activeTab === 'maintenance'"
+      [embedded]="true"
+      [focusRoomId]="focus?.id ?? null"
+      (changed)="onWorkChanged()">
+    </app-list-maintenance-orders>
+  </section>
+</div>

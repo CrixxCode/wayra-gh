@@ -36,4 +36,28 @@ describe('ListPaymentRefunds', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  // Aqui no puede haber un boton "Nuevo reembolso": nace de un pago concreto. La
+  // pantalla lo dice y ofrece el salto, sin navegar por su cuenta.
+  it('pide al contenedor abrir la pestaña de pagos', () => {
+    const pedidas: string[] = [];
+    component.navigateTab.subscribe((tab) => pedidas.push(tab));
+
+    component.navigateTab.emit('payments');
+
+    expect(pedidas).toEqual(['payments']);
+  });
+
+  it('no desmonta la tabla al recargar tras una accion', () => {
+    let loadingDuranteRecarga = false;
+    const original = component.applyFilters.bind(component);
+    spyOn(component, 'applyFilters').and.callFake(() => {
+      loadingDuranteRecarga = loadingDuranteRecarga || component.loading;
+      original();
+    });
+
+    component.refreshData();
+
+    expect(loadingDuranteRecarga).toBeFalse();
+  });
 });

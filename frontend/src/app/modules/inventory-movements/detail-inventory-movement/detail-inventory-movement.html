@@ -2,93 +2,78 @@
   <aside class="movement-drawer" (click)="$event.stopPropagation()">
     <header class="drawer-head">
       <div class="drawer-title-block">
-        <p class="drawer-type">{{ getMovementTypeLabel() }}</p>
-        <h2>{{ movementData?.item_name || 'Item no definido' }}</h2>
-        <span class="status-chip" [class.is-inactive]="!movementData?.is_active">{{ getStatusLabel() }}</span>
+        <!-- La direccion se dice una vez, aqui. Antes salia tambien en "Tipo" y en
+             "Direccion", como si fueran tres datos distintos. -->
+        <p class="drawer-type">
+          <span
+            class="direction-tag"
+            [ngStyle]="{ 'background-color': getDirectionTone().bg, color: getDirectionTone().color }">
+            {{ getDirectionLabel() }}
+          </span>
+          <span class="type-name" *ngIf="getMovementTypeLabel() !== getDirectionLabel()">
+            {{ getMovementTypeLabel() }}
+          </span>
+        </p>
+        <h2>{{ itemLabel }}</h2>
       </div>
 
       <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6 6 18" />
-          <path d="m6 6 12 12" />
-        </svg>
+        <i class="fa-solid fa-xmark"></i>
       </button>
     </header>
 
     <div class="drawer-body">
-      <section class="hero-card">
-        <div>
-          <span>Cantidad</span>
-          <strong>{{ getQuantityLabel() }}</strong>
+      <!-- Un movimiento es un antes y un despues: ese salto es la pantalla. -->
+      <section class="flow-hero">
+        <div class="flow-line">
+          <div class="flow-step">
+            <span>Antes</span>
+            <strong>{{ previousStock }}</strong>
+          </div>
+
+          <div class="flow-arrow">
+            <b [ngStyle]="{ color: getDirectionTone().color }">{{ getQuantityLabel() }}</b>
+            <i class="fa-solid fa-arrow-right-long"></i>
+          </div>
+
+          <div class="flow-step is-result">
+            <span>Despues</span>
+            <strong>{{ newStock }}</strong>
+          </div>
         </div>
-        <div>
-          <span>Variacion stock</span>
-          <strong>{{ getStockDeltaLabel() }}</strong>
-        </div>
+
+        <p class="flow-when">{{ formatDateTime(movementData?.movement_date || movementData?.created_at) }}</p>
       </section>
 
-      <section>
-        <h3>Resumen</h3>
-        <div class="info-list">
-          <div>
-            <span>Tipo</span>
-            <strong>{{ getMovementTypeLabel() }}</strong>
-          </div>
-          <div>
-            <span>Direccion</span>
-            <strong
-              class="direction-pill"
-              [ngStyle]="{
-                'background-color': getDirectionTone().bg,
-                color: getDirectionTone().color
-              }">
-              {{ getDirectionLabel() }}
-            </strong>
-          </div>
-          <div>
-            <span>Stock previo</span>
-            <strong>{{ movementData?.previous_stock || 0 }}</strong>
-          </div>
-          <div>
-            <span>Stock nuevo</span>
-            <strong>{{ movementData?.new_stock || 0 }}</strong>
-          </div>
-          <div>
-            <span>Referencia</span>
-            <strong>{{ movementData?.reference || 'Sin referencia' }}</strong>
-          </div>
-          <div>
-            <span>Estado</span>
-            <strong>{{ getStatusLabel() }}</strong>
-          </div>
-          <div>
-            <span>ID movimiento</span>
-            <strong>#{{ movementData?.id || '--' }}</strong>
-          </div>
-        </div>
+      <section class="panel">
+        <h3>Por que ocurrio</h3>
+
+        <p class="origin" *ngIf="originLabel">
+          <i class="fa-solid fa-location-dot"></i>
+          {{ originLabel }}
+        </p>
+
+        <p class="notes" *ngIf="notes">{{ notes }}</p>
+
+        <p class="notes is-empty" *ngIf="!notes && !originLabel">
+          Sin motivo registrado para este movimiento.
+        </p>
+
+        <!-- La referencia cruda solo sirve para cotejar con otro sistema: va al final
+             y en pequeño, no como si fuera un dato de lectura. -->
+        <p class="reference" *ngIf="rawReference && originLabel">
+          <span>Referencia</span>
+          <code>{{ rawReference }}</code>
+        </p>
       </section>
 
-      <section>
-        <h3>Notas</h3>
-        <p class="description">{{ movementData?.notes || 'Sin notas registradas.' }}</p>
-      </section>
-
-      <section>
-        <h3>Trazabilidad</h3>
-        <div class="info-list">
-          <div>
-            <span>Fecha de movimiento</span>
-            <strong>{{ formatDateTime(movementData?.movement_date) }}</strong>
-          </div>
-          <div>
-            <span>Creado</span>
-            <strong>{{ formatDate(movementData?.created_at) }}</strong>
-          </div>
-          <div>
-            <span>Ultima actualizacion</span>
-            <strong>{{ formatDate(movementData?.updated_at) }}</strong>
-          </div>
-        </div>
+      <section class="panel is-inactive-note" *ngIf="!movementData?.is_active">
+        <p>
+          <i class="fa-solid fa-circle-info"></i>
+          Este movimiento esta marcado como inactivo. Desactivarlo <strong>no</strong>
+          devuelve el stock: para revertirlo hay que registrar el movimiento contrario,
+          que es lo que deja rastro en la bitacora.
+        </p>
       </section>
     </div>
 

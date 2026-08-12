@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
@@ -7,10 +7,13 @@ import { MasterDataI } from '../../../components/pages/master-data/master-data-m
 import { openActionConfirmation } from '../../../services/action-confirmations';
 import { HotelSettingsService } from '../../../services/hotel-settings';
 import { ItemsService } from '../../../services/item';
+import { InventoryMovementsService } from '../../../services/inventory-movement';
+import { InventoryMovementI } from '../../inventory-movements/inventory-movement-model';
 import { MasterDataService } from '../../../services/master-data.service';
 import { CreateItem } from '../create-item/create-item';
 import { DetailItem } from '../detail-item/detail-item';
 import { ItemI } from '../item-model';
+import { StockMove, StockMoveDirection } from '../stock-move/stock-move';
 
 type ItemStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 type ItemStockFilter = 'ALL' | 'LOW' | 'HEALTHY';
@@ -112,12 +115,61 @@ const CATEGORY_TONES: Record<string, ItemCategoryTone> = {
 @Component({
   selector: 'app-list-items',
   standalone: true,
-  imports: [CommonModule, FormsModule, CreateItem, DetailItem],
+  imports: [CommonModule, FormsModule, CreateItem, DetailItem, StockMove],
   templateUrl: './list-items.html',
   styleUrls: ['./list-items.css']
 })
-export class ListItems implements OnInit {
+export class ListItems implements OnInit, OnDestroy {
+  /** Dentro del contenedor de inventario: sin encabezado ni metricas propias. */
+  @Input() embedded = false;
+
+  /** Un cambio aqui mueve las existencias que ven las otras dos pestañas. */
+  @Output() changed = new EventEmitter<void>();
+
+  /**
+   * Pide seguir un item en otra pestaña.
+   *
+   * "¿Por que bajo este stock?" y "¿donde esta repartido?" son las dos preguntas que
+   * se hacen mirando un item, y hasta ahora obligaban a cambiar de pantalla y buscarlo
+   * otra vez a mano. La lista no navega por su cuenta: se lo pide al contenedor.
+   */
+  @Output() followItem = new EventEmitter<{
+    item: { id: number; name: string };
+    tab: 'items' | 'rooms' | 'movements';
+  }>();
+
+  /**
+   * Item que se viene siguiendo desde otra pestaña.
+   *
+   * Llega del contenedor y acota la lista sin tocar los filtros propios, que el
+   * usuario puede seguir moviendo por encima.
+   */
+  @Input() set focusItemId(value: number | null) {
+    this.trackedItemId = typeof value === 'number' && value > 0 ? value : null;
+    this.applyFilters();
+  }
+
+  trackedItemId: number | null = null;
+
+  /** Item cuyo ajuste rapido esta en vuelo, para bloquear solo esa tarjeta. */
+  quickAdjustingId: number | null = null;
+
+  /** Recarga agrupada de una racha de ajustes rapidos. */
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Item cuyo movimiento se esta registrando en el modal, y en que direccion. */
+  movingItem: ItemI | null = null;
+  movingDirection: StockMoveDirection = 'IN';
+
+  /** Tipos de movimiento del ajuste rapido, resueltos al cargar. */
+  inMovementTypeId: number | null = null;
+  outMovementTypeId: number | null = null;
+
+  /** Solo la primera carga: es la unica que puede dejar la pantalla vacia. */
   loading = false;
+
+  /** Recarga posterior a una accion: la cuadricula sigue en pantalla. */
+  refreshing = false;
   errorMessage = '';
   infoMessage = '';
   viewMode: ItemViewMode = 'cards';
@@ -167,6 +219,7 @@ export class ListItems implements OnInit {
 
   constructor(
     private itemsService: ItemsService,
+    private movementsService: InventoryMovementsService,
     private masterDataService: MasterDataService,
     private hotelSettingsService: HotelSettingsService,
     private confirmationService: ConfirmationService
@@ -212,31 +265,67 @@ export class ListItems implements OnInit {
     return !!this.hotelSettingsId && this.itemTypes.length > 0 && this.unitMeasures.length > 0;
   }
 
-  loadCatalogData(): void {
-    this.loading = true;
+  loadCatalogData(options: { silent?: boolean; force?: boolean } = {}): void {
+    // Una recarga silenciosa no toca `loading`, asi que la cuadricula no se desmonta
+    // y la pantalla no parpadea con cada accion.
+    if (options.silent) this.refreshing = true;
+    else this.loading = true;
     this.errorMessage = '';
     const selectedItemId = this.selectedItem?.id ?? null;
 
     forkJoin({
-      items: this.itemsService.listItems({ include_inactive: true }).pipe(catchError(() => of([] as ItemI[]))),
-      allItems: this.itemsService
-        .listItems({ include_inactive: true, include_deleted: true })
-        .pipe(catchError(() => of([] as ItemI[]))),
+      // `null` marca el fallo. Devolver `[]` fabricaria un exito vacio, y la vista
+      // sacaria conclusiones de una lista que nunca llego: con la respuesta caida por un
+      // 429 pasaba a decir que los 37 items estaban eliminados.
+      items: this.itemsService
+        .listItems({ include_inactive: true, forceRefresh: options.force })
+        .pipe(catchError(() => of(null))),
+      // La papelera solo cambia al eliminar o restaurar: en una recarga silenciosa no
+      // hace falta volver a pedirla.
+      allItems: options.silent
+        ? of(null)
+        : this.itemsService
+            .listItems({ include_inactive: true, include_deleted: true })
+            .pipe(catchError(() => of(null))),
       itemTypes: this.masterDataService
         .listMasterData({ group: 'ITEM_TYPE', is_active: 'true', ordering: 'sort_order,name' })
         .pipe(catchError(() => of([] as MasterDataI[]))),
       unitMeasures: this.masterDataService
         .listMasterData({ group: 'UNIT_MEASURE', is_active: 'true', ordering: 'sort_order,name' })
         .pipe(catchError(() => of([] as MasterDataI[]))),
+      // Los tipos de movimiento son lo que permite el ajuste rapido desde la tarjeta.
+      movementTypes: this.masterDataService
+        .listMasterData({
+          group: 'INVENTORY_MOVEMENT_TYPE',
+          is_active: 'true',
+          ordering: 'sort_order,name'
+        })
+        .pipe(catchError(() => of([] as MasterDataI[]))),
       settings: this.hotelSettingsService.getCurrentSettings().pipe(catchError(() => of(null)))
     }).subscribe({
-      next: ({ items, allItems, itemTypes, unitMeasures, settings }) => {
+      next: ({ items, allItems, itemTypes, unitMeasures, movementTypes, settings }) => {
         this.loading = false;
+        this.refreshing = false;
+
+        // Si el listado no llego, se conserva el que ya estaba: mejor un dato de hace
+        // unos segundos que una pantalla vacia que parece perdida de informacion.
+        if (items === null) {
+          this.errorMessage = 'No fue posible actualizar los items. Se muestra la ultima version cargada.';
+          return;
+        }
+
+        this.errorMessage = '';
         this.items = items;
-        const visibleIds = new Set(items.map((item) => item.id));
-        this.deletedItems = allItems.filter((item) => !visibleIds.has(item.id));
+
+        if (allItems !== null) {
+          const visibleIds = new Set(items.map((item) => item.id));
+          this.deletedItems = allItems.filter((item) => !visibleIds.has(item.id));
+        }
+
         this.itemTypes = itemTypes;
         this.unitMeasures = unitMeasures;
+        this.inMovementTypeId = this.findMovementTypeId(movementTypes, 'IN');
+        this.outMovementTypeId = this.findMovementTypeId(movementTypes, 'OUT');
 
         if (selectedItemId) {
           this.selectedItem = items.find((item) => item.id === selectedItemId) || null;
@@ -259,13 +348,24 @@ export class ListItems implements OnInit {
       },
       error: () => {
         this.loading = false;
+        this.refreshing = false;
         this.errorMessage = 'No fue posible cargar el catalogo de items.';
       }
     });
   }
 
-  refreshItems(): void {
-    this.loadCatalogData();
+  /**
+   * Recarga tras una accion, o a peticion del boton "Actualizar".
+   *
+   * `force` **solo** para el boton: una escritura ya invalido el cache desde el servicio,
+   * asi que la recarga posterior va al servidor igual. Forzarla ademas anula la
+   * deduplicacion de peticiones en vuelo del `ResourceCache`, y entonces esta lista y su
+   * contenedor piden lo mismo dos veces. Con unos pocos clics seguidos eso agotaba el
+   * limite de peticiones por minuto y la API respondia 429.
+   */
+  refreshItems(force = false): void {
+    this.changed.emit();
+    this.loadCatalogData({ silent: true, force });
   }
 
   exportCsv(): void {
@@ -317,6 +417,9 @@ export class ListItems implements OnInit {
     const searchValue = this.normalizeSearch(this.search);
 
     this.filteredItems = this.items.filter((item) => {
+      // Seguimiento desde otra pestaña: acota sin tocar los filtros del usuario.
+      if (this.trackedItemId !== null && item.id !== this.trackedItemId) return false;
+
       const statusMatch =
         this.statusFilter === 'ALL' ||
         (this.statusFilter === 'ACTIVE' && item.is_active) ||
@@ -375,6 +478,132 @@ export class ListItems implements OnInit {
   openDetail(item: ItemI): void {
     this.showCreateDrawer = false;
     this.selectedItem = item;
+  }
+
+  /**
+   * Ajuste rapido desde la tarjeta.
+   *
+   * Recibir tres unidades o dar una de baja no merece abrir el formulario de
+   * movimiento: es lo que mas se hace en el dia y debe costar un clic. El asiento se
+   * registra igual --entrada o salida, con su rastro-- porque atajo no significa
+   * saltarse la bitacora.
+   */
+  quickAdjust(item: ItemI, delta: number): void {
+    if (!delta || this.quickAdjustingId !== null) return;
+
+    const quantity = Math.abs(delta);
+    // Una salida no puede llevarse mas de lo que hay: el backend tambien lo valida,
+    // pero avisar aqui evita el viaje y el mensaje generico.
+    if (delta < 0 && quantity > this.getStockCount(item)) {
+      this.errorMessage = `No hay suficientes existencias de ${item.name} para descontar ${quantity}.`;
+      return;
+    }
+
+    const movementType = delta > 0 ? this.inMovementTypeId : this.outMovementTypeId;
+    if (!movementType) {
+      this.errorMessage = 'No hay tipos de movimiento configurados para ajustar el stock.';
+      return;
+    }
+
+    this.errorMessage = '';
+    this.quickAdjustingId = item.id;
+
+    this.movementsService
+      .createInventoryMovement({
+        item: item.id,
+        movement_type: movementType,
+        quantity,
+        notes: delta > 0 ? 'Ajuste rapido: entrada' : 'Ajuste rapido: salida',
+        is_active: true
+      })
+      .subscribe({
+        next: (movement) => {
+          this.quickAdjustingId = null;
+          // Se pinta al instante con el stock que devolvio el asiento.
+          item.stock = movement?.new_stock ?? this.getStockCount(item) + delta;
+          this.applyFilters();
+          this.scheduleRefresh();
+        },
+        error: () => {
+          this.quickAdjustingId = null;
+          this.errorMessage = `No fue posible ajustar el stock de ${item.name}.`;
+        }
+      });
+  }
+
+  private findMovementTypeId(types: MasterDataI[], code: string): number | null {
+    const match = types.find((type) => this.normalizeCode(type.code || '') === code);
+    return match ? Number(match.id) : null;
+  }
+
+  /** Sin tipos de movimiento no hay ajuste rapido: se esconden los botones. */
+  get canQuickAdjust(): boolean {
+    return this.inMovementTypeId !== null && this.outMovementTypeId !== null;
+  }
+
+  /**
+   * Agrupa las recargas de una racha de ajustes rapidos.
+   *
+   * La tarjeta ya se pinto con el stock que devolvio el asiento, asi que la recarga
+   * solo sirve para poner al dia las metricas del contenedor. Lanzarla en cada clic
+   * multiplicaba las peticiones sin que el usuario viera nada nuevo: veinte clics
+   * seguidos agotaban el limite por minuto y la API respondia 429.
+   */
+  private scheduleRefresh(): void {
+    if (this.refreshTimer !== null) clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null;
+      this.refreshItems();
+    }, 700);
+  }
+
+  ngOnDestroy(): void {
+    if (this.refreshTimer !== null) clearTimeout(this.refreshTimer);
+  }
+
+  isQuickAdjusting(item: ItemI): boolean {
+    return this.quickAdjustingId === item.id;
+  }
+
+  /**
+   * Entrada o salida de una cantidad cualquiera.
+   *
+   * Los botones fijos resuelven la unidad suelta; para el resto se abre un modal con
+   * una sola cifra y la consecuencia a la vista, que es mas seguro que pulsar `+5`
+   * cuatro veces y esperar haber contado bien.
+   */
+  openStockMove(item: ItemI, direction: StockMoveDirection): void {
+    this.movingDirection = direction;
+    this.movingItem = item;
+  }
+
+  closeStockMove(): void {
+    this.movingItem = null;
+  }
+
+  onStockMoveRegistered(movement: InventoryMovementI): void {
+    const item = this.movingItem;
+    this.movingItem = null;
+    if (item && typeof movement?.new_stock === 'number') {
+      // Se pinta al instante con el stock que devolvio el asiento.
+      item.stock = movement.new_stock;
+      this.applyFilters();
+    }
+    this.refreshItems();
+  }
+
+  get movingMovementTypeId(): number | null {
+    return this.movingDirection === 'IN' ? this.inMovementTypeId : this.outMovementTypeId;
+  }
+
+  /** Salta a los movimientos de este item: la bitacora de por que su stock es el que es. */
+  showItemMovements(item: ItemI): void {
+    this.followItem.emit({ item: { id: item.id, name: item.name }, tab: 'movements' });
+  }
+
+  /** Salta a las habitaciones que tienen asignado este item. */
+  showItemRooms(item: ItemI): void {
+    this.followItem.emit({ item: { id: item.id, name: item.name }, tab: 'rooms' });
   }
 
   closeDetail(): void {
@@ -581,6 +810,20 @@ export class ListItems implements OnInit {
     const target = this.getTargetStock(item);
     const progress = (stock / target) * 100;
     return Math.max(0, Math.min(100, progress));
+  }
+
+  /**
+   * Donde cae el minimo en la barra.
+   *
+   * Es la referencia contra la que se compara el relleno: sin la marca, la barra solo
+   * diria "hay algo", no "hay poco".
+   */
+  getMinimumMarkPercent(item: ItemI): number {
+    const minimum = this.toNonNegativeInt(item.minimum_stock);
+    if (minimum <= 0) return 0;
+
+    const percent = (minimum / this.getTargetStock(item)) * 100;
+    return Math.max(0, Math.min(100, percent));
   }
 
   getStockBarColor(item: ItemI): string {

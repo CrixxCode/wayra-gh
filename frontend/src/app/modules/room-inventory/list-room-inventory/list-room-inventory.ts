@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
@@ -87,7 +87,33 @@ const ROOM_TONES: RoomInventoryTone[] = [
   styleUrls: ['./list-room-inventory.css']
 })
 export class ListRoomInventory implements OnInit {
+  /** Dentro del contenedor de inventario: sin encabezado ni metricas propias. */
+  @Input() embedded = false;
+
+  /** Un cambio aqui mueve las existencias que ven las otras dos pestañas. */
+  @Output() changed = new EventEmitter<void>();
+
+  /**
+   * Item que se viene siguiendo desde otra pestaña.
+   *
+   * Llega del contenedor y acota la lista sin tocar los filtros propios, que el
+   * usuario puede seguir moviendo por encima.
+   */
+  @Input() set focusItemId(value: number | null) {
+    this.trackedItemId = typeof value === 'number' && value > 0 ? value : null;
+    this.applyFilters();
+  }
+
+  trackedItemId: number | null = null;
+
+  /** Linea cuya cantidad se esta guardando, para bloquear solo ese control. */
+  savingRecordId: number | null = null;
+
+  /** Solo la primera carga: es la unica que puede dejar la pantalla vacia. */
   loading = false;
+
+  /** Recarga posterior a una accion: la cuadricula sigue en pantalla. */
+  refreshing = false;
   errorMessage = '';
   infoMessage = '';
   viewMode: RoomInventoryViewMode = 'cards';
@@ -164,14 +190,17 @@ export class ListRoomInventory implements OnInit {
     return keys.size;
   }
 
-  loadCatalogData(): void {
-    this.loading = true;
+  loadCatalogData(options: { silent?: boolean; force?: boolean } = {}): void {
+    // Una recarga silenciosa no toca `loading`, asi que la cuadricula no se desmonta
+    // y la pantalla no parpadea con cada accion.
+    if (options.silent) this.refreshing = true;
+    else this.loading = true;
     this.errorMessage = '';
     const selectedRoomKey = this.selectedRoomGroup?.key ?? null;
 
     forkJoin({
       roomInventory: this.roomInventoryService
-        .listRoomInventory({ include_inactive: true })
+        .listRoomInventory({ include_inactive: true, forceRefresh: options.force })
         .pipe(catchError(() => of([] as RoomInventoryI[]))),
       allRoomInventory: this.roomInventoryService
         .listRoomInventory({ include_inactive: true, include_deleted: true })
@@ -181,6 +210,7 @@ export class ListRoomInventory implements OnInit {
     }).subscribe({
       next: ({ roomInventory, allRoomInventory, rooms, items }) => {
         this.loading = false;
+        this.refreshing = false;
         this.roomInventory = roomInventory;
         const visibleIds = new Set(roomInventory.map((record) => record.id));
         this.deletedRoomInventory = allRoomInventory.filter((record) => !visibleIds.has(record.id));
@@ -203,13 +233,20 @@ export class ListRoomInventory implements OnInit {
       },
       error: () => {
         this.loading = false;
+        this.refreshing = false;
         this.errorMessage = 'No fue posible cargar el inventario de habitaciones.';
       }
     });
   }
 
-  refreshRoomInventory(): void {
-    this.loadCatalogData();
+  /**
+   * Recarga tras una accion, o a peticion del boton "Actualizar".
+   *
+   * `force` **solo** para el boton: ver la nota en `ListItems.refreshItems`.
+   */
+  refreshRoomInventory(force = false): void {
+    this.changed.emit();
+    this.loadCatalogData({ silent: true, force });
   }
 
   exportCsv(): void {
@@ -245,6 +282,9 @@ export class ListRoomInventory implements OnInit {
     const searchValue = this.normalizeSearch(this.search);
 
     this.filteredRoomInventory = this.roomInventory.filter((record) => {
+      // Seguimiento desde otra pestaña: acota sin tocar los filtros del usuario.
+      if (this.trackedItemId !== null && Number(record.item) !== this.trackedItemId) return false;
+
       const statusMatch =
         this.statusFilter === 'ALL' ||
         (this.statusFilter === 'ACTIVE' && record.is_active) ||
@@ -311,6 +351,33 @@ export class ListRoomInventory implements OnInit {
 
   closeDetail(): void {
     this.selectedRoomGroup = null;
+  }
+
+  /**
+   * Ajusta la cantidad de una linea desde el detalle de la habitacion.
+   *
+   * Es la accion corriente al descubrir que a una habitacion le falta algo, y hasta
+   * ahora habia que salir a la lista general a buscar el registro para editarlo.
+   */
+  updateRecordQuantity(change: { record: RoomInventoryI; quantity: number }): void {
+    const { record, quantity } = change;
+    if (quantity === Number(record.quantity)) return;
+
+    this.errorMessage = '';
+    this.savingRecordId = record.id;
+
+    this.roomInventoryService.updateRoomInventory(record.id, { quantity }).subscribe({
+      next: (updated) => {
+        this.savingRecordId = null;
+        // Se pinta al instante y el drawer se queda donde esta; la recarga confirma.
+        record.quantity = updated?.quantity ?? quantity;
+        this.refreshRoomInventory();
+      },
+      error: () => {
+        this.savingRecordId = null;
+        this.errorMessage = 'No fue posible actualizar la cantidad del registro.';
+      }
+    });
   }
 
   toggleRoomInventoryStatus(record: RoomInventoryI): void {
@@ -527,6 +594,28 @@ export class ListRoomInventory implements OnInit {
     if (outCount > 0) return `${outCount} sin stock`;
     if (lowCount > 0) return `${lowCount} bajo minimo`;
     return 'Cobertura normal';
+  }
+
+  /**
+   * Que porcentaje de la dotacion de la habitacion esta completo.
+   *
+   * Es el equivalente al medidor de stock de un item: una habitacion con 8 de 10 items
+   * en su minimo esta al 80%, y eso se ve sin contar las lineas una a una.
+   */
+  getRoomCoveragePercent(group: RoomInventoryGroup): number {
+    const total = this.getRoomTotalItems(group);
+    if (total <= 0) return 0;
+
+    const short = this.getRoomLowCoverageItems(group) + this.getRoomOutCoverageItems(group);
+    const covered = Math.max(total - short, 0);
+    return Math.round((covered / total) * 100);
+  }
+
+  /** Color del medidor, del mismo criterio que la etiqueta de cobertura. */
+  getRoomCoverageBarColor(group: RoomInventoryGroup): string {
+    if (this.getRoomOutCoverageItems(group) > 0) return 'var(--gh-status-danger-strong)';
+    if (this.getRoomLowCoverageItems(group) > 0) return 'var(--gh-status-warn-strong)';
+    return 'var(--gh-status-success-strong)';
   }
 
   getRoomCoverageTone(group: RoomInventoryGroup): { bg: string; color: string } {

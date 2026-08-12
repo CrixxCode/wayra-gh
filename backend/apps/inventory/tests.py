@@ -7,6 +7,7 @@ from accounts.models import Resource, Role, SoftDeleteMarker, User
 from apps.hotel_settings.models import HotelFloor, HotelSettings
 from apps.inventory.models import InventoryMovement, InventoryRestockAlert, Item, RoomInventory
 from apps.inventory.serializers import RoomInventorySerializer
+from apps.inventory.services import register_purchase_entry, register_stock_count
 from apps.master_data.models import MasterData
 from apps.rooms.models import Room, RoomType
 from apps.inventory.views import (
@@ -784,3 +785,325 @@ class RoomInventoryRoomFilterTests(TestCase):
     def test_invalid_room_filter_is_ignored(self):
         # Un valor no numerico no debe romper la vista ni vaciar el listado.
         self.assertEqual(len(self._list("?room=abc")), 2)
+
+
+class InventoryMovementIsAppliedOnceTests(TestCase):
+    """Un movimiento es un asiento: mueve el stock al registrarlo y nunca mas.
+
+    Antes `save()` recalculaba el antes/despues en cada guardado, asi que editar el
+    movimiento --marcarlo inactivo desde su detalle, por ejemplo-- volvia a aplicar la
+    cantidad. Un OUT de 1 unidad restaba otra unidad cada vez que se tocaba el registro.
+    """
+
+    def _md(self, group, code, name=None):
+        return MasterData.objects.update_or_create(
+            group=group,
+            code=code,
+            defaults={"name": name or code.title(), "is_active": True, "sort_order": 1},
+        )[0]
+
+    def setUp(self):
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Asiento")
+        self.item = Item.objects.create(
+            hotel_settings=self.hotel,
+            item_type=self._md(MasterData.Group.ITEM_TYPE, "AMENITY", "Amenidad"),
+            unit_measure=self._md(MasterData.Group.UNIT_MEASURE, "UND", "Unidad"),
+            name="Cargador USB",
+            stock=10,
+            minimum_stock=0,
+            maximum_stock=0,
+            cost_price=0,
+            sale_price=0,
+        )
+        self.out_type = self._md(MasterData.Group.INVENTORY_MOVEMENT_TYPE, "OUT", "Salida")
+        self.in_type = self._md(MasterData.Group.INVENTORY_MOVEMENT_TYPE, "IN", "Entrada")
+
+    def _stock(self):
+        self.item.refresh_from_db()
+        return self.item.stock
+
+    def test_movement_applies_stock_when_created(self):
+        movement = InventoryMovement.objects.create(
+            item=self.item, movement_type=self.out_type, quantity=3
+        )
+
+        self.assertEqual(self._stock(), 7)
+        self.assertEqual(movement.previous_stock, 10)
+        self.assertEqual(movement.new_stock, 7)
+
+    def test_deactivating_a_movement_does_not_move_stock_again(self):
+        movement = InventoryMovement.objects.create(
+            item=self.item, movement_type=self.out_type, quantity=1
+        )
+        self.assertEqual(self._stock(), 9)
+
+        movement.is_active = False
+        movement.save(update_fields=["is_active"])
+
+        self.assertEqual(self._stock(), 9)
+
+    def test_editing_a_movement_keeps_its_original_trace(self):
+        movement = InventoryMovement.objects.create(
+            item=self.item, movement_type=self.in_type, quantity=5
+        )
+        self.assertEqual(self._stock(), 15)
+
+        movement.notes = "Corregida la nota"
+        movement.save()
+        movement.refresh_from_db()
+
+        # El antes/despues registrado es el del momento en que ocurrio, no el de ahora.
+        self.assertEqual(movement.previous_stock, 10)
+        self.assertEqual(movement.new_stock, 15)
+        self.assertEqual(self._stock(), 15)
+
+
+class StockCountAndPurchaseEntryTests(TestCase):
+    """Conteo fisico e ingreso de compra: las dos operaciones masivas del inventario."""
+
+    def _md(self, group, code, name=None):
+        return MasterData.objects.update_or_create(
+            group=group,
+            code=code,
+            defaults={"name": name or code.title(), "is_active": True, "sort_order": 1},
+        )[0]
+
+    def setUp(self):
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Conteo")
+        self.otro_hotel = HotelSettings.objects.create(hotel_name="Hotel Ajeno")
+        self.item_type = self._md(MasterData.Group.ITEM_TYPE, "AMENITY", "Amenidad")
+        self.unit = self._md(MasterData.Group.UNIT_MEASURE, "UND", "Unidad")
+
+        self.user = User.objects.create_user(
+            username="contador",
+            email="contador@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel,
+        )
+
+        self.toallas = self._item("Toallas", 20)
+        self.jabon = self._item("Jabon", 8)
+        self.ajeno = self._item("Item ajeno", 5, hotel=self.otro_hotel)
+
+    def _item(self, name, stock, hotel=None):
+        return Item.objects.create(
+            hotel_settings=hotel or self.hotel,
+            item_type=self.item_type,
+            unit_measure=self.unit,
+            name=name,
+            stock=stock,
+            minimum_stock=5,
+            maximum_stock=0,
+            cost_price=1000,
+            sale_price=2000,
+        )
+
+    def _stock(self, item):
+        item.refresh_from_db()
+        return item.stock
+
+    # ------------------------------------------------------------- conteo
+
+    def test_count_only_registers_the_lines_that_differ(self):
+        # Contar 80 items y hallar 1 descuadre debe dejar 1 movimiento, no 80.
+        result = register_stock_count(
+            lines=[
+                {"item": self.toallas.id, "counted": 17},
+                {"item": self.jabon.id, "counted": 8},
+            ],
+            user=self.user,
+            hotel_settings_id=self.hotel.id,
+        )
+
+        self.assertEqual(result["counted_lines"], 2)
+        self.assertEqual(result["adjusted_lines"], 1)
+        self.assertEqual(result["unchanged_lines"], 1)
+        self.assertEqual(self._stock(self.toallas), 17)
+        self.assertEqual(self._stock(self.jabon), 8)
+
+    def test_count_sets_the_absolute_value_in_both_directions(self):
+        register_stock_count(
+            lines=[
+                {"item": self.toallas.id, "counted": 25},
+                {"item": self.jabon.id, "counted": 3},
+            ],
+            user=self.user,
+            hotel_settings_id=self.hotel.id,
+        )
+
+        self.assertEqual(self._stock(self.toallas), 25)
+        self.assertEqual(self._stock(self.jabon), 3)
+
+    def test_count_records_who_did_it_and_what_the_system_had(self):
+        register_stock_count(
+            lines=[{"item": self.toallas.id, "counted": 17}],
+            user=self.user,
+            hotel_settings_id=self.hotel.id,
+            notes="Conteo mensual",
+        )
+
+        movement = InventoryMovement.objects.get(item=self.toallas)
+        self.assertEqual(movement.created_by, self.user)
+        self.assertEqual(movement.previous_stock, 20)
+        self.assertEqual(movement.new_stock, 17)
+        self.assertIn("sistema tenia 20", movement.notes)
+        self.assertIn("Conteo mensual", movement.notes)
+
+    def test_every_line_of_a_count_shares_one_reference(self):
+        # Sin referencia comun, un conteo queda como ajustes sueltos que nadie agrupa.
+        result = register_stock_count(
+            lines=[
+                {"item": self.toallas.id, "counted": 1},
+                {"item": self.jabon.id, "counted": 2},
+            ],
+            user=self.user,
+            hotel_settings_id=self.hotel.id,
+        )
+
+        references = set(
+            InventoryMovement.objects.filter(id__in=result["movement_ids"]).values_list(
+                "reference", flat=True
+            )
+        )
+        self.assertEqual(references, {result["reference"]})
+        self.assertTrue(result["reference"].startswith("CONTEO-"))
+
+    def test_count_ignores_items_from_another_hotel(self):
+        result = register_stock_count(
+            lines=[{"item": self.ajeno.id, "counted": 99}],
+            user=self.user,
+            hotel_settings_id=self.hotel.id,
+        )
+
+        self.assertEqual(result["adjusted_lines"], 0)
+        self.assertEqual(result["unknown_items"], [self.ajeno.id])
+        self.assertEqual(self._stock(self.ajeno), 5)
+
+    # ------------------------------------------------------------ compra
+
+    def test_purchase_entry_adds_what_arrived(self):
+        result = register_purchase_entry(
+            lines=[
+                {"item": self.toallas.id, "quantity": 10},
+                {"item": self.jabon.id, "quantity": 4},
+            ],
+            user=self.user,
+            hotel_settings_id=self.hotel.id,
+            reference="FACT-PROV-882",
+        )
+
+        self.assertEqual(result["entered_lines"], 2)
+        self.assertEqual(result["reference"], "FACT-PROV-882")
+        self.assertEqual(self._stock(self.toallas), 30)
+        self.assertEqual(self._stock(self.jabon), 12)
+
+    def test_purchase_entry_skips_empty_lines(self):
+        # Una linea en cero es una linea que el usuario dejo vacia, no una entrada.
+        result = register_purchase_entry(
+            lines=[
+                {"item": self.toallas.id, "quantity": 0},
+                {"item": self.jabon.id, "quantity": 5},
+            ],
+            user=self.user,
+            hotel_settings_id=self.hotel.id,
+        )
+
+        self.assertEqual(result["entered_lines"], 1)
+        self.assertEqual(self._stock(self.toallas), 20)
+
+    def test_purchase_entry_generates_a_reference_when_none_is_given(self):
+        result = register_purchase_entry(
+            lines=[{"item": self.toallas.id, "quantity": 1}],
+            user=self.user,
+            hotel_settings_id=self.hotel.id,
+        )
+
+        self.assertTrue(result["reference"].startswith("COMPRA-"))
+
+    def test_purchase_entry_records_the_author(self):
+        register_purchase_entry(
+            lines=[{"item": self.toallas.id, "quantity": 1}],
+            user=self.user,
+            hotel_settings_id=self.hotel.id,
+        )
+
+        self.assertEqual(InventoryMovement.objects.get(item=self.toallas).created_by, self.user)
+
+
+class InventoryMovementItemFilterTests(TestCase):
+    """`?item=<id>`: el detalle de un item ensena su propia bitacora.
+
+    Traer el historico entero del hotel para filtrarlo en el navegador no escala.
+    """
+
+    def _md(self, group, code, name=None):
+        return MasterData.objects.update_or_create(
+            group=group,
+            code=code,
+            defaults={"name": name or code.title(), "sort_order": 1, "is_active": True},
+        )[0]
+
+    def setUp(self):
+        self.factory = APIRequestFactory()
+
+        item_type = self._md(MasterData.Group.ITEM_TYPE, "AMENITY", "Amenidad")
+        unit_measure = self._md(MasterData.Group.UNIT_MEASURE, "UND", "Unidad")
+        self.in_type = self._md(MasterData.Group.INVENTORY_MOVEMENT_TYPE, "IN", "Entrada")
+
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Bitacora")
+
+        def _item(name):
+            return Item.objects.create(
+                hotel_settings=self.hotel,
+                item_type=item_type,
+                unit_measure=unit_measure,
+                name=name,
+                stock=10,
+                minimum_stock=1,
+                maximum_stock=0,
+                cost_price=100,
+                sale_price=200,
+            )
+
+        self.toallas = _item("Toallas")
+        self.jabon = _item("Jabon")
+
+        InventoryMovement.objects.create(item=self.toallas, movement_type=self.in_type, quantity=2)
+        InventoryMovement.objects.create(item=self.toallas, movement_type=self.in_type, quantity=3)
+        InventoryMovement.objects.create(item=self.jabon, movement_type=self.in_type, quantity=1)
+
+        self.user = User.objects.create_user(
+            username="movement_reader",
+            password="test-pass-123",
+            hotel_settings=self.hotel,
+        )
+        role = Role.objects.create(name="Movement Reader", slug="movement-reader")
+        resource, _ = Resource.objects.get_or_create(
+            key="inventory-movements.read",
+            defaults={
+                "name": "Inventory Movements Read",
+                "link_backend": "/api/inventory-movements/",
+            },
+        )
+        role.resources.add(resource)
+        self.user.roles.add(role)
+
+    def _list(self, query=""):
+        request = self.factory.get(f"/api/inventory-movements/{query}")
+        force_authenticate(request, user=self.user)
+        response = InventoryMovementViewSet.as_view({"get": "list"})(request)
+        self.assertEqual(response.status_code, 200, response.data)
+        return response.data
+
+    def test_without_filter_returns_the_whole_hotel(self):
+        self.assertEqual(len(self._list()), 3)
+
+    def test_item_filter_narrows_to_one_item(self):
+        rows = self._list(f"?item={self.toallas.id}")
+
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all(row["item"] == self.toallas.id for row in rows))
+
+    def test_invalid_item_filter_is_ignored(self):
+        # Un valor no numerico no debe romper la vista ni vaciar el listado.
+        self.assertEqual(len(self._list("?item=abc")), 3)

@@ -1,0 +1,157 @@
+<div class="gh-modal-overlay" (click)="close()">
+  <article class="gh-modal count-modal" (click)="$event.stopPropagation()">
+    <header class="gh-modal-head">
+      <div>
+        <h2>Conteo de inventario</h2>
+        <p>
+          Recorre la bodega y anota lo que hay de verdad. Al cerrar el conteo se registra
+          un ajuste por cada diferencia, con tu nombre y una referencia comun.
+        </p>
+      </div>
+
+      <button type="button" class="gh-modal-close" (click)="close()" title="Cerrar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <!-- Avance y descuadre: lo que se mira antes de cerrar el conteo. -->
+    <section class="count-summary">
+      <div class="count-progress">
+        <div class="count-progress-top">
+          <strong>{{ reviewedCount }} de {{ lines.length }} revisados</strong>
+          <span *ngIf="pendingCount">{{ pendingCount }} sin revisar</span>
+          <span *ngIf="!pendingCount" class="is-done">Todo revisado</span>
+        </div>
+        <div class="count-bar">
+          <i [style.width.%]="progressPercent"></i>
+        </div>
+      </div>
+
+      <dl class="count-figures">
+        <div>
+          <dt>Diferencias</dt>
+          <dd>{{ differenceLines.length }}</dd>
+        </div>
+        <div>
+          <dt>Sobrante</dt>
+          <dd class="is-plus">+{{ surplusUnits }}</dd>
+        </div>
+        <div>
+          <dt>Faltante</dt>
+          <dd class="is-minus">-{{ missingUnits }}</dd>
+        </div>
+        <div>
+          <dt>Impacto</dt>
+          <dd [class.is-minus]="differenceValue < 0">{{ formatCurrency(differenceValue) }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <div class="count-toolbar">
+      <label class="count-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" [(ngModel)]="search" placeholder="Buscar item o SKU..." />
+      </label>
+
+      <div class="count-filters">
+        <button
+          type="button"
+          *ngFor="let option of filterOptions"
+          [class.is-active]="filter === option.value"
+          (click)="filter = option.value">
+          {{ option.label }}
+        </button>
+      </div>
+
+      <!-- El caso corriente: se revisan unos pocos y el resto esta bien. -->
+      <button type="button" class="gh-mbtn gh-mbtn-light" [disabled]="!pendingCount" (click)="confirmRemaining()">
+        <i class="fa-solid fa-check-double"></i>
+        Dar por bueno el resto
+      </button>
+    </div>
+
+    <div class="gh-modal-body">
+      <p class="count-error" *ngIf="errorMessage" aria-live="polite">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        {{ errorMessage }}
+      </p>
+
+      <p class="gh-empty" *ngIf="!visibleLines.length">
+        No hay items para este filtro.
+      </p>
+
+      <ul class="count-list">
+        <li
+          class="count-row"
+          *ngFor="let line of visibleLines; trackBy: trackByLine"
+          [class.is-reviewed]="line.reviewed"
+          [class.has-diff]="difference(line) !== 0">
+          <div class="count-item">
+            <strong [title]="line.item.name">{{ line.item.name }}</strong>
+            <small>
+              <span *ngIf="line.item.sku">{{ line.item.sku }} &middot; </span>
+              sistema: {{ systemStock(line) }} {{ unitLabel(line) }}
+            </small>
+          </div>
+
+          <div class="count-input">
+            <button
+              type="button"
+              (click)="step(line, -1)"
+              [disabled]="line.counted <= 0"
+              title="Restar uno">
+              <i class="fa-solid fa-minus"></i>
+            </button>
+            <input
+              type="number"
+              min="0"
+              [ngModel]="line.counted"
+              (ngModelChange)="setCounted(line, $event)"
+              [attr.aria-label]="'Contado de ' + line.item.name" />
+            <button type="button" (click)="step(line, 1)" title="Sumar uno">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+
+          <!-- La diferencia se calcula sola: nadie deberia restar a mano en un conteo. -->
+          <span
+            class="count-diff"
+            [class.is-plus]="difference(line) > 0"
+            [class.is-minus]="difference(line) < 0">
+            {{ difference(line) > 0 ? '+' : '' }}{{ difference(line) }}
+          </span>
+
+          <div class="count-row-actions">
+            <button
+              type="button"
+              *ngIf="!line.reviewed"
+              title="Coincide con el sistema"
+              (click)="confirmLine(line)">
+              <i class="fa-solid fa-check"></i>
+            </button>
+            <button type="button" *ngIf="line.reviewed" title="Deshacer" (click)="resetLine(line)">
+              <i class="fa-solid fa-rotate-left"></i>
+            </button>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <footer class="gh-modal-foot count-foot">
+      <label class="count-notes">
+        <span>Nota del conteo</span>
+        <input type="text" [(ngModel)]="notes" placeholder="Ej: conteo mensual de bodega" />
+      </label>
+
+      <div class="count-actions">
+        <button type="button" class="gh-mbtn gh-mbtn-light" (click)="close()" [disabled]="submitting">
+          Cancelar
+        </button>
+        <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="submit()" [disabled]="!canSubmit">
+          <i class="fa-solid fa-clipboard-check"></i>
+          {{ submitting ? 'Registrando...' : 'Cerrar conteo (' + differenceLines.length + ')' }}
+        </button>
+      </div>
+    </footer>
+  </article>
+</div>

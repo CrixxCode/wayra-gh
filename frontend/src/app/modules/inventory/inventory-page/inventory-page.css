@@ -1,0 +1,357 @@
+/* Solo tokens --gh-*: el modo oscuro sale del mismo sitio que el resto (AGENTS 5.15). */
+
+:host {
+  display: block;
+}
+
+.inv-page {
+  min-height: 100%;
+  padding: 22px 34px 30px;
+  color: var(--gh-text);
+}
+
+/* --------------------------------------------------------------- encabezado */
+
+.inv-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.inv-title h1 {
+  margin: 0;
+  color: var(--gh-text-strong);
+  font-size: 2.05rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.inv-title p {
+  max-width: 640px;
+  margin: 10px 0 0;
+  color: var(--gh-text-muted);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.inv-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 11px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.inv-refresh:hover:not(:disabled) {
+  border-color: var(--gh-search-focus);
+  color: var(--gh-text-strong);
+}
+
+.inv-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.inv-refresh .is-spinning {
+  animation: inv-spin 0.9s linear infinite;
+}
+
+@keyframes inv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ------------------------------------------------------------------ resumen */
+
+.inv-metrics {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 14px;
+}
+
+.inv-metric {
+  --metric-bg: var(--gh-status-neutral-bg);
+  --metric-border: var(--gh-status-neutral-border);
+  --metric-text: var(--gh-status-neutral-text);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  border: 1px solid var(--gh-border);
+  border-top: 3px solid var(--metric-border);
+  border-radius: 14px;
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-soft-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.inv-metric:hover {
+  box-shadow: var(--gh-shadow-hover);
+  transform: translateY(-2px);
+}
+
+.inv-metric.tone-brand {
+  --metric-bg: var(--gh-status-info-bg);
+  --metric-border: var(--gh-status-info-border);
+  --metric-text: var(--gh-status-info-text);
+}
+
+.inv-metric.tone-success {
+  --metric-bg: var(--gh-status-success-bg);
+  --metric-border: var(--gh-status-success-border);
+  --metric-text: var(--gh-status-success-text);
+}
+
+.inv-metric.tone-warning {
+  --metric-bg: var(--gh-status-warn-bg);
+  --metric-border: var(--gh-status-warn-border);
+  --metric-text: var(--gh-status-warn-text);
+}
+
+.inv-metric.tone-danger {
+  --metric-bg: var(--gh-status-danger-bg);
+  --metric-border: var(--gh-status-danger-border);
+  --metric-text: var(--gh-status-danger-text);
+}
+
+.metric-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--metric-bg);
+  color: var(--metric-text);
+  font-size: 0.95rem;
+}
+
+.metric-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.metric-label {
+  color: var(--gh-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.metric-value {
+  color: var(--gh-text-strong);
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-note {
+  color: var(--gh-text-soft);
+  font-size: 0.76rem;
+}
+
+/* ----------------------------------------------------------------- pestañas */
+
+.inv-tabs {
+  margin-top: 22px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 14px;
+  background: var(--gh-surface-soft);
+}
+
+.inv-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 15px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--gh-text-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.inv-tab:hover:not(.is-active) {
+  background: var(--gh-surface);
+  color: var(--gh-text-strong);
+}
+
+.inv-tab.is-active {
+  border-color: var(--gh-border);
+  background: var(--gh-surface);
+  color: var(--gh-text-strong);
+  box-shadow: var(--gh-shadow-soft-sm);
+}
+
+.tab-count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--gh-status-neutral-bg);
+  color: var(--gh-status-neutral-text);
+  font-size: 0.74rem;
+  text-align: center;
+}
+
+.inv-tab.is-active .tab-count {
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+}
+
+/* -------------------------------------------------------------- seguimiento */
+
+/* Barra de rastro: recuerda que se viene siguiendo un item y ofrece los saltos
+   que quedan. Sin esto, cambiar de pestaña perderia el hilo en silencio. */
+.inv-focus {
+  margin-top: 14px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  border: 1px solid var(--gh-status-info-border);
+  border-radius: 12px;
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+  font-size: 0.85rem;
+}
+
+.inv-focus > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.inv-focus strong {
+  font-weight: 700;
+}
+
+.inv-focus-jumps {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.inv-focus-jumps button {
+  padding: 5px 11px;
+  border: 1px solid var(--gh-status-info-border);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-status-info-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inv-focus-jumps button:hover {
+  border-color: var(--gh-status-info-strong);
+}
+
+.inv-focus-jumps .is-clear {
+  padding: 5px 9px;
+  color: var(--gh-text-muted);
+}
+
+/* ------------------------------------------------------------------- panel */
+
+.inv-panel {
+  margin-top: 6px;
+}
+
+/* Las listas embebidas ya no traen encabezado propio, asi que se les quita el
+   relleno superior de pagina para que no dejen un hueco bajo las pestañas. */
+.inv-panel ::ng-deep .items-page,
+.inv-panel ::ng-deep .room-inventory-page,
+.inv-panel ::ng-deep .movements-page {
+  padding: 0;
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  .inv-page {
+    padding: 18px 16px 24px;
+  }
+
+  .inv-tab .tab-label {
+    display: none;
+  }
+}
+
+.inv-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+/* Cuadrar la bodega es la otra accion de la pantalla, y va destacada: es lo que un
+   hotel hace cada semana o cada mes. */
+.inv-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 15px;
+  border: 1px solid var(--gh-brand);
+  border-radius: 11px;
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.inv-count:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.inv-count:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.inv-count-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 11px 14px;
+  border: 1px solid var(--gh-status-success-border);
+  border-radius: 12px;
+  background: var(--gh-status-success-bg);
+  color: var(--gh-status-success-text);
+  font-size: 0.86rem;
+}
+
+.inv-count-note button {
+  margin-left: auto;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}

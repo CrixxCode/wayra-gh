@@ -184,9 +184,11 @@ class NotificationEventSignalsTests(TestCase):
         self.client_status = self._md(MasterData.Group.CLIENT_STATUS, "ACTIVO", "Activo", 1)
         self.reservation_status = self._md(MasterData.Group.RESERVATION_STATUS, "CONFIRMADA", "Confirmada", 1)
         self.reservation_origin = self._md(MasterData.Group.RESERVATION_ORIGIN, "WEB", "Web", 1)
-        self.payment_method = PaymentMethod.objects.create(
-            hotel_settings=self.hotel, code="EFECTIVO", name="Efectivo"
-        )
+        self.payment_method = PaymentMethod.objects.get_or_create(
+            hotel_settings=self.hotel,
+            code="EFECTIVO",
+            defaults={"name": "Efectivo"}
+        )[0]
         self.invoice_status = self._md(MasterData.Group.INVOICE_STATUS, "PENDIENTE", "Pendiente", 1)
 
         self.item_type = self._md(MasterData.Group.ITEM_TYPE, "AMENITY", "Amenidad", 1)

@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, map, of, switchMap } from 'rxjs';
+import { Observable, map, of, switchMap, tap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
+import { CACHE_TTL, ResourceCache } from './resource-cache';
 import { MasterDataGroupI, MasterDataI } from '../components/pages/master-data/master-data-model';
 
 type DRFPaginated<T> = {
@@ -17,8 +18,33 @@ export class MasterDataService {
 
   constructor(
     private http: HttpClient,
-    private auth: AuthService
+    private auth: AuthService,
+    private cache: ResourceCache
   ) {}
+
+  // --------------------------------------------------------------------- cache
+  // Cache-aside con TTL de catalogo (5 min). Los datos maestros --tipos de item,
+  // unidades de medida, estados, prioridades-- los edita un administrador cada mucho,
+  // pero casi todas las pantallas los piden al cargar y al refrescar.
+  //
+  // Sin esto, una accion tan pequena como sumar una unidad de stock arrastraba cuatro
+  // consultas de catalogo, y unos pocos clics seguidos agotaban el limite de peticiones
+  // por minuto (429).
+  private static readonly CACHE_KEY = 'master-data';
+
+  private cacheKey(filters?: Record<string, unknown>): string {
+    const entries = Object.entries(filters || {})
+      .filter(([, value]) => value !== undefined && value !== null && value !== '')
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`);
+    return entries.length
+      ? `${MasterDataService.CACHE_KEY}:${entries.join('&')}`
+      : MasterDataService.CACHE_KEY;
+  }
+
+  private invalidateMasterData(): void {
+    this.cache.invalidate(MasterDataService.CACHE_KEY);
+  }
 
   private unwrapArray<T>(res: unknown): T[] {
     if (Array.isArray(res)) return res as T[];
@@ -78,12 +104,23 @@ export class MasterDataService {
     ordering?: string;
     include_inactive?: boolean;
     include_deleted?: boolean;
+    /** Salta el cache y lo repuebla: es lo que usa la pantalla de master data. */
+    forceRefresh?: boolean;
   }): Observable<MasterDataI[]> {
     const params = this.buildListParams(filters);
 
-    return this.http
-      .get<MasterDataI[] | DRFPaginated<MasterDataI>>(this.masterDataUrl, { withCredentials: true, params })
-      .pipe(map((res) => this.unwrapArray<MasterDataI>(res)));
+    return this.cache.get(
+      this.cacheKey(filters as Record<string, unknown>),
+      () =>
+        this.http
+          .get<MasterDataI[] | DRFPaginated<MasterDataI>>(this.masterDataUrl, {
+            withCredentials: true,
+            params
+          })
+          .pipe(map((res) => this.unwrapArray<MasterDataI>(res))),
+      CACHE_TTL.CATALOG,
+      filters?.forceRefresh
+    );
   }
 
   listMasterDataAll(filters?: {
@@ -112,11 +149,11 @@ export class MasterDataService {
   }
 
   createMasterData(payload: Partial<MasterDataI>): Observable<MasterDataI> {
-    return this.http.post<MasterDataI>(this.masterDataUrl, payload, this.auth.buildCsrfRequestOptions());
+    return this.http.post<MasterDataI>(this.masterDataUrl, payload, this.auth.buildCsrfRequestOptions()).pipe(tap(() => this.invalidateMasterData()));
   }
 
   updateMasterData(id: number, payload: Partial<MasterDataI>): Observable<MasterDataI> {
-    return this.http.patch<MasterDataI>(`${this.masterDataUrl}${id}/`, payload, this.auth.buildCsrfRequestOptions());
+    return this.http.patch<MasterDataI>(`${this.masterDataUrl}${id}/`, payload, this.auth.buildCsrfRequestOptions()).pipe(tap(() => this.invalidateMasterData()));
   }
 
   deleteMasterData(id: number): Observable<unknown> {
@@ -128,6 +165,6 @@ export class MasterDataService {
       `${this.masterDataUrl}${id}/restore/`,
       {},
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateMasterData()));
   }
 }

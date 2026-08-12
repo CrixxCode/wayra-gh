@@ -1,4 +1,5 @@
 <div class="items-page">
+  <ng-container *ngIf="!embedded">
   <header class="page-header">
     <div>
       <h1>Items de Inventario</h1>
@@ -10,7 +11,9 @@
       Nuevo item
     </button>
   </header>
+  </ng-container>
 
+  <ng-container *ngIf="!embedded">
   <section class="stats-grid">
     <article class="stat-card">
       <div class="stat-head">
@@ -57,6 +60,7 @@
       <div class="stat-note">valor acumulado del stock</div>
     </article>
   </section>
+  </ng-container>
 
   <section class="gh-filters-card">
     <div class="gh-filters-grid items-filters-grid">
@@ -113,7 +117,11 @@
       </div>
 
       <div class="gh-action-group">
-        <button type="button" class="gh-btn gh-btn-light" (click)="refreshItems()" [disabled]="loading">
+        <button
+          type="button"
+          class="gh-btn gh-btn-light"
+          (click)="refreshItems(true)"
+          [disabled]="loading || refreshing">
           <i class="fa-solid fa-rotate-right"></i>
           Actualizar
         </button>
@@ -178,7 +186,10 @@
     <p *ngIf="!loading && !errorMessage && filteredItems.length === 0">No hay items para los filtros seleccionados.</p>
   </section>
 
-  <section class="catalog-sections" *ngIf="!loading && !errorMessage && filteredItems.length > 0">
+  <section
+    class="catalog-sections"
+    [class.is-refreshing]="refreshing"
+    *ngIf="!loading && !errorMessage && filteredItems.length > 0">
     <ng-container *ngIf="viewMode === 'cards'; else tableView">
       <article class="category-block" *ngFor="let group of groupedItems; trackBy: trackByGroup">
         <header class="category-head">
@@ -202,103 +213,168 @@
         </header>
 
         <div class="items-grid">
-          <article class="item-card" *ngFor="let item of group.items; trackBy: trackByItem" (click)="openDetail(item)">
-            <div class="item-cover" [ngStyle]="{ background: getGroupTone(group).cover }">
-              <div class="cover-badges">
-                <span
-                  class="cover-type"
-                  [ngStyle]="{
-                    'background-color': getGroupTone(group).badgeBg,
-                    color: getGroupTone(group).badgeColor
-                  }">
-                  {{ getItemTypeLabel(item) }}
-                </span>
-
-                <span
-                  class="cover-type"
-                  [ngStyle]="{
-                    'background-color': getItemPurposeTone(item).bg,
-                    color: getItemPurposeTone(item).color
-                  }">
-                  <i [class]="getItemPurposeIcon(item)"></i>
-                  {{ getItemPurposeLabel(item) }}
-                </span>
-
-                <span class="cover-badge" *ngIf="isHighlighted(group.key, item.id)">Top stock</span>
+          <article
+            class="gh-inv-card is-clickable"
+            *ngFor="let item of group.items; trackBy: trackByItem"
+            [class.is-void]="!item.is_active"
+            [ngStyle]="{
+              '--inv-tone': getStockBarColor(item),
+              '--inv-tone-soft': getStockStateTone(item).bg
+            }"
+            (click)="openDetail(item)">
+            <div class="gh-inv-head">
+              <span class="gh-inv-icon"><i [class]="getItemPurposeIcon(item)"></i></span>
+              <div class="gh-inv-titles">
+                <h3 [title]="item.name">{{ item.name }}</h3>
+                <div class="gh-inv-tags">
+                  <span class="gh-inv-tag is-code">{{ getSkuLabel(item) }}</span>
+                  <span class="gh-inv-tag">{{ getItemTypeLabel(item) }}</span>
+                  <span
+                    class="gh-inv-tag"
+                    [ngStyle]="{
+                      'background-color': getItemPurposeTone(item).bg,
+                      color: getItemPurposeTone(item).color
+                    }">
+                    {{ getItemPurposeLabel(item) }}
+                  </span>
+                </div>
               </div>
-
-              <span
-                class="stock-chip"
-                [ngStyle]="{
-                  'background-color': getStockStateTone(item).bg,
-                  color: getStockStateTone(item).color
-                }">
-                {{ getStockStateLabel(item) }}
-              </span>
             </div>
 
-            <div class="item-body">
-              <h3>{{ item.name }}</h3>
-              <p>{{ getItemDescription(item) }}</p>
+            <div class="gh-inv-body">
+              <!-- El medidor: cuanto hay y donde cae respecto al minimo, sin leer cifras. -->
+              <div class="gh-inv-gauge">
+                <div class="gh-inv-gauge-top">
+                  <span class="gh-inv-amount">
+                    <strong>{{ getStockCount(item) }}</strong>
+                    <span>{{ getUnitLabel(item) }}</span>
+                  </span>
 
-              <div class="meta-row">
-                <span>
-                  <i class="fa-solid fa-barcode"></i>
-                  {{ getSkuLabel(item) }}
-                </span>
-                <span>
-                  <i class="fa-solid fa-ruler-combined"></i>
-                  {{ getUnitLabel(item) }}
-                </span>
-              </div>
-
-              <div class="stock-row">
-                <strong>{{ getStockLabel(item) }}</strong>
-                <small>Minimo: {{ getMinimumStockLabel(item) }} | Maximo: {{ getMaximumStockLabel(item) }}</small>
-              </div>
-
-              <div class="price-grid">
-                <div>
-                  <span>Costo</span>
-                  <strong>{{ getCostPriceLabel(item) }}</strong>
+                  <span
+                    class="gh-inv-state"
+                    [ngStyle]="{
+                      'background-color': getStockStateTone(item).bg,
+                      color: getStockStateTone(item).color
+                    }">
+                    <span class="gh-inv-dot" [ngStyle]="{ 'background-color': getStockStateTone(item).dot }"></span>
+                    {{ getStockStateLabel(item) }}
+                  </span>
                 </div>
-                <div>
-                  <span>Venta</span>
-                  <strong>{{ getSalePriceLabel(item) }}</strong>
-                </div>
-                <div>
-                  <span>Margen</span>
-                  <strong>{{ getMarginLabel(item) }}</strong>
-                </div>
-              </div>
 
-              <div class="card-foot">
-                <span
-                  class="status-chip"
-                  [ngStyle]="{
-                    'background-color': getStatusTone(item).bg,
-                    color: getStatusTone(item).color
-                  }">
-                  <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(item).dot }"></span>
-                  {{ item.is_active ? 'Activo' : 'Inactivo' }}
-                </span>
+                <div class="gh-inv-bar">
+                  <i [style.width.%]="getStockProgressPercent(item)"></i>
+                  <b
+                    *ngIf="getMinimumMarkPercent(item) > 0"
+                    [style.left.%]="getMinimumMarkPercent(item)"
+                    [title]="'Minimo: ' + getMinimumStockLabel(item)"></b>
+                </div>
 
-                <div class="card-actions" (click)="$event.stopPropagation()">
-                  <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(item)">
-                    <i class="fa-regular fa-eye"></i>
-                  </button>
+                <div class="gh-inv-scale">
+                  <span>Minimo {{ getMinimumStockLabel(item) }}</span>
+                  <span>Maximo {{ getMaximumStockLabel(item) }}</span>
+                </div>
+
+                <!-- La unidad suelta con un clic; cualquier otra cantidad abre el modal,
+                     que ademas ensena en cuanto queda el stock antes de confirmar. -->
+                <div class="quick-adjust" *ngIf="canQuickAdjust" (click)="$event.stopPropagation()">
                   <button
                     type="button"
-                    class="row-btn"
-                    [title]="item.is_active ? 'Desactivar' : 'Activar'"
-                    (click)="toggleItemStatus(item)">
-                    <i [class]="item.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+                    class="unit-btn"
+                    title="Descontar una unidad"
+                    [disabled]="isQuickAdjusting(item) || getStockCount(item) < 1"
+                    (click)="quickAdjust(item, -1)">
+                    <i class="fa-solid fa-minus"></i>
                   </button>
-                  <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(item)">
-                    <i class="fa-regular fa-trash-can"></i>
+
+                  <button
+                    type="button"
+                    class="move-btn is-out"
+                    title="Registrar una salida de stock"
+                    [disabled]="isQuickAdjusting(item) || getStockCount(item) < 1"
+                    (click)="openStockMove(item, 'OUT')">
+                    <i class="fa-solid fa-arrow-up-long"></i>
+                    Salida
+                  </button>
+
+                  <button
+                    type="button"
+                    class="move-btn is-in"
+                    title="Registrar una entrada de stock"
+                    [disabled]="isQuickAdjusting(item)"
+                    (click)="openStockMove(item, 'IN')">
+                    <i class="fa-solid fa-arrow-down-long"></i>
+                    Entrada
+                  </button>
+
+                  <button
+                    type="button"
+                    class="unit-btn is-add"
+                    title="Sumar una unidad"
+                    [disabled]="isQuickAdjusting(item)"
+                    (click)="quickAdjust(item, 1)">
+                    <i class="fa-solid fa-plus"></i>
                   </button>
                 </div>
               </div>
+
+              <dl class="gh-inv-meta">
+                <div>
+                  <dt>Costo</dt>
+                  <dd>{{ getCostPriceLabel(item) }}</dd>
+                </div>
+                <div>
+                  <dt>Venta</dt>
+                  <dd>{{ getSalePriceLabel(item) }}</dd>
+                </div>
+                <div>
+                  <dt>Margen</dt>
+                  <dd>{{ getMarginLabel(item) }}</dd>
+                </div>
+                <div>
+                  <dt>Estado</dt>
+                  <dd>{{ item.is_active ? 'Activo' : 'Inactivo' }}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div class="gh-inv-foot" (click)="$event.stopPropagation()">
+              <!-- Las dos preguntas que se hacen mirando un item, a un clic. -->
+              <button
+                type="button"
+                class="gh-inv-btn is-primary"
+                title="Ver por que cambio su stock"
+                (click)="showItemMovements(item)">
+                <i class="fa-solid fa-right-left"></i>
+                Movimientos
+              </button>
+
+              <button
+                type="button"
+                class="gh-inv-btn is-icon"
+                title="Ver en que habitaciones esta"
+                (click)="showItemRooms(item)">
+                <i class="fa-solid fa-bed"></i>
+              </button>
+
+              <button type="button" class="gh-inv-btn is-icon" title="Ver detalle" (click)="openDetail(item)">
+                <i class="fa-regular fa-eye"></i>
+              </button>
+
+              <button
+                type="button"
+                class="gh-inv-btn is-icon"
+                [title]="item.is_active ? 'Desactivar' : 'Activar'"
+                (click)="toggleItemStatus(item)">
+                <i [class]="item.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+              </button>
+
+              <button
+                type="button"
+                class="gh-inv-btn is-icon is-danger"
+                title="Eliminar"
+                (click)="confirmDelete(item)">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
             </div>
           </article>
         </div>
@@ -426,6 +502,17 @@
     [itemData]="selectedItem"
     (closed)="closeDetail()"
     (statusRequested)="toggleItemStatus($event)"
+    (movementsRequested)="showItemMovements($event); closeDetail()"
+    (roomsRequested)="showItemRooms($event); closeDetail()"
     (deleteRequested)="confirmDelete($event)">
   </app-detail-item>
+
+  <app-stock-move
+    *ngIf="movingItem"
+    [item]="movingItem"
+    [direction]="movingDirection"
+    [movementTypeId]="movingMovementTypeId"
+    (closed)="closeStockMove()"
+    (registered)="onStockMoveRegistered($event)">
+  </app-stock-move>
 </div>

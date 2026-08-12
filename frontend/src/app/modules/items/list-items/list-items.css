@@ -860,3 +860,72 @@
     flex-direction: column;
   }
 }
+
+/* Recarga tras una accion: la cuadricula se queda donde esta y solo se atenua. Con
+   `loading` se desmontaba entera y cada accion parecia una recarga de pagina. */
+.catalog-sections.is-refreshing {
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+
+/* Fila de movimiento en la tarjeta.
+   La unidad suelta se resuelve con un clic; entrada y salida de cualquier otra cantidad
+   abren el modal, que ensena en cuanto queda el stock antes de confirmar. */
+.quick-adjust {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--gh-border-soft);
+}
+
+.unit-btn {
+  width: 34px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-status-danger-text);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.unit-btn.is-add {
+  color: var(--gh-status-success-text);
+}
+
+.move-btn {
+  flex: 1;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.move-btn.is-out {
+  color: var(--gh-status-danger-text);
+}
+
+.move-btn.is-in {
+  color: var(--gh-status-success-text);
+}
+
+.move-btn:hover:not(:disabled),
+.unit-btn:hover:not(:disabled) {
+  border-color: currentColor;
+}
+
+.move-btn:disabled,
+.unit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

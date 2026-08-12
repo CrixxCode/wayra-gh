@@ -2,104 +2,137 @@
   <aside class="room-inventory-drawer" (click)="$event.stopPropagation()">
     <header class="drawer-head">
       <div class="drawer-title-block">
-        <p class="drawer-type">Detalle de habitacion</p>
+        <p class="drawer-type">Dotacion de habitacion</p>
         <h2>{{ roomLabel }}</h2>
-        <span class="status-chip">Inventario asignado</span>
       </div>
 
       <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6 6 18" />
-          <path d="m6 6 12 12" />
-        </svg>
+        <i class="fa-solid fa-xmark"></i>
       </button>
     </header>
 
     <div class="drawer-body">
-      <section class="hero-card">
-        <div>
-          <span>Items</span>
-          <strong>{{ totalItems }}</strong>
+      <!-- Titular en una barra: antes eran cuatro contadores y un bloque "Resumen"
+           que repetía uno de ellos, y había que deducir de todo eso si faltaba algo. -->
+      <section class="coverage-hero" *ngIf="totalItems">
+        <div class="coverage-top">
+          <div class="coverage-number">
+            <strong>{{ coveragePercent }}%</strong>
+            <span>de la dotacion completa</span>
+          </div>
+
+          <span
+            class="coverage-pill"
+            [ngStyle]="{ 'background-color': coverageTone.bg, color: coverageTone.color }">
+            {{ coverageHeadline }}
+          </span>
         </div>
-        <div>
-          <span>Unidades</span>
-          <strong>{{ totalUnits }}</strong>
+
+        <div class="coverage-bar">
+          <i [style.width.%]="coveragePercent" [ngStyle]="{ 'background-color': coverageTone.bar }"></i>
         </div>
-        <div>
-          <span>Bajo minimo</span>
-          <strong>{{ lowItems }}</strong>
-        </div>
-        <div>
-          <span>Sin stock</span>
-          <strong>{{ outItems }}</strong>
-        </div>
+
+        <p class="coverage-breakdown">
+          <span><b>{{ coveredItems }}</b> completos</span>
+          <span *ngIf="lowItems"><b>{{ lowItems }}</b> bajo minimo</span>
+          <span *ngIf="outItems"><b>{{ outItems }}</b> sin stock</span>
+          <span class="is-soft">{{ totalUnits }} unidades &middot; al {{ latestUpdateLabel }}</span>
+        </p>
       </section>
 
-      <section>
-        <h3>Resumen</h3>
-        <div class="info-list">
-          <div>
-            <span>Items activos</span>
-            <strong>{{ activeItems }}</strong>
-          </div>
-          <div>
-            <span>Ultima actualizacion</span>
-            <strong>{{ latestUpdateLabel }}</strong>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <h3>Inventario de la habitacion</h3>
-        <div class="records-list" *ngIf="records.length; else emptyState">
-          <article class="record-card" *ngFor="let record of records; trackBy: trackByRecord">
-            <header class="record-head">
-              <div>
-                <strong>{{ getItemLabel(record) }}</strong>
-                <small>{{ getItemSku(record) }}</small>
-              </div>
-              <span
-                class="coverage-pill"
-                [ngStyle]="{
-                  'background-color': getCoverageTone(record).bg,
-                  color: getCoverageTone(record).color
-                }">
-                {{ getCoverageLabel(record) }}
-              </span>
-            </header>
-
-            <div class="record-metrics">
-              <div>
-                <span>Cantidad</span>
-                <strong>{{ getQuantityLabel(record) }}</strong>
-              </div>
-              <div>
-                <span>Minimo</span>
-                <strong>{{ getMinimumLabel(record) }}</strong>
-              </div>
-              <div>
-                <span>Estado</span>
-                <strong
-                  class="status-pill"
-                  [ngStyle]="{
-                    'background-color': getStatusTone(record).bg,
-                    color: getStatusTone(record).color
-                  }">
-                  {{ getStatusLabel(record) }}
-                </strong>
-              </div>
+      <section class="records" *ngIf="records.length; else emptyState">
+        <!-- Ordenadas por urgencia: en una habitacion con veinte lineas, el orden
+             alfabetico entierra justo lo que hay que resolver. -->
+        <article
+          class="record-row"
+          *ngFor="let record of records; trackBy: trackByRecord"
+          [class.is-inactive]="!record.is_active">
+          <div class="record-main">
+            <div class="record-id">
+              <strong [title]="getItemLabel(record)">{{ getItemLabel(record) }}</strong>
+              <small *ngIf="getItemSku(record)">{{ getItemSku(record) }}</small>
+              <span class="record-off" *ngIf="!record.is_active">Inactivo</span>
             </div>
 
-            <p class="record-notes">{{ getNotesLabel(record) }}</p>
+            <span
+              class="record-state"
+              [ngStyle]="{
+                'background-color': getCoverageTone(record).bg,
+                color: getCoverageTone(record).color
+              }">
+              {{ getCoverageLabel(record) }}
+            </span>
+          </div>
 
-            <div class="record-actions">
-              <button type="button" class="btn btn-light btn-sm" (click)="requestStatusToggle(record)">
-                {{ record.is_active ? 'Marcar inactivo' : 'Marcar activo' }}
+          <div class="record-bar">
+            <i
+              [style.width.%]="getRecordFillPercent(record)"
+              [ngStyle]="{ 'background-color': getCoverageTone(record).bar }"></i>
+          </div>
+
+          <!-- La cantidad se edita aqui: es lo que se quiere hacer al descubrir que falta. -->
+          <div class="record-edit">
+            <div class="stepper">
+              <button
+                type="button"
+                (click)="stepDraft(record, -1)"
+                [disabled]="draftFor(record) <= 0 || isSaving(record)"
+                title="Restar uno">
+                <i class="fa-solid fa-minus"></i>
               </button>
-              <button type="button" class="btn btn-danger btn-sm" (click)="requestDelete(record)">Eliminar</button>
+
+              <input
+                type="number"
+                min="0"
+                [ngModel]="draftFor(record)"
+                (ngModelChange)="setDraft(record, $event)"
+                [disabled]="isSaving(record)"
+                aria-label="Cantidad en la habitacion" />
+
+              <button
+                type="button"
+                (click)="stepDraft(record, 1)"
+                [disabled]="isSaving(record)"
+                title="Sumar uno">
+                <i class="fa-solid fa-plus"></i>
+              </button>
             </div>
-          </article>
-        </div>
+
+            <span class="record-min">{{ getMinimumLabel(record) }}</span>
+
+            <button
+              type="button"
+              class="link-btn"
+              *ngIf="!hasPendingChange(record) && getCoverageLabel(record) !== 'Completo'"
+              (click)="fillToMinimum(record)">
+              Completar al minimo
+            </button>
+
+            <div class="record-save" *ngIf="hasPendingChange(record)">
+              <button type="button" class="ghost-btn" (click)="discardDraft(record)" [disabled]="isSaving(record)">
+                Descartar
+              </button>
+              <button type="button" class="save-btn" (click)="saveQuantity(record)" [disabled]="isSaving(record)">
+                {{ isSaving(record) ? 'Guardando...' : 'Guardar' }}
+              </button>
+            </div>
+
+            <!-- Las destructivas no compiten con la accion util. -->
+            <div class="record-tools" *ngIf="!hasPendingChange(record)">
+              <button
+                type="button"
+                [title]="record.is_active ? 'Marcar inactivo' : 'Marcar activo'"
+                (click)="requestStatusToggle(record)">
+                <i [class]="record.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+              </button>
+              <button type="button" class="is-danger" title="Quitar de la habitacion" (click)="requestDelete(record)">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+
+          <p class="record-notes" *ngIf="getNotes(record)">{{ getNotes(record) }}</p>
+        </article>
       </section>
     </div>
   </aside>

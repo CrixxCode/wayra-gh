@@ -311,6 +311,96 @@
   white-space: nowrap;
 }
 
+/* -------------------------------------------------------------- historial */
+
+.history-block {
+  padding: 11px 12px;
+  border: 1px solid var(--gh-border);
+  border-radius: 12px;
+  background: var(--gh-surface-soft);
+}
+
+.history-block > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.history-block h4 {
+  color: var(--gh-text-strong);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.history-block > header strong {
+  color: var(--gh-status-success-text);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  list-style: none;
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.history-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 9px;
+  border-left: 3px solid var(--gh-status-success-strong);
+  border-radius: 8px;
+  background: var(--gh-surface);
+  font-size: 0.8rem;
+}
+
+/* Un reembolso resta, y se lee distinto de un cobro. */
+.history-list li.is-refund {
+  border-left-color: var(--gh-status-danger-strong);
+}
+
+/* Anulado o pendiente: se muestra para auditar, pero no movio el saldo. */
+.history-list li.is-void {
+  border-left-style: dashed;
+  opacity: 0.65;
+}
+
+.history-main,
+.history-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.history-side {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.history-main strong,
+.history-side strong {
+  color: var(--gh-text-strong);
+  white-space: nowrap;
+}
+
+.history-main small,
+.history-side small {
+  color: var(--gh-text-soft);
+  font-size: 0.72rem;
+}
+
+.history-list li.is-refund .history-side strong {
+  color: var(--gh-status-danger-text);
+}
+
 /* ------------------------------------------------------------------ cobro */
 
 .payment-block {

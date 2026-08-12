@@ -875,3 +875,9 @@
     width: 100%;
   }
 }
+
+/* Recarga tras una accion: la cuadricula se queda donde esta y solo se atenua. */
+.catalog-sections.is-refreshing {
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}

@@ -354,6 +354,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
 class PaymentSerializer(serializers.ModelSerializer):
     payment_method_name = serializers.CharField(source="payment_method.name", read_only=True)
     payment_method_code = serializers.CharField(source="payment_method.code", read_only=True)
+    # Quien registro el cobro: es el dato que se busca cuando hay un descuadre de caja.
+    created_by_username = serializers.CharField(source="created_by.username", read_only=True)
     invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
 
     class Meta:
@@ -370,12 +372,17 @@ class PaymentSerializer(serializers.ModelSerializer):
             "reference",
             "notes",
             "is_active",
+            "created_by",
+            "created_by_username",
             "created_at",
             "updated_at",
         ]
         read_only_fields = (
             "id",
             "payment_date",
+            # El autor no lo elige el cliente: lo pone la vista con el usuario de la
+            # peticion, para que no se pueda registrar un cobro a nombre de otro.
+            "created_by",
             "created_at",
             "updated_at",
         )
@@ -442,6 +449,12 @@ class PaymentSerializer(serializers.ModelSerializer):
 
 class PaymentRefundSerializer(serializers.ModelSerializer):
     invoice = serializers.IntegerField(source="payment.invoice_id", read_only=True)
+    # Un reembolso se identifica por el pago que devuelve, y ese pago se reconoce por su
+    # importe y su fecha -- no por su id, que no le dice nada a quien opera.
+    payment_amount = serializers.DecimalField(
+        source="payment.amount", max_digits=10, decimal_places=2, read_only=True
+    )
+    payment_date = serializers.DateTimeField(source="payment.payment_date", read_only=True)
     invoice_number = serializers.CharField(source="payment.invoice.invoice_number", read_only=True)
     payment_method = serializers.IntegerField(source="payment.payment_method_id", read_only=True)
     payment_method_name = serializers.CharField(source="payment.payment_method.name", read_only=True)
@@ -454,6 +467,8 @@ class PaymentRefundSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "payment",
+            "payment_amount",
+            "payment_date",
             "invoice",
             "invoice_number",
             "payment_method",
@@ -473,6 +488,8 @@ class PaymentRefundSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = (
             "id",
+            "payment_amount",
+            "payment_date",
             "invoice",
             "invoice_number",
             "payment_method",

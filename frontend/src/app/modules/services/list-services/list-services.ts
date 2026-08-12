@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
@@ -124,7 +124,20 @@ const CATEGORY_TONES: Record<string, ServiceCategoryTone> = {
   styleUrls: ['./list-services.css']
 })
 export class ListServices implements OnInit {
+  /**
+   * La vista vive dentro del catalogo comercial: el contenedor pone el encabezado y las
+   * metricas, asi que aqui se ocultan para no repetirlos en cada pestaña.
+   */
+  @Input() embedded = false;
+
+  /** Avisa al catalogo comercial que sus metricas quedaron desactualizadas. */
+  @Output() changed = new EventEmitter<void>();
+
+  /** Solo la primera carga: es la unica que puede dejar la pantalla vacia. */
   loading = false;
+
+  /** Recarga posterior a una accion: la cuadricula sigue en pantalla. */
+  refreshing = false;
   errorMessage = '';
   infoMessage = '';
   showDeletedServices = false;
@@ -211,8 +224,11 @@ export class ListServices implements OnInit {
     return winner?.count || 0;
   }
 
-  loadCatalogData(): void {
-    this.loading = true;
+  loadCatalogData(options: { silent?: boolean } = {}): void {
+    // Una recarga silenciosa no toca `loading`, asi que el `*ngIf` de la cuadricula
+    // no se cae y la pantalla no parpadea con cada activar/desactivar/eliminar.
+    if (options.silent) this.refreshing = true;
+    else this.loading = true;
     this.errorMessage = '';
     const selectedServiceId = this.selectedService?.id ?? null;
     const serviceToEditId = this.serviceToEdit?.id ?? null;
@@ -231,6 +247,7 @@ export class ListServices implements OnInit {
     }).subscribe({
       next: ({ services, allServices, serviceTypes, settings }) => {
         this.loading = false;
+        this.refreshing = false;
         this.services = services;
         const visibleIds = new Set(services.map((service) => service.id));
         this.deletedServices = allServices.filter((service) => !visibleIds.has(service.id));
@@ -256,13 +273,15 @@ export class ListServices implements OnInit {
       },
       error: () => {
         this.loading = false;
+        this.refreshing = false;
         this.errorMessage = 'No fue posible cargar el catalogo de servicios.';
       }
     });
   }
 
   refreshServices(): void {
-    this.loadCatalogData();
+    this.changed.emit();
+    this.loadCatalogData({ silent: true });
   }
 
   exportCsv(): void {
@@ -382,7 +401,11 @@ export class ListServices implements OnInit {
     this.servicesService
       .updateService(service.id, { is_active: !service.is_active })
       .subscribe({
-        next: () => {
+        next: (updated) => {
+          // El estado se pinta con la respuesta, sin esperar a la recarga: es el dato
+          // que el usuario acaba de cambiar y verlo tardar se siente como un bloqueo.
+          service.is_active = updated?.is_active ?? !service.is_active;
+          this.applyFilters();
           this.refreshServices();
         },
         error: () => {

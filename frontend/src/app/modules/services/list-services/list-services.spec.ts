@@ -48,4 +48,29 @@ describe('ListServices', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  // `loading` desmonta la cuadricula entera (`*ngIf="!loading"`). Si se activara al
+  // recargar, activar o eliminar un servicio se veria como si la pagina se recargara.
+  it('no desmonta la cuadricula al recargar tras una accion', () => {
+    let loadingDuranteRecarga = false;
+    const original = component.applyFilters.bind(component);
+    spyOn(component, 'applyFilters').and.callFake(() => {
+      loadingDuranteRecarga = loadingDuranteRecarga || component.loading;
+      original();
+    });
+
+    component.refreshServices();
+
+    expect(loadingDuranteRecarga).toBeFalse();
+    expect(component.loading).toBeFalse();
+  });
+
+  it('pinta el estado nuevo sin esperar la recarga', () => {
+    const service: any = { id: 1, name: 'Spa', is_active: true };
+    component.services = [service];
+
+    component.toggleServiceStatus(service);
+
+    expect(service.is_active).toBeFalse();
+  });
 });

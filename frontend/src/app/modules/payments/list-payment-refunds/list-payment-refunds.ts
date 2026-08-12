@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { PaymentRefundI } from '../../billing/billing-model';
@@ -19,7 +19,20 @@ type RefundViewMode = 'cards' | 'table';
   styleUrls: ['./list-payment-refunds.css']
 })
 export class ListPaymentRefunds implements OnInit {
+  /** Dentro del contenedor de facturacion: sin encabezado ni metricas propias. */
+  @Input() embedded = false;
+
+  /** Un cambio aqui mueve las cifras de las otras dos pestañas. */
+  @Output() changed = new EventEmitter<void>();
+
+  /** Pide al contenedor abrir otra pestaña; suelta, la lista no navega. */
+  @Output() navigateTab = new EventEmitter<'invoices' | 'payments' | 'refunds'>();
+
+  /** Solo la primera carga: es la unica que puede dejar la pantalla vacia. */
   loading = false;
+
+  /** Recarga posterior a una accion: la tabla sigue en pantalla. */
+  refreshing = false;
   approvingRefundId: number | null = null;
   errorMessage = '';
   infoMessage = '';
@@ -98,17 +111,22 @@ export class ListPaymentRefunds implements OnInit {
     ];
   }
 
-  loadRefundsData(): void {
-    this.loading = true;
+  loadRefundsData(options: { silent?: boolean; force?: boolean } = {}): void {
+    // Una recarga silenciosa no toca `loading`, asi que la tabla no se desmonta y
+    // la pantalla no parpadea con cada accion.
+    if (options.silent) this.refreshing = true;
+    else this.loading = true;
     this.errorMessage = '';
     this.infoMessage = '';
 
     this.billingService
-      .listPaymentRefunds({ ordering: '-refund_date,-id', include_inactive: true })
+      .listPaymentRefunds({ ordering: '-refund_date,-id', include_inactive: true, forceRefresh: options.force })
       .pipe(catchError(() => of([] as PaymentRefundI[])))
       .subscribe({
         next: (refunds) => {
           this.loading = false;
+        this.refreshing = false;
+          this.refreshing = false;
           this.refunds = [...refunds].sort((a, b) => b.id - a.id);
           this.applyFilters();
           if (!this.refunds.length) {
@@ -117,13 +135,25 @@ export class ListPaymentRefunds implements OnInit {
         },
         error: () => {
           this.loading = false;
+        this.refreshing = false;
+          this.refreshing = false;
           this.errorMessage = 'No fue posible cargar los reembolsos.';
         }
       });
   }
 
-  refreshData(): void {
-    this.loadRefundsData();
+  /**
+   * Recarga tras una accion, o a peticion del boton "Actualizar".
+   *
+   * `force` **solo** para el boton: una escritura ya invalido el cache desde el servicio,
+   * asi que la recarga posterior va al servidor igual. Forzarla ademas anula la
+   * deduplicacion de peticiones en vuelo del `ResourceCache`, y entonces esta lista y su
+   * contenedor piden lo mismo dos veces. Con unos pocos clics seguidos eso agotaba el
+   * limite de peticiones por minuto y la API respondia 429.
+   */
+  refreshData(force = false): void {
+    this.changed.emit();
+    this.loadRefundsData({ silent: true, force });
   }
 
   exportCsv(): void {
@@ -144,7 +174,7 @@ export class ListPaymentRefunds implements OnInit {
     const rows = this.filteredRefunds.map((refund) => {
       const row = [
         this.getInvoiceLabel(refund),
-        `Pago #${refund.payment}`,
+        this.getRefundedPaymentLabel(refund),
         this.getMethodLabel(refund),
         this.getDateLabel(refund),
         this.toNumber(refund.amount),
@@ -227,6 +257,32 @@ export class ListPaymentRefunds implements OnInit {
 
   setViewMode(mode: RefundViewMode): void {
     this.viewMode = mode;
+  }
+
+  /**
+   * El pago que se devuelve, reconocible por su importe y su fecha.
+   *
+   * Antes se mostraba como "Pago #31": el consecutivo interno no le dice nada a
+   * quien opera y obliga a ir a buscarlo para saber de cual se trata.
+   */
+  getRefundedPaymentLabel(refund: PaymentRefundI): string {
+    const amount = Number(refund.payment_amount);
+    const date = this.formatShortDate(refund.payment_date);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return date ? `Pago del ${date}` : 'Pago no identificado';
+    }
+
+    const money = this.formatCurrency(amount);
+    return date ? `Pago de ${money} del ${date}` : `Pago de ${money}`;
+  }
+
+  private formatShortDate(value: string | undefined): string {
+    if (!value) return '';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+
+    return parsed.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
   }
 
   getInvoiceLabel(refund: PaymentRefundI): string {

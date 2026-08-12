@@ -21,9 +21,7 @@ describe('DetailPayment', () => {
             getInvoiceById: () => of(null),
             listPayments: () => of([]),
             listPaymentRefunds: () => of([]),
-            updatePayment: () => of({}),
-            createPaymentRefund: () => of({ id: 1 }),
-            processPaymentRefund: () => of({})
+            updatePayment: () => of({})
           }
         },
         {
@@ -47,5 +45,27 @@ describe('DetailPayment', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  // El detalle informa; la decision de devolver dinero se toma en su propio modal.
+  it('pide abrir el modal de reembolso en vez de registrarlo', () => {
+    const payment: any = { id: 4, invoice: 1, amount: 5000, is_active: true };
+    component.activePayment = payment;
+    const pedidos: any[] = [];
+    component.refundRequested.subscribe((value) => pedidos.push(value));
+
+    component.requestRefund();
+
+    expect(pedidos).toEqual([payment]);
+  });
+
+  it('no ofrece reembolsar un pago anulado', () => {
+    component.activePayment = { id: 4, invoice: 1, amount: 5000, is_active: false } as any;
+    const pedidos: any[] = [];
+    component.refundRequested.subscribe((value) => pedidos.push(value));
+
+    component.requestRefund();
+
+    expect(pedidos).toEqual([]);
   });
 });

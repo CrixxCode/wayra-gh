@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, tap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
+import { CACHE_TTL, ResourceCache } from './resource-cache';
 import { ItemFormPayload, ItemI } from '../modules/items/item-model';
 
 type DRFPaginated<T> = {
@@ -18,8 +19,37 @@ export class ItemsService {
 
   constructor(
     private http: HttpClient,
-    private auth: AuthService
+    private auth: AuthService,
+    private cache: ResourceCache
   ) {}
+
+  // --------------------------------------------------------------------- cache
+  // Cache-aside sobre las lecturas de inventario (ver `resource-cache.ts`).
+  //
+  // TTL operativo: el stock de un item lo mueve cada consumo y cada check-out, no
+  // solo quien edita el catalogo. El cache evita repetir consultas al saltar entre
+  // pestañas, no guardar cifras viejas durante minutos.
+  private static readonly INVENTORY_KEYS = ['items', 'room-inventory', 'inventory-movements'];
+
+  private cacheKey(base: string, filters?: Record<string, unknown>): string {
+    const entries = Object.entries(filters || {})
+      .filter(([, value]) => value !== undefined && value !== null && value !== '')
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`);
+    return entries.length ? `${base}:${entries.join('&')}` : base;
+  }
+
+  /**
+   * Cualquier escritura tira las tres claves.
+   *
+   * `Item` es el centro: un movimiento cambia su stock y una asignacion a habitacion
+   * lo reparte. Invalidar solo la entidad tocada dejaria a las otras dos pestañas
+   * mostrando existencias que ya no son.
+   */
+  private invalidateInventory(): void {
+    this.cache.invalidateAll(ItemsService.INVENTORY_KEYS);
+  }
+
 
   listItems(filters?: {
     search?: string;
@@ -27,6 +57,8 @@ export class ItemsService {
     include_inactive?: boolean;
     include_deleted?: boolean;
     item_purpose?: 'ROOM' | 'RECEPTION';
+    /** Salta el cache y lo repuebla: es lo que usa el boton de actualizar. */
+    forceRefresh?: boolean;
   }): Observable<ItemI[]> {
     let params = new HttpParams();
 
@@ -50,12 +82,18 @@ export class ItemsService {
       params = params.set('item_purpose', filters.item_purpose);
     }
 
-    return this.http
-      .get<ItemI[] | DRFPaginated<ItemI>>(this.itemsUrl, {
-        withCredentials: true,
-        params
-      })
-      .pipe(map((res) => this.unwrapArray<ItemI>(res)));
+    return this.cache.get(
+      this.cacheKey('items', filters as Record<string, unknown>),
+      () =>
+        this.http
+          .get<ItemI[] | DRFPaginated<ItemI>>(this.itemsUrl, {
+            withCredentials: true,
+            params
+          })
+          .pipe(map((res) => this.unwrapArray<ItemI>(res))),
+      CACHE_TTL.OPERATIONAL,
+      filters?.forceRefresh
+    );
   }
 
   getItemById(id: number): Observable<ItemI> {
@@ -63,7 +101,11 @@ export class ItemsService {
   }
 
   createItem(payload: ItemFormPayload): Observable<ItemI> {
-    return this.http.post<ItemI>(this.itemsUrl, this.normalizeCreatePayload(payload), this.auth.buildCsrfRequestOptions());
+    return this.http.post<ItemI>(
+      this.itemsUrl,
+      this.normalizeCreatePayload(payload),
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateInventory()));
   }
 
   updateItem(id: number, payload: Partial<ItemFormPayload>): Observable<ItemI> {
@@ -71,15 +113,22 @@ export class ItemsService {
       `${this.itemsUrl}${id}/`,
       this.normalizePatchPayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateInventory()));
   }
 
   deleteItem(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.itemsUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http.delete<void>(
+      `${this.itemsUrl}${id}/`,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateInventory()));
   }
 
   restoreItem(id: number): Observable<ItemI> {
-    return this.http.post<ItemI>(`${this.itemsUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions());
+    return this.http.post<ItemI>(
+      `${this.itemsUrl}${id}/restore/`,
+      {},
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateInventory()));
   }
 
   private unwrapArray<T>(res: unknown): T[] {

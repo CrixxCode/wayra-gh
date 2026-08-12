@@ -36,7 +36,7 @@ export class DetailCleaningTask {
       return `Habitacion ${this.cleaningTaskData.room_number.trim()}`;
     }
     if (typeof this.cleaningTaskData.room === 'number' && this.cleaningTaskData.room > 0) {
-      return `Habitacion #${this.cleaningTaskData.room}`;
+      return 'Habitacion sin numero';
     }
     return 'Habitacion no definida';
   }

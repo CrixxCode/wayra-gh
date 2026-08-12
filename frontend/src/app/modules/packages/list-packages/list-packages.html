@@ -1,62 +1,66 @@
 <div class="packages-page">
+  <ng-container *ngIf="!embedded">
   <header class="page-header">
-    <div>
-      <h1>Catalogo de Paquetes</h1>
-      <p>Configura paquetes promocionales y controla vigencia, categoria y servicios incluidos.</p>
-    </div>
+      <div>
+        <h1>Catalogo de Paquetes</h1>
+        <p>Configura paquetes promocionales y controla vigencia, categoria y servicios incluidos.</p>
+      </div>
 
-    <button type="button" class="btn btn-dark" (click)="openCreateDrawer()">
-      <i class="fa-solid fa-plus"></i>
-      Nuevo paquete
-    </button>
-  </header>
+      <button type="button" class="btn btn-dark" (click)="openCreateDrawer()">
+        <i class="fa-solid fa-plus"></i>
+        Nuevo paquete
+      </button>
+    </header>
+  </ng-container>
 
+  <ng-container *ngIf="!embedded">
   <section class="stats-grid">
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Total paquetes</span>
-        <span class="stat-icon blue"><i class="fa-solid fa-box-open"></i></span>
-      </div>
-      <div class="stat-value">{{ totalPackages }}</div>
-      <div class="stat-note">items en catalogo</div>
-    </article>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Total paquetes</span>
+          <span class="stat-icon blue"><i class="fa-solid fa-box-open"></i></span>
+        </div>
+        <div class="stat-value">{{ totalPackages }}</div>
+        <div class="stat-note">items en catalogo</div>
+      </article>
 
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Activos</span>
-        <span class="stat-icon green"><i class="fa-solid fa-circle-check"></i></span>
-      </div>
-      <div class="stat-value">{{ activePackages }}</div>
-      <div class="stat-note">Disponibles para reservas</div>
-    </article>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Activos</span>
+          <span class="stat-icon green"><i class="fa-solid fa-circle-check"></i></span>
+        </div>
+        <div class="stat-value">{{ activePackages }}</div>
+        <div class="stat-note">Disponibles para reservas</div>
+      </article>
 
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Destacados</span>
-        <span class="stat-icon gold"><i class="fa-regular fa-star"></i></span>
-      </div>
-      <div class="stat-value">{{ featuredPackages }}</div>
-      <div class="stat-note">visibilidad prioritaria</div>
-    </article>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Destacados</span>
+          <span class="stat-icon gold"><i class="fa-regular fa-star"></i></span>
+        </div>
+        <div class="stat-value">{{ featuredPackages }}</div>
+        <div class="stat-note">visibilidad prioritaria</div>
+      </article>
 
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Con servicios</span>
-        <span class="stat-icon purple"><i class="fa-solid fa-list-check"></i></span>
-      </div>
-      <div class="stat-value">{{ packagesWithServices }}</div>
-      <div class="stat-note">paquetes ya configurados</div>
-    </article>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Con servicios</span>
+          <span class="stat-icon purple"><i class="fa-solid fa-list-check"></i></span>
+        </div>
+        <div class="stat-value">{{ packagesWithServices }}</div>
+        <div class="stat-note">paquetes ya configurados</div>
+      </article>
 
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Precio promedio</span>
-        <span class="stat-icon red"><i class="fa-solid fa-wallet"></i></span>
-      </div>
-      <div class="stat-value stat-money">{{ averagePriceLabel }}</div>
-      <div class="stat-note">Promedio del catalogo</div>
-    </article>
-  </section>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Precio promedio</span>
+          <span class="stat-icon red"><i class="fa-solid fa-wallet"></i></span>
+        </div>
+        <div class="stat-value stat-money">{{ averagePriceLabel }}</div>
+        <div class="stat-note">Promedio del catalogo</div>
+      </article>
+    </section>
+  </ng-container>
 
   <section class="filters-card">
     <div class="filters-grid">
@@ -89,8 +93,13 @@
       </label>
 
       <div class="filter-actions-inline">
-        <button type="button" class="icon-action" (click)="refreshPackages()" [disabled]="loading" title="Actualizar">
-          <i class="fa-solid fa-rotate-right"></i>
+        <button
+          type="button"
+          class="icon-action"
+          (click)="refreshPackages()"
+          [disabled]="loading || refreshing"
+          title="Actualizar">
+          <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
         </button>
 
         <button type="button" class="icon-action" (click)="exportCsv()" title="Exportar">
@@ -151,7 +160,10 @@
     <p *ngIf="!loading && !errorMessage && groupedPackages.length === 0">No hay paquetes para los filtros seleccionados.</p>
   </section>
 
-  <section class="catalog-sections" *ngIf="!loading && !errorMessage && groupedPackages.length > 0">
+  <section
+    class="catalog-sections"
+    [class.is-refreshing]="refreshing"
+    *ngIf="!loading && !errorMessage && groupedPackages.length > 0">
     <article class="category-block" *ngFor="let group of groupedPackages; trackBy: trackByGroup">
       <header class="category-head">
         <div class="category-title">
@@ -175,96 +187,97 @@
 
       <div class="packages-grid">
         <article
-          class="package-card"
+          class="gh-cat-card"
           *ngFor="let pkg of group.items; trackBy: trackByPackage"
+          [ngStyle]="{
+            '--cat-tone': getCategoryTone(group).badgeColor,
+            '--cat-tone-soft': getCategoryTone(group).badgeBg
+          }"
           (click)="openDetail(pkg)">
-          <div class="package-cover" [ngStyle]="{ background: getCategoryTone(group).cover }">
-            <i [ngClass]="['cover-symbol', getCategoryTone(group).icon]"></i>
-            <div class="cover-badges">
-              <span
-                class="cover-type"
-                [ngStyle]="{
-                  'background-color': getCategoryTone(group).badgeBg,
-                  color: getCategoryTone(group).badgeColor
-                }">
-                {{ getCategoryLabel(pkg) }}
-              </span>
-              <span class="cover-badge" *ngIf="isFeatured(group.key, pkg.id)">Destacado</span>
+          <div class="gh-cat-head">
+            <span class="gh-cat-icon"><i [class]="getCategoryTone(group).icon"></i></span>
+            <div class="gh-cat-titles">
+              <h3>{{ pkg.name }}</h3>
+              <div class="gh-cat-tags">
+                <span class="gh-cat-tag">{{ getCategoryLabel(pkg) }}</span>
+                <span class="gh-cat-tag is-flag" *ngIf="isFeatured(group.key, pkg.id)">
+                  <i class="fa-solid fa-star"></i>
+                  Destacado
+                </span>
+                <span
+                  class="gh-cat-tag is-muted"
+                  [ngStyle]="{
+                    'background-color': getValidityTone(pkg).bg,
+                    color: getValidityTone(pkg).color
+                  }">
+                  {{ getValidityLabel(pkg) }}
+                </span>
+              </div>
             </div>
-
-            <span
-              class="validity-chip"
-              [ngStyle]="{
-                'background-color': getValidityTone(pkg).bg,
-                color: getValidityTone(pkg).color
-              }">
-              {{ getValidityLabel(pkg) }}
-            </span>
           </div>
 
-          <div class="package-body">
-            <h3>{{ pkg.name }}</h3>
-            <p>{{ pkg.description || 'Sin descripcion del paquete.' }}</p>
+          <div class="gh-cat-body">
+            <p class="gh-cat-desc">{{ pkg.description || 'Sin descripcion del paquete.' }}</p>
 
-            <div class="service-tags" *ngIf="getPackageServices(pkg).length > 0; else noServices">
+            <div class="gh-cat-chips" *ngIf="getPackageServices(pkg).length > 0; else noServices">
               <span *ngFor="let packageService of getVisibleServiceTags(pkg); trackBy: trackById">
                 {{ packageService.service_name || ('Servicio #' + packageService.service) }}
               </span>
               <span *ngIf="getHiddenServiceCount(pkg) > 0">+{{ getHiddenServiceCount(pkg) }} mas</span>
             </div>
             <ng-template #noServices>
-              <div class="service-tags">
+              <div class="gh-cat-chips">
                 <span>Sin servicios asociados</span>
               </div>
             </ng-template>
 
-            <div class="meta-row">
+            <div class="gh-cat-meta">
               <span>
                 <i class="fa-regular fa-calendar"></i>
                 {{ getDateRangeLabel(pkg) }}
               </span>
               <span>
                 <i class="fa-solid fa-list-check"></i>
-                {{ getPackageServices(pkg).length }} servicios
+                {{ getPackageServices(pkg).length }} servicio(s)
               </span>
             </div>
+          </div>
 
-            <div class="card-foot">
-              <div class="price-wrap">
-                <strong>{{ getPriceLabel(pkg) }}</strong>
-                <span>precio base</span>
-              </div>
-
-              <span
-                class="status-chip"
-                [ngStyle]="{
-                  'background-color': getStatusTone(pkg).bg,
-                  color: getStatusTone(pkg).color
-                }">
-                <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(pkg).dot }"></span>
-                {{ pkg.is_active ? 'Activo' : 'Inactivo' }}
-              </span>
+          <div class="gh-cat-foot">
+            <div class="gh-cat-price">
+              <span>Precio base</span>
+              <strong>{{ getPriceLabel(pkg) }}</strong>
             </div>
 
-            <div class="card-actions" (click)="$event.stopPropagation()">
-              <button type="button" class="row-btn primary-action" title="Ver detalle" (click)="openDetail(pkg)">
-                <i class="fa-regular fa-eye"></i>
-                <span>Ver</span>
-              </button>
-              <button type="button" class="row-btn" title="Editar" (click)="openUpdateDrawer(pkg)">
-                <i class="fa-regular fa-pen-to-square"></i>
-              </button>
-              <button
-                type="button"
-                class="row-btn"
-                [title]="pkg.is_active ? 'Desactivar' : 'Activar'"
-                (click)="togglePackageStatus(pkg)">
-                <i [class]="pkg.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
-              </button>
-              <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(pkg)">
-                <i class="fa-regular fa-trash-can"></i>
-              </button>
-            </div>
+            <span
+              class="gh-cat-status"
+              [ngStyle]="{
+                'background-color': getStatusTone(pkg).bg,
+                color: getStatusTone(pkg).color
+              }">
+              <span class="gh-cat-dot" [ngStyle]="{ 'background-color': getStatusTone(pkg).dot }"></span>
+              {{ pkg.is_active ? 'Activo' : 'Inactivo' }}
+            </span>
+          </div>
+
+          <div class="gh-cat-actions" (click)="$event.stopPropagation()">
+            <button type="button" class="gh-cat-btn is-primary" (click)="openDetail(pkg)">
+              <i class="fa-regular fa-eye"></i>
+              Ver
+            </button>
+            <button type="button" class="gh-cat-btn" title="Editar" (click)="openUpdateDrawer(pkg)">
+              <i class="fa-regular fa-pen-to-square"></i>
+            </button>
+            <button
+              type="button"
+              class="gh-cat-btn"
+              [title]="pkg.is_active ? 'Desactivar' : 'Activar'"
+              (click)="togglePackageStatus(pkg)">
+              <i [class]="pkg.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+            </button>
+            <button type="button" class="gh-cat-btn is-danger" title="Eliminar" (click)="confirmDelete(pkg)">
+              <i class="fa-regular fa-trash-can"></i>
+            </button>
           </div>
         </article>
 

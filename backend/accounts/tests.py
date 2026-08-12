@@ -614,36 +614,35 @@ class SeedRbacCoverageTests(TestCase):
     # sin `platformAdminOnly` y sin las que el guard deja pasar siempre).
     HOTEL_ROUTES = {
         "/dashboard",
-        "/usuarios",
-        "/roles",
-        "/recursos",
         "/clientes",
         "/reservas",
         "/habitaciones",
-        "/catalogo-servicios",
-        "/catalogo-paquetes",
-        "/promociones",
-        "/facturas",
-        "/pagos",
-        "/reembolsos",
+        # Las tres pantallas del catalogo comercial viven en una sola ruta.
+        "/catalogo-comercial",
+        # Igual facturas, pagos y reembolsos.
+        "/facturacion",
         "/consolidado-ingresos",
         "/control-financiero",
         "/egresos",
-        "/items",
-        "/inventario-habitaciones",
-        "/movimientos-inventario",
-        "/tareas-limpieza",
-        "/ordenes-mantenimiento",
+        # Igual items, dotacion por habitacion y movimientos.
+        "/inventario",
+        # Igual limpieza y mantenimiento.
+        "/limpieza-mantenimiento",
         "/reportes",
         "/hotel-config",
-        "/master-data",
     }
 
+    # Administracion de la plataforma: definen quien entra, con que permisos y sobre que
+    # enums opera el codigo. Un hotel no las ve (AGENTS.md 5.17).
     PLATFORM_ROUTES = {
         "/saas-panel",
         "/saas-hoteles",
         "/saas-solicitudes-demo",
         "/saas-amenidades",
+        "/usuarios",
+        "/roles",
+        "/recursos",
+        "/master-data",
     }
 
     @classmethod
@@ -691,9 +690,17 @@ class SeedRbacCoverageTests(TestCase):
             ).values_list("key", flat=True)
         )
 
-        # `amenities.write` se excluye a proposito: el catalogo es global y el ViewSet
-        # exige administrador de plataforma para escribirlo (AGENTS.md 5.14).
-        missing = sorted(_collect_declared_scopes() - keys - {"amenities.write"})
+        # Exclusiones deliberadas:
+        # - `amenities.write`: catalogo global, solo el admin de plataforma (5.14).
+        # - `users.*`, `roles.*`, `resources.*`: administracion de la plataforma (5.17).
+        platform_only = {
+            scope
+            for scope in _collect_declared_scopes()
+            if scope.split(".")[0] in {"users", "roles", "resources"}
+        }
+        missing = sorted(
+            _collect_declared_scopes() - keys - {"amenities.write"} - platform_only
+        )
 
         self.assertEqual(missing, [], f"El rol 'admin' no cubre: {missing}")
 

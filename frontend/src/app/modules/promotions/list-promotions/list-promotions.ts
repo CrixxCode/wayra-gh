@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
@@ -14,6 +14,7 @@ import { PackageI } from '../../packages/package-model';
 import { ServiceI } from '../../services/service-model';
 import { CreatePromotion } from '../create-promotion/create-promotion';
 import { DetailPromotion } from '../detail-promotion/detail-promotion';
+import { UpdatePromotion } from '../update-promotion/update-promotion';
 import { PromotionI } from '../promotion-model';
 
 type PromotionStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
@@ -87,12 +88,25 @@ const CATEGORY_TONES: Record<string, PromotionCategoryTone> = {
 @Component({
   selector: 'app-list-promotions',
   standalone: true,
-  imports: [CommonModule, FormsModule, CreatePromotion, DetailPromotion],
+  imports: [CommonModule, FormsModule, CreatePromotion, UpdatePromotion, DetailPromotion],
   templateUrl: './list-promotions.html',
   styleUrls: ['./list-promotions.css']
 })
 export class ListPromotions implements OnInit {
+  /**
+   * La vista vive dentro del catalogo comercial: el contenedor pone el encabezado y las
+   * metricas, asi que aqui se ocultan para no repetirlos en cada pestaña.
+   */
+  @Input() embedded = false;
+
+  /** Avisa al catalogo comercial que sus metricas quedaron desactualizadas. */
+  @Output() changed = new EventEmitter<void>();
+
+  /** Solo la primera carga: es la unica que puede dejar la pantalla vacia. */
   loading = false;
+
+  /** Recarga posterior a una accion: la cuadricula sigue en pantalla. */
+  refreshing = false;
   errorMessage = '';
   infoMessage = '';
   discountTypesLoadFailed = false;
@@ -118,6 +132,8 @@ export class ListPromotions implements OnInit {
 
   showCreateDrawer = false;
   selectedPromotion: PromotionI | null = null;
+  /** Promocion abierta en el formulario de edicion. */
+  editingPromotion: PromotionI | null = null;
 
   hotelSettingsId: number | null = null;
 
@@ -208,8 +224,11 @@ export class ListPromotions implements OnInit {
     return !!this.hotelSettingsId && this.discountTypes.length > 0;
   }
 
-  loadCatalogData(): void {
-    this.loading = true;
+  loadCatalogData(options: { silent?: boolean } = {}): void {
+    // Una recarga silenciosa no toca `loading`, asi que el `*ngIf` de la cuadricula
+    // no se cae y la pantalla no parpadea con cada activar/desactivar/eliminar.
+    if (options.silent) this.refreshing = true;
+    else this.loading = true;
     this.errorMessage = '';
     this.discountTypesLoadFailed = false;
     this.hotelSettingsLoadFailed = false;
@@ -260,6 +279,7 @@ export class ListPromotions implements OnInit {
     }).subscribe({
       next: ({ promotions, allPromotions, discountTypes, services, packages, targetCatalog, settings }) => {
         this.loading = false;
+        this.refreshing = false;
         this.promotions = promotions;
         const visibleIds = new Set(promotions.map((promotion) => promotion.id));
         this.deletedPromotions = allPromotions.filter((promotion) => !visibleIds.has(promotion.id));
@@ -305,13 +325,15 @@ export class ListPromotions implements OnInit {
       },
       error: () => {
         this.loading = false;
+        this.refreshing = false;
         this.errorMessage = 'No fue posible cargar el catalogo de promociones.';
       }
     });
   }
 
   refreshPromotions(): void {
-    this.loadCatalogData();
+    this.changed.emit();
+    this.loadCatalogData({ silent: true });
   }
 
   exportCsv(): void {
@@ -411,8 +433,24 @@ export class ListPromotions implements OnInit {
     this.refreshPromotions();
   }
 
+  openEdit(promotion: PromotionI): void {
+    this.showCreateDrawer = false;
+    this.selectedPromotion = null;
+    this.editingPromotion = promotion;
+  }
+
+  closeEdit(): void {
+    this.editingPromotion = null;
+  }
+
+  onPromotionUpdated(): void {
+    this.editingPromotion = null;
+    this.refreshPromotions();
+  }
+
   openDetail(promotion: PromotionI): void {
     this.showCreateDrawer = false;
+    this.editingPromotion = null;
     this.selectedPromotion = promotion;
   }
 
@@ -423,7 +461,11 @@ export class ListPromotions implements OnInit {
   togglePromotionStatus(promotion: PromotionI): void {
     this.errorMessage = '';
     this.promotionsService.updatePromotion(promotion.id, { is_active: !promotion.is_active }).subscribe({
-      next: () => {
+      next: (updated) => {
+        // El estado se pinta con la respuesta, sin esperar a la recarga: es el dato que
+        // el usuario acaba de cambiar y verlo tardar se siente como un bloqueo.
+        promotion.is_active = updated?.is_active ?? !promotion.is_active;
+        this.applyFilters();
         this.refreshPromotions();
       },
       error: () => {
@@ -435,7 +477,9 @@ export class ListPromotions implements OnInit {
   togglePromotionVisibility(promotion: PromotionI): void {
     this.errorMessage = '';
     this.promotionsService.updatePromotion(promotion.id, { is_public: !promotion.is_public }).subscribe({
-      next: () => {
+      next: (updated) => {
+        promotion.is_public = updated?.is_public ?? !promotion.is_public;
+        this.applyFilters();
         this.refreshPromotions();
       },
       error: () => {

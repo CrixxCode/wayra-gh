@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
+import { CACHE_TTL, ResourceCache } from './resource-cache';
 import { HotelSettings } from '../components/pages/hotel-settings/hotel-setting-model';
 
 @Injectable({ providedIn: 'root' })
@@ -13,8 +14,19 @@ export class HotelSettingsService {
 
   constructor(
     private http: HttpClient,
-    private auth: AuthService
+    private auth: AuthService,
+    private cache: ResourceCache
   ) { }
+
+  // --------------------------------------------------------------------- cache
+  // La configuracion del hotel la piden casi todas las pantallas al cargar y al
+  // refrescar, y cambia cuando alguien la edita, no sola. Sin cache, cada accion
+  // pequena arrastraba esta consulta de mas.
+  private static readonly CACHE_KEY = 'hotel-settings-current';
+
+  private invalidateSettings(): void {
+    this.cache.invalidate(HotelSettingsService.CACHE_KEY);
+  }
 
   /**
    * Obtiene la configuración actual del hotel
@@ -25,9 +37,18 @@ export class HotelSettingsService {
       params = params.set('hotel_settings', String(hotelSettingsId));
     }
 
-    return this.http.get<HotelSettings | null>(
-      `${this.settingsUrl}current/`,
-      { withCredentials: true, params }
+    const key = hotelSettingsId
+      ? `${HotelSettingsService.CACHE_KEY}:${hotelSettingsId}`
+      : HotelSettingsService.CACHE_KEY;
+
+    return this.cache.get(
+      key,
+      () =>
+        this.http.get<HotelSettings | null>(`${this.settingsUrl}current/`, {
+          withCredentials: true,
+          params
+        }),
+      CACHE_TTL.CATALOG
     );
   }
 
@@ -43,7 +64,7 @@ export class HotelSettingsService {
       this.settingsUrl,
       payload,
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateSettings()));
   }
 
   /**
@@ -54,7 +75,7 @@ export class HotelSettingsService {
       `${this.settingsUrl}${id}/`,
       payload,
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateSettings()));
   }
 
   /**
@@ -71,7 +92,7 @@ export class HotelSettingsService {
       `${this.settingsUrl}clear/`,
       {},
       { ...options, params }
-    );
+    ).pipe(tap(() => this.invalidateSettings()));
   }
 
 }

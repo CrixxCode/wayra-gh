@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -123,6 +124,18 @@ class InventoryMovement(models.Model):
     movement_date = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 
+    # Quien movio el stock. Anulable porque los movimientos anteriores a este campo no
+    # tienen autor, y `SET_NULL` para que dar de baja a un empleado no borre la bitacora.
+    # Es lo que hace auditable un conteo: sin autor, un ajuste de inventario no se le
+    # puede preguntar a nadie.
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_inventory_movements",
+        blank=True,
+        null=True,
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -146,7 +159,9 @@ class InventoryMovement(models.Model):
         if self.new_stock is not None and self.new_stock < 0:
             errors["new_stock"] = "New stock cannot be negative."
 
-        if self.item and self.movement_type:
+        # El tope contra el stock solo aplica al registrar: un movimiento ya asentado
+        # no se vuelve a validar contra unas existencias que el mismo cambio.
+        if self._state.adding and self.item and self.movement_type:
             movement_code = str(self.movement_type.code or "").strip().upper()
 
             if movement_code in ["OUT", "LOSS"] and self.quantity > self.item.stock:
@@ -156,6 +171,23 @@ class InventoryMovement(models.Model):
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
+        """
+        Un movimiento es un asiento: se aplica **una vez**, al registrarlo.
+
+        Antes esto corria en cada `save()`, asi que cualquier edicion posterior
+        --marcar el movimiento inactivo desde el detalle, por ejemplo-- recalculaba
+        `previous_stock`/`new_stock` desde el stock del momento y lo volvia a aplicar.
+        Un OUT de 1 unidad restaba otra unidad cada vez que se tocaba el registro, y el
+        propio movimiento quedaba reescrito con un antes/despues que nunca ocurrio.
+
+        Nota para quien venga a implementar la reversion: **desactivar un movimiento no
+        devuelve el stock**, ni deberia hacerlo aqui. Lo correcto es registrar el
+        movimiento contrario, que es lo que deja rastro en la bitacora.
+        """
+        if not self._state.adding:
+            super().save(*args, **kwargs)
+            return
+
         movement_code = str(self.movement_type.code or "").strip().upper() if self.movement_type else ""
 
         current_stock = self.item.stock or 0

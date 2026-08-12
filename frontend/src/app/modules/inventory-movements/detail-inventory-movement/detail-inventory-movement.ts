@@ -2,6 +2,17 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { InventoryMovementI } from '../inventory-movement-model';
 
+/**
+ * Detalle de un movimiento de inventario.
+ *
+ * Antes repetia el mismo dato hasta tres veces: la direccion salia en el sobretitulo,
+ * en "Tipo" y en "Direccion"; la cantidad salia como "Cantidad" y otra vez como
+ * "Variacion stock"; el estado, en el chip del titulo y en "Resumen". Y las tres
+ * fechas de "Trazabilidad" eran el mismo instante, porque un movimiento no se edita.
+ *
+ * Un movimiento **es** un antes y un despues, asi que ese salto es ahora el titular y
+ * lo demas contesta una sola pregunta: por que ocurrio.
+ */
 @Component({
   selector: 'app-detail-inventory-movement',
   standalone: true,
@@ -89,6 +100,44 @@ export class DetailInventoryMovement {
     if (code === 'IN') return `+${quantity}`;
     if (code === 'OUT' || code === 'LOSS') return `-${quantity}`;
     return `${quantity}`;
+  }
+
+  get itemLabel(): string {
+    return String(this.movementData?.item_name || '').trim() || 'Item no definido';
+  }
+
+  get previousStock(): number {
+    return this.toNonNegativeInt(this.movementData?.previous_stock);
+  }
+
+  get newStock(): number {
+    return this.toNonNegativeInt(this.movementData?.new_stock);
+  }
+
+  /**
+   * De donde vino el movimiento, cuando la referencia lo dice.
+   *
+   * Los movimientos automaticos traen una referencia generada como
+   * `ROOM-<habitacion>-<reserva>-<marca de tiempo>`, que en crudo es ilegible. Si
+   * encaja con ese patron se traduce; si no, se muestra tal cual, que para un
+   * movimiento manual es justo lo que el usuario escribio.
+   */
+  get originLabel(): string {
+    const reference = String(this.movementData?.reference || '').trim();
+    if (!reference) return '';
+
+    const match = /^ROOM-([^-]+)-(\d+)/i.exec(reference);
+    if (!match) return reference;
+
+    return `Habitacion ${match[1]} - reserva #${match[2]}`;
+  }
+
+  get rawReference(): string {
+    return String(this.movementData?.reference || '').trim();
+  }
+
+  get notes(): string {
+    return String(this.movementData?.notes || '').trim();
   }
 
   getStockDeltaLabel(): string {

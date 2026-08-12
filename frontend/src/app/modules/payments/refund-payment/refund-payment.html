@@ -1,0 +1,139 @@
+<div class="gh-modal-overlay" (click)="close()">
+  <article class="gh-modal is-narrow refund-modal" (click)="$event.stopPropagation()">
+    <header class="gh-modal-head">
+      <div>
+        <h2>Registrar reembolso</h2>
+        <p *ngIf="activePayment">
+          {{ activePayment.invoice_number || invoice?.invoice_number || 'Factura' }}
+          &middot; pago de {{ formatCurrency(paymentAmount) }}
+          &middot; {{ activePayment.payment_method_name || 'Sin metodo' }}
+        </p>
+      </div>
+
+      <button type="button" class="gh-modal-close" (click)="close()" title="Cerrar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <div class="gh-modal-body">
+      <!-- Lo primero es cuanto se puede devolver: es la cifra que decide todo lo demas. -->
+      <section class="refund-balance" *ngIf="!loading; else balanceLoading">
+        <div class="refund-balance-main">
+          <span>Saldo reembolsable</span>
+          <strong>{{ formatCurrency(refundableAmount) }}</strong>
+        </div>
+
+        <dl class="refund-balance-side">
+          <div>
+            <dt>Pago original</dt>
+            <dd>{{ formatCurrency(paymentAmount) }}</dd>
+          </div>
+          <div>
+            <dt>Ya devuelto</dt>
+            <dd>{{ formatCurrency(processedAmount) }}</dd>
+          </div>
+          <div>
+            <dt>En solicitud</dt>
+            <dd>{{ pendingRequests }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <ng-template #balanceLoading>
+        <section class="refund-balance is-loading" aria-hidden="true">
+          <span class="refund-skeleton is-wide"></span>
+          <span class="refund-skeleton"></span>
+        </section>
+      </ng-template>
+
+      <!-- Nada que hacer: se dice por que, en vez de dejar un formulario muerto. -->
+      <p class="refund-blocked" *ngIf="blockedReason">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        {{ blockedReason }}
+      </p>
+
+      <p class="refund-error" *ngIf="errorMessage" aria-live="polite">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        {{ errorMessage }}
+      </p>
+
+      <form class="refund-form" [formGroup]="form" (ngSubmit)="submit()" *ngIf="!loading && !blockedReason">
+        <label class="gh-field refund-amount" [class.is-invalid]="exceedsRefundable">
+          <span>Monto a devolver</span>
+          <div class="refund-amount-row">
+            <input type="number" min="1" step="0.01" formControlName="amount" />
+            <button
+              type="button"
+              class="gh-mbtn gh-mbtn-light"
+              [disabled]="isFullRefund"
+              (click)="fillFullAmount()">
+              Todo
+            </button>
+          </div>
+          <small class="gh-field-error" *ngIf="exceedsRefundable">
+            Supera el saldo reembolsable ({{ formatCurrency(refundableAmount) }}).
+          </small>
+        </label>
+
+        <!-- Como queda el pago si se confirma: evita tener que hacer la resta a mano. -->
+        <p class="refund-preview" *ngIf="!exceedsRefundable && requestedAmount > 0">
+          <ng-container *ngIf="isFullRefund; else partialPreview">
+            <i class="fa-solid fa-circle-check"></i>
+            Devuelve el pago completo: no quedara saldo reembolsable.
+          </ng-container>
+          <ng-template #partialPreview>
+            <i class="fa-solid fa-circle-half-stroke"></i>
+            Reembolso parcial: quedaran {{ formatCurrency(remainingAfterRefund) }} reembolsables.
+          </ng-template>
+        </p>
+
+        <label class="gh-field" [class.is-invalid]="form.controls.reason.touched && form.controls.reason.invalid">
+          <span>
+            Motivo
+            <small class="refund-counter">{{ reasonLength }}/500</small>
+          </span>
+          <textarea
+            rows="3"
+            formControlName="reason"
+            placeholder="Por que se devuelve este dinero. Ej: cobro duplicado en el check-out."></textarea>
+          <small class="gh-field-error" *ngIf="form.controls.reason.touched && form.controls.reason.invalid">
+            El motivo es obligatorio: es lo que vera quien apruebe el reembolso.
+          </small>
+        </label>
+
+        <div class="refund-optional">
+          <label class="gh-field">
+            <span>Referencia</span>
+            <input type="text" formControlName="reference" placeholder="Comprobante, transaccion..." />
+          </label>
+
+          <label class="gh-field">
+            <span>Notas internas</span>
+            <input type="text" formControlName="notes" placeholder="Opcional" />
+          </label>
+        </div>
+      </form>
+    </div>
+
+    <footer class="gh-modal-foot">
+      <span class="gh-foot-note">
+        <i class="fa-regular fa-clock"></i>
+        Queda pendiente hasta que un administrador lo apruebe.
+      </span>
+
+      <div class="refund-actions">
+        <button type="button" class="gh-mbtn gh-mbtn-light" (click)="close()" [disabled]="submitting">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="gh-mbtn gh-mbtn-dark"
+          (click)="submit()"
+          [disabled]="!canSubmit">
+          <i class="fa-solid fa-arrow-rotate-left"></i>
+          {{ submitting ? 'Registrando...' : 'Registrar reembolso' }}
+        </button>
+      </div>
+    </footer>
+  </article>
+</div>

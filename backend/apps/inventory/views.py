@@ -1,8 +1,11 @@
-from rest_framework import filters, viewsets
+from rest_framework import filters, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from django.db.models import F
 
 from apps.inventory.models import Item, InventoryMovement, RoomInventory
 from apps.inventory.serializers import ItemSerializer, InventoryMovementSerializer, RoomInventorySerializer
+from apps.inventory.services import register_purchase_entry, register_stock_count
 from accounts.pagination import OptionalPageNumberPagination
 from accounts.permissions import HasResourcePermission
 from accounts.soft_delete import LogicalDeleteViewSetMixin
@@ -119,6 +122,18 @@ class InventoryMovementViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, view
     def get_base_queryset(self):
         return self.queryset.order_by("-id")
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # `?item=<id>`: el detalle de un item ensena su propia bitacora, que es lo que
+        # explica por que su stock es el que es. Traer el historico entero del hotel para
+        # filtrarlo en el navegador no escala.
+        item = (self.request.query_params.get("item") or "").strip()
+        if item.isdigit():
+            queryset = queryset.filter(item_id=int(item))
+
+        return queryset
+
     def get_required_scopes(self):
         if self.request.method in ("POST", "PUT", "PATCH", "DELETE"):
             return ["inventory-movements.write"]
@@ -127,7 +142,55 @@ class InventoryMovementViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, view
     def get_permissions(self):
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
-    
+
+    def _hotel_settings_id(self):
+        """Hotel al que se acotan los lotes.
+
+        Un administrador de plataforma no tiene hotel propio, asi que se le deja pasar
+        sin filtro; a cualquier otro usuario se le acota al suyo (AGENTS.md 5.4).
+        """
+        user = self.request.user
+        if is_effective_global_admin(user):
+            return None
+        return getattr(user, "hotel_settings_id", None)
+
+    @action(detail=False, methods=["post"], url_path="stock-count")
+    def stock_count(self, request):
+        """Asienta un conteo fisico completo en una sola operacion.
+
+        Va como accion del ViewSet y no como N `POST /inventory-movements/` porque un
+        conteo es **una** operacion: debe ser atomica y compartir referencia. Ochenta
+        peticiones sueltas dejarian el inventario a medio contar en cuanto una fallara.
+        """
+        try:
+            result = register_stock_count(
+                lines=request.data.get("lines") or [],
+                user=request.user,
+                hotel_settings_id=self._hotel_settings_id(),
+                notes=request.data.get("notes") or "",
+            )
+        except ValueError as error:
+            return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(result, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="purchase-entry")
+    def purchase_entry(self, request):
+        """Asienta la entrada de una compra: una linea `IN` por item recibido."""
+        try:
+            result = register_purchase_entry(
+                lines=request.data.get("lines") or [],
+                user=request.user,
+                hotel_settings_id=self._hotel_settings_id(),
+                reference=request.data.get("reference") or "",
+                notes=request.data.get("notes") or "",
+            )
+        except ValueError as error:
+            return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(result, status=status.HTTP_201_CREATED)
+
+
 class RoomInventoryViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
     queryset = (
         RoomInventory.objects.select_related(

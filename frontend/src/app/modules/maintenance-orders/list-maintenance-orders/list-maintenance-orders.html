@@ -1,4 +1,5 @@
 <div class="maintenance-orders-page">
+  <ng-container *ngIf="!embedded">
   <header class="page-header">
     <div>
       <h1>Ordenes de Mantenimiento</h1>
@@ -10,7 +11,9 @@
       Nueva orden
     </button>
   </header>
+  </ng-container>
 
+  <ng-container *ngIf="!embedded">
   <section class="stats-grid">
     <article class="stat-card">
       <div class="stat-head">
@@ -57,6 +60,7 @@
       <div class="stat-note">ordenes cerradas</div>
     </article>
   </section>
+  </ng-container>
 
   <section class="gh-filters-card">
     <div class="gh-filters-grid maintenance-order-filters-grid">
@@ -110,7 +114,11 @@
       </div>
 
       <div class="gh-action-group">
-        <button type="button" class="gh-btn gh-btn-light" (click)="refreshMaintenanceOrders()" [disabled]="loading">
+        <button
+          type="button"
+          class="gh-btn gh-btn-light"
+          (click)="refreshMaintenanceOrders(true)"
+          [disabled]="loading || refreshing">
           <i class="fa-solid fa-rotate-right"></i>
           Actualizar
         </button>
@@ -185,7 +193,10 @@
     </p>
   </section>
 
-  <section class="catalog-sections" *ngIf="!loading && !errorMessage && filteredMaintenanceOrders.length > 0">
+  <section
+    class="catalog-sections"
+    [class.is-refreshing]="refreshing"
+    *ngIf="!loading && !errorMessage && filteredMaintenanceOrders.length > 0">
     <ng-container *ngIf="viewMode === 'cards'; else tableView">
       <article class="category-block" *ngFor="let group of groupedMaintenanceOrders; trackBy: trackByGroup">
         <header class="category-head">
@@ -210,85 +221,78 @@
 
         <div class="maintenance-order-grid">
           <article
-            class="maintenance-order-card"
+            class="gh-task-card"
             *ngFor="let order of group.items; trackBy: trackByOrder"
+            [class.is-done]="isClosed(order)"
+            [ngStyle]="{
+              '--task-tone': getUrgencyTone(order).bar,
+              '--task-tone-soft': getUrgencyTone(order).bg
+            }"
             (click)="openDetail(order)">
-            <div class="maintenance-order-cover" [ngStyle]="{ background: getGroupTone(group).cover }">
-              <div class="cover-badges">
+            <div class="gh-task-head">
+              <span class="gh-task-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+              <div class="gh-task-titles">
+                <h3 [title]="getTitleLabel(order)">{{ getTitleLabel(order) }}</h3>
+                <p *ngIf="getDescriptionLabel(order)">{{ getDescriptionLabel(order) }}</p>
+              </div>
+
+              <!-- El estado, una vez. Antes salia en la portada y otra vez en el pie. -->
+              <span
+                class="gh-task-status"
+                [ngStyle]="{
+                  'background-color': getStatusTone(order).bg,
+                  color: getStatusTone(order).color
+                }">
+                <span class="gh-task-dot" [ngStyle]="{ 'background-color': getStatusTone(order).dot }"></span>
+                {{ getStatusLabel(order) }}
+              </span>
+            </div>
+
+            <div class="gh-task-body">
+              <div class="gh-task-tags">
+                <span class="gh-task-tag">
+                  <i class="fa-solid fa-bed"></i>
+                  {{ getRoomLabel(order) }}
+                </span>
                 <span
-                  class="cover-priority"
+                  class="gh-task-tag"
                   [ngStyle]="{
                     'background-color': getPriorityBadgeTone(order).bg,
                     color: getPriorityBadgeTone(order).color
                   }">
                   {{ getPriorityLabel(order) }}
                 </span>
-
-                <span class="cover-badge" *ngIf="isHighlighted(group.key, order.id)">
-                  {{ isDelayed(order) ? 'Atrasada' : 'Prioritaria' }}
-                </span>
               </div>
 
-              <span
-                class="status-chip"
-                [ngStyle]="{
-                  'background-color': getStatusTone(order).bg,
-                  color: getStatusTone(order).color
-                }">
-                {{ getStatusLabel(order) }}
-              </span>
+              <!-- La fecha es el dato accionable: o esta a tiempo o ya se incumplio. -->
+              <p class="gh-task-when" [class.is-late]="isDelayed(order)">
+                <i [class]="isDelayed(order) ? 'fa-solid fa-triangle-exclamation' : 'fa-regular fa-clock'"></i>
+                {{ getScheduleLabel(order) }}
+              </p>
             </div>
 
-            <div class="maintenance-order-body">
-              <h3>{{ getTitleLabel(order) }}</h3>
-              <p>{{ getDescriptionLabel(order) }}</p>
+            <div class="gh-task-foot" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="gh-task-next"
+                [disabled]="isClosed(order)"
+                [title]="getProgressActionLabel(order)"
+                (click)="advanceOrderStatus(order)">
+                <i [class]="getProgressActionIcon(order)"></i>
+                {{ getProgressActionLabel(order) }}
+              </button>
 
-              <div class="meta-row">
-                <span>
-                  <i class="fa-solid fa-hotel"></i>
-                  {{ getRoomLabel(order) }}
-                </span>
-                <span>
-                  <i class="fa-solid fa-hashtag"></i>
-                  {{ getOrderCode(order) }}
-                </span>
-              </div>
+              <button type="button" class="gh-task-btn" title="Ver detalle" (click)="openDetail(order)">
+                <i class="fa-regular fa-eye"></i>
+              </button>
 
-              <div class="progress-row">
-                <strong>{{ getStatusLabel(order) }}</strong>
-                <div class="progress-dates">
-                  <small>Estimada: {{ formatDateTime(order.estimated_completed_at) }}</small>
-                  <small>Real: {{ formatDateTime(order.completed_at) }}</small>
-                </div>
-              </div>
-
-              <div class="card-foot">
-                <span
-                  class="status-chip status-inline"
-                  [ngStyle]="{
-                    'background-color': getStatusTone(order).bg,
-                    color: getStatusTone(order).color
-                  }">
-                  <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(order).dot }"></span>
-                  {{ getStatusLabel(order) }}
-                </span>
-
-                <div class="card-actions" (click)="$event.stopPropagation()">
-                  <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(order)">
-                    <i class="fa-regular fa-eye"></i>
-                  </button>
-                  <button
-                    type="button"
-                    class="row-btn"
-                    [title]="getProgressActionLabel(order)"
-                    (click)="advanceOrderStatus(order)">
-                    <i [class]="getProgressActionIcon(order)"></i>
-                  </button>
-                  <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(order)">
-                    <i class="fa-regular fa-trash-can"></i>
-                  </button>
-                </div>
-              </div>
+              <button
+                type="button"
+                class="gh-task-btn is-danger"
+                title="Eliminar"
+                (click)="confirmDelete(order)">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
             </div>
           </article>
         </div>

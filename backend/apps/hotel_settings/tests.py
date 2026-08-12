@@ -379,12 +379,16 @@ class PaymentMethodTenancyTests(TestCase):
         self.hotel_a = HotelSettings.objects.create(hotel_name="Hotel A")
         self.hotel_b = HotelSettings.objects.create(hotel_name="Hotel B")
 
-        self.cash_a = PaymentMethod.objects.create(
-            hotel_settings=self.hotel_a, code="EFECTIVO", name="Efectivo"
-        )
-        PaymentMethod.objects.create(
-            hotel_settings=self.hotel_b, code="NEQUI", name="Nequi"
-        )
+        self.cash_a = PaymentMethod.objects.get_or_create(
+            hotel_settings=self.hotel_a,
+            code="EFECTIVO",
+            defaults={"name": "Efectivo"}
+        )[0]
+        PaymentMethod.objects.get_or_create(
+            hotel_settings=self.hotel_b,
+            code="NEQUI",
+            defaults={"name": "Nequi"}
+        )[0]
 
         self.user_a = self._user("hotel_a_admin", self.hotel_a)
 
@@ -413,9 +417,11 @@ class PaymentMethodTenancyTests(TestCase):
 
     def test_two_hotels_can_share_the_same_code(self):
         # Lo que era imposible con el catalogo global y su unicidad (group, code).
-        method = PaymentMethod.objects.create(
-            hotel_settings=self.hotel_b, code="EFECTIVO", name="Efectivo"
-        )
+        method = PaymentMethod.objects.get_or_create(
+            hotel_settings=self.hotel_b,
+            code="EFECTIVO",
+            defaults={"name": "Efectivo"}
+        )[0]
 
         self.assertNotEqual(method.id, self.cash_a.id)
         self.assertEqual(PaymentMethod.objects.filter(code="EFECTIVO").count(), 2)
@@ -491,3 +497,48 @@ class PaymentMethodTenancyTests(TestCase):
         self.assertEqual(PaymentMethod.build_code("Transferencia Bancaria"), "TRANSFERENCIA_BANCARIA")
         self.assertEqual(PaymentMethod.build_code("Codigo QR"), "CODIGO_QR")
         self.assertEqual(PaymentMethod.build_code("Tarjeta débito"), "TARJETA_DEBITO")
+
+
+class DefaultPaymentMethodTests(TestCase):
+    """Un hotel nuevo nace pudiendo cobrar en efectivo."""
+
+    def test_new_hotel_gets_a_cash_method(self):
+        hotel = HotelSettings.objects.create(hotel_name="Hotel Recien Creado")
+
+        methods = list(hotel.payment_methods.all())
+
+        self.assertEqual(len(methods), 1)
+        self.assertEqual(methods[0].code, "EFECTIVO")
+        self.assertEqual(methods[0].name, "Efectivo")
+        self.assertEqual(methods[0].method_type, PaymentMethod.MethodType.CASH)
+        self.assertTrue(methods[0].is_active)
+        self.assertIsNone(methods[0].account_number)
+
+    def test_each_hotel_gets_its_own_copy(self):
+        first = HotelSettings.objects.create(hotel_name="Hotel Uno")
+        second = HotelSettings.objects.create(hotel_name="Hotel Dos")
+
+        self.assertEqual(first.payment_methods.count(), 1)
+        self.assertEqual(second.payment_methods.count(), 1)
+        self.assertNotEqual(
+            first.payment_methods.first().id, second.payment_methods.first().id
+        )
+
+    def test_editing_a_hotel_does_not_duplicate_the_method(self):
+        hotel = HotelSettings.objects.create(hotel_name="Hotel Editado")
+
+        hotel.hotel_name = "Hotel Editado 2"
+        hotel.save()
+
+        self.assertEqual(hotel.payment_methods.count(), 1)
+
+    def test_the_default_can_be_renamed_or_removed_afterwards(self):
+        # El metodo es un punto de partida, no una imposicion.
+        hotel = HotelSettings.objects.create(hotel_name="Hotel Personalizado")
+        method = hotel.payment_methods.get()
+
+        method.name = "Caja"
+        method.save()
+
+        self.assertEqual(hotel.payment_methods.get().name, "Caja")
+        self.assertEqual(hotel.payment_methods.get().code, "CAJA")

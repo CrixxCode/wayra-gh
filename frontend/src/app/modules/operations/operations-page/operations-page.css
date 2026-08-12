@@ -1,0 +1,301 @@
+/* Solo tokens --gh-*: el modo oscuro sale del mismo sitio que el resto (AGENTS 5.15). */
+
+:host {
+  display: block;
+}
+
+.ops-page {
+  min-height: 100%;
+  padding: 22px 34px 30px;
+  color: var(--gh-text);
+}
+
+/* --------------------------------------------------------------- encabezado */
+
+.ops-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.ops-title h1 {
+  margin: 0;
+  color: var(--gh-text-strong);
+  font-size: 2.05rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.ops-title p {
+  max-width: 640px;
+  margin: 10px 0 0;
+  color: var(--gh-text-muted);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.ops-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 11px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ops-refresh:hover:not(:disabled) {
+  border-color: var(--gh-search-focus);
+  color: var(--gh-text-strong);
+}
+
+.ops-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ops-refresh .is-spinning {
+  animation: ops-spin 0.9s linear infinite;
+}
+
+@keyframes ops-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ------------------------------------------------------------------ resumen */
+
+.ops-metrics {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 14px;
+}
+
+.ops-metric {
+  --metric-bg: var(--gh-status-neutral-bg);
+  --metric-border: var(--gh-status-neutral-border);
+  --metric-text: var(--gh-status-neutral-text);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  border: 1px solid var(--gh-border);
+  border-top: 3px solid var(--metric-border);
+  border-radius: 14px;
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-soft-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.ops-metric:hover {
+  box-shadow: var(--gh-shadow-hover);
+  transform: translateY(-2px);
+}
+
+.ops-metric.tone-brand {
+  --metric-bg: var(--gh-status-info-bg);
+  --metric-border: var(--gh-status-info-border);
+  --metric-text: var(--gh-status-info-text);
+}
+
+.ops-metric.tone-success {
+  --metric-bg: var(--gh-status-success-bg);
+  --metric-border: var(--gh-status-success-border);
+  --metric-text: var(--gh-status-success-text);
+}
+
+.ops-metric.tone-warning {
+  --metric-bg: var(--gh-status-warn-bg);
+  --metric-border: var(--gh-status-warn-border);
+  --metric-text: var(--gh-status-warn-text);
+}
+
+.ops-metric.tone-danger {
+  --metric-bg: var(--gh-status-danger-bg);
+  --metric-border: var(--gh-status-danger-border);
+  --metric-text: var(--gh-status-danger-text);
+}
+
+.metric-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--metric-bg);
+  color: var(--metric-text);
+  font-size: 0.95rem;
+}
+
+.metric-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.metric-label {
+  color: var(--gh-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.metric-value {
+  color: var(--gh-text-strong);
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-note {
+  color: var(--gh-text-soft);
+  font-size: 0.76rem;
+}
+
+/* ----------------------------------------------------------------- pestañas */
+
+.ops-tabs {
+  margin-top: 22px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 14px;
+  background: var(--gh-surface-soft);
+}
+
+.ops-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 15px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--gh-text-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ops-tab:hover:not(.is-active) {
+  background: var(--gh-surface);
+  color: var(--gh-text-strong);
+}
+
+.ops-tab.is-active {
+  border-color: var(--gh-border);
+  background: var(--gh-surface);
+  color: var(--gh-text-strong);
+  box-shadow: var(--gh-shadow-soft-sm);
+}
+
+.tab-count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--gh-status-neutral-bg);
+  color: var(--gh-status-neutral-text);
+  font-size: 0.74rem;
+  text-align: center;
+}
+
+.ops-tab.is-active .tab-count {
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+}
+
+/* -------------------------------------------------------------- seguimiento */
+
+/* Barra de rastro: recuerda que se viene siguiendo un item y ofrece los saltos
+   que quedan. Sin esto, cambiar de pestaña perderia el hilo en silencio. */
+.ops-focus {
+  margin-top: 14px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  border: 1px solid var(--gh-status-info-border);
+  border-radius: 12px;
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+  font-size: 0.85rem;
+}
+
+.ops-focus > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ops-focus strong {
+  font-weight: 700;
+}
+
+.ops-focus-jumps {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.ops-focus-jumps button {
+  padding: 5px 11px;
+  border: 1px solid var(--gh-status-info-border);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-status-info-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ops-focus-jumps button:hover {
+  border-color: var(--gh-status-info-strong);
+}
+
+.ops-focus-jumps .is-clear {
+  padding: 5px 9px;
+  color: var(--gh-text-muted);
+}
+
+/* ------------------------------------------------------------------- panel */
+
+.ops-panel {
+  margin-top: 6px;
+}
+
+/* Las listas embebidas ya no traen encabezado propio, asi que se les quita el
+   relleno superior de pagina para que no dejen un hueco bajo las pestañas. */
+.ops-panel ::ng-deep .cleaning-tasks-page,
+.ops-panel ::ng-deep .maintenance-orders-page {
+  padding: 0;
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  .ops-page {
+    padding: 18px 16px 24px;
+  }
+
+  .ops-tab .tab-label {
+    display: none;
+  }
+}

@@ -856,9 +856,11 @@ class RoomReservationBalanceTests(TestCase):
         `Payment.clean()` limita el monto al saldo **de la factura**. Si ambos numeros
         se separaran, el modal de salida pediria cobrar algo que el backend rechaza.
         """
-        payment_method = PaymentMethod.objects.create(
-            hotel_settings=self.hotel, code="EFECTIVO", name="Efectivo"
-        )
+        payment_method = PaymentMethod.objects.get_or_create(
+            hotel_settings=self.hotel,
+            code="EFECTIVO",
+            defaults={"name": "Efectivo"}
+        )[0]
 
         pending = get_reservation_financials(self.reservation)["pending_amount"]
         self.assertEqual(pending, Decimal("200000.00"))

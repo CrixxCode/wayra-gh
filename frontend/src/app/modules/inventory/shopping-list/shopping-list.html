@@ -1,0 +1,191 @@
+<div class="shopping-page">
+  <!-- Nada que comprar es una buena noticia, no un vacio. -->
+  <section class="shopping-empty" *ngIf="!lines.length">
+    <i class="fa-solid fa-circle-check"></i>
+    <strong>Nada por comprar</strong>
+    <p>Ningun item esta por debajo de su minimo. La lista se llena sola cuando alguno baje.</p>
+  </section>
+
+  <ng-container *ngIf="lines.length">
+    <!-- Cabecera del pedido: el costo manda, y a su lado lo que lo compone. Antes esto
+         era una franja con la cifra a un extremo y dos contadores al otro. -->
+    <section class="order-head">
+      <div class="order-cost">
+        <span>Costo del pedido</span>
+        <strong>{{ formatCurrency(totalCost) }}</strong>
+      </div>
+
+      <dl class="order-facts">
+        <div>
+          <dt>Items</dt>
+          <dd>{{ selectedLines.length }}<small> de {{ lines.length }}</small></dd>
+        </div>
+        <div>
+          <dt>Unidades</dt>
+          <dd>{{ totalUnits }}</dd>
+        </div>
+        <div>
+          <dt>Agotados</dt>
+          <dd [class.is-danger]="outOfStockCount > 0">{{ outOfStockCount }}</dd>
+        </div>
+      </dl>
+
+      <p class="order-coverage" [class.is-partial]="!coversAll">
+        <i [class]="coversAll ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-half-stroke'"></i>
+        {{ coversAll ? 'Con este pedido todos quedan sobre su minimo' : 'Algunos items seguiran bajo su minimo' }}
+      </p>
+    </section>
+
+    <div class="shopping-toolbar">
+      <label class="shopping-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" [(ngModel)]="search" placeholder="Buscar item o SKU..." />
+      </label>
+
+      <div class="shopping-filters">
+        <button
+          type="button"
+          *ngFor="let option of urgencyOptions"
+          [class.is-active]="urgency === option.value"
+          (click)="urgency = option.value">
+          {{ option.label }}
+        </button>
+      </div>
+
+      <!-- Con rotulo: cuatro iconos sueltos obligaban a adivinar cual hacia que. -->
+      <div class="shopping-tools">
+        <button type="button" (click)="selectAll(true)">
+          <i class="fa-regular fa-square-check"></i>
+          Todo
+        </button>
+        <button type="button" (click)="selectAll(false)">
+          <i class="fa-regular fa-square"></i>
+          Nada
+        </button>
+        <button type="button" (click)="resetAll()" title="Volver a las cantidades sugeridas">
+          <i class="fa-solid fa-rotate-left"></i>
+          Sugerido
+        </button>
+      </div>
+    </div>
+
+    <p class="shopping-note" *ngIf="successMessage" aria-live="polite">
+      <i class="fa-solid fa-circle-check"></i>
+      {{ successMessage }}
+    </p>
+
+    <p class="shopping-note is-error" *ngIf="errorMessage" aria-live="polite">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      {{ errorMessage }}
+    </p>
+
+    <!-- Columnas alineadas: es lo que hace comparable una lista de compra. -->
+    <div class="order-table">
+      <header class="order-row is-head">
+        <span></span>
+        <span>Item</span>
+        <span class="is-center">Falta</span>
+        <span>En bodega</span>
+        <span class="is-center">A comprar</span>
+        <span class="is-center">Queda en</span>
+        <span class="is-right">Unitario</span>
+        <span class="is-right">Total linea</span>
+        <span></span>
+      </header>
+
+      <article
+        class="order-row"
+        *ngFor="let line of visibleLines; trackBy: trackByLine"
+        [class.is-out]="isOutOfStock(line)"
+        [class.is-off]="!line.selected">
+        <button
+          type="button"
+          class="row-check"
+          [attr.aria-pressed]="line.selected"
+          [title]="line.selected ? 'Quitar del pedido' : 'Incluir en el pedido'"
+          (click)="toggle(line)">
+          <i [class]="line.selected ? 'fa-solid fa-square-check' : 'fa-regular fa-square'"></i>
+        </button>
+
+        <div class="row-item">
+          <strong [title]="line.item.name">{{ line.item.name }}</strong>
+          <small>
+            <span class="row-sku" *ngIf="line.item.sku">{{ line.item.sku }}</span>
+            <span>{{ unitLabel(line) }}</span>
+          </small>
+        </div>
+
+        <!-- La carencia, sola en su columna: es el motivo por el que la linea esta aqui. -->
+        <div class="row-gap">
+          <span class="row-flag" *ngIf="isOutOfStock(line)">Agotado</span>
+          <strong *ngIf="!isOutOfStock(line)">-{{ shortfall(line.item) }}</strong>
+        </div>
+
+        <!-- Cuanto queda frente a su minimo: dos lineas con carencias distintas ya no
+             se ven iguales. -->
+        <div class="row-stock">
+          <span class="row-stock-figure">
+            <b>{{ stock(line.item) }}</b> de {{ minimum(line.item) }}
+          </span>
+          <span class="row-bar">
+            <i [style.width.%]="coveragePercent(line.item)"></i>
+          </span>
+        </div>
+
+        <div class="row-quantity">
+          <div class="quantity-control">
+            <button type="button" (click)="step(line, -1)" [disabled]="line.quantity <= 0" title="Restar uno">
+              <i class="fa-solid fa-minus"></i>
+            </button>
+            <input
+              type="number"
+              min="0"
+              [ngModel]="line.quantity"
+              (ngModelChange)="setQuantity(line, $event)"
+              [attr.aria-label]="'Cantidad a comprar de ' + line.item.name" />
+            <button type="button" (click)="step(line, 1)" title="Sumar uno">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- La consecuencia de lo pedido, en su propia columna y comparable. -->
+        <div class="row-result" [class.is-short]="resultingStock(line) < minimum(line.item)">
+          {{ resultingStock(line) }}
+        </div>
+
+        <div class="row-unit">{{ formatCurrency(+line.item.cost_price) }}</div>
+
+        <div class="row-cost">{{ formatCurrency(lineCost(line)) }}</div>
+
+        <button
+          type="button"
+          class="row-suggest"
+          [title]="'Cantidad sugerida: ' + suggestionReason(line.item)"
+          (click)="resetToSuggestion(line)">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </button>
+      </article>
+    </div>
+
+    <!-- Registrar la entrada es lo que cierra el ciclo: la compra llega y entra al stock. -->
+    <footer class="shopping-foot">
+      <label class="foot-reference">
+        <span>Referencia de la compra</span>
+        <input type="text" [(ngModel)]="reference" placeholder="Factura del proveedor (opcional)" />
+      </label>
+
+      <div class="foot-actions">
+        <button type="button" class="gh-mbtn gh-mbtn-light" (click)="exportCsv()">
+          <i class="fa-solid fa-file-export"></i>
+          Exportar pedido
+        </button>
+
+        <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="registerEntry()" [disabled]="!canSubmit">
+          <i class="fa-solid fa-truck-ramp-box"></i>
+          {{ submitting ? 'Registrando...' : 'Registrar entrada (' + selectedLines.length + ')' }}
+        </button>
+      </div>
+    </footer>
+  </ng-container>
+</div>

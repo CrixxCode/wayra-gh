@@ -460,9 +460,15 @@ eliminar o restaurar amenidades globales.
 ### 5.15 Estilos compartidos por tokens, no por overrides de modo oscuro
 
 **Decisión:** los componentes nuevos usan las clases globales `gh-modal-*`, `gh-tab*`, `gh-field`,
-`gh-panel`, `gh-chip`, `gh-modal-table` y `gh-mbtn*` definidas al final de
+`gh-panel`, `gh-chip`, `gh-modal-table`, `gh-mbtn*` y `gh-cat-*` definidas al final de
 [frontend/src/styles.css](frontend/src/styles.css), construidas **exclusivamente con tokens
 `--gh-*`**.
+
+**`gh-cat-*` es la anatomía de tarjeta de catálogo** (servicios, paquetes y promociones): franja de
+color, placa de icono, título con etiquetas, descripción a dos líneas, metadatos, pie con el dato
+comparable —precio o descuento— y barra de acciones. El color de cada categoría **no** se escribe en
+el CSS: el componente lo inyecta con `[ngStyle]` en las variables `--cat-tone` y `--cat-tone-soft`,
+que la clase consume. Así una tarjeta nueva de catálogo no necesita CSS propio.
 
 **Por qué:** el patrón previo del repositorio era escribir colores fijos en el CSS del componente y
 después compensarlos con reglas `:is(.my-app-dark, .dark) app-mi-componente .btn-light { ... }` en
@@ -487,6 +493,13 @@ efectivo y tanto el serializer como `PaymentMethod.save()` la descartan, para qu
 huérfano que después alguien lea como válido. Al cobrar por transferencia, el modal de check-out
 muestra la cuenta destino — es el número que recepción le dicta al huésped, y por eso se guarda
 junto al método y no en una nota suelta.
+
+**Todo hotel nace con "Efectivo".** Un `post_save` en `apps/hotel_settings/signals.py` siembra el
+método al crear el `HotelSettings`. Va en un signal y no en la vista porque los hoteles nacen por
+tres caminos —el panel SaaS, `POST /api/hotel-settings/` y
+`apps.demo_requests.views.convert_request()`— y sin al menos un método activo el hotel no puede
+cobrar ni cerrar un check-out. Usa `get_or_create`, así que es idempotente. El método es un punto de
+partida: el hotel puede renombrarlo, desactivarlo o borrarlo.
 
 **`code` no lo escribe el usuario:** se deriva del nombre (`Nequi Bancolombia` → `NEQUI_BANCOLOMBIA`,
 sin tildes) en `PaymentMethod.save()`. Existe porque las pantallas de facturación lo usan para
@@ -520,6 +533,215 @@ camino ya está trazado por este cambio.
   `reservations.ReservationDeposit`) validan en su serializer que el método pertenezca al hotel del
   registro.
 - Un hotel **sin métodos activos no puede cobrar ni cerrar un check-out**. La pestaña lo advierte.
+
+### 5.17 La administración de la plataforma no la ve un hotel
+
+**Decisión:** **Usuarios**, **Roles**, **Recursos** y **Master Data** viven bajo *SaaS Admin* y solo
+las ve el administrador de plataforma. Sus rutas (`/usuarios`, `/roles`, `/recursos`,
+`/master-data`) están marcadas con `data: { platformAdminOnly: true }`.
+
+**Por qué:** definen **quién entra al sistema, con qué permisos y sobre qué enums opera el código**.
+Un hotel que edite `ROOM_STATUS` o `RESERVATION_STATUS` rompe la lógica de todos los demás, porque
+`MasterData` es global (ver 5.16).
+
+**La distinción que hay que respetar al programar aquí:** *ver la página* y *usar la API* son cosas
+distintas y se controlan por separado.
+
+- Las **entradas de menú** son recursos propios y sin `link_backend`: `saas_users.read`,
+  `saas_roles.read`, `saas_resources.read`, `saas_master_data.read`. Solo el rol `platform_admin`
+  los tiene.
+- Los **scopes de dominio** (`users.*`, `roles.*`, `resources.*`, `master_data.*`) siguen siendo
+  quienes protegen la API y ya **no son entradas de menú**.
+
+**`master_data.read` sigue asignado a los roles de hotel**, y no es un descuido: lo consumen doce
+pantallas —facturas, limpieza, egresos, inventario, ítems, mantenimiento, promociones, reservas…—
+para leer sus catálogos. Quitárselo las rompe con 403. Lo que se les retiró fue `users.*`, `roles.*`
+y `resources.*`, que solo usaban esas cuatro páginas.
+
+**Consecuencia operativa:** un administrador de hotel **ya no crea usuarios de su hotel**; eso pasa
+a ser trabajo del administrador de plataforma. Si en el futuro se quiere devolver esa capacidad sin
+devolver el resto, el camino es un recurso de menú propio (`hotel_users.read`) apuntando a
+`/usuarios`, más una vista filtrada por hotel — no reactivar el grupo *Seguridad*.
+
+### 5.18 Catálogo comercial: una vista con pestañas, no tres rutas
+
+**Decisión:** servicios, paquetes y promociones viven en `/catalogo-comercial`, una sola ruta con
+tres pestañas. Las rutas viejas (`/catalogo-servicios`, `/catalogo-paquetes`, `/promociones` y sus
+alias en inglés) redirigen a la pestaña que corresponde.
+
+**Por qué:** la dependencia entre las tres es **encadenada**, no temática:
+
+```
+Service ──< PackageService >── Package
+   ▲                              ▲
+   └────────  Promotion  ─────────┘
+```
+
+Un paquete se arma con servicios y una promoción apunta a un servicio o a un paquete. El cruce ya
+existía en el código —`create-package` y `create-promotion` reciben los catálogos ajenos por
+`@Input`—, pero obligaba a navegar entre tres pantallas para una sola tarea.
+
+**Por qué pestañas y no modales, a diferencia de 5.14:** en habitaciones había una entidad principal
+y tres catálogos accesorios que cabían como gestores modales. Aquí las tres entidades tienen peso
+propio (~700–830 líneas de TS cada lista), así que **se conservan enteras** dentro de su pestaña.
+
+**Regla al programar:**
+- Cada lista acepta `@Input() embedded`, que oculta su encabezado y sus métricas cuando vive dentro
+  del contenedor. Con `embedded = false` sigue funcionando como página suelta; no se borró esa
+  capacidad.
+- Cada lista emite `@Output() changed` tras cualquier mutación, para que el contenedor recalcule
+  sus métricas.
+- **Solo se monta la pestaña activa.** Montar las tres dispararía sus peticiones y sus animaciones
+  sin que nadie las vea.
+- La pestaña activa viaja en la URL (`?tab=packages`).
+- La entrada de menú `commercial_catalog.read` es **solo menú**: los endpoints los siguen
+  protegiendo `services.*`, `packages.*` y `promotions.*` (misma separación que 5.17).
+
+---
+
+### 5.19 Facturación: el ciclo de cobro completo en una vista
+
+**Decisión:** facturas, pagos y reembolsos viven en `/facturacion`, una sola ruta con tres pestañas.
+`/facturas`, `/pagos`, `/reembolsos` y sus alias en inglés redirigen a la pestaña que corresponde.
+Es el mismo patrón de 5.18, aplicado a una dependencia todavía más fuerte.
+
+**Por qué:** aquí la relación no es un cruce, es una **cadena estricta del modelo**:
+
+```
+Invoice ──< Payment ──< PaymentRefund
+```
+
+`Payment.invoice` y `PaymentRefund.payment` son FK obligatorias: un pago no existe sin factura y un
+reembolso no existe sin pago. Y **ninguna de las tres se crea en su propia vista** — el pago nace en
+el check-out (`room-check-modal`) y el reembolso en el detalle del pago. Las tres eran, ya antes de
+unirlas, vistas de **consulta y auditoría del mismo dinero**.
+
+**Lo que aporta el contenedor y no tenía ninguna:** el **saldo por cobrar** real. Vive entre
+facturas y pagos, así que hasta ahora había que calcularlo saltando de una vista a otra.
+
+**Cómo se calcula el pendiente, y por qué no es `facturado − cobrado`:** esa resta arrastra el
+histórico completo y daría un pendiente falso en cuanto haya una factura anulada. Se calcula solo
+sobre las facturas **que siguen esperando cobro** —ni `PAGADA` ni `ANULADA`— y sus pagos, con piso
+en cero para que un cobro de más no lo vuelva negativo.
+
+**Frontera con Finanzas:** `/consolidado-ingresos` y `/control-financiero` son **análisis por
+periodo**; `/facturacion` es el **libro operativo**, documento a documento. No se mezclan.
+
+**Regla al programar:**
+- Mismas reglas de 5.18 (`embedded`, `changed`, solo la pestaña activa montada, `?tab=` en la URL).
+- La entrada de menú `billing_center.read` es **solo menú**: los endpoints los siguen protegiendo
+  `invoices.*` y `payments.*`.
+- **La pestaña de reembolsos se pinta solo con `payment-refunds.read`.** Era la única de las tres
+  que recepción no tenía en su menú; al unirlas habría heredado el acceso por la puerta de atrás.
+  No es un control de acceso —la API valida aparte— sino conservar el alcance que cada rol ya tenía.
+- El cache-aside de `BillingService` usa TTL **operativo** (20 s), no de catálogo: esto es dinero.
+  Y **cualquier escritura invalida las tres claves**, porque cada eslabón de la cadena cambia el
+  saldo del anterior.
+
+**Un reembolso se registra desde el pago, no desde la pestaña de reembolsos.** `PaymentRefund.payment`
+es FK obligatoria y el tope reembolsable, el método y la referencia salen de ese pago; un formulario
+suelto tendría que empezar preguntando "¿de qué pago?". Se entra por el botón **Reembolsar** de la
+tarjeta de pago o del pie de su detalle. La pestaña de reembolsos **consulta y aprueba**, y lo dice
+explícitamente en una nota de origen para que nadie busque ahí un botón "Nuevo" que no puede existir.
+
+**Consultar un pago y reembolsarlo son dos modales distintos** (`DetailPayment` y `RefundPayment`).
+La primera intención se repasa, la segunda se decide, y mezclarlas dejaba el formulario apretado
+entre datos de solo lectura. `RefundPayment` **recalcula el saldo reembolsable al abrirse** en vez
+de heredarlo del listado —otro usuario pudo reembolsar entretanto— y descuenta también los
+reembolsos **pendientes de aprobar**: no han salido de caja, pero ya comprometen el saldo.
+
+---
+
+### 5.20 Inventario: el catálogo, su reparto y su bitácora en una vista
+
+**Decisión:** items, dotación por habitación y movimientos viven en `/inventario`, una sola ruta con
+tres pestañas. `/items`, `/inventario-habitaciones`, `/movimientos-inventario` y sus alias redirigen
+a la pestaña que corresponde. Mismo patrón de 5.18 y 5.19.
+
+**Por qué:** `Item` es el centro de una estrella, no un vecino temático:
+
+```
+             InventoryMovement
+                    │ item
+                    ▼
+    RoomInventory ─► Item ◄─ InventoryRestockAlert
+         item
+```
+
+Y hay algo más fuerte que la FK compartida: **`InventoryMovement` es la bitácora de `Item.stock`**
+—guarda `previous_stock` y `new_stock`—, así que Items enseñaba el número actual y Movimientos
+enseñaba cómo llegó a serlo, sin forma de pasar de uno al otro. Las otras dos ya cargaban el
+catálogo de items para poder pintarse.
+
+**El aviso de bajo mínimo estaba duplicado.** "Bajo mínimo" y "Sin stock" se calculaban en la vista
+de items *y* en la de habitaciones, sobre tablas distintas: había que mirar dos pantallas para
+responder "¿de qué me estoy quedando sin?". Ahora es una métrica del contenedor.
+
+**Seguimiento entre pestañas (`focus`):** desde un item se salta a **sus** movimientos o a las
+habitaciones donde está, y la lista destino se abre acotada por él. La barra de rastro recuerda a
+quién se está siguiendo y ofrece los saltos que quedan. Las listas **no navegan por su cuenta**:
+emiten `followItem` y el contenedor decide, igual que `navigateTab` en 5.19. El filtro entra por
+`@Input() focusItemId` y **no toca los filtros propios** de la lista, que el usuario puede seguir
+moviendo por encima.
+
+**Regla al programar:**
+- Mismas reglas de 5.18 (`embedded`, `changed`, solo la pestaña activa montada, `?tab=` en la URL).
+- La entrada de menú `inventory_center.read` es **solo menú**: los endpoints los siguen protegiendo
+  `items.*`, `room-inventory.*` e `inventory-movements.*`.
+- Cache-aside con TTL **operativo** (20 s): el stock lo mueve cada consumo y cada check-out, no solo
+  quien edita el catálogo. Cualquier escritura invalida las **tres** claves.
+
+**Un movimiento es un asiento: se aplica una vez.** `InventoryMovement.save()` calcula
+`previous_stock`/`new_stock` y toca `Item.stock` **solo al crear**. Editar un movimiento —cambiar
+su nota, marcarlo inactivo— no vuelve a mover nada, y **desactivarlo no devuelve el stock**: para
+revertir hay que registrar el movimiento contrario, que es lo que deja rastro. Ver el fix del
+2026-08-12 en el registro: hacerlo en cada `save()` restaba la cantidad otra vez en cada edición.
+
+**Las operaciones masivas viven en el backend, no en un bucle del frontend.** El conteo físico
+(`POST /api/inventory-movements/stock-count/`) y la entrada de compra
+(`POST /api/inventory-movements/purchase-entry/`) reciben el lote entero y lo asientan en **una
+transacción** con una **referencia compartida** (`CONTEO-…` / `COMPRA-…`). Dos razones, y ninguna
+es de rendimiento:
+
+1. Un conteo a medias es peor que ninguno: el stock quedaría mezclado entre lo contado y lo viejo
+   sin que nadie sepa dónde está el corte.
+2. Sin referencia común, un conteo de 80 items queda como 80 ajustes sueltos que nadie puede
+   agrupar después para reconstruir "el conteo del 12 de agosto".
+
+El conteo usa `ADJUSTMENT` porque **declara el valor absoluto**; la compra usa `IN` porque **suma
+lo que llegó**. El conteo registra **solo las líneas que difieren** — hallar 3 descuadres en 80
+items debe dejar 3 movimientos. Y ambas guardan `created_by`: sin autor, un ajuste de inventario
+no se le puede preguntar a nadie.
+
+
+---
+
+### 5.21 Limpieza y mantenimiento: una vista, con la habitación como unidad
+
+**Decisión:** tareas de limpieza y órdenes de mantenimiento viven en `/limpieza-mantenimiento`,
+una sola ruta con tres pestañas. `/tareas-limpieza`, `/ordenes-mantenimiento` y sus alias
+redirigen. Mismo patrón de 5.18, 5.19 y 5.20.
+
+**Por qué:** son **el mismo objeto**: trabajo pendiente sobre una habitación, con estado,
+prioridad y una fecha que se puede incumplir. Tan iguales que `CleaningTask.priority` y
+`MaintenanceOrder.priority` apuntan al **mismo catálogo** (`MAINTENANCE_PRIORITY`), y sus dos
+pantallas mostraban las **mismas cinco métricas con los mismos rótulos**.
+
+**La pestaña que lo justifica: "Por habitación".** Es la pregunta que no contestaba ninguna de
+las dos listas —*¿qué le falta a la 101?*—. Una habitación con limpieza pendiente **y** una avería
+abierta no es lo mismo que una con solo una de las dos, y esa diferencia decide si se puede vender
+esa noche. Mirando por tipo de trabajo eso no se ve nunca. Es la pestaña por defecto.
+
+**Atrasado significa lo mismo en las dos**, aunque el campo se llame distinto: en limpieza la fecha
+es `scheduled_for` (cuándo tocaba) y en mantenimiento `estimated_completed_at` (cuándo se
+prometió). Las dos son un compromiso incumplido, y se comparan **por día**, no por instante:
+comparar horas produciría atrasos falsos.
+
+**Regla al programar:**
+- Mismas reglas de 5.18 (`embedded`, `changed`, solo la pestaña activa montada, `?tab=` en la URL).
+- El seguimiento entre pestañas entra por `@Input() focusRoomId`, igual que `focusItemId` en 5.20.
+- La entrada de menú `operations_center.read` es **solo menú**: los endpoints los siguen protegiendo
+  `cleaning_tasks.*` y `maintenance_orders.*`.
 
 ---
 
@@ -731,6 +953,865 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > debe escribirse en el momento del cambio.
 
 ---
+
+### 2026-08-12 — Bug: unos pocos ajustes de stock seguidos dejaban la vista vacía (429)
+
+- **Autor:** Claude Code, reportado por rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix (rendimiento y corrección)
+- **Síntoma:** restando o sumando stock varias veces seguidas, la vista de inventario se quedaba
+  sin items y decía *"Hay 37 item(s) eliminados lógicamente"*. Había que recargar y cambiar de
+  pestaña para recuperarla.
+- **Causa raíz:** **cada clic disparaba 10 peticiones** y el límite de la API es `120/min` por
+  usuario (`DEFAULT_THROTTLE_RATES`). Doce clics agotaban el minuto y la API devolvía 429.
+  1. **1** el POST del movimiento.
+  2. **3** del contenedor (`loadSummary` con `force`).
+  3. **6** de la lista: items, la papelera, **tres consultas de master data** y la configuración
+     del hotel — todas catálogos que no cambian al sumar una unidad.
+- **Cuatro arreglos, por orden de impacto:**
+  1. **Cache-aside en `MasterDataService` y `HotelSettingsService`** con TTL de catálogo (5 min).
+     Quita 4 peticiones por clic **y beneficia a toda la aplicación**: esas consultas las hacen
+     casi todas las pantallas al cargar y al refrescar.
+  2. **La recarga posterior a una acción deja de forzar el caché.** Esto era lo más sutil: la
+     escritura **ya invalida** las claves desde el servicio, así que la recarga va al servidor
+     igual — pero `forceRefresh` **salta también la deduplicación de peticiones en vuelo** del
+     `ResourceCache`, y entonces el contenedor y la lista pedían lo mismo dos veces. `force` queda
+     **solo** para el botón *Actualizar*, que es una petición explícita de datos frescos.
+  3. **Una racha de ajustes rápidos produce una sola recarga** (700 ms). La tarjeta ya se pinta con
+     el stock que devuelve el asiento, así que la recarga solo pone al día las métricas.
+  4. **La papelera no se vuelve a pedir en una recarga silenciosa**: solo cambia al eliminar o
+     restaurar.
+- **Y un bug de corrección que el 429 destapó:** `catchError(() => of([]))` **fabricaba un éxito
+  vacío**. Con `items` caído y `allItems` respondiendo, la vista concluía que los 37 items estaban
+  eliminados — parecía pérdida de información. Ahora el fallo devuelve `null`, se **conserva el
+  listado anterior** y se avisa *"se muestra la última versión cargada"*.
+- **Resultado:** de **10 peticiones por clic a 4**, y una racha de veinte clics ya no pasa de un
+  puñado.
+- **Archivos/áreas afectadas:** `frontend/src/app/services/{master-data.service,hotel-settings}.ts`,
+  los siete `list-*` con `refresh*(force = false)`, los cuatro contenedores
+  (`catalog|billing|inventory|operations-page`), `frontend/src/app/modules/items/list-items/*`.
+- **Impacto:** solo frontend. Sin cambios de API ni migraciones.
+- **Verificación:** `npm run lint`, `npm run test:ci` (**318** pruebas, 5 nuevas: que el fallo
+  conserve el listado y no invente papelera, que solo el botón fuerce el caché, y que la papelera
+  no se pida en recargas silenciosas) y `npm run build:ci` en verde; backend completo en verde.
+  Se actualizaron las cuatro pruebas de contenedor que afirmaban el contrato viejo (`forceRefresh:
+  true`) al nuevo.
+
+### 2026-08-12 — Limpieza y mantenimiento en una vista, con la habitación como unidad
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat / refactor
+- **Decisión de arquitectura:** consultada y aprobada por rastor65. Se agrega la sección **5.21**.
+- **Qué se hizo:** las dos pantallas se consolidaron en **`/limpieza-mantenimiento`** con tres
+  pestañas.
+  1. **"Por habitación" es la pestaña por defecto** y el aporte real: agrupa el trabajo abierto por
+     habitación, ordenado por atraso y luego por carga. Cada tarjeta enseña **los dos frentes por
+     separado** —limpieza y mantenimiento son dos equipos distintos—, una vista previa de la cola,
+     y salta a la pestaña correspondiente ya filtrada por esa habitación.
+  2. **Métricas que cruzan las dos**: habitaciones con trabajo (avisando cuántas necesitan las dos
+     cosas), atrasadas, sin empezar y cerradas hoy.
+  3. **Cache-aside** en los dos servicios con TTL operativo, invalidando ambas claves en cualquier
+     escritura: cerrar una tarea cambia lo que la otra pestaña dice de esa misma habitación.
+  4. **GSAP** una vez, recargas silenciosas, seguimiento entre pestañas por `focusRoomId`.
+- **Las tarjetas, rehechas sobre `.gh-task-*`:** las dos enseñaban el **estado tres veces** —en la
+  portada, en una fila de "progreso" y otra vez en el pie— y ninguna decía lo único accionable: si
+  la fecha ya pasó. Ahora el estado se dice una vez, **la habitación (o la avería) titula**, y la
+  fecha se expresa como consecuencia: *"venció hace 2 días"*, *"programada para hoy"* — en vez de
+  una fecha que hay que comparar con hoy en la cabeza. El color sale de la **urgencia**, no del tipo.
+  Y el botón de avanzar estado **lleva su nombre** (*Iniciar*, *Completar*): un icono suelto obligaba
+  a adivinar en qué estado quedaba la tarea al pulsarlo.
+- **Archivos/áreas afectadas:** `frontend/src/app/modules/operations/` (nuevo, con
+  `operations-page/` y `room-workload/`), `frontend/src/styles.css` (bloque `.gh-task-*`),
+  `frontend/src/app/modules/{cleaning-tasks/list-cleaning-tasks,maintenance-orders/list-maintenance-orders}/*`,
+  `frontend/src/app/services/{cleaning-task,maintenance-order}.ts`,
+  `frontend/src/app/app.routes.ts`, `backend/accounts/management/commands/seed_rbac.py`,
+  `backend/accounts/migrations/0026_operations_center_menu.py`, `backend/accounts/tests.py`.
+- **Impacto:** **requiere `migrate` y `seed_rbac`**. El menú pasa de un grupo con dos hijos a una
+  entrada (`operations_center.read`); el grupo se desactiva y se suma a `LEGACY_KEYS`. Sin
+  migraciones de esquema.
+- **Verificación:** backend `manage.py test` completo en verde (242 pruebas; `HOTEL_ROUTES`
+  actualizado). Frontend `npm run lint`, `npm run test:ci` (**313** pruebas, 24 nuevas entre el
+  contenedor y el tablero por habitación) y `npm run build:ci` en verde. El chunk `operations-page`
+  pesa 24,1 kB transferidos y sustituye a los dos anteriores. Backup en
+  `backend/db.before-operations-menu.*.sqlite3`.
+
+### 2026-08-12 — La lista de compra se descuadraba bajo las métricas
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix (UI)
+- **Síntoma:** la pestaña quedaba encajonada a la izquierda, ocupando ~1.100 px bajo unas métricas
+  y unas pestañas que sí usaban todo el ancho.
+- **Causa:** yo mismo le había puesto `max-width: 1180px` buscando un ancho de lectura. En una
+  pantalla que ocupa todo, eso no se lee como una medida tipográfica: se lee como un fallo de
+  maquetación.
+- **Arreglo:** ancho completo, y el espacio sobrante repartido en **columnas que dicen algo** en vez
+  de hueco: *Falta* (la carencia, sola, que es el motivo por el que la línea está ahí), *En bodega*
+  con su barra, *A comprar*, *Queda en* —la consecuencia de lo pedido, comparable entre líneas—,
+  *Unitario* y *Total línea*. En pantallas medianas se sacrifica el unitario primero, que es el dato
+  menos consultado al revisar un pedido.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/modules/inventory/shopping-list/*.{html,css}`.
+- **Impacto:** solo presentación.
+- **Verificación:** `npm run lint`, `npm run test:ci` (289) y `npm run build:ci` en verde.
+
+### 2026-08-12 — La lista de compra pasa a leerse como un pedido
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor (UI)
+- **Qué estaba mal:**
+  1. **Filas de 1.900 px**: el nombre a la izquierda y el precio al otro extremo dejaban de leerse
+     como una lista y pasaban a ser dos columnas sin relación.
+  2. **La cabecera con un hueco muerto en medio**: el costo pegado a un borde y dos contadores al
+     otro.
+  3. **`quedan 3 de 10 Unidad`** — cifras sin jerarquía, y ninguna señal de que una línea estuviera
+     peor que otra: dos carencias muy distintas se veían idénticas.
+  4. **Cuatro iconos sin rótulo** en la barra de herramientas, y *Exportar* repetido en el pie.
+  5. **La cantidad sugerida no se explicaba**: 77 aparecía sin decir de dónde salía, así que no se
+     podía corregir con criterio.
+- **Qué se hizo:**
+  1. **Ancho de lectura** (1.180 px) y **tabla con columnas alineadas y encabezado** —item, en
+     bodega, a comprar, costo—, que es lo que hace comparable un pedido.
+  2. **Cabecera compacta**: el costo como titular, y a su lado items / unidades / agotados. A la
+     derecha, una frase que dice si **el pedido resuelve el problema**: *"con este pedido todos
+     quedan sobre su mínimo"* o *"algunos seguirán bajo su mínimo"*.
+  3. **Barra de cobertura por línea** (stock frente a su mínimo), en el mismo lenguaje visual de
+     las tarjetas y del conteo. Y el texto pasa a decir **cuánto falta** —"faltan 7 para el
+     mínimo"— en vez de dos cifras sueltas.
+  4. Cada cantidad muestra **en cuánto queda el item** si se compra, y el costo lleva el unitario
+     debajo.
+  5. Herramientas **con rótulo** (Todo / Nada / Sugerido) y el botón de sugerencia **explica su
+     criterio** en el tooltip: *"llena hasta el máximo (80)"* / *"deja el doble del mínimo (20)"*.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/modules/inventory/shopping-list/*.{ts,html,css,spec.ts}`.
+- **Impacto:** presentación y cuatro helpers de lectura. No cambia la API ni el flujo de ingreso.
+- **Verificación:** `npm run lint`, `npm run test:ci` (**289** pruebas, 6 nuevas: carencia,
+  cobertura por línea, stock resultante, criterio de la sugerencia y las dos de cobertura del
+  pedido) y `npm run build:ci` en verde.
+
+### 2026-08-12 — El detalle de un item enseña su bitácora, no un enlace a ella
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** el drawer del item muestra sus **últimos movimientos** directamente. Cada línea
+  lleva el salto con signo (`+4`, `−5`) coloreado por dirección, el tipo, el `antes → después`, la
+  fecha, **quién lo hizo** y el motivo.
+- **Por qué:** "¿por qué el stock está como está?" es la pregunta que trae a cualquiera a esta
+  pantalla, y estaba a un salto de pestaña — es decir, lejos. El botón *Ver sus movimientos*
+  resolvía el caso de querer el histórico completo, no el de querer entender el número que se está
+  mirando.
+- **Detalles:**
+  - **La dirección sale del salto de stock, no del tipo**: un `ADJUSTMENT` puede subir o bajar, y
+    lo que importa es hacia dónde se movió.
+  - **Se recortan a los 6 últimos**, con un pie que ofrece *"ver los N restantes"* y salta a la
+    pestaña de movimientos filtrada por el item. El histórico completo vive ahí, con sus filtros y
+    su exportación.
+  - **Se pide acotada al item** con `?item=<id>` (nuevo filtro del ViewSet, igual que `?room=` en
+    dotación): traer el histórico entero del hotel para filtrarlo en el navegador no escala.
+  - Un item sin movimientos lo dice explícitamente —"su stock es el que se cargó al crearlo"— en
+    vez de dejar un hueco.
+- **Archivos/áreas afectadas:** `backend/apps/inventory/{views,tests}.py`,
+  `frontend/src/app/modules/items/detail-item/*.{ts,html,css,spec.ts}`,
+  `frontend/src/app/modules/inventory-movements/inventory-movement-model.ts`,
+  `frontend/src/app/services/inventory-movement.ts`.
+- **Impacto:** un filtro nuevo de solo lectura en la API. Sin migraciones.
+- **Verificación:** backend `manage.py test` completo en verde (**242** pruebas, 3 nuevas del
+  filtro `?item=`). Frontend `npm run lint`, `npm run test:ci` (**283** pruebas, 7 nuevas de la
+  bitácora) y `npm run build:ci` en verde.
+
+### 2026-08-12 — Conteo físico, lista de compra y ajuste rápido de stock
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Decisión de arquitectura:** amplía la sección **5.20** (operaciones masivas y `created_by`).
+- **Qué se hizo:** tres funciones que convierten el inventario de una vista de consulta en una de
+  trabajo.
+  1. **Movimiento desde la tarjeta**: `−` y `+` resuelven la unidad suelta con un clic, y los
+     botones **Entrada** / **Salida** abren `StockMove`, un modal de una sola cifra con atajos
+     (1, 5, 10, 25, y *Todo* en las salidas) que **enseña en cuánto queda el stock antes de
+     confirmar** —pulsar `+5` cuatro veces y esperar haber contado bien no es lo mismo—. Avisa si
+     una salida deja el item bajo su mínimo, pero **no lo bloquea**: puede ser legítimo. El asiento
+     se registra igual, con su rastro: atajo no significa saltarse la bitácora.
+  2. **Conteo físico** (`StockCount`), en su propio modal porque es una sesión de trabajo sobre
+     todo el inventario, no una acción de una pestaña. Arranca con lo que dice el sistema —contar
+     es confirmar o corregir, no teclear ochenta cifras desde cero—, lleva **avance de lo revisado**,
+     filtros *sin revisar* / *con diferencia*, un atajo **"dar por bueno el resto"** y calcula la
+     diferencia por línea, el sobrante, el faltante y **cuánto cuesta el descuadre**: un faltante de
+     cinco toallas no es lo mismo que uno de cinco botellas de vino.
+  3. **Lista de compra**, como **cuarta pestaña** —a petición de rastor65— y no como modal, para
+     poder entrar de un clic. Trae lo que está en el mínimo o por debajo, **agotados primero**, con
+     la cantidad sugerida ya puesta (hasta el máximo si lo hay; si no, el doble del mínimo menos lo
+     que queda), el costo por línea y el **costo total del pedido**. Se puede marcar y desmarcar,
+     ajustar cantidades, volver a la sugerencia, **exportar a CSV** y **registrar la entrada** cuando
+     la compra llega, con la referencia de la factura del proveedor.
+- **Backend:** `InventoryMovement.created_by` (migración `inventory/0007`), rellenado desde la
+  sesión en el serializer, y dos acciones nuevas del ViewSet —`stock-count/` y `purchase-entry/`—
+  resueltas en `services.py` dentro de una transacción y con referencia compartida. El porqué de
+  que sean endpoints y no un bucle de `POST` está en 5.20.
+- **Detalle de la lista de compra:** se reconstruye conservando lo que el usuario ya ajustó. Se
+  recalcula tras cada ingreso, y perder las cantidades tecleadas en ese momento sería exasperante.
+- **Archivos/áreas afectadas:** `backend/apps/inventory/{models,serializers,services,views,tests}.py`,
+  `backend/apps/inventory/migrations/0007_inventorymovement_created_by.py`,
+  `frontend/src/app/modules/inventory/{stock-count,shopping-list}/` (nuevos),
+  `frontend/src/app/modules/items/stock-move/` (nuevo),
+  `frontend/src/app/modules/inventory/inventory-page/*`,
+  `frontend/src/app/modules/items/list-items/*`, `frontend/src/app/services/inventory-movement.ts`.
+- **Impacto:** **requiere `migrate`**. Sin cambios de RBAC: las dos acciones nuevas exigen
+  `inventory-movements.write`, que ya tenían los roles que registran movimientos.
+- **Verificación:** backend `manage.py test` completo en verde (**239** pruebas, 9 nuevas: que el
+  conteo registre solo lo que difiere, que fije el valor absoluto en ambas direcciones, que guarde
+  autor y lo que tenía el sistema, que todo el lote comparta referencia, que ignore items de otro
+  hotel, y las cuatro de la entrada de compra). Frontend `npm run lint`, `npm run test:ci`
+  (**276** pruebas, 44 nuevas entre conteo, lista de compra y el modal de entrada/salida) y
+  `npm run build:ci` en verde.
+
+### 2026-08-12 — Bug: marcar un movimiento como inactivo volvía a mover el stock
+
+- **Autor:** Claude Code, encontrado al rediseñar el detalle de movimientos
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix (corrupción silenciosa de datos)
+- **Síntoma:** pulsar **"Marcar inactivo"** en el detalle de un movimiento volvía a aplicar su
+  cantidad al stock. Un `OUT` de 1 unidad restaba **otra** unidad cada vez que se tocaba el
+  registro. Verificado antes de tocar nada: stock 10 → registrar OUT de 1 → 9 → marcar inactivo →
+  **8**.
+- **Causa:** `InventoryMovement.save()` recalculaba `previous_stock`/`new_stock` desde el stock del
+  momento y se lo aplicaba al item **en cada guardado**, no solo al crear. Cualquier `PATCH`
+  —cambiar `is_active`, corregir una nota— pasaba por ahí. Además el propio movimiento quedaba
+  reescrito con un antes/después que nunca ocurrió, así que la bitácora dejaba de cuadrar.
+- **Arreglo:** un movimiento es un **asiento**: se aplica una vez, al registrarlo. `save()` sale
+  temprano si `not self._state.adding`. La validación de `clean()` que compara la cantidad contra
+  el stock también se limita a la creación, porque un movimiento ya asentado no puede validarse
+  contra unas existencias que él mismo cambió.
+- **Lo que NO se hizo, a propósito:** desactivar un movimiento sigue **sin** devolver el stock, y
+  no debe hacerlo desde aquí. Lo correcto es registrar el movimiento contrario, que es lo que deja
+  rastro. El detalle ahora lo dice explícitamente cuando el movimiento está inactivo.
+- **Archivos/áreas afectadas:** `backend/apps/inventory/models.py`, `backend/apps/inventory/tests.py`.
+- **Impacto:** **los stocks ya desviados por este bug no se corrigen solos.** Si algún item tiene
+  un stock que no cuadra con su bitácora, hay que ajustarlo con un movimiento de tipo `ADJUSTMENT`,
+  que fija el valor absoluto. Sin migraciones.
+- **Verificación:** `manage.py test` completo en verde (**230** pruebas, 3 nuevas: que el
+  movimiento aplique el stock al crearse, que desactivarlo no lo vuelva a mover, y que editarlo
+  conserve el antes/después original).
+
+### 2026-08-12 — Fuera los ids internos de la interfaz
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor (UI)
+- **Qué se hizo:** se retiraron los identificadores internos de base de datos de toda la interfaz.
+  No identifican nada para quien opera y ocupan el sitio de un dato que sí.
+  - **Campos "ID"** en los detalles de servicio, paquete, tarea de limpieza y orden de
+    mantenimiento; **"ID movimiento"** en el detalle de movimiento; `ID #n` en el listado de
+    clientes y en el de hoteles del panel SaaS.
+  - **Chips `#id`** que yo mismo había puesto en las tarjetas de pago, reembolso y movimiento.
+  - **Títulos** `Pago #15` en los modales de detalle y de reembolso.
+  - **Fallbacks** del tipo `Item #4`, `Habitacion #7`, `Servicio #12`, `Metodo #3`: cuando el
+    serializer no manda el nombre, ahora se dice *"sin nombre"* en vez de enseñar el id.
+- **Lo que hubo que resolver:** el chip `#id` de la tarjeta de pago estaba puesto **para distinguir
+  dos pagos de la misma factura**. Quitarlo sin más habría devuelto ese problema, así que:
+  - En **pagos**, el discriminador pasa a ser la fecha con hora, que ya se mostraba.
+  - En **reembolsos**, `PaymentRefundSerializer` expone ahora `payment_amount` y `payment_date`, y
+    la tarjeta dice *"Pago de $42.000 del 11 ago"* en vez de *"Pago #31"*. El buscador indexa esa
+    misma etiqueta.
+  - En **clientes**, el identificador pasa a ser el **documento**, que es lo que se pide en
+    recepción.
+- **Excepción consciente:** el origen de un movimiento automático sigue mostrando *"reserva #29"*.
+  Ahí el número **es** la referencia de negocio que trae el movimiento, y sin él no se puede
+  rastrear de qué estancia salió el consumo.
+- **Archivos/áreas afectadas:** `backend/apps/billing/serializers.py`,
+  `frontend/src/app/modules/billing/billing-model.ts`, y ~15 plantillas y componentes.
+- **Impacto:** solo presentación, salvo dos campos nuevos de solo lectura en el serializer de
+  reembolsos. Sin migraciones.
+- **Verificación:** `npm run lint`, `npm run test:ci` (232) y `npm run build:ci` en verde; backend
+  completo en verde.
+
+### 2026-08-12 — El detalle de un movimiento decía lo mismo tres veces
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor (UI)
+- **Qué estaba mal:**
+  1. **La dirección, tres veces**: en el sobretítulo, en "Tipo" y en "Dirección".
+  2. **La cantidad, dos veces**: como "Cantidad" y otra vez como "Variación stock", presentadas
+     como si fueran dos datos distintos.
+  3. **El estado, dos veces**: chip del título y "Resumen".
+  4. **"Stock previo 10" y "Stock nuevo 9" separados**, cuando la transición `10 → 9` **es** el
+     movimiento.
+  5. **Tres fechas** en "Trazabilidad" que son el mismo instante, porque un movimiento no se edita.
+  6. La referencia automática (`ROOM-101-29-1786502652708:2`) en crudo y partida en dos líneas,
+     como si fuera un dato de lectura.
+- **Qué se hizo:** el **salto de stock** pasa a ser el titular —antes, cantidad con signo, después—
+  con la fecha debajo. Todo lo demás se agrupa bajo una sola pregunta, *por qué ocurrió*: el origen
+  traducido (*"Habitacion 101 - reserva #29"*), las notas, y la referencia cruda al final en
+  pequeño, que es lo único para lo que sirve —cotejar con otro sistema. Y si el movimiento está
+  inactivo, un aviso explica que eso **no** devuelve el stock.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/modules/inventory-movements/detail-inventory-movement/*.{ts,html,css}`.
+- **Impacto:** solo presentación. El CSS deja de traer su propia paleta (5.15). Sin migraciones.
+- **Verificación:** `npm run lint`, `npm run test:ci` (232) y `npm run build:ci` en verde.
+
+### 2026-08-12 — El detalle de un item deja de repetirse tres veces
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor (UI)
+- **Síntoma:** el detalle de un item no se entendía a simple vista: seis paneles apilados que había
+  que leer enteros.
+- **Qué estaba mal:**
+  1. **El mismo dato, tres veces.** "Stock actual" en la tarjeta superior *y* en "Stock y alertas";
+     "Estado" en el chip del título *y* en "Resumen"; el tipo en el sobretítulo *y* debajo.
+  2. **Lo importante eran tres cifras sueltas**: 18, mínimo 6, máximo 35, en dos paneles distintos,
+     para que el usuario las comparara mentalmente. El mismo problema que ya se arregló en las
+     tarjetas y en la dotación de habitación.
+  3. **`ID #38` y `Hotel`** como campos de la ficha: el id interno no le sirve a quien opera, y el
+     hotel es siempre el propio (el sistema es multi-tenant).
+  4. **Margen en pesos y sin porcentaje**, que es justamente lo que se compara entre items.
+  5. Las dos únicas acciones eran destructivas.
+- **Qué se hizo:**
+  1. **El medidor como titular**, con la marca del mínimo y una frase que dice **qué hacer**:
+     *"Faltan 4 unidad para el mínimo"*, *"Agotado: hay que reponer"*, *"12 unidad por encima del
+     mínimo"*. Reemplaza a los dos paneles de stock.
+  2. **Seis paneles pasan a dos**, agrupados por para qué sirven: *Cuánto vale y cuánto deja*
+     —valor en bodega, venta potencial y margen, cada cifra con la cuenta que la produce debajo— y
+     *Ficha*, con la descripción integrada.
+  3. **Margen también en porcentaje** sobre el costo, con guarda de división por cero.
+  4. **Los dos saltos del contenedor** —ver sus movimientos, ver en qué habitaciones está— entran
+     también desde aquí; el drawer se cierra al saltar.
+  5. Tipo, uso y SKU se funden en el sobretítulo, y el chip de estado duplicado desaparece.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/modules/items/detail-item/*.{ts,html,css,spec.ts}`,
+  `frontend/src/app/modules/items/list-items/list-items.html`.
+- **Impacto:** solo presentación y dos atajos de navegación. No cambia la API. El CSS deja de traer
+  su propia paleta (5.15). Sin migraciones.
+- **Verificación:** `npm run lint`, `npm run test:ci` (**232** pruebas, 11 nuevas del drawer:
+  escala del medidor con y sin máximo, los cuatro estados de stock, valoración, margen porcentual
+  con su guarda, y los saltos) y `npm run build:ci` en verde.
+
+### 2026-08-12 — La dotación de una habitación pasa de mirarse a resolverse
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor (UI) / feat
+- **Síntoma:** el detalle de una habitación obligaba a **leerlo entero** para entenderlo, y al
+  terminar no dejaba hacer nada útil.
+- **Qué estaba mal, en concreto:**
+  1. **Cuatro contadores + un bloque "Resumen"** que repetía uno de ellos (Items 1 / Items activos
+     1), y ninguno respondía la pregunta real: ¿está completa esta habitación?
+  2. **Cada línea eran tres recuadros rotulados** —Cantidad / Mínimo / Estado— que había que juntar
+     mentalmente. "0 unid" junto a "0 unid" no dice si falta algo.
+  3. **Orden alfabético.** En una habitación con veinte líneas, lo urgente queda enterrado.
+  4. **Las dos únicas acciones eran destructivas** (inactivar, eliminar). La acción corriente al
+     descubrir que falta algo —ajustar la cantidad— no existía: había que salir a la lista general
+     y buscar el registro.
+  5. Cabecera de 145 px con degradado para un título, y media pantalla vacía debajo.
+- **Qué se hizo:**
+  1. **Una barra de cobertura** como titular: el porcentaje de la dotación completa, con el
+     desglose en una línea (`3 completos · 1 bajo mínimo · 1 sin stock · 12 unidades`). Sustituye a
+     los cuatro contadores y al bloque "Resumen".
+  2. **Cada línea con su propia barra**, midiendo la cantidad contra **su** mínimo. Sin mínimo
+     definido no hay contra qué medir, así que la barra se llena si hay existencias.
+  3. **Ordenadas por urgencia**: sin stock, bajo mínimo, y después el resto.
+  4. **Cantidad editable en la línea**, con `−`/`+`, un atajo **"Completar al mínimo"** y guardado
+     explícito (Descartar / Guardar). Solo se bloquea la línea que se está guardando, no el drawer.
+  5. Las destructivas pasan a iconos discretos, para que no compitan con la acción útil.
+  6. El drawer toma su alto natural y la cabecera baja a lo que ocupa el título.
+- **Por qué el guardado es explícito y no al teclear:** son existencias, y un `+` accidental o un
+  dígito de más no deberían viajar al servidor. El borrador vive en el componente y solo se envía
+  lo que cambió.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/modules/room-inventory/detail-room-inventory/*.{ts,html,css,spec.ts}`,
+  `frontend/src/app/modules/room-inventory/list-room-inventory/*.{ts,html}`.
+- **Impacto:** solo frontend; usa el `PATCH /api/room-inventory/{id}/` que ya existía. El CSS del
+  drawer baja de 330 a 297 líneas y deja de traer su propia paleta. Sin migraciones.
+- **Verificación:** `npm run lint`, `npm run test:ci` (**221** pruebas, 13 nuevas del drawer: orden
+  por urgencia, porcentaje de cobertura, titular por gravedad, barra contra el mínimo propio, y el
+  ciclo completo del ajuste de cantidad) y `npm run build:ci` en verde.
+
+### 2026-08-12 — Inventario: catálogo, reparto y bitácora en una sola vista
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat / refactor
+- **Decisión de arquitectura:** consultada y aprobada por rastor65. Se agrega la sección **5.20**.
+- **Qué se hizo:** las tres pantallas se consolidaron en **`/inventario`**, con el patrón de 5.18 y
+  5.19 más dos cosas nuevas.
+  1. **Contenedor** `modules/inventory/inventory-page/`, con cuatro métricas que cruzan las tres:
+     items en catálogo con su valor al costo, **bajo mínimo** —que antes se calculaba en dos
+     pantallas distintas—, habitaciones con la dotación incompleta y movimientos de hoy.
+  2. **Seguimiento de un item entre pestañas.** Desde la tarjeta de un item se salta a **sus**
+     movimientos o a las habitaciones donde está, y la lista destino se abre ya acotada por él. Es
+     la pregunta que se hace mirando un item —"¿por qué bajó este stock?"— y hasta ahora obligaba a
+     cambiar de pantalla y buscarlo otra vez a mano. Una barra de rastro recuerda a quién se sigue.
+  3. **Tarjetas rehechas sobre `.gh-inv-*`**, con la **barra de stock** como centro (ver abajo).
+  4. **Cache-aside** con TTL operativo en los tres servicios, invalidando las tres claves en
+     cualquier escritura: un movimiento cambia el stock del item y una asignación lo reparte.
+  5. **GSAP** una vez, y recargas silenciosas —la cuadrícula se atenúa en vez de desmontarse.
+- **Las tarjetas:** las tres contestaban "¿cuánto hay frente a cuánto debería haber?" **con texto**
+  (`Minimo: 5 | Maximo: 20`), obligando a comparar números mentalmente en cada tarjeta de la
+  cuadrícula, y las tres traían la portada decorativa de siempre. Ahora:
+  - **Barra con marca del mínimo.** El relleno es el stock y la marca es el mínimo: sin ella la
+    barra solo diría "hay algo", no "hay poco". El color lo inyecta el componente en `--inv-tone`
+    según el estado de existencias, no según la categoría.
+  - La misma anatomía sirve para las otras dos: en habitación la barra es el **% de dotación
+    completa**, y en movimiento la sustituye el **salto de stock** (`12 → 18`), que es lo que un
+    movimiento significa y estaba enterrado en una línea de texto.
+  - El SKU sube a la cabecera como chip monoespaciado, y costo/venta/margen pasan a metadatos con
+    etiqueta.
+- **Archivos/áreas afectadas:** `frontend/src/app/modules/inventory/inventory-page/` (nuevo),
+  `frontend/src/styles.css` (bloque `.gh-inv-*`),
+  `frontend/src/app/modules/{items/list-items,room-inventory/list-room-inventory,inventory-movements/list-inventory-movements}/*.{ts,html,css}`,
+  `frontend/src/app/services/{item,room-inventory,inventory-movement}.ts`,
+  `frontend/src/app/app.routes.ts`, `backend/accounts/management/commands/seed_rbac.py`,
+  `backend/accounts/migrations/0025_inventory_center_menu.py`, `backend/accounts/tests.py`.
+- **Impacto:** **requiere `migrate` y `seed_rbac`**. El menú pasa de un grupo con tres hijos a una
+  entrada (`inventory_center.read`); el grupo *Inventario* se desactiva y se suma a `LEGACY_KEYS`.
+  Las rutas viejas redirigen a su pestaña. Sin migraciones de esquema.
+- **Verificación:** backend `manage.py test` completo en verde (227 pruebas; `HOTEL_ROUTES`
+  actualizado a `/inventario`). Frontend `npm run lint`, `npm run test:ci` (**208** pruebas, 15
+  nuevas del contenedor: métricas, habitación contada una sola vez, valoración al costo,
+  seguimiento entre pestañas y recarga sin parpadeo) y `npm run build:ci` en verde. El chunk
+  `inventory-page` pesa 31,1 kB transferidos y sustituye a los tres anteriores. Backup en
+  `backend/db.before-inventory-menu.*.sqlite3`.
+
+### 2026-08-12 — Consultar un pago y reembolsarlo pasan a ser dos modales
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor (UI)
+- **Qué se hizo:** el detalle del pago era **un solo modal de 1080 px con tres columnas**, y la
+  tercera era el formulario de reembolso encajado entre datos de solo lectura. Se separó en dos.
+  1. **`RefundPayment` (nuevo, 560 px).** Solo decidir: el **saldo reembolsable** grande arriba,
+     el monto con atajo *Todo*, el motivo con contador, y referencia y notas debajo. Se cierra al
+     registrar — la confirmación es que el reembolso ya aparece en el listado, no un cartel dentro
+     de un formulario vacío.
+  2. **Anticipa la consecuencia:** al teclear el monto dice si es reembolso total o cuánto quedará
+     reembolsable después, en vez de dejar la resta al usuario.
+  3. **Recalcula el tope al abrirse**, no lo hereda del listado: entre que se abrió la pantalla y
+     se pulsa el botón, otro usuario pudo registrar un reembolso. Y descuenta **también los
+     pendientes de aprobar** — todavía no salieron de caja, pero ya comprometen el saldo, y sin
+     contarlos se podría pedir dos veces el mismo dinero.
+  4. **Cuando no hay nada que hacer lo dice** (pago anulado / sin saldo) en vez de mostrar un
+     formulario muerto, que es lo que pasaba antes.
+  5. **El detalle queda como vista de consulta**, con el botón *Reembolsar* en el pie que emite
+     `refundRequested`; la lista cierra el detalle y abre el otro modal, sin apilar capas.
+- **De paso, el detalle se migró a `gh-modal-*`:** traía **521 líneas de CSS con su propia paleta
+  en hexadecimal** y una cabecera azul marino que no se parecía a ningún otro modal del sistema —
+  una violación de 5.15 que ya estaba ahí. Ahora son 267 líneas, solo tokens. Además el monto del
+  pago pasa a titular el panel, y el resumen de factura se lee como un extracto: los reembolsos
+  restan en rojo y las dos líneas de cierre —neto aplicado y saldo pendiente— pesan más que los
+  sumandos.
+- **Por qué separarlos:** consultar y devolver dinero son dos intenciones distintas —la primera se
+  repasa, la segunda se decide— y mezclarlas dejaba el formulario con tres cifras apretadas en un
+  recuadro y sin espacio para lo que de verdad hace falta al decidir. Separarlos no mueve el
+  reembolso de sitio: sigue naciendo de un pago concreto (5.19), solo que en su propia superficie.
+- **Archivos/áreas afectadas:** `frontend/src/app/modules/payments/refund-payment/` (nuevo),
+  `frontend/src/app/modules/payments/detail-payment/*.{ts,html,css,spec.ts}`,
+  `frontend/src/app/modules/payments/list-payments/*.{ts,html,spec.ts}`.
+- **Impacto:** solo frontend. El endpoint, el payload y las validaciones del reembolso no cambian.
+  Sin migraciones.
+- **Verificación:** `npm run lint`, `npm run test:ci` (**193** pruebas, 13 nuevas: saldo con
+  pendientes y rechazados, tope excedido, previsión de parcial, bloqueos, payload enviado, error
+  del backend, y que el detalle pida el modal en vez de registrar) y `npm run build:ci` en verde.
+
+### 2026-08-12 — Una sola anatomía de tarjeta para factura, pago y reembolso
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor (UI) / feat
+- **Qué se hizo:** las tres tarjetas se rehicieron sobre `.gh-doc-*`, definido una vez en
+  `styles.css`. Es el equivalente de `.gh-cat-*` para documentos de cobro, con una diferencia
+  deliberada: **el color no identifica la categoría sino el estado**, que es lo que se escanea en
+  un listado de dinero.
+  1. **El pago ya no se confunde con su factura.** Las tres titulaban con el número de factura, así
+     que **dos pagos de la misma factura se veían idénticos**. Ahora el título va acompañado del
+     consecutivo propio (`#29`) en un chip.
+  2. **Chips de estado que dicen algo.** El pago mostraba "Activo" —lo son todos—; ahora dice
+     *Registrado* / *Anulado*. La factura conserva Pagada/Emitida/Borrador, que sí informa.
+  3. **Metadatos con etiqueta**, en rejilla de dos columnas. Antes era una lista de iconos sin
+     rótulo donde "Activa" junto a un icono de documento no significaba nada y además **duplicaba
+     el chip de estado**. En su lugar el pago muestra ahora **quién lo registró** (`created_by`).
+  4. **Reembolso con contraparte real.** Tenía un avatar de iniciales derivado del número de
+     factura —un avatar para un pago no significa nada— y titulaba con la factura. Ahora la
+     contraparte es *"Devuelve el pago #N"* y el motivo tiene su propio espacio a dos líneas.
+  5. **Pie único**: etiqueta + importe en cifras tabulares y la barra de acciones. El pie del
+     reembolso ya no queda vacío ni con un "Sin acción" de relleno.
+  6. Los documentos anulados se atenúan (`.is-void`) en vez de desaparecer: siguen ahí por
+     trazabilidad, pero no compiten.
+- **Botón de reembolso:** se añadió **"Reembolsar"** en la tarjeta de pago, que abre el detalle y
+  **desplaza y enfoca el panel de reembolso** (`focusRefund`). El formulario **no se movió**: sigue
+  en `detail-payment`, que es donde debe estar (ver decisión abajo).
+- **Decisión — por qué el formulario no va en la pestaña de reembolsos:** `PaymentRefund.payment` es
+  FK obligatoria, y el tope reembolsable, el método y la referencia salen del pago. Un formulario
+  suelto tendría que empezar preguntando "¿de qué pago?" con un buscador sobre cientos de registros,
+  y volver a cargar ese pago para validar el tope. Lo que faltaba no era otro formulario sino una
+  **puerta visible**. Para cerrar el hueco, la pestaña de reembolsos lleva una nota de origen que
+  explica de dónde nace un reembolso y un botón que salta a Pagos (`@Output() navigateTab`, para no
+  acoplar la lista al contenedor).
+- **CSS muerto eliminado:** `invoice/payment/refund-card`, `-head`, `-body`, `-foot`, `guest-block`,
+  `guest-avatar`, `refund-avatar`, `refund-title-block`, `meta-list`, `invoice-number`,
+  `inactive-card` y sus reglas en media queries. `.status-chip`, `.row-btn` y `.row-note` **se
+  conservan**: los usa la vista de tabla, que no se tocó.
+- **Archivos/áreas afectadas:** `frontend/src/styles.css` (bloque `.gh-doc-*`, nuevo),
+  `frontend/src/app/modules/billing/list-bill/*.{html,css}`,
+  `frontend/src/app/modules/payments/list-{payments,payment-refunds}/*.{ts,html,css}`,
+  `frontend/src/app/modules/payments/detail-payment/detail-payment.ts`,
+  `frontend/src/app/modules/billing/billing-page/billing-page.html`.
+- **Impacto:** presentación y un atajo de navegación. No cambia el backend, ni el flujo de creación
+  del reembolso, ni sus validaciones. Sin migraciones.
+- **Verificación:** `npm run lint`, `npm run test:ci` (**180** pruebas, 5 nuevas: el atajo al panel
+  de reembolso, que el detalle normal no lo pida, el salto de pestaña y que ninguna de las dos
+  listas se desmonte al recargar) y `npm run build:ci` en verde.
+
+### 2026-08-12 — Facturación: facturas, pagos y reembolsos en una sola vista
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat / refactor
+- **Decisión de arquitectura:** consultada y aprobada por rastor65. Se agrega la sección **5.19**.
+- **Qué se hizo:** las tres pantallas se consolidaron en **`/facturacion`**, con el mismo patrón de
+  5.18 pero sobre una dependencia más fuerte.
+  1. **Contenedor nuevo** `modules/billing/billing-page/`, con encabezado propio, cuatro métricas
+     que cruzan las tres entidades y barra de pestañas con conteos.
+  2. **Las tres listas se conservan enteras** (`@Input() embedded`, `@Output() changed`). No se
+     reescribió ninguna de las ~4.500 líneas de los tres módulos.
+  3. **Métrica que no existía: "Por cobrar".** Vive entre facturas y pagos, así que hasta ahora
+     había que calcularla a mano saltando de una vista a otra. Se calcula sobre las facturas que
+     siguen esperando cobro, no como `facturado − cobrado` (ver 5.19).
+  4. **"Cobrado neto"** descuenta los reembolsos **procesados**; los pendientes todavía no salieron
+     de caja. Y **"Reembolsos por aprobar"** es lo único del resumen que exige una decisión.
+  5. **Cache-aside** en `BillingService` con TTL operativo (20 s) y invalidación de las **tres**
+     claves en cualquier escritura, porque cada eslabón cambia el saldo del anterior.
+  6. **GSAP** para la entrada escalonada, una sola vez.
+  7. Las recargas tras una acción son **silenciosas**, como en el catálogo: la tabla se atenúa en
+     vez de desmontarse.
+- **Por qué:** la relación no es un cruce temático sino una **cadena del modelo** —`Payment.invoice`
+  y `PaymentRefund.payment` son FK obligatorias— y ninguna de las tres se crea en su propia vista:
+  el pago nace en el check-out y el reembolso en el detalle del pago. Eran ya tres cortes de
+  consulta del mismo dinero.
+- **Detalle de permisos que había que resolver:** `payment-refunds.read` no estaba en el rol
+  `staff`, así que recepción **no veía reembolsos**. Unir las vistas se lo habría regalado. La
+  pestaña y su métrica se pintan solo con ese scope (`BillingPage.canSeeRefunds`), y si la URL pide
+  `?tab=refunds` sin permiso, cae a facturas. `staff` recibe `billing_center.read` para no perder
+  facturas ni pagos, que sí operaba.
+- **Archivos/áreas afectadas:** `frontend/src/app/modules/billing/billing-page/` (nuevo),
+  `frontend/src/app/modules/billing/list-bill/`,
+  `frontend/src/app/modules/payments/list-{payments,payment-refunds}/`,
+  `frontend/src/app/services/billing.ts` (caché), `frontend/src/app/app.routes.ts`,
+  `backend/accounts/management/commands/seed_rbac.py`,
+  `backend/accounts/migrations/0024_billing_center_menu.py`, `backend/accounts/tests.py`.
+- **Impacto:** **requiere `migrate` y `seed_rbac`**. El menú pasa de un grupo con tres hijos a una
+  entrada (`billing_center.read`); el grupo *Facturas y pagos* se desactiva y se suma a
+  `LEGACY_KEYS`. Las rutas viejas redirigen a su pestaña. Sin migraciones de esquema.
+- **Verificación:** backend `manage.py test` completo en verde (227 pruebas; se actualizó
+  `HOTEL_ROUTES` a `/facturacion`). Frontend `npm run lint`, `npm run test:ci` (**175** pruebas, 16
+  nuevas del contenedor: métricas, alcance por rol y recarga sin parpadeo) y `npm run build:ci` en
+  verde. El chunk `billing-page` pesa 35,9 kB transferidos y sustituye a los tres anteriores.
+  Backup en `backend/db.before-billing-menu.*.sqlite3`.
+
+### 2026-08-12 — Activar o eliminar en el catálogo ya no parece recargar la página
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix (UX)
+- **Síntoma:** cualquier acción de tarjeta —activar, desactivar, eliminar, restaurar,
+  publicar/ocultar— hacía que la pantalla entera desapareciera y volviera a aparecer.
+- **Causa, que eran tres cosas sumadas:**
+  1. **La lista se vaciaba a sí misma.** Toda acción llamaba a `refresh*()` → `loadCatalogData()`,
+     que ponía `loading = true`. La cuadrícula vive dentro de un `*ngIf="!loading && …"`, así que se
+     **desmontaba entera** y en su lugar salía "Cargando catálogo…". Al colapsar la altura, el
+     scroll saltaba arriba. Eso es, literalmente, lo que se ve al recargar una página.
+  2. **El contenedor volvía a animar todo.** `changed` → `onCatalogChanged()` →
+     `loadSummary(true)` → `scheduleReveal()`, que re-ejecutaba la entrada GSAP (fundido +
+     desplazamiento) de métricas, pestañas **y el panel completo** en cada clic.
+  3. **Nada se actualizaba hasta el final.** El estado de la tarjeta no cambiaba hasta que volvían
+     las 4–7 peticiones del `forkJoin` de la lista más las 3 del contenedor.
+- **Qué se hizo:**
+  1. `loading` pasa a significar **solo la primera carga**; las recargas posteriores usan
+     `refreshing`, que **no** desmonta nada. `loadCatalogData({ silent: true })` y
+     `loadSummary(force, silent)`. Como `refresh*()` solo se invoca después de una acción del
+     usuario, siempre es silenciosa.
+  2. La recarga se comunica en el sitio donde el usuario ya la busca: el botón **Actualizar** gira
+     y se deshabilita, y la cuadrícula se atenúa (`.catalog-sections.is-refreshing`) sin moverse.
+  3. **La entrada animada se ejecuta una vez** (`revealed`), no en cada recarga. Sigue corriendo al
+     cambiar de pestaña, que sí es un cambio real de contenido.
+  4. Los cuatro *toggles* (activo en servicios, paquetes y promociones; público/interno en
+     promociones) **pintan el estado con la respuesta del PATCH** y llaman a `applyFilters()`, así
+     que la tarjeta cambia al instante y la recarga solo confirma y actualiza contadores.
+- **Por qué así y no con menos peticiones:** la recarga completa **se conserva** a propósito.
+  Eliminar mueve el elemento a la papelera, restaurar lo devuelve, y desactivar cambia contadores,
+  pestañas de filtro y las métricas del contenedor. Recargar es correcto; lo que estaba mal era
+  **desmontar la vista mientras se recarga**.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/modules/{services/list-services,packages/list-packages,promotions/list-promotions}/*.{ts,html,css}`,
+  `frontend/src/app/modules/catalog/catalog-page/catalog-page.{ts,html}`.
+- **Impacto:** solo frontend. Sin cambios de API ni de datos.
+- **Verificación:** `npm run lint`, `npm run test:ci` (**159** pruebas; 3 nuevas: que una recarga no
+  active `loading` en la lista ni en el contenedor, y que el *toggle* pinte el estado sin esperar) y
+  `npm run build:ci` en verde.
+
+### 2026-08-12 — Una sola anatomía de tarjeta para los tres catálogos
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor (UI)
+- **Qué se hizo:** las tarjetas de servicio, paquete y promoción se rehicieron sobre un sistema de
+  clases compartido, `.gh-cat-*`, definido una sola vez en `styles.css` (sección 5.15).
+  1. **Fuera la portada decorativa.** Ocupaba 124 px de una tarjeta de 368 px en servicios y
+     paquetes —un tercio— y en promociones se comía el **36% del ancho**. Solo mostraba un degradado
+     y un icono de marca de agua: cero información. La identidad por color se conserva en una
+     **placa de icono de 46 px** y una franja superior de 4 px, ambas teñidas con el color de la
+     categoría que el componente inyecta por `[ngStyle]` en `--cat-tone` / `--cat-tone-soft`.
+  2. **El dato que se compara sube al pie.** Precio en servicios y paquetes, **descuento** en
+     promociones —que antes iba en letra pequeña debajo del panel de color—, siempre en la misma
+     posición y con el estado enfrente.
+  3. **Una sola barra de acciones.** Las tres tenían las mismas cuatro acciones (Ver / editar /
+     activar / eliminar; promociones suma visibilidad) con **tres tratamientos distintos**. Ahora
+     comparten `.gh-cat-btn`, con "Ver" como acción primaria que ocupa el ancho sobrante.
+  4. **Descripción a dos líneas fijas** (`line-clamp`) para que la cuadrícula quede alineada sin
+     imponer alturas mínimas a ojo.
+  5. **Promociones pasa de 2 a 3 columnas**, como las otras dos: al no haber panel lateral la
+     tarjeta cabe, y las tres pestañas se ven como la misma pantalla.
+- **Por qué:** consolidar las tres vistas en pestañas (entrada siguiente) dejó a la vista que eran
+  tres diseños distintos para la misma clase de objeto. Cambiar de pestaña obligaba a reaprender
+  dónde está cada dato, que es justo lo que la consolidación pretendía evitar.
+- **Alturas resultantes:** 368 → 262 px (servicios), 430 → 330 px (paquetes), 314 → 286 px
+  (promociones). Caben ~40% más tarjetas por pantalla sin perder ningún dato.
+- **CSS muerto eliminado:** `*-cover`, `cover-symbol`, `cover-badges`, `cover-type`, `validity-chip`,
+  `price-row`, `price-wrap`, `discount-wrap`, `card-foot`, `card-actions`, `chips-column`,
+  `status-chip`, `status-dot`, `service-tags`, `meta-row` y los modificadores `.row-btn.danger` /
+  `.row-btn.primary-action` en los tres componentes, más sus reglas en media queries. `.row-btn`
+  base **se conserva**: lo sigue usando el botón "Restaurar" de la papelera.
+- **Archivos/áreas afectadas:** `frontend/src/styles.css` (bloque `.gh-cat-*`, nuevo),
+  `frontend/src/app/modules/{services/list-services,packages/list-packages,promotions/list-promotions}/*.{html,css}`.
+- **Impacto:** solo presentación. No cambia ningún método de componente, ningún servicio ni el
+  backend. Sin migraciones.
+- **Verificación:** `npm run lint`, `npm run test:ci` (156 pruebas en verde) y `npm run build:ci` en
+  verde. El aviso de presupuesto del bundle inicial (64 kB) es previo a este cambio.
+
+### 2026-08-12 — Catálogo comercial: una sola vista con pestañas, caché y animación
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat / refactor
+- **Decisión de arquitectura:** consultada y aprobada por rastor65. Se agrega la sección **5.18**.
+- **Qué se hizo:** `/catalogo-servicios`, `/catalogo-paquetes` y `/promociones` se consolidaron en
+  **`/catalogo-comercial`**.
+  1. **Contenedor nuevo** `modules/catalog/catalog-page/` con encabezado propio, cuatro métricas
+     que cruzan los tres catálogos y una barra de pestañas con conteos.
+  2. **Las tres listas se conservan enteras.** Cada una recibió `@Input() embedded`, que oculta su
+     encabezado y sus métricas cuando vive dentro del contenedor; con `embedded = false` siguen
+     funcionando solas. **No se reescribió ninguna de las ~6.000 líneas** de los tres módulos.
+  3. **Solo se monta la pestaña activa.** Montar las tres dispararía sus peticiones y sus
+     animaciones sin que nadie las vea.
+  4. **La pestaña viaja en la URL** (`?tab=packages`), así que un enlace compartido abre donde
+     corresponde y el botón "atrás" del navegador funciona.
+  5. **Métricas accionables, no conteos.** Servicios activos, paquetes activos, promociones
+     vigentes —con aviso de las que vencen en 7 días— y **servicios que no están en ningún
+     paquete**, que es catálogo que no se está aprovechando. Cada tarjeta lleva a su pestaña.
+  6. **Cache-aside** en `ServicesService`, `PackagesService` y `PromotionsService`, igual que en
+     `RoomService`. Editar un servicio invalida además paquetes y promociones, porque muestran su
+     nombre. Efecto secundario útil: el resumen del contenedor y la lista de la primera pestaña
+     comparten la misma respuesta cacheada, así que abrir la pantalla no duplica el tráfico.
+  7. **GSAP** para la entrada escalonada de métricas, pestañas y panel, con el `MotionService` que
+     ya respeta `prefers-reduced-motion`.
+- **Por qué:** la dependencia entre las tres es encadenada, no temática: un paquete se arma con
+  servicios y una promoción apunta a un servicio o a un paquete. `create-package` y
+  `create-promotion` ya recibían los catálogos ajenos por `@Input`, es decir, el cruce existía pero
+  obligaba a navegar. Es la misma situación que motivó consolidar habitaciones (5.14).
+- **Diferencia deliberada con habitaciones:** allá había una entidad principal y tres catálogos
+  accesorios que cupieron como modales. Aquí las tres tienen peso propio (688, 823 y 833 líneas de
+  TS), así que se optó por **pestañas**, no por disolverlas.
+- **Detalle que costó encontrar:** `redirectTo` en forma de texto trata el valor como una **ruta**,
+  así que `'catalogo-comercial?tab=services'` habría creado un segmento con el `?` dentro en vez de
+  un query param. Se usó la forma **funcional** de `redirectTo` (Angular 18+), que devuelve un
+  `UrlTree` y sí admite query params.
+- **Archivos/áreas afectadas:** `frontend/src/app/modules/catalog/catalog-page/` (nuevo),
+  `frontend/src/app/modules/{services,packages,promotions}/list-*` (`embedded` + `changed`),
+  `frontend/src/app/services/{service,package,promotion}.ts` (caché),
+  `frontend/src/app/app.routes.ts`,
+  `backend/accounts/management/commands/seed_rbac.py`,
+  `backend/accounts/migrations/0023_commercial_catalog_menu.py`, `backend/accounts/tests.py`.
+- **Impacto:** **requiere `migrate` y `seed_rbac`**. El menú pasa de tres entradas a una
+  (`commercial_catalog.read`), y el grupo *Paquetes y promociones* se desactiva. Como en 5.17, la
+  entrada de menú es **solo menú**: `services.*`, `packages.*` y `promotions.*` siguen protegiendo
+  sus endpoints y no se tocaron en ningún rol. Las rutas viejas redirigen a su pestaña. Sin
+  migraciones de esquema.
+- **Verificación:** backend `manage.py test` completo en verde (227 pruebas). Frontend
+  `npm run lint`, `npm run test:ci` (156 pruebas, 12 nuevas del contenedor) y `npm run build:ci` en
+  verde. El chunk `catalog-page` pesa 29,6 kB transferidos y sustituye a los tres anteriores.
+  Backup en `backend/db.before-catalog-menu.*.sqlite3`.
+
+### 2026-08-12 — Se puede editar una promoción (el componente estaba vacío)
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** `UpdatePromotion` existía como **componente vacío** —11 líneas de TypeScript sin
+  lógica, 1 de HTML— y nadie lo importaba. En `/promociones` se podía crear, ver, activar,
+  desactivar, hacer pública/privada, eliminar y restaurar; **no editar**. Corregir un descuento, una
+  fecha o un código obligaba a borrar la promoción y crearla de nuevo, con el riesgo que eso tiene
+  si ya se usó en reservas.
+- **Cómo:** el formulario se derivó del de creación para que ambos validen **igual** —alcance,
+  rango de fechas y tope de 100% en descuentos porcentuales—, en vez de mantener dos reglas para la
+  misma entidad. El alcance (general / servicio / paquete) no se guarda en el modelo: **se deduce**
+  de a qué apunta la promoción al abrirla.
+- **Archivos/áreas afectadas:** `frontend/src/app/modules/promotions/update-promotion/`
+  (`.ts`, `.html`, `.css`, `.spec.ts`),
+  `frontend/src/app/modules/promotions/list-promotions/` (`.ts`, `.html`).
+- **Impacto:** ninguno en backend — `PUT/PATCH /api/promotions/<id>/` ya existía y estaba sin usar.
+- **Verificación:** frontend `npm run lint` y `npm run test:ci` (7 pruebas nuevas: carga del
+  formulario, deducción del alcance, guardado, limpieza del objetivo al cambiar de alcance,
+  validaciones heredadas y error del backend).
+
+### 2026-08-12 — La ficha del check-in/out muestra la habitación, no el id de reserva
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor (usabilidad)
+- **Qué se hizo:** la fila *Reserva #29 · En curso* se reemplazó por **Habitación**, con número,
+  piso y tipo (`Habitacion 101 · Piso 1 · Standard`).
+- **Por qué:** el número de reserva es un id interno de la base de datos; a quien está en el
+  mostrador no le dice nada. La habitación sí es el lenguaje con el que trabaja recepción.
+- **Detalle:** `roomLabel` arma la etiqueta descartando los datos vacíos, para no dejar separadores
+  sueltos (`Habitacion 101 · ·`) cuando la habitación no tiene piso o tipo asignado. Hay una prueba
+  para ese caso.
+- **Archivos/áreas afectadas:** `frontend/src/app/modules/rooms/room-check-modal/`
+  (`.ts`, `.html`, `.spec.ts`).
+- **Impacto:** ninguno en backend. Requiere recargar el frontend.
+- **Verificación:** frontend `npm run lint`, `npm run test:ci` (138 pruebas, 2 nuevas) y
+  `npm run build:ci` en verde.
+
+### 2026-08-12 — Cada pago guarda quién lo registró
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat / security
+- **Qué se hizo:** `billing.Payment` gana `created_by`, el dato que faltaba para cerrar la
+  trazabilidad del historial de cobros.
+  1. **Modelo:** FK al usuario, `null=True` porque los pagos anteriores no tienen autor, y
+     `on_delete=SET_NULL` para que dar de baja a un empleado no borre el pago. Misma convención que
+     `Reservation.created_by`.
+  2. **Migración `billing/0008`**, aditiva y sin datos que rellenar.
+  3. **El autor sale de la sesión, no del cuerpo de la petición.** `PaymentViewSet.perform_create`
+     hace `serializer.save(created_by=self.request.user)` y el campo es `read_only` en el
+     serializer, así que **no se puede registrar un cobro a nombre de otro** — hay una prueba que
+     manda `created_by` en el JSON y comprueba que se ignora.
+  4. **El abono inicial de una reserva también queda con autor.** `ReservationDepositSerializer`
+     crea un `Payment` por su cuenta; si solo se hubiera tocado el ViewSet, ese camino habría
+     seguido sin autor.
+  5. **Se expone `created_by_username`** y el historial del check-out muestra *"· por cajera"*.
+- **Por qué importa:** es el dato que se busca primero cuando hay un descuadre de caja. Sin él, el
+  historial responde *qué, cuándo y con qué*, pero no *quién*.
+- **Archivos/áreas afectadas:** `backend/apps/billing/models.py`,
+  `backend/apps/billing/migrations/0008_payment_created_by.py`, `backend/apps/billing/serializers.py`,
+  `backend/apps/billing/views.py`, `backend/apps/billing/tests.py`,
+  `backend/apps/reservations/serializers.py`,
+  `frontend/src/app/modules/billing/billing-model.ts`,
+  `frontend/src/app/modules/rooms/room-check-modal/` (`.ts`, `.html`, `.spec.ts`).
+- **Impacto:** **requiere `python manage.py migrate`**. `GET /api/payments/` gana `created_by` y
+  `created_by_username` (aditivo). **Los pagos históricos quedan sin autor** y se muestran sin la
+  línea "por…" — no hay forma de reconstruirlo, así que la trazabilidad empieza desde esta fecha.
+- **Verificación:** backend `manage.py test` completo en verde (227 pruebas, 2 nuevas) y
+  `makemigrations --check` sin cambios pendientes. Frontend `npm run lint`, `npm run test:ci`
+  (136 pruebas) y `npm run build:ci` en verde. Backup en
+  `backend/db.before-payment-author.*.sqlite3`.
+
+### 2026-08-12 — Historial de pagos en el check-out
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** el modal de salida muestra, encima del panel de cobro, el **historial de
+  movimientos de dinero** de la estadía: fecha y hora, método, referencia y monto de cada pago, con
+  el neto al lado del título. Se refresca solo al registrar un cobro, así que el recepcionista ve el
+  suyo sin recargar.
+- **Por qué incluye reembolsos y no solo pagos:** el total *Pagado* que muestra la reserva ya
+  descuenta los reembolsos aprobados (`get_reservation_financials`). Un historial de solo pagos
+  sumaría más que esa cifra en cuanto existiera una devolución, y el recepcionista no sabría a cuál
+  creerle. Los reembolsos aparecen como movimiento negativo, con borde rojo, y el neto del historial
+  cuadra con *Pagado*.
+- **Lo anulado y lo pendiente también se muestran**, en borde punteado y atenuados, pero **no
+  suman**: un pago dado de baja o un reembolso sin aprobar no movieron el saldo. Para auditar
+  importa que la solicitud exista, no solo lo que quedó en pie — por eso los pagos se piden con
+  `include_inactive`.
+- **Limitación resuelta el mismo día:** el historial nació sin autor porque `billing.Payment` no
+  tenía `created_by`. Se agregó en la entrada siguiente.
+- **Archivos/áreas afectadas:** `frontend/src/app/modules/rooms/room-check-modal/`
+  (`.ts`, `.html`, `.css`, `.spec.ts`).
+- **Impacto:** sin cambios de backend, sin migraciones y sin recursos RBAC nuevos — reutiliza
+  `GET /api/payments/` y `GET /api/payment-refunds/`. El bloque respeta
+  `rooms.read_guest_data`: quien no puede ver el saldo tampoco ve el historial. Requiere recargar el
+  frontend.
+- **Verificación:** frontend `npm run lint`, `npm run test:ci` (136 pruebas, 5 nuevas: pagos
+  listados, sin pagos, reembolso restando, anulados que no suman y orden cronológico) y
+  `npm run build:ci` en verde.
+
+### 2026-08-12 — Todo hotel nuevo nace con el método de pago en efectivo
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** un `post_save` sobre `HotelSettings` (`apps/hotel_settings/signals.py`) crea el
+  método **Efectivo** al nacer el hotel. Se documentó en la sección 5.16.
+- **Por qué en un signal y no en la vista:** los hoteles nacen por **tres caminos** —el panel SaaS,
+  `POST /api/hotel-settings/` y `apps.demo_requests.views.convert_request()`—. Resolverlo en una
+  vista habría dejado los otros dos sin el método, y desde el cambio del check-out **un hotel sin
+  método activo no puede cobrar ni cerrar una salida**: nacería bloqueado.
+- **Idempotente:** usa `get_or_create` contra `(hotel_settings, code)`, así que reguardar el hotel o
+  restaurar uno borrado no duplica ni rompe la unicidad. Hay una prueba para cada caso.
+- **El método es un punto de partida, no una imposición:** el hotel puede renombrarlo —el `code` se
+  regenera—, desactivarlo o eliminarlo desde la pestaña Métodos de Pago.
+- **Efecto en las pruebas existentes:** seis fixtures creaban su propio "EFECTIVO" después de crear
+  el hotel y chocaban con la unicidad. Se cambiaron a `get_or_create`, que devuelve el sembrado por
+  el signal. La prueba se lee igual y ya no depende de quién creó el método.
+- **Archivos/áreas afectadas:** `backend/apps/hotel_settings/signals.py` (nuevo),
+  `backend/apps/hotel_settings/apps.py`, `backend/apps/hotel_settings/tests.py`, y las fixtures de
+  `billing`, `finance`, `notifications`, `reservations` y `rooms`.
+- **Impacto:** sin migraciones ni cambios de API. **Solo aplica a hoteles creados de aquí en
+  adelante**; los nueve existentes ya tienen sus métodos de la migración `hotel_settings/0006`.
+- **Verificación:** backend `manage.py test` completo en verde (225 pruebas, 4 nuevas) y
+  `makemigrations --check` sin cambios pendientes. Comprobado además contra el endpoint real:
+  `POST /api/hotel-settings/` devuelve 201 y el hotel nuevo ya trae `Efectivo`.
+
+### 2026-08-12 — Seguridad pasa a SaaS Admin (nueva sección 5.17)
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** security
+- **Decisión de arquitectura:** solicitada explícitamente por rastor65. Se agrega la sección 5.17.
+- **Qué se hizo:** el grupo **Seguridad** (Usuarios, Roles, Recursos, Master Data) desapareció del
+  menú de hotel y sus cuatro páginas quedaron bajo **SaaS Admin**.
+  1. **Entradas de menú nuevas y separadas del scope:** `saas_users.read`, `saas_roles.read`,
+     `saas_resources.read` y `saas_master_data.read`, sin `link_backend`, asignadas solo a
+     `platform_admin`. Los recursos de dominio dejaron de ser menú pero **siguen protegiendo la API**.
+  2. **Doble cerrojo en las rutas:** además del menú, `/usuarios`, `/roles`, `/recursos` y
+     `/master-data` llevan `platformAdminOnly: true`, que valida contra superusuario sin hotel (5.4)
+     y no depende del RBAC.
+  3. **Los roles de hotel perdieron** `users.*`, `roles.*` y `resources.*`.
+  4. **El grupo `security` quedó desactivado** vía `LEGACY_KEYS`.
+  5. **Migración `accounts/0022`** para aplicarlo a bases existentes, reversible.
+- **Lo que NO se tocó, y es lo importante:** **`master_data.read` sigue asignado a los roles de
+  hotel.** Antes de mover nada se verificó qué consume cada endpoint: `listMasterData` aparece en
+  **doce pantallas de hotel** (facturas, limpieza, egresos, inventario, ítems, mantenimiento,
+  promociones, reservas…), que lo usan para leer sus catálogos. Quitarlo habría dejado media
+  aplicación en 403 — el efecto de confundir "ver la página" con "usar la API".
+- **Consecuencia operativa que conviene tener presente:** un administrador de hotel **ya no puede
+  crear usuarios de su propio hotel**; pasa a ser trabajo del administrador de plataforma. Si se
+  quiere devolver solo esa capacidad, 5.17 explica el camino.
+- **Archivos/áreas afectadas:** `backend/accounts/management/commands/seed_rbac.py`,
+  `backend/accounts/migrations/0022_security_menu_into_saas.py`, `backend/accounts/tests.py`,
+  `frontend/src/app/app.routes.ts`, `AGENTS.md`.
+- **Impacto:** **requiere `python manage.py migrate` y `python manage.py seed_rbac`**. Sin
+  migraciones de esquema. Resultado en la base local: `admin` y `manager` con 21 rutas de menú y
+  ninguna de seguridad; `platform_admin` con 10, incluidas las cuatro.
+- **Verificación:** backend `manage.py test` completo en verde (221 pruebas; la de cobertura de
+  menú se actualizó para exigir que las cuatro rutas estén **fuera** del menú de hotel y **dentro**
+  del de plataforma). Frontend `npm run lint`, `npm run test:ci` (131 pruebas) y `npm run build:ci`
+  en verde. Backup de la base en `backend/db.before-security-menu.*.sqlite3`.
 
 ### 2026-08-11 — Configuración del Hotel: decir por qué está bloqueada
 

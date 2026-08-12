@@ -1,62 +1,66 @@
 <div class="promotions-page">
+  <ng-container *ngIf="!embedded">
   <header class="page-header">
-    <div>
-      <h1>Promociones</h1>
-      <p>Administra descuentos para paquetes y servicios con control de vigencia, estado y visibilidad.</p>
-    </div>
+      <div>
+        <h1>Promociones</h1>
+        <p>Administra descuentos para paquetes y servicios con control de vigencia, estado y visibilidad.</p>
+      </div>
 
-    <button type="button" class="btn btn-dark" (click)="openCreateDrawer()" [disabled]="!canCreatePromotion">
-      <i class="fa-solid fa-plus"></i>
-      Nueva promocion
-    </button>
-  </header>
+      <button type="button" class="btn btn-dark" (click)="openCreateDrawer()" [disabled]="!canCreatePromotion">
+        <i class="fa-solid fa-plus"></i>
+        Nueva promocion
+      </button>
+    </header>
+  </ng-container>
 
+  <ng-container *ngIf="!embedded">
   <section class="stats-grid">
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Total promociones</span>
-        <span class="stat-icon blue"><i class="fa-solid fa-tags"></i></span>
-      </div>
-      <div class="stat-value">{{ totalPromotions }}</div>
-      <div class="stat-note">{{ linkedPromotions }} con objetivo especifico</div>
-    </article>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Total promociones</span>
+          <span class="stat-icon blue"><i class="fa-solid fa-tags"></i></span>
+        </div>
+        <div class="stat-value">{{ totalPromotions }}</div>
+        <div class="stat-note">{{ linkedPromotions }} con objetivo especifico</div>
+      </article>
 
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Activas</span>
-        <span class="stat-icon green"><i class="fa-solid fa-circle-check"></i></span>
-      </div>
-      <div class="stat-value">{{ activePromotions }}</div>
-      <div class="stat-note">{{ validTodayPromotions }} vigentes hoy</div>
-    </article>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Activas</span>
+          <span class="stat-icon green"><i class="fa-solid fa-circle-check"></i></span>
+        </div>
+        <div class="stat-value">{{ activePromotions }}</div>
+        <div class="stat-note">{{ validTodayPromotions }} vigentes hoy</div>
+      </article>
 
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Vigentes hoy</span>
-        <span class="stat-icon gold"><i class="fa-solid fa-calendar-check"></i></span>
-      </div>
-      <div class="stat-value">{{ validTodayPromotions }}</div>
-      <div class="stat-note">Aplicables en este momento</div>
-    </article>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Vigentes hoy</span>
+          <span class="stat-icon gold"><i class="fa-solid fa-calendar-check"></i></span>
+        </div>
+        <div class="stat-value">{{ validTodayPromotions }}</div>
+        <div class="stat-note">Aplicables en este momento</div>
+      </article>
 
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Publicas</span>
-        <span class="stat-icon purple"><i class="fa-solid fa-bullhorn"></i></span>
-      </div>
-      <div class="stat-value">{{ publicPromotions }}</div>
-      <div class="stat-note">visibles para clientes</div>
-    </article>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Publicas</span>
+          <span class="stat-icon purple"><i class="fa-solid fa-bullhorn"></i></span>
+        </div>
+        <div class="stat-value">{{ publicPromotions }}</div>
+        <div class="stat-note">visibles para clientes</div>
+      </article>
 
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Descuento promedio</span>
-        <span class="stat-icon red"><i class="fa-solid fa-percent"></i></span>
-      </div>
-      <div class="stat-value stat-money">{{ averageDiscountLabel }}</div>
-      <div class="stat-note">promedio en el catalogo</div>
-    </article>
-  </section>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Descuento promedio</span>
+          <span class="stat-icon red"><i class="fa-solid fa-percent"></i></span>
+        </div>
+        <div class="stat-value stat-money">{{ averageDiscountLabel }}</div>
+        <div class="stat-note">promedio en el catalogo</div>
+      </article>
+    </section>
+  </ng-container>
 
   <section class="filters-card">
     <div class="filters-grid promotions-filters-grid">
@@ -98,8 +102,13 @@
       </label>
 
       <div class="filter-actions-inline">
-        <button type="button" class="icon-action" (click)="refreshPromotions()" [disabled]="loading" title="Actualizar">
-          <i class="fa-solid fa-rotate-right"></i>
+        <button
+          type="button"
+          class="icon-action"
+          (click)="refreshPromotions()"
+          [disabled]="loading || refreshing"
+          title="Actualizar">
+          <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
         </button>
 
         <button type="button" class="icon-action" (click)="exportCsv()" title="Exportar">
@@ -160,7 +169,10 @@
     <p *ngIf="!loading && !errorMessage && groupedPromotions.length === 0">No hay promociones para los filtros seleccionados.</p>
   </section>
 
-  <section class="catalog-sections" *ngIf="!loading && !errorMessage && groupedPromotions.length > 0">
+  <section
+    class="catalog-sections"
+    [class.is-refreshing]="refreshing"
+    *ngIf="!loading && !errorMessage && groupedPromotions.length > 0">
     <article class="category-block" *ngFor="let group of groupedPromotions; trackBy: trackByGroup">
       <header class="category-head">
         <div class="category-title">
@@ -184,39 +196,48 @@
 
       <div class="promotions-grid">
         <article
-          class="promotion-card"
+          class="gh-cat-card"
           *ngFor="let promotion of group.items; trackBy: trackByPromotion"
+          [ngStyle]="{
+            '--cat-tone': getGroupTone(group).badgeColor,
+            '--cat-tone-soft': getGroupTone(group).badgeBg
+          }"
           (click)="openDetail(promotion)">
-          <div class="promotion-cover" [ngStyle]="{ background: getGroupTone(group).cover }">
-            <i [ngClass]="['cover-symbol', getGroupTone(group).icon]"></i>
-            <div class="cover-badges">
-              <span
-                class="cover-type"
-                [ngStyle]="{
-                  'background-color': getGroupTone(group).badgeBg,
-                  color: getGroupTone(group).badgeColor
-                }">
-                {{ getDiscountTypeLabel(promotion) }}
-              </span>
-
-              <span class="cover-badge" *ngIf="isHighlighted(group.key, promotion.id)">Destacada</span>
+          <div class="gh-cat-head">
+            <span class="gh-cat-icon"><i [class]="getGroupTone(group).icon"></i></span>
+            <div class="gh-cat-titles">
+              <h3>{{ promotion.name }}</h3>
+              <div class="gh-cat-tags">
+                <span class="gh-cat-tag">{{ getDiscountTypeLabel(promotion) }}</span>
+                <span class="gh-cat-tag is-flag" *ngIf="isHighlighted(group.key, promotion.id)">
+                  <i class="fa-solid fa-star"></i>
+                  Destacada
+                </span>
+                <span
+                  class="gh-cat-tag is-muted"
+                  [ngStyle]="{
+                    'background-color': getValidityTone(promotion).bg,
+                    color: getValidityTone(promotion).color
+                  }">
+                  {{ getValidityLabel(promotion) }}
+                </span>
+                <span
+                  class="gh-cat-tag is-muted"
+                  [ngStyle]="{
+                    'background-color': getVisibilityTone(promotion).bg,
+                    color: getVisibilityTone(promotion).color
+                  }">
+                  <i [class]="promotion.is_public ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i>
+                  {{ promotion.is_public ? 'Publica' : 'Interna' }}
+                </span>
+              </div>
             </div>
-
-            <span
-              class="validity-chip"
-              [ngStyle]="{
-                'background-color': getValidityTone(promotion).bg,
-                color: getValidityTone(promotion).color
-              }">
-              {{ getValidityLabel(promotion) }}
-            </span>
           </div>
 
-          <div class="promotion-body">
-            <h3>{{ promotion.name }}</h3>
-            <p>{{ promotion.description || 'Sin descripcion registrada.' }}</p>
+          <div class="gh-cat-body">
+            <p class="gh-cat-desc">{{ promotion.description || 'Sin descripcion registrada.' }}</p>
 
-            <div class="meta-row">
+            <div class="gh-cat-meta">
               <span>
                 <i class="fa-regular fa-calendar"></i>
                 {{ getDateRangeLabel(promotion) }}
@@ -226,61 +247,51 @@
                 {{ getPromotionTargetLabel(promotion) }}
               </span>
             </div>
+          </div>
 
-            <div class="card-foot">
-              <div class="discount-wrap">
-                <strong>{{ getDiscountValueLabel(promotion) }}</strong>
-                <span>aplica a {{ getTargetTypeLabel(promotion) }}</span>
-              </div>
-
-              <div class="chips-column">
-                <span
-                  class="status-chip"
-                  [ngStyle]="{
-                    'background-color': getStatusTone(promotion).bg,
-                    color: getStatusTone(promotion).color
-                  }">
-                  <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(promotion).dot }"></span>
-                  {{ promotion.is_active ? 'Activa' : 'Inactiva' }}
-                </span>
-
-                <span
-                  class="status-chip"
-                  [ngStyle]="{
-                    'background-color': getVisibilityTone(promotion).bg,
-                    color: getVisibilityTone(promotion).color
-                  }">
-                  <span
-                    class="status-dot"
-                    [ngStyle]="{ 'background-color': getVisibilityTone(promotion).dot }"></span>
-                  {{ promotion.is_public ? 'Publica' : 'Interna' }}
-                </span>
-              </div>
+          <div class="gh-cat-foot">
+            <div class="gh-cat-price">
+              <span>Descuento</span>
+              <strong>{{ getDiscountValueLabel(promotion) }}</strong>
+              <small>aplica a {{ getTargetTypeLabel(promotion) }}</small>
             </div>
 
-            <div class="card-actions" (click)="$event.stopPropagation()">
-              <button type="button" class="row-btn primary-action" title="Ver detalle" (click)="openDetail(promotion)">
-                <i class="fa-regular fa-eye"></i>
-                <span>Ver</span>
-              </button>
-              <button
-                type="button"
-                class="row-btn"
-                [title]="promotion.is_active ? 'Desactivar' : 'Activar'"
-                (click)="togglePromotionStatus(promotion)">
-                <i [class]="promotion.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
-              </button>
-              <button
-                type="button"
-                class="row-btn"
-                [title]="promotion.is_public ? 'Marcar interna' : 'Marcar publica'"
-                (click)="togglePromotionVisibility(promotion)">
-                <i [class]="promotion.is_public ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i>
-              </button>
-              <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(promotion)">
-                <i class="fa-regular fa-trash-can"></i>
-              </button>
-            </div>
+            <span
+              class="gh-cat-status"
+              [ngStyle]="{
+                'background-color': getStatusTone(promotion).bg,
+                color: getStatusTone(promotion).color
+              }">
+              <span class="gh-cat-dot" [ngStyle]="{ 'background-color': getStatusTone(promotion).dot }"></span>
+              {{ promotion.is_active ? 'Activa' : 'Inactiva' }}
+            </span>
+          </div>
+
+          <div class="gh-cat-actions" (click)="$event.stopPropagation()">
+            <button type="button" class="gh-cat-btn is-primary" (click)="openDetail(promotion)">
+              <i class="fa-regular fa-eye"></i>
+              Ver
+            </button>
+            <button type="button" class="gh-cat-btn" title="Editar" (click)="openEdit(promotion)">
+              <i class="fa-regular fa-pen-to-square"></i>
+            </button>
+            <button
+              type="button"
+              class="gh-cat-btn"
+              [title]="promotion.is_active ? 'Desactivar' : 'Activar'"
+              (click)="togglePromotionStatus(promotion)">
+              <i [class]="promotion.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+            </button>
+            <button
+              type="button"
+              class="gh-cat-btn"
+              [title]="promotion.is_public ? 'Marcar interna' : 'Marcar publica'"
+              (click)="togglePromotionVisibility(promotion)">
+              <i [class]="promotion.is_public ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i>
+            </button>
+            <button type="button" class="gh-cat-btn is-danger" title="Eliminar" (click)="confirmDelete(promotion)">
+              <i class="fa-regular fa-trash-can"></i>
+            </button>
           </div>
         </article>
 
@@ -302,6 +313,17 @@
     (closed)="closeCreateDrawer()"
     (created)="onPromotionCreated()">
   </app-create-promotion>
+
+  <app-update-promotion
+    *ngIf="editingPromotion"
+    [promotion]="editingPromotion"
+    [discountTypes]="discountTypes"
+    [services]="services"
+    [packages]="packages"
+    [hotelSettingsId]="hotelSettingsId"
+    (closed)="closeEdit()"
+    (updated)="onPromotionUpdated()">
+  </app-update-promotion>
 
   <app-detail-promotion
     *ngIf="selectedPromotion"

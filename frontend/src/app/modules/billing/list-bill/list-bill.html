@@ -1,11 +1,14 @@
 <div class="billing-page">
+  <ng-container *ngIf="!embedded">
   <header class="page-header">
     <div>
       <h1>Gestion de Facturacion</h1>
       <p>Control de facturas por reserva, consumos y cierre de cuenta.</p>
     </div>
   </header>
+  </ng-container>
 
+  <ng-container *ngIf="!embedded">
   <section class="stats-grid">
     <article class="stat-card">
       <div class="stat-head">
@@ -52,6 +55,7 @@
       <div class="stat-note">Pendiente cobro: {{ pendingCollectionLabel }}</div>
     </article>
   </section>
+  </ng-container>
 
   <section class="filters-card">
     <div class="filters-grid">
@@ -84,8 +88,13 @@
       </label>
 
       <div class="filter-actions-inline">
-        <button type="button" class="icon-action" (click)="refreshBillingData()" [disabled]="loading" title="Actualizar">
-          <i class="fa-solid fa-rotate-right"></i>
+        <button
+          type="button"
+          class="icon-action"
+          (click)="refreshBillingData(true)"
+          [disabled]="loading || refreshing"
+          title="Actualizar">
+          <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
         </button>
 
         <button type="button" class="icon-action icon-action-dark" (click)="exportCsv()" title="Exportar">
@@ -125,7 +134,10 @@
     </p>
   </section>
 
-  <section class="table-card" *ngIf="!loading && !errorMessage && filteredInvoices.length > 0 && viewMode === 'table'">
+  <section
+    class="table-card"
+    [class.is-refreshing]="refreshing"
+    *ngIf="!loading && !errorMessage && filteredInvoices.length > 0 && viewMode === 'table'">
     <div class="table-wrap">
       <table>
         <thead>
@@ -192,64 +204,75 @@
     </div>
   </section>
 
-  <section class="invoice-grid" *ngIf="!loading && !errorMessage && filteredInvoices.length > 0 && viewMode === 'cards'">
+  <section
+    class="invoice-grid"
+    [class.is-refreshing]="refreshing"
+    *ngIf="!loading && !errorMessage && filteredInvoices.length > 0 && viewMode === 'cards'">
     <article
-      class="invoice-card"
+      class="gh-doc-card is-clickable"
       *ngFor="let invoice of filteredInvoices; trackBy: trackByInvoice"
-      [class.inactive-card]="!invoice.is_active"
+      [class.is-void]="!invoice.is_active"
+      [ngStyle]="{
+        '--doc-tone': getStatusTone(invoice).dot,
+        '--doc-tone-soft': getStatusTone(invoice).bg
+      }"
       (click)="openDetail(invoice)">
-      <header class="invoice-head">
-        <div>
-          <span class="invoice-number">{{ invoice.invoice_number || ('FAC-' + invoice.id) }}</span>
-          <small>{{ getIssueDateLabel(invoice) }}</small>
+      <header class="gh-doc-head">
+        <div class="gh-doc-ids">
+          <div class="gh-doc-number">
+            <strong>{{ invoice.invoice_number || ('FAC-' + invoice.id) }}</strong>
+            <span class="gh-doc-seq" *ngIf="!invoice.is_active" title="Factura anulada">Anulada</span>
+          </div>
+          <span class="gh-doc-date">{{ getIssueDateLabel(invoice) }}</span>
         </div>
 
         <span
-          class="status-chip"
+          class="gh-doc-status"
           [ngStyle]="{
             'background-color': getStatusTone(invoice).bg,
             color: getStatusTone(invoice).color
           }">
-          <span class="dot" [ngStyle]="{ 'background-color': getStatusTone(invoice).dot }"></span>
+          <span class="gh-doc-dot" [ngStyle]="{ 'background-color': getStatusTone(invoice).dot }"></span>
           {{ getStatusLabel(invoice) }}
         </span>
       </header>
 
-      <div class="invoice-body">
-        <div class="guest-block">
-          <span class="guest-avatar">{{ getGuestInitials(invoice) }}</span>
-          <div>
-            <h3>{{ getGuestLabel(invoice) }}</h3>
-            <p>{{ getGuestDocument(invoice) }}</p>
+      <div class="gh-doc-body">
+        <div class="gh-doc-party">
+          <span class="gh-doc-avatar">{{ getGuestInitials(invoice) }}</span>
+          <div class="gh-doc-party-text">
+            <strong>{{ getGuestLabel(invoice) }}</strong>
+            <small>{{ getGuestDocument(invoice) }}</small>
           </div>
         </div>
 
-        <div class="meta-list">
-          <span>
-            <i class="fa-regular fa-calendar"></i>
-            {{ getReservationCode(invoice, reservationsMap.get(invoice.reservation) || null) }}
-          </span>
-          <span>
-            <i class="fa-solid fa-bed"></i>
-            {{ getStayLabel(invoice) }}
-          </span>
-          <span>
-            <i class="fa-solid fa-file-invoice-dollar"></i>
-            {{ invoice.is_active ? 'Activa' : 'Inactiva' }}
-          </span>
-        </div>
+        <dl class="gh-doc-meta">
+          <div>
+            <dt>Reserva</dt>
+            <dd>{{ getReservationCode(invoice, reservationsMap.get(invoice.reservation) || null) }}</dd>
+          </div>
+          <div>
+            <dt>Estancia</dt>
+            <dd>{{ getStayLabel(invoice) }}</dd>
+          </div>
+        </dl>
       </div>
 
-      <footer class="invoice-foot">
-        <div>
-          <small>Total factura</small>
+      <footer class="gh-doc-foot">
+        <div class="gh-doc-amount">
+          <span>Total factura</span>
           <strong>{{ getAmountLabel(invoice) }}</strong>
         </div>
 
-        <button type="button" class="row-btn primary-action" (click)="openDetail(invoice); $event.stopPropagation()">
-          <i class="fa-regular fa-eye"></i>
-          Ver detalle
-        </button>
+        <div class="gh-doc-actions">
+          <button
+            type="button"
+            class="gh-doc-btn is-primary"
+            (click)="openDetail(invoice); $event.stopPropagation()">
+            <i class="fa-regular fa-eye"></i>
+            Ver detalle
+          </button>
+        </div>
       </footer>
     </article>
   </section>

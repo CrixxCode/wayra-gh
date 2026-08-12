@@ -10,6 +10,9 @@ export interface InventoryMovementI {
   new_stock: number;
   reference?: string | null;
   notes?: string | null;
+  /** Quien movio el stock. Null en los movimientos anteriores al campo. */
+  created_by?: string | null;
+  created_by_username?: string | null;
   movement_date?: string;
   is_active: boolean;
   created_at?: string;

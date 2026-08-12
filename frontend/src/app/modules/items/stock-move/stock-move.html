@@ -1,0 +1,135 @@
+<div class="gh-modal-overlay" (click)="close()">
+  <article
+    class="gh-modal move-modal"
+    [class.is-entry]="isEntry"
+    (click)="$event.stopPropagation()">
+    <header class="gh-modal-head">
+      <div>
+        <p class="move-kind">
+          <i [class]="isEntry ? 'fa-solid fa-arrow-down-long' : 'fa-solid fa-arrow-up-long'"></i>
+          {{ title }}
+        </p>
+        <h2>{{ item?.name }}</h2>
+      </div>
+
+      <button type="button" class="gh-modal-close" (click)="close()" title="Cerrar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <div class="gh-modal-body">
+      <!-- Antes y despues: la resta no deberia hacerla el usuario. -->
+      <section class="move-preview">
+        <div class="move-step">
+          <span>Ahora</span>
+          <strong>{{ currentStock }}</strong>
+        </div>
+
+        <div class="move-arrow">
+          <b>{{ isEntry ? '+' : '-' }}{{ quantity }}</b>
+          <i class="fa-solid fa-arrow-right-long"></i>
+        </div>
+
+        <div class="move-step is-result">
+          <span>Queda</span>
+          <strong>{{ resultingStock }}</strong>
+        </div>
+
+        <small class="move-unit">{{ unitLabel }}</small>
+      </section>
+
+      <label class="move-input" [class.is-invalid]="exceedsStock">
+        <span>Cantidad</span>
+        <div class="move-input-row">
+          <button type="button" (click)="step(-1)" [disabled]="quantity <= 0" title="Restar uno">
+            <i class="fa-solid fa-minus"></i>
+          </button>
+          <input
+            type="number"
+            min="0"
+            [ngModel]="quantity"
+            (ngModelChange)="setQuantity($event)"
+            aria-label="Cantidad" />
+          <button type="button" (click)="step(1)" title="Sumar uno">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
+      </label>
+
+      <div class="move-quick">
+        <button
+          type="button"
+          *ngFor="let amount of quickAmounts"
+          [class.is-active]="quantity === amount"
+          (click)="useQuickAmount(amount)">
+          {{ amount }}
+        </button>
+        <button
+          type="button"
+          class="is-all"
+          *ngIf="!isEntry && currentStock > 0"
+          (click)="useAllStock()">
+          Todo ({{ currentStock }})
+        </button>
+      </div>
+
+      <p class="move-alert is-error" *ngIf="exceedsStock">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        Solo hay {{ currentStock }} {{ unitLabel }} en bodega.
+      </p>
+
+      <!-- Aviso, no bloqueo: dejar el stock bajo minimo puede ser legitimo. -->
+      <p class="move-alert is-warn" *ngIf="willDropBelowMinimum">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        Con esta salida queda en {{ resultingStock }}, en su minimo o por debajo
+        ({{ minimumStock }}).
+      </p>
+
+      <p class="move-alert is-error" *ngIf="errorMessage" aria-live="polite">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        {{ errorMessage }}
+      </p>
+
+      <div class="move-optional">
+        <label>
+          <span>Referencia</span>
+          <input
+            type="text"
+            [(ngModel)]="reference"
+            [placeholder]="isEntry ? 'Factura del proveedor...' : 'Vale, orden...'" />
+        </label>
+
+        <label>
+          <span>Motivo</span>
+          <input
+            type="text"
+            [(ngModel)]="notes"
+            [placeholder]="isEntry ? 'Ej: compra semanal' : 'Ej: consumo de evento'" />
+        </label>
+      </div>
+    </div>
+
+    <footer class="gh-modal-foot">
+      <span class="gh-foot-note">
+        <i class="fa-regular fa-clipboard"></i>
+        Queda registrado en la bitacora con tu nombre.
+      </span>
+
+      <div class="move-actions">
+        <button type="button" class="gh-mbtn gh-mbtn-light" (click)="close()" [disabled]="submitting">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="gh-mbtn"
+          [class.gh-mbtn-success]="isEntry"
+          [class.gh-mbtn-danger]="!isEntry"
+          (click)="submit()"
+          [disabled]="!canSubmit">
+          <i [class]="isEntry ? 'fa-solid fa-arrow-down-long' : 'fa-solid fa-arrow-up-long'"></i>
+          {{ submitting ? 'Registrando...' : (isEntry ? 'Registrar entrada' : 'Registrar salida') }}
+        </button>
+      </div>
+    </footer>
+  </article>
+</div>

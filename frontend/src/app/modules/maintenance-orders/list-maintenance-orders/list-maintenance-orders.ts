@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
@@ -90,7 +90,29 @@ const PRIORITY_TONES: Record<string, MaintenancePriorityTone> = {
   styleUrls: ['./list-maintenance-orders.css']
 })
 export class ListMaintenanceOrders implements OnInit {
+  /** Dentro del contenedor de limpieza y mantenimiento: sin encabezado propio. */
+  @Input() embedded = false;
+
+  /** Un cambio aqui mueve la cola que ven las otras pestañas. */
+  @Output() changed = new EventEmitter<void>();
+
+  /**
+   * Habitacion que se viene siguiendo desde otra pestaña.
+   *
+   * Llega del contenedor y acota la lista sin tocar los filtros propios.
+   */
+  @Input() set focusRoomId(value: number | null) {
+    this.trackedRoomId = typeof value === 'number' && value > 0 ? value : null;
+    this.applyFilters();
+  }
+
+  trackedRoomId: number | null = null;
+
+  /** Solo la primera carga: es la unica que puede dejar la pantalla vacia. */
   loading = false;
+
+  /** Recarga posterior a una accion: la cuadricula sigue en pantalla. */
+  refreshing = false;
   errorMessage = '';
   infoMessage = '';
   viewMode: MaintenanceOrderViewMode = 'cards';
@@ -168,14 +190,17 @@ export class ListMaintenanceOrders implements OnInit {
     return this.rooms.length > 0 && this.priorities.length > 0 && this.statuses.length > 0;
   }
 
-  loadCatalogData(): void {
-    this.loading = true;
+  loadCatalogData(options: { silent?: boolean; force?: boolean } = {}): void {
+    // Una recarga silenciosa no toca `loading`, asi que la cuadricula no se desmonta
+    // y la pantalla no parpadea con cada accion.
+    if (options.silent) this.refreshing = true;
+    else this.loading = true;
     this.errorMessage = '';
     const selectedId = this.selectedMaintenanceOrder?.id ?? null;
 
     forkJoin({
       maintenanceOrders: this.maintenanceOrdersService
-        .listMaintenanceOrders({ include_inactive: true })
+        .listMaintenanceOrders({ include_inactive: true, forceRefresh: options.force })
         .pipe(catchError(() => of([] as MaintenanceOrderI[]))),
       allMaintenanceOrders: this.maintenanceOrdersService
         .listMaintenanceOrders({ include_inactive: true, include_deleted: true })
@@ -190,6 +215,7 @@ export class ListMaintenanceOrders implements OnInit {
     }).subscribe({
       next: ({ maintenanceOrders, allMaintenanceOrders, rooms, priorities, statuses }) => {
         this.loading = false;
+        this.refreshing = false;
         this.maintenanceOrders = maintenanceOrders;
         const visibleIds = new Set(maintenanceOrders.map((order) => order.id));
         this.deletedMaintenanceOrders = allMaintenanceOrders.filter((order) => !visibleIds.has(order.id));
@@ -217,13 +243,24 @@ export class ListMaintenanceOrders implements OnInit {
       },
       error: () => {
         this.loading = false;
+        this.refreshing = false;
         this.errorMessage = 'No fue posible cargar las ordenes de mantenimiento.';
       }
     });
   }
 
-  refreshMaintenanceOrders(): void {
-    this.loadCatalogData();
+  /**
+   * Recarga tras una accion, o a peticion del boton "Actualizar".
+   *
+   * `force` **solo** para el boton: una escritura ya invalido el cache desde el servicio,
+   * asi que la recarga posterior va al servidor igual. Forzarla ademas anula la
+   * deduplicacion de peticiones en vuelo del `ResourceCache`, y entonces esta lista y su
+   * contenedor piden lo mismo dos veces. Con unos pocos clics seguidos eso agotaba el
+   * limite de peticiones por minuto y la API respondia 429.
+   */
+  refreshMaintenanceOrders(force = false): void {
+    this.changed.emit();
+    this.loadCatalogData({ silent: true, force });
   }
 
   exportCsv(): void {
@@ -270,6 +307,9 @@ export class ListMaintenanceOrders implements OnInit {
     const searchValue = this.normalizeSearch(this.search);
 
     this.filteredMaintenanceOrders = this.maintenanceOrders.filter((order) => {
+      // Seguimiento desde otra pestaña: acota sin tocar los filtros del usuario.
+      if (this.trackedRoomId !== null && Number(order.room) !== this.trackedRoomId) return false;
+
       const statusMatch =
         this.statusFilter === 'ALL' || this.normalizeCode(order.status) === this.normalizeCode(this.statusFilter);
 
@@ -419,7 +459,7 @@ export class ListMaintenanceOrders implements OnInit {
     if (typeof order.room === 'number' && order.room > 0) {
       const room = this.roomMap.get(order.room);
       if (room?.number?.trim()) return `Habitacion ${room.number.trim()}`;
-      return `Habitacion #${order.room}`;
+      return 'Habitacion sin numero';
     }
 
     return 'Habitacion no definida';
@@ -508,6 +548,56 @@ export class ListMaintenanceOrders implements OnInit {
     return this.highlightedByGroup.get(groupKey)?.has(orderId) || false;
   }
 
+  isClosed(order: MaintenanceOrderI): boolean {
+    const status = this.normalizeCode(order.status);
+    return status === 'COMPLETADA' || status === 'CANCELADA';
+  }
+
+  /**
+   * El compromiso dicho como consecuencia.
+   *
+   * En mantenimiento la fecha es la que se prometio (`estimated_completed_at`), y lo
+   * util no es leerla sino saber si ya se incumplio.
+   */
+  getScheduleLabel(order: MaintenanceOrderI): string {
+    if (this.isClosed(order)) {
+      const done = this.parseDate(order.completed_at);
+      return done ? `Cerrada el ${this.formatDate(order.completed_at)}` : 'Cerrada';
+    }
+
+    const estimated = this.parseDate(order.estimated_completed_at);
+    if (!estimated) return 'Sin fecha comprometida';
+
+    const days = this.daysFromToday(estimated);
+    if (days < 0) return `Vencio hace ${Math.abs(days)} dia(s)`;
+    if (days === 0) return 'Se prometio para hoy';
+    if (days === 1) return 'Se prometio para maniana';
+    return `Se prometio en ${days} dia(s)`;
+  }
+
+  /** El color de la tarjeta sale de la urgencia, no de la prioridad nominal. */
+  getUrgencyTone(order: MaintenanceOrderI): { bg: string; bar: string } {
+    if (this.isClosed(order)) {
+      return { bg: 'var(--gh-status-neutral-bg)', bar: 'var(--gh-text-soft)' };
+    }
+    if (this.isDelayed(order)) {
+      return { bg: 'var(--gh-status-danger-bg)', bar: 'var(--gh-status-danger-strong)' };
+    }
+    if (this.normalizeCode(order.status) === 'ENPROCESO') {
+      return { bg: 'var(--gh-status-info-bg)', bar: 'var(--gh-status-info-strong)' };
+    }
+    return { bg: 'var(--gh-status-orange-bg)', bar: 'var(--gh-status-warn-strong)' };
+  }
+
+  /** Dias entre hoy y una fecha, ignorando la hora. */
+  private daysFromToday(date: Date): number {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(date);
+    target.setHours(0, 0, 0, 0);
+    return Math.round((target.getTime() - today.getTime()) / 86400000);
+  }
+
   isDelayed(order: MaintenanceOrderI): boolean {
     const status = this.normalizeCode(order.status);
     if (status === 'COMPLETADA' || status === 'CANCELADA') return false;
@@ -541,6 +631,19 @@ export class ListMaintenanceOrders implements OnInit {
 
   trackByGroup(_: number, group: MaintenanceOrderGroup): string {
     return group.key;
+  }
+
+  /** Solo el dia: en el cierre de una orden la hora no aporta. */
+  formatDate(value: string | null | undefined): string {
+    if (!value) return 'Sin fecha';
+    const parsed = this.parseDate(value);
+    if (!parsed) return String(value);
+
+    return parsed.toLocaleDateString('es-CO', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
   }
 
   formatDateTime(value: string | null | undefined): string {

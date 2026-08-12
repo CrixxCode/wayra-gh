@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
@@ -90,7 +90,29 @@ const TYPE_TONES: Record<string, CleaningTaskTone> = {
   styleUrls: ['./list-cleaning-tasks.css']
 })
 export class ListCleaningTasks implements OnInit {
+  /** Dentro del contenedor de limpieza y mantenimiento: sin encabezado propio. */
+  @Input() embedded = false;
+
+  /** Un cambio aqui mueve la cola que ven las otras pestañas. */
+  @Output() changed = new EventEmitter<void>();
+
+  /**
+   * Habitacion que se viene siguiendo desde otra pestaña.
+   *
+   * Llega del contenedor y acota la lista sin tocar los filtros propios.
+   */
+  @Input() set focusRoomId(value: number | null) {
+    this.trackedRoomId = typeof value === 'number' && value > 0 ? value : null;
+    this.applyFilters();
+  }
+
+  trackedRoomId: number | null = null;
+
+  /** Solo la primera carga: es la unica que puede dejar la pantalla vacia. */
   loading = false;
+
+  /** Recarga posterior a una accion: la cuadricula sigue en pantalla. */
+  refreshing = false;
   errorMessage = '';
   infoMessage = '';
   viewMode: CleaningTaskViewMode = 'cards';
@@ -168,14 +190,17 @@ export class ListCleaningTasks implements OnInit {
     return this.rooms.length > 0 && this.taskTypes.length > 0 && this.statuses.length > 0;
   }
 
-  loadCatalogData(): void {
-    this.loading = true;
+  loadCatalogData(options: { silent?: boolean; force?: boolean } = {}): void {
+    // Una recarga silenciosa no toca `loading`, asi que la cuadricula no se desmonta
+    // y la pantalla no parpadea con cada accion.
+    if (options.silent) this.refreshing = true;
+    else this.loading = true;
     this.errorMessage = '';
     const selectedId = this.selectedCleaningTask?.id ?? null;
 
     forkJoin({
       cleaningTasks: this.cleaningTasksService
-        .listCleaningTasks({ include_inactive: true })
+        .listCleaningTasks({ include_inactive: true, forceRefresh: options.force })
         .pipe(catchError(() => of([] as CleaningTaskI[]))),
       allCleaningTasks: this.cleaningTasksService
         .listCleaningTasks({ include_inactive: true, include_deleted: true })
@@ -190,6 +215,7 @@ export class ListCleaningTasks implements OnInit {
     }).subscribe({
       next: ({ cleaningTasks, allCleaningTasks, rooms, taskTypes, statuses }) => {
         this.loading = false;
+        this.refreshing = false;
         this.cleaningTasks = cleaningTasks;
         const visibleIds = new Set(cleaningTasks.map((task) => task.id));
         this.deletedCleaningTasks = allCleaningTasks.filter((task) => !visibleIds.has(task.id));
@@ -217,13 +243,24 @@ export class ListCleaningTasks implements OnInit {
       },
       error: () => {
         this.loading = false;
+        this.refreshing = false;
         this.errorMessage = 'No fue posible cargar las tareas de limpieza.';
       }
     });
   }
 
-  refreshCleaningTasks(): void {
-    this.loadCatalogData();
+  /**
+   * Recarga tras una accion, o a peticion del boton "Actualizar".
+   *
+   * `force` **solo** para el boton: una escritura ya invalido el cache desde el servicio,
+   * asi que la recarga posterior va al servidor igual. Forzarla ademas anula la
+   * deduplicacion de peticiones en vuelo del `ResourceCache`, y entonces esta lista y su
+   * contenedor piden lo mismo dos veces. Con unos pocos clics seguidos eso agotaba el
+   * limite de peticiones por minuto y la API respondia 429.
+   */
+  refreshCleaningTasks(force = false): void {
+    this.changed.emit();
+    this.loadCatalogData({ silent: true, force });
   }
 
   exportCsv(): void {
@@ -258,6 +295,9 @@ export class ListCleaningTasks implements OnInit {
     const searchValue = this.normalizeSearch(this.search);
 
     this.filteredCleaningTasks = this.cleaningTasks.filter((task) => {
+      // Seguimiento desde otra pestaña: acota sin tocar los filtros del usuario.
+      if (this.trackedRoomId !== null && Number(task.room) !== this.trackedRoomId) return false;
+
       const statusMatch =
         this.statusFilter === 'ALL' || this.normalizeCode(task.status) === this.normalizeCode(this.statusFilter);
 
@@ -405,7 +445,7 @@ export class ListCleaningTasks implements OnInit {
     if (typeof task.room === 'number' && task.room > 0) {
       const room = this.roomMap.get(task.room);
       if (room?.number?.trim()) return `Habitacion ${room.number.trim()}`;
-      return `Habitacion #${task.room}`;
+      return 'Habitacion sin numero';
     }
 
     return 'Habitacion no definida';
@@ -436,9 +476,7 @@ export class ListCleaningTasks implements OnInit {
   }
 
   getNotesLabel(task: CleaningTaskI): string {
-    const notes = task.notes?.trim();
-    if (notes) return notes;
-    return 'Sin notas operativas.';
+    return task.notes?.trim() || '';
   }
 
   getStatusTone(task: CleaningTaskI): { bg: string; color: string; dot: string } {
@@ -486,6 +524,56 @@ export class ListCleaningTasks implements OnInit {
 
   isHighlighted(groupKey: string, taskId: number): boolean {
     return this.highlightedByGroup.get(groupKey)?.has(taskId) || false;
+  }
+
+  isCompleted(task: CleaningTaskI): boolean {
+    const status = this.normalizeCode(task.status);
+    return status === 'COMPLETADA' || status === 'CANCELADA';
+  }
+
+  /**
+   * La fecha dicha como una consecuencia, no como un dato.
+   *
+   * "Programada: 10/08" obliga a comparar con hoy en la cabeza; "vencio hace 2
+   * dias" es lo que hace falta para decidir por donde empezar.
+   */
+  getScheduleLabel(task: CleaningTaskI): string {
+    if (this.isCompleted(task)) {
+      const done = this.parseDate(task.completed_at);
+      return done ? `Cerrada el ${this.formatDate(task.completed_at)}` : 'Cerrada';
+    }
+
+    const scheduled = this.parseDate(task.scheduled_for);
+    if (!scheduled) return 'Sin fecha programada';
+
+    const days = this.daysFromToday(scheduled);
+    if (days < 0) return `Vencio hace ${Math.abs(days)} dia(s)`;
+    if (days === 0) return 'Programada para hoy';
+    if (days === 1) return 'Programada para maniana';
+    return `Programada en ${days} dia(s)`;
+  }
+
+  /** El color de la tarjeta sale de la urgencia, no del tipo de tarea. */
+  getUrgencyTone(task: CleaningTaskI): { bg: string; bar: string } {
+    if (this.isCompleted(task)) {
+      return { bg: 'var(--gh-status-neutral-bg)', bar: 'var(--gh-text-soft)' };
+    }
+    if (this.isOverdue(task)) {
+      return { bg: 'var(--gh-status-danger-bg)', bar: 'var(--gh-status-danger-strong)' };
+    }
+    if (this.normalizeCode(task.status) === 'ENPROCESO') {
+      return { bg: 'var(--gh-status-info-bg)', bar: 'var(--gh-status-info-strong)' };
+    }
+    return { bg: 'var(--gh-status-orange-bg)', bar: 'var(--gh-status-warn-strong)' };
+  }
+
+  /** Dias entre hoy y una fecha, ignorando la hora. */
+  private daysFromToday(date: Date): number {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(date);
+    target.setHours(0, 0, 0, 0);
+    return Math.round((target.getTime() - today.getTime()) / 86400000);
   }
 
   isOverdue(task: CleaningTaskI): boolean {

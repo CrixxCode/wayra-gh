@@ -1,11 +1,14 @@
 <div class="refunds-page">
+  <ng-container *ngIf="!embedded">
   <header class="page-header">
     <div>
       <h1>Gestion de Reembolsos</h1>
       <p>Consulta y seguimiento de reembolsos registrados sobre pagos y facturas.</p>
     </div>
   </header>
+  </ng-container>
 
+  <ng-container *ngIf="!embedded">
   <section class="stats-grid">
     <article class="stat-card">
       <div class="stat-head">
@@ -52,6 +55,7 @@
       <div class="stat-note">Solo estado procesado</div>
     </article>
   </section>
+  </ng-container>
 
   <section class="filters-card">
     <div class="filters-grid">
@@ -90,8 +94,13 @@
       </label>
 
       <div class="filter-actions-inline">
-        <button type="button" class="icon-action" (click)="refreshData()" [disabled]="loading" title="Actualizar">
-          <i class="fa-solid fa-rotate-right"></i>
+        <button
+          type="button"
+          class="icon-action"
+          (click)="refreshData(true)"
+          [disabled]="loading || refreshing"
+          title="Actualizar">
+          <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
         </button>
 
         <button type="button" class="icon-action icon-action-dark" (click)="exportCsv()" title="Exportar">
@@ -122,6 +131,21 @@
     </div>
   </section>
 
+  <!-- Un reembolso nace de un pago concreto, no de esta pantalla. Sin decirlo, el
+       usuario busca aqui un boton "Nuevo" que no puede existir. -->
+  <section class="origin-note" *ngIf="!loading && !errorMessage">
+    <p>
+      <i class="fa-solid fa-circle-info"></i>
+      Un reembolso se registra desde el pago que se va a devolver, para heredar su metodo
+      y su tope reembolsable. Aqui se consultan y se aprueban.
+    </p>
+
+    <button type="button" class="gh-doc-btn" (click)="navigateTab.emit('payments')">
+      <i class="fa-solid fa-money-bills"></i>
+      Ir a pagos
+    </button>
+  </section>
+
   <section class="state-message" *ngIf="loading || errorMessage || infoMessage || filteredRefunds.length === 0">
     <p *ngIf="loading">Cargando reembolsos...</p>
     <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
@@ -131,7 +155,10 @@
     </p>
   </section>
 
-  <section class="table-card" *ngIf="!loading && !errorMessage && filteredRefunds.length > 0 && viewMode === 'table'">
+  <section
+    class="table-card"
+    [class.is-refreshing]="refreshing"
+    *ngIf="!loading && !errorMessage && filteredRefunds.length > 0 && viewMode === 'table'">
     <div class="table-wrap">
       <table>
         <thead>
@@ -153,7 +180,7 @@
             <td>
               <span class="table-main">{{ getInvoiceLabel(refund) }}</span>
             </td>
-            <td>Pago #{{ refund.payment }}</td>
+            <td>{{ getRefundedPaymentLabel(refund) }}</td>
             <td>{{ getMethodLabel(refund) }}</td>
             <td>{{ getDateLabel(refund) }}</td>
             <td>
@@ -190,72 +217,83 @@
     </div>
   </section>
 
-  <section class="refund-grid" *ngIf="!loading && !errorMessage && filteredRefunds.length > 0 && viewMode === 'cards'">
+  <section
+    class="refund-grid"
+    [class.is-refreshing]="refreshing"
+    *ngIf="!loading && !errorMessage && filteredRefunds.length > 0 && viewMode === 'cards'">
     <article
-      class="refund-card"
+      class="gh-doc-card"
       *ngFor="let refund of filteredRefunds; trackBy: trackByRefund"
-      [class.inactive-card]="!refund.is_active">
-      <header class="refund-head">
-        <div>
-          <span class="invoice-number">{{ getInvoiceLabel(refund) }}</span>
-          <small>{{ getDateLabel(refund) }}</small>
+      [class.is-void]="!refund.is_active"
+      [ngStyle]="{
+        '--doc-tone': getStatusTone(refund).dot,
+        '--doc-tone-soft': getStatusTone(refund).bg
+      }">
+      <header class="gh-doc-head">
+        <div class="gh-doc-ids">
+          <div class="gh-doc-number">
+            <strong>{{ getInvoiceLabel(refund) }}</strong>
+          </div>
+          <span class="gh-doc-date">{{ getDateLabel(refund) }}</span>
         </div>
 
         <span
-          class="status-chip"
+          class="gh-doc-status"
           [ngStyle]="{
             'background-color': getStatusTone(refund).bg,
             color: getStatusTone(refund).color
           }">
-          <span class="dot" [ngStyle]="{ 'background-color': getStatusTone(refund).dot }"></span>
+          <span class="gh-doc-dot" [ngStyle]="{ 'background-color': getStatusTone(refund).dot }"></span>
           {{ getStatusLabel(refund) }}
         </span>
       </header>
 
-      <div class="refund-body">
-        <div class="refund-title-block">
-          <span class="refund-avatar">{{ getRefundInitials(refund) }}</span>
-          <div>
-            <h3>Pago #{{ refund.payment }}</h3>
-            <p>{{ getMethodLabel(refund) }}</p>
+      <div class="gh-doc-body">
+        <!-- Un reembolso no tiene huesped propio: su contraparte es el pago que devuelve. -->
+        <div class="gh-doc-party">
+          <span class="gh-doc-avatar"><i class="fa-solid fa-arrow-rotate-left"></i></span>
+          <div class="gh-doc-party-text">
+            <strong>{{ getRefundedPaymentLabel(refund) }}</strong>
+            <small>{{ getMethodLabel(refund) }}</small>
           </div>
         </div>
 
-        <div class="meta-list">
-          <span>
-            <i class="fa-solid fa-file-invoice"></i>
-            {{ getInvoiceLabel(refund) }}
-          </span>
-          <span>
-            <i class="fa-solid fa-hashtag"></i>
-            {{ refund.reference || 'Sin referencia' }}
-          </span>
-          <span>
-            <i class="fa-regular fa-note-sticky"></i>
-            {{ refund.reason || 'Sin motivo registrado' }}
-          </span>
-        </div>
+        <dl class="gh-doc-meta is-single">
+          <div>
+            <dt>Motivo</dt>
+            <dd class="gh-doc-note">{{ refund.reason || 'Sin motivo registrado' }}</dd>
+          </div>
+        </dl>
+
+        <dl class="gh-doc-meta">
+          <div>
+            <dt>Referencia</dt>
+            <dd>{{ refund.reference || '--' }}</dd>
+          </div>
+          <div>
+            <dt>Estado interno</dt>
+            <dd>{{ refund.is_active ? 'Vigente' : 'Anulado' }}</dd>
+          </div>
+        </dl>
       </div>
 
-      <footer class="refund-foot">
-        <div>
-          <small>Total reembolso</small>
+      <footer class="gh-doc-foot">
+        <div class="gh-doc-amount">
+          <span>Total reembolso</span>
           <strong>{{ getAmountLabel(refund) }}</strong>
+          <small *ngIf="canApprove(refund)">Aun no ha salido de caja</small>
         </div>
 
-        <button
-          type="button"
-          class="row-btn primary-action"
-          *ngIf="canApprove(refund) || approvingRefundId === refund.id"
-          (click)="approveRefund(refund)"
-          [disabled]="approvingRefundId === refund.id">
-          <i class="fa-solid fa-check"></i>
-          {{ approvingRefundId === refund.id ? 'Aprobando...' : 'Aprobar' }}
-        </button>
-
-        <span class="row-note" *ngIf="!canApprove(refund) && approvingRefundId !== refund.id">
-          {{ refund.is_active ? 'Sin accion' : 'Inactivo' }}
-        </span>
+        <div class="gh-doc-actions" *ngIf="canApprove(refund) || approvingRefundId === refund.id">
+          <button
+            type="button"
+            class="gh-doc-btn is-approve"
+            (click)="approveRefund(refund)"
+            [disabled]="approvingRefundId === refund.id">
+            <i class="fa-solid fa-check"></i>
+            {{ approvingRefundId === refund.id ? 'Aprobando...' : 'Aprobar' }}
+          </button>
+        </div>
       </footer>
     </article>
   </section>

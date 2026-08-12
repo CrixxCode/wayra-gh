@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, tap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
+import { CACHE_TTL, ResourceCache } from './resource-cache';
 import {
   ChargeCreatePayloadI,
   ChargeI,
@@ -37,8 +38,37 @@ export class BillingService {
 
   constructor(
     private http: HttpClient,
-    private auth: AuthService
+    private auth: AuthService,
+    private cache: ResourceCache
   ) {}
+
+  // --------------------------------------------------------------------- cache
+  // Cache-aside sobre las lecturas del ciclo de cobro (ver `resource-cache.ts`).
+  //
+  // TTL operativo, no de catalogo: esto es dinero. El cache existe para que abrir la
+  // pantalla o saltar entre pestañas no repita las mismas consultas, no para ahorrarle
+  // trabajo al servidor durante minutos.
+  private static readonly LEDGER_KEYS = ['invoices', 'payments', 'payment-refunds'];
+
+  private cacheKey(base: string, filters?: Record<string, unknown>): string {
+    const entries = Object.entries(filters || {})
+      .filter(([, value]) => value !== undefined && value !== null && value !== '')
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`);
+    return entries.length ? `${base}:${entries.join('&')}` : base;
+  }
+
+  /**
+   * Cualquier escritura tira las tres claves.
+   *
+   * No es exceso de celo: la cadena es factura -> pago -> reembolso y cada eslabon
+   * cambia el saldo del anterior. Registrar un pago cambia el pendiente de la factura;
+   * aprobar un reembolso cambia lo cobrado. Invalidar solo la entidad tocada dejaria a
+   * las otras dos pestañas mostrando cifras que ya no cuadran.
+   */
+  private invalidateLedger(): void {
+    this.cache.invalidateAll(BillingService.LEDGER_KEYS);
+  }
 
   listInvoices(filters?: {
     search?: string;
@@ -47,6 +77,8 @@ export class BillingService {
     is_active?: boolean;
     include_inactive?: boolean;
     include_deleted?: boolean;
+    /** Salta el cache y lo repuebla: es lo que usa el boton de actualizar. */
+    forceRefresh?: boolean;
   }): Observable<InvoiceI[]> {
     let params = new HttpParams();
 
@@ -74,12 +106,18 @@ export class BillingService {
       params = params.set('include_deleted', String(filters.include_deleted));
     }
 
-    return this.http
-      .get<InvoiceI[] | DRFPaginated<InvoiceI>>(this.invoicesUrl, {
-        withCredentials: true,
-        params
-      })
-      .pipe(map((res) => this.unwrapArray<InvoiceI>(res)));
+    return this.cache.get(
+      this.cacheKey('invoices', filters as Record<string, unknown>),
+      () =>
+        this.http
+          .get<InvoiceI[] | DRFPaginated<InvoiceI>>(this.invoicesUrl, {
+            withCredentials: true,
+            params
+          })
+          .pipe(map((res) => this.unwrapArray<InvoiceI>(res))),
+      CACHE_TTL.OPERATIONAL,
+      filters?.forceRefresh
+    );
   }
 
   getInvoiceById(id: number): Observable<InvoiceI> {
@@ -98,7 +136,7 @@ export class BillingService {
       this.invoicesUrl,
       this.normalizeInvoicePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   updateInvoice(id: number, payload: Partial<InvoiceCreatePayloadI>): Observable<InvoiceI> {
@@ -106,15 +144,22 @@ export class BillingService {
       `${this.invoicesUrl}${id}/`,
       this.normalizeInvoicePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   deleteInvoice(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.invoicesUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http.delete<void>(
+      `${this.invoicesUrl}${id}/`,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   restoreInvoice(id: number): Observable<InvoiceI> {
-    return this.http.post<InvoiceI>(`${this.invoicesUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions());
+    return this.http.post<InvoiceI>(
+      `${this.invoicesUrl}${id}/restore/`,
+      {},
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   listCharges(filters?: {
@@ -168,7 +213,7 @@ export class BillingService {
       this.chargesUrl,
       this.normalizeChargePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   updateCharge(id: number, payload: Partial<ChargeCreatePayloadI>): Observable<ChargeI> {
@@ -176,15 +221,22 @@ export class BillingService {
       `${this.chargesUrl}${id}/`,
       this.normalizeChargePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   deleteCharge(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.chargesUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http.delete<void>(
+      `${this.chargesUrl}${id}/`,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   restoreCharge(id: number): Observable<ChargeI> {
-    return this.http.post<ChargeI>(`${this.chargesUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions());
+    return this.http.post<ChargeI>(
+      `${this.chargesUrl}${id}/restore/`,
+      {},
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   createPosChargeBatch(payload: PosChargeBatchPayloadI): Observable<PosChargeBatchResponseI> {
@@ -192,7 +244,7 @@ export class BillingService {
       `${this.chargesUrl}pos-batch/`,
       this.normalizePosChargeBatchPayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   listInvoiceCharges(filters?: {
@@ -228,11 +280,18 @@ export class BillingService {
   }
 
   createInvoiceCharge(payload: { invoice: number; charge: number }): Observable<InvoiceChargeI> {
-    return this.http.post<InvoiceChargeI>(this.invoiceChargesUrl, payload, this.auth.buildCsrfRequestOptions());
+    return this.http.post<InvoiceChargeI>(
+      this.invoiceChargesUrl,
+      payload,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   deleteInvoiceCharge(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.invoiceChargesUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http.delete<void>(
+      `${this.invoiceChargesUrl}${id}/`,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   restoreInvoiceCharge(id: number): Observable<InvoiceChargeI> {
@@ -240,7 +299,7 @@ export class BillingService {
       `${this.invoiceChargesUrl}${id}/restore/`,
       {},
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   listPayments(filters?: {
@@ -250,6 +309,8 @@ export class BillingService {
     is_active?: boolean;
     include_inactive?: boolean;
     include_deleted?: boolean;
+    /** Salta el cache y lo repuebla: es lo que usa el boton de actualizar. */
+    forceRefresh?: boolean;
   }): Observable<PaymentI[]> {
     let params = new HttpParams();
 
@@ -277,12 +338,18 @@ export class BillingService {
       params = params.set('include_deleted', String(filters.include_deleted));
     }
 
-    return this.http
-      .get<PaymentI[] | DRFPaginated<PaymentI>>(this.paymentsUrl, {
-        withCredentials: true,
-        params
-      })
-      .pipe(map((res) => this.unwrapArray<PaymentI>(res)));
+    return this.cache.get(
+      this.cacheKey('payments', filters as Record<string, unknown>),
+      () =>
+        this.http
+          .get<PaymentI[] | DRFPaginated<PaymentI>>(this.paymentsUrl, {
+            withCredentials: true,
+            params
+          })
+          .pipe(map((res) => this.unwrapArray<PaymentI>(res))),
+      CACHE_TTL.OPERATIONAL,
+      filters?.forceRefresh
+    );
   }
 
   getPaymentById(id: number): Observable<PaymentI> {
@@ -294,7 +361,7 @@ export class BillingService {
       this.paymentsUrl,
       this.normalizePaymentPayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   updatePayment(id: number, payload: Partial<PaymentCreatePayloadI>): Observable<PaymentI> {
@@ -302,15 +369,22 @@ export class BillingService {
       `${this.paymentsUrl}${id}/`,
       this.normalizePaymentPayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   deletePayment(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.paymentsUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http.delete<void>(
+      `${this.paymentsUrl}${id}/`,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   restorePayment(id: number): Observable<PaymentI> {
-    return this.http.post<PaymentI>(`${this.paymentsUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions());
+    return this.http.post<PaymentI>(
+      `${this.paymentsUrl}${id}/restore/`,
+      {},
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   listPaymentRefunds(filters?: {
@@ -322,6 +396,8 @@ export class BillingService {
     is_active?: boolean;
     include_inactive?: boolean;
     include_deleted?: boolean;
+    /** Salta el cache y lo repuebla: es lo que usa el boton de actualizar. */
+    forceRefresh?: boolean;
   }): Observable<PaymentRefundI[]> {
     let params = new HttpParams();
 
@@ -357,12 +433,18 @@ export class BillingService {
       params = params.set('include_deleted', String(filters.include_deleted));
     }
 
-    return this.http
-      .get<PaymentRefundI[] | DRFPaginated<PaymentRefundI>>(this.paymentRefundsUrl, {
-        withCredentials: true,
-        params
-      })
-      .pipe(map((res) => this.unwrapArray<PaymentRefundI>(res)));
+    return this.cache.get(
+      this.cacheKey('payment-refunds', filters as Record<string, unknown>),
+      () =>
+        this.http
+          .get<PaymentRefundI[] | DRFPaginated<PaymentRefundI>>(this.paymentRefundsUrl, {
+            withCredentials: true,
+            params
+          })
+          .pipe(map((res) => this.unwrapArray<PaymentRefundI>(res))),
+      CACHE_TTL.OPERATIONAL,
+      filters?.forceRefresh
+    );
   }
 
   getPaymentRefundById(id: number): Observable<PaymentRefundI> {
@@ -374,7 +456,7 @@ export class BillingService {
       this.paymentRefundsUrl,
       this.normalizePaymentRefundPayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   updatePaymentRefund(id: number, payload: Partial<PaymentRefundCreatePayloadI>): Observable<PaymentRefundI> {
@@ -382,7 +464,7 @@ export class BillingService {
       `${this.paymentRefundsUrl}${id}/`,
       this.normalizePaymentRefundPayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   approvePaymentRefund(id: number): Observable<PaymentRefundI> {
@@ -390,7 +472,7 @@ export class BillingService {
       `${this.paymentRefundsUrl}${id}/approve/`,
       {},
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   processPaymentRefund(id: number): Observable<PaymentRefundI> {
@@ -398,7 +480,7 @@ export class BillingService {
       `${this.paymentRefundsUrl}${id}/process/`,
       {},
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   rejectPaymentRefund(id: number): Observable<PaymentRefundI> {
@@ -406,7 +488,7 @@ export class BillingService {
       `${this.paymentRefundsUrl}${id}/reject/`,
       {},
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   cancelPaymentRefund(id: number): Observable<PaymentRefundI> {
@@ -414,11 +496,14 @@ export class BillingService {
       `${this.paymentRefundsUrl}${id}/cancel/`,
       {},
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   deletePaymentRefund(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.paymentRefundsUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http.delete<void>(
+      `${this.paymentRefundsUrl}${id}/`,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   restorePaymentRefund(id: number): Observable<PaymentRefundI> {
@@ -426,7 +511,7 @@ export class BillingService {
       `${this.paymentRefundsUrl}${id}/restore/`,
       {},
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   listCreditNotes(filters?: {
@@ -480,7 +565,7 @@ export class BillingService {
       this.creditNotesUrl,
       this.normalizeCreditNotePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   updateCreditNote(id: number, payload: Partial<CreditNoteCreatePayloadI>): Observable<CreditNoteI> {
@@ -488,11 +573,14 @@ export class BillingService {
       `${this.creditNotesUrl}${id}/`,
       this.normalizeCreditNotePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   deleteCreditNote(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.creditNotesUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http.delete<void>(
+      `${this.creditNotesUrl}${id}/`,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   restoreCreditNote(id: number): Observable<CreditNoteI> {
@@ -500,7 +588,7 @@ export class BillingService {
       `${this.creditNotesUrl}${id}/restore/`,
       {},
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateLedger()));
   }
 
   private unwrapArray<T>(res: unknown): T[] {

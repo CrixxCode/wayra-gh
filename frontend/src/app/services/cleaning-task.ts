@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, tap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
+import { CACHE_TTL, ResourceCache } from './resource-cache';
 import { CleaningTaskFormPayload, CleaningTaskI } from '../modules/cleaning-tasks/cleaning-task-model';
 
 type DRFPaginated<T> = {
@@ -18,14 +19,42 @@ export class CleaningTasksService {
 
   constructor(
     private http: HttpClient,
-    private auth: AuthService
+    private auth: AuthService,
+    private cache: ResourceCache
   ) {}
+
+  // --------------------------------------------------------------------- cache
+  // Cache-aside sobre las lecturas del trabajo en habitaciones (ver
+  // `resource-cache.ts`). TTL operativo: una tarea cambia de estado varias veces al
+  // dia y recepcion no puede ver una cola vieja.
+  private static readonly WORK_KEYS = ['cleaning-tasks', 'maintenance-orders'];
+
+  private cacheKey(base: string, filters?: Record<string, unknown>): string {
+    const entries = Object.entries(filters || {})
+      .filter(([, value]) => value !== undefined && value !== null && value !== '')
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`);
+    return entries.length ? `${base}:${entries.join('&')}` : base;
+  }
+
+  /**
+   * Cualquier escritura tira las dos claves.
+   *
+   * Limpieza y mantenimiento comparten pantalla y comparten habitacion: cerrar una
+   * tarea cambia lo que la otra pestaña ensena sobre esa misma habitacion.
+   */
+  private invalidateWork(): void {
+    this.cache.invalidateAll(CleaningTasksService.WORK_KEYS);
+  }
+
 
   listCleaningTasks(filters?: {
     search?: string;
     ordering?: string;
     include_inactive?: boolean;
     include_deleted?: boolean;
+    /** Salta el cache y lo repuebla: es lo que usa el boton de actualizar. */
+    forceRefresh?: boolean;
   }): Observable<CleaningTaskI[]> {
     let params = new HttpParams();
 
@@ -45,12 +74,18 @@ export class CleaningTasksService {
       params = params.set('include_deleted', String(filters.include_deleted));
     }
 
-    return this.http
-      .get<CleaningTaskI[] | DRFPaginated<CleaningTaskI>>(this.cleaningTasksUrl, {
-        withCredentials: true,
-        params
-      })
-      .pipe(map((res) => this.unwrapArray<CleaningTaskI>(res)));
+    return this.cache.get(
+      this.cacheKey('cleaning-tasks', filters as Record<string, unknown>),
+      () =>
+        this.http
+          .get<CleaningTaskI[] | DRFPaginated<CleaningTaskI>>(this.cleaningTasksUrl, {
+            withCredentials: true,
+            params
+          })
+          .pipe(map((res) => this.unwrapArray<CleaningTaskI>(res))),
+      CACHE_TTL.OPERATIONAL,
+      filters?.forceRefresh
+    );
   }
 
   getCleaningTaskById(id: number): Observable<CleaningTaskI> {
@@ -62,7 +97,7 @@ export class CleaningTasksService {
       this.cleaningTasksUrl,
       this.normalizeCreatePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateWork()));
   }
 
   updateCleaningTask(id: number, payload: Partial<CleaningTaskFormPayload>): Observable<CleaningTaskI> {
@@ -70,11 +105,14 @@ export class CleaningTasksService {
       `${this.cleaningTasksUrl}${id}/`,
       this.normalizePatchPayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateWork()));
   }
 
   deleteCleaningTask(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.cleaningTasksUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http.delete<void>(
+      `${this.cleaningTasksUrl}${id}/`,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateWork()));
   }
 
   restoreCleaningTask(id: number): Observable<CleaningTaskI> {
@@ -82,7 +120,7 @@ export class CleaningTasksService {
       `${this.cleaningTasksUrl}${id}/restore/`,
       {},
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateWork()));
   }
 
   private unwrapArray<T>(res: unknown): T[] {

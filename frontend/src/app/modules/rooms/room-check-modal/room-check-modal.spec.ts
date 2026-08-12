@@ -27,6 +27,8 @@ const buildRoom = (operations: Partial<RoomOperationsI> = {}): RoomI => ({
   floor: 1,
   status: 'OCUPADA',
   amenities: [],
+  floor_name: 'Piso 1',
+  room_type_name: 'Standard',
   active_reservation: { id: 4521, status: 'CONFIRMADA' },
   operations: { ...NO_SIGNALS, ...operations }
 });
@@ -96,6 +98,8 @@ describe('RoomCheckModal', () => {
       afterPayment?: Record<string, unknown>;
       invoices?: any[];
       paymentMethods?: any[];
+      payments?: any[];
+      refunds?: any[];
     } = {}
   ) => {
     checkIn.calls.reset();
@@ -131,6 +135,8 @@ describe('RoomCheckModal', () => {
               listCharges: () => of(options.charges || []),
               listInvoices: () =>
                 of(options.invoices === undefined ? [{ id: 99 }] : options.invoices),
+              listPayments: () => of(options.payments || []),
+              listPaymentRefunds: () => of(options.refunds || []),
               createPayment
             }
           },
@@ -156,6 +162,21 @@ describe('RoomCheckModal', () => {
     component.mode = mode;
     fixture.detectChanges();
   };
+
+  describe('ficha de la estadia', () => {
+    it('identifica la habitacion, no el id interno de la reserva', async () => {
+      await setup('check-out');
+
+      expect(component.roomLabel).toBe('Habitacion 101 · Piso 1 · Standard');
+    });
+
+    it('no inventa separadores cuando falta el piso o el tipo', async () => {
+      await setup('check-out');
+      component.room = { ...component.room, floor_name: undefined, room_type_name: undefined };
+
+      expect(component.roomLabel).toBe('Habitacion 101');
+    });
+  });
 
   describe('check-in', () => {
     it('no deja confirmar sin verificar los documentos', async () => {
@@ -284,6 +305,108 @@ describe('RoomCheckModal', () => {
 
       expect(component.isSettled).toBeTrue();
       expect(component.canConfirm).toBeTrue();
+    });
+
+    describe('historial de pagos', () => {
+      const payment = (id: number, amount: string, extra: Record<string, unknown> = {}) => ({
+        id,
+        invoice: 99,
+        payment_method: 5,
+        payment_method_name: 'Efectivo',
+        amount,
+        payment_date: `2026-08-1${id}T10:00:00Z`,
+        is_active: true,
+        created_by_username: 'cajera',
+        ...extra
+      });
+
+      it('muestra lo que el huesped ya pago', async () => {
+        await setup('check-out', {
+          reservation: owing,
+          payments: [payment(1, '50000.00', { reference: 'V-001' })]
+        });
+
+        expect(component.hasPaymentHistory).toBeTrue();
+        expect(component.paymentHistory[0].kind).toBe('payment');
+        expect(component.paymentHistory[0].method).toBe('Efectivo');
+        expect(component.paymentHistory[0].reference).toBe('V-001');
+        // Trazabilidad: quien registro el cobro.
+        expect(component.paymentHistory[0].author).toBe('cajera');
+        expect(component.historyAmountLabel(component.paymentHistory[0])).toContain('50.000');
+      });
+
+      it('avisa cuando todavia no hay pagos', async () => {
+        await setup('check-out', { reservation: owing });
+
+        expect(component.hasPaymentHistory).toBeFalse();
+      });
+
+      it('incluye los reembolsos como movimiento negativo', async () => {
+        await setup('check-out', {
+          reservation: owing,
+          payments: [payment(1, '100000.00')],
+          refunds: [
+            {
+              id: 7,
+              payment: 1,
+              amount: '30000.00',
+              status_code: 'APROBADO',
+              status_name: 'Aprobado',
+              reason: 'Cobro duplicado',
+              refund_date: '2026-08-12T09:00:00Z',
+              is_active: true
+            }
+          ]
+        });
+
+        const refund = component.paymentHistory.find((entry) => entry.kind === 'refund');
+        expect(refund?.amount).toBe(-30000);
+        expect(component.historyAmountLabel(refund!)).toContain('-');
+        // 100.000 cobrados menos 30.000 devueltos: cuadra con "Pagado".
+        expect(component.historyNetTotal).toBe(70000);
+      });
+
+      it('muestra los anulados y pendientes pero no los suma', async () => {
+        await setup('check-out', {
+          reservation: owing,
+          payments: [payment(1, '100000.00'), payment(2, '40000.00', { is_active: false })],
+          refunds: [
+            {
+              id: 8,
+              payment: 1,
+              amount: '25000.00',
+              status_code: 'PENDIENTE',
+              status_name: 'Pendiente',
+              reason: 'En revision',
+              refund_date: '2026-08-13T09:00:00Z',
+              is_active: true
+            }
+          ]
+        });
+
+        expect(component.paymentHistory.length).toBe(3);
+        // Solo el pago activo mueve el saldo.
+        expect(component.historyNetTotal).toBe(100000);
+
+        const voided = component.paymentHistory.find((entry) => entry.id === 'payment-2');
+        expect(voided?.status).toBe('Anulado');
+        expect(voided?.counts).toBeFalse();
+
+        const pending = component.paymentHistory.find((entry) => entry.kind === 'refund');
+        expect(pending?.counts).toBeFalse();
+      });
+
+      it('ordena los movimientos cronologicamente', async () => {
+        await setup('check-out', {
+          reservation: owing,
+          payments: [payment(3, '10000.00'), payment(1, '20000.00')]
+        });
+
+        expect(component.paymentHistory.map((entry) => entry.id)).toEqual([
+          'payment-1',
+          'payment-3'
+        ]);
+      });
     });
 
     it('lista los consumos y excluye los cargos automaticos de la estadia', async () => {

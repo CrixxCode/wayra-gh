@@ -1,0 +1,77 @@
+<div class="catalog-page">
+  <header class="catalog-header">
+    <div class="catalog-title">
+      <h1>Catalogo comercial</h1>
+      <p>
+        Todo lo que el hotel vende: servicios sueltos, paquetes que los combinan y
+        promociones que les aplican descuento.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      class="catalog-refresh"
+      (click)="loadSummary(true, true)"
+      [disabled]="loading || refreshing"
+      title="Actualizar">
+      <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
+      Actualizar
+    </button>
+  </header>
+
+  <!-- Resumen: cada tarjeta lleva a la pestaña donde se resuelve -->
+  <section class="catalog-metrics" aria-label="Resumen del catalogo">
+    <button
+      type="button"
+      class="catalog-metric"
+      *ngFor="let metric of metrics; trackBy: trackByMetric"
+      [ngClass]="'tone-' + metric.tone"
+      (click)="selectTab(metric.tab)">
+      <span class="metric-icon"><i [class]="metric.icon"></i></span>
+      <span class="metric-body">
+        <span class="metric-label">{{ metric.label }}</span>
+        <strong class="metric-value">{{ metric.value }}</strong>
+        <small class="metric-note">{{ metric.note }}</small>
+      </span>
+    </button>
+  </section>
+
+  <!-- Pestañas: las tres entidades conservan su vista completa -->
+  <nav class="catalog-tabs" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      class="catalog-tab"
+      *ngFor="let tab of tabs; trackBy: trackByTab"
+      [class.is-active]="activeTab === tab.key"
+      [attr.aria-selected]="activeTab === tab.key"
+      [title]="tab.hint"
+      (click)="selectTab(tab.key)">
+      <i [class]="tab.icon"></i>
+      <span class="tab-label">{{ tab.label }}</span>
+      <span class="tab-count">{{ tabCount(tab.key) }}</span>
+    </button>
+  </nav>
+
+  <section class="catalog-panel">
+    <!-- Cada lista se monta solo cuando su pestaña esta activa: montar las tres a la
+         vez dispararia sus peticiones y sus animaciones sin que nadie las vea. -->
+    <app-list-services
+      *ngIf="activeTab === 'services'"
+      [embedded]="true"
+      (changed)="onCatalogChanged()">
+    </app-list-services>
+
+    <app-list-packages
+      *ngIf="activeTab === 'packages'"
+      [embedded]="true"
+      (changed)="onCatalogChanged()">
+    </app-list-packages>
+
+    <app-list-promotions
+      *ngIf="activeTab === 'promotions'"
+      [embedded]="true"
+      (changed)="onCatalogChanged()">
+    </app-list-promotions>
+  </section>
+</div>

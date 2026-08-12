@@ -1,0 +1,139 @@
+<div class="inv-page">
+  <header class="inv-header">
+    <div class="inv-title">
+      <h1>Inventario</h1>
+      <p>
+        Lo que hay en bodega, lo que esta repartido por las habitaciones y cada movimiento
+        que explica por que el stock es el que es.
+      </p>
+    </div>
+
+    <div class="inv-header-actions">
+      <!-- Cuadrar la bodega es una sesion de trabajo sobre todo el inventario, no una
+           accion de una pestaña: por eso vive en la cabecera. -->
+      <button
+        type="button"
+        class="inv-count"
+        (click)="openStockCount()"
+        [disabled]="loading || !items.length"
+        title="Contar el inventario y corregir lo que no cuadre">
+        <i class="fa-solid fa-clipboard-check"></i>
+        Hacer conteo
+      </button>
+
+      <button
+        type="button"
+        class="inv-refresh"
+        (click)="loadSummary(true, true)"
+        [disabled]="loading || refreshing"
+        title="Actualizar">
+        <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
+        Actualizar
+      </button>
+    </div>
+  </header>
+
+  <!-- Resultado del conteo: se queda hasta que el usuario lo cierre. -->
+  <p class="inv-count-note" *ngIf="lastCountMessage">
+    <i class="fa-solid fa-clipboard-check"></i>
+    {{ lastCountMessage }}
+    <button type="button" (click)="dismissCountMessage()" title="Cerrar aviso">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </p>
+
+  <!-- Resumen: cada tarjeta lleva a la pestaña donde se resuelve -->
+  <section class="inv-metrics" aria-label="Resumen de inventario">
+    <button
+      type="button"
+      class="inv-metric"
+      *ngFor="let metric of metrics; trackBy: trackByMetric"
+      [ngClass]="'tone-' + metric.tone"
+      (click)="selectTab(metric.tab)">
+      <span class="metric-icon"><i [class]="metric.icon"></i></span>
+      <span class="metric-body">
+        <span class="metric-label">{{ metric.label }}</span>
+        <strong class="metric-value">{{ metric.value }}</strong>
+        <small class="metric-note">{{ metric.note }}</small>
+      </span>
+    </button>
+  </section>
+
+  <nav class="inv-tabs" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      class="inv-tab"
+      *ngFor="let tab of tabs; trackBy: trackByTab"
+      [class.is-active]="activeTab === tab.key"
+      [attr.aria-selected]="activeTab === tab.key"
+      [title]="tab.hint"
+      (click)="selectTab(tab.key)">
+      <i [class]="tab.icon"></i>
+      <span class="tab-label">{{ tab.label }}</span>
+      <span class="tab-count">{{ tabCount(tab.key) }}</span>
+    </button>
+  </nav>
+
+  <!-- Rastro del item que se viene siguiendo desde otra pestaña. -->
+  <div class="inv-focus" *ngIf="focus">
+    <span>
+      <i class="fa-solid fa-crosshairs"></i>
+      Siguiendo <strong>{{ focus.name }}</strong>
+    </span>
+
+    <div class="inv-focus-jumps">
+      <button type="button" *ngIf="activeTab !== 'movements'" (click)="followItem(focus, 'movements')">
+        Ver sus movimientos
+      </button>
+      <button type="button" *ngIf="activeTab !== 'rooms'" (click)="followItem(focus, 'rooms')">
+        Ver en que habitaciones esta
+      </button>
+      <button type="button" *ngIf="activeTab !== 'items'" (click)="followItem(focus, 'items')">
+        Ver el item
+      </button>
+      <button type="button" class="is-clear" (click)="clearFocus()" title="Dejar de seguir">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </div>
+
+  <section class="inv-panel">
+    <!-- Cada lista se monta solo cuando su pestaña esta activa: montar las tres a la
+         vez dispararia sus peticiones sin que nadie las vea. -->
+    <app-list-items
+      *ngIf="activeTab === 'items'"
+      [embedded]="true"
+      [focusItemId]="focus?.id ?? null"
+      (changed)="onInventoryChanged()"
+      (followItem)="followItem($event.item, $event.tab)">
+    </app-list-items>
+
+    <app-list-room-inventory
+      *ngIf="activeTab === 'rooms'"
+      [embedded]="true"
+      [focusItemId]="focus?.id ?? null"
+      (changed)="onInventoryChanged()">
+    </app-list-room-inventory>
+
+    <app-list-inventory-movements
+      *ngIf="activeTab === 'movements'"
+      [embedded]="true"
+      [focusItemId]="focus?.id ?? null"
+      (changed)="onInventoryChanged()">
+    </app-list-inventory-movements>
+
+    <app-shopping-list
+      *ngIf="activeTab === 'shopping'"
+      [items]="items"
+      (changed)="onInventoryChanged()">
+    </app-shopping-list>
+  </section>
+
+  <app-stock-count
+    *ngIf="showStockCount"
+    [items]="items"
+    (closed)="closeStockCount()"
+    (registered)="onStockCountRegistered($event)">
+  </app-stock-count>
+</div>

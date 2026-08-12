@@ -1,4 +1,5 @@
 <div class="movements-page">
+  <ng-container *ngIf="!embedded">
   <header class="page-header">
     <div>
       <h1>Movimientos de Inventario</h1>
@@ -10,7 +11,9 @@
       Nuevo movimiento
     </button>
   </header>
+  </ng-container>
 
+  <ng-container *ngIf="!embedded">
   <section class="stats-grid">
     <article class="stat-card">
       <div class="stat-head">
@@ -57,6 +60,7 @@
       <div class="stat-note">{{ movedUnits }} unidades movilizadas</div>
     </article>
   </section>
+  </ng-container>
 
   <section class="gh-filters-card">
     <div class="gh-filters-grid movements-filters-grid">
@@ -108,7 +112,11 @@
       </div>
 
       <div class="gh-action-group">
-        <button type="button" class="gh-btn gh-btn-light" (click)="refreshMovements()" [disabled]="loading">
+        <button
+          type="button"
+          class="gh-btn gh-btn-light"
+          (click)="refreshMovements(true)"
+          [disabled]="loading || refreshing">
           <i class="fa-solid fa-rotate-right"></i>
           Actualizar
         </button>
@@ -177,7 +185,10 @@
     <p *ngIf="!loading && !errorMessage && filteredMovements.length === 0">No hay movimientos para los filtros seleccionados.</p>
   </section>
 
-  <section class="catalog-sections" *ngIf="!loading && !errorMessage && filteredMovements.length > 0">
+  <section
+    class="catalog-sections"
+    [class.is-refreshing]="refreshing"
+    *ngIf="!loading && !errorMessage && filteredMovements.length > 0">
     <ng-container *ngIf="viewMode === 'cards'; else tableView">
       <article class="category-block" *ngFor="let group of groupedMovements; trackBy: trackByGroup">
         <header class="category-head">
@@ -202,90 +213,98 @@
 
         <div class="movements-grid">
           <article
-            class="movement-card"
+            class="gh-inv-card is-clickable"
             *ngFor="let movement of group.items; trackBy: trackByMovement"
+            [class.is-void]="!movement.is_active"
+            [ngStyle]="{
+              '--inv-tone': getMovementDirectionTone(movement).dot,
+              '--inv-tone-soft': getMovementDirectionTone(movement).bg
+            }"
             (click)="openDetail(movement)">
-            <div class="movement-cover" [ngStyle]="{ background: getGroupTone(group).cover }">
-              <div class="cover-badges">
-                <span
-                  class="cover-type"
-                  [ngStyle]="{
-                    'background-color': getGroupTone(group).badgeBg,
-                    color: getGroupTone(group).badgeColor
-                  }">
-                  {{ getMovementTypeLabel(movement) }}
-                </span>
-
-                <span class="cover-badge" *ngIf="isHighlighted(group.key, movement.id)">Alto impacto</span>
-              </div>
-
-              <span
-                class="direction-chip"
-                [ngStyle]="{
-                  'background-color': getMovementDirectionTone(movement).bg,
-                  color: getMovementDirectionTone(movement).color
-                }">
-                {{ getMovementDirectionLabel(movement) }}
+            <div class="gh-inv-head">
+              <span class="gh-inv-icon">
+                <i [class]="getMovementDirectionIcon(movement)"></i>
               </span>
-            </div>
-
-            <div class="movement-body">
-              <h3>{{ getItemLabel(movement) }}</h3>
-              <p>{{ getNotesLabel(movement) }}</p>
-
-              <div class="meta-row">
-                <span>
-                  <i class="fa-solid fa-hashtag"></i>
-                  {{ getReferenceLabel(movement) }}
-                </span>
-                <span>
-                  <i class="fa-regular fa-calendar"></i>
-                  {{ getMovementDateLabel(movement) }}
-                </span>
-              </div>
-
-              <div class="stock-row">
-                <strong>{{ getStockFlowLabel(movement) }}</strong>
-                <small>Variacion: {{ getStockDeltaLabel(movement) }}</small>
-              </div>
-
-              <div class="quantity-row">
-                <span>Cantidad</span>
-                <strong
-                  [ngStyle]="{
-                    color: getMovementDirectionTone(movement).color
-                  }">
-                  {{ getQuantitySignedLabel(movement) }}
-                </strong>
-              </div>
-
-              <div class="card-foot">
-                <span
-                  class="status-chip"
-                  [ngStyle]="{
-                    'background-color': getStatusTone(movement).bg,
-                    color: getStatusTone(movement).color
-                  }">
-                  <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(movement).dot }"></span>
-                  {{ movement.is_active ? 'Activo' : 'Inactivo' }}
-                </span>
-
-                <div class="card-actions" (click)="$event.stopPropagation()">
-                  <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(movement)">
-                    <i class="fa-regular fa-eye"></i>
-                  </button>
-                  <button
-                    type="button"
-                    class="row-btn"
-                    [title]="movement.is_active ? 'Desactivar' : 'Activar'"
-                    (click)="toggleMovementStatus(movement)">
-                    <i [class]="movement.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
-                  </button>
-                  <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(movement)">
-                    <i class="fa-regular fa-trash-can"></i>
-                  </button>
+              <div class="gh-inv-titles">
+                <h3 [title]="getItemLabel(movement)">{{ getItemLabel(movement) }}</h3>
+                <div class="gh-inv-tags">
+                  <span class="gh-inv-tag">{{ getMovementTypeLabel(movement) }}</span>
+                  <span class="gh-inv-tag" *ngIf="isHighlighted(group.key, movement.id)">
+                    <i class="fa-solid fa-bolt"></i>
+                    Alto impacto
+                  </span>
                 </div>
               </div>
+            </div>
+
+            <div class="gh-inv-body">
+              <!-- Un movimiento es un antes y un despues: el salto de stock es el dato. -->
+              <div class="gh-inv-gauge">
+                <div class="gh-inv-gauge-top">
+                  <span class="gh-inv-amount">
+                    <strong [ngStyle]="{ color: getMovementDirectionTone(movement).color }">
+                      {{ getQuantitySignedLabel(movement) }}
+                    </strong>
+                  </span>
+
+                  <span
+                    class="gh-inv-state"
+                    [ngStyle]="{
+                      'background-color': getMovementDirectionTone(movement).bg,
+                      color: getMovementDirectionTone(movement).color
+                    }">
+                    <span
+                      class="gh-inv-dot"
+                      [ngStyle]="{ 'background-color': getMovementDirectionTone(movement).dot }"></span>
+                    {{ getMovementDirectionLabel(movement) }}
+                  </span>
+                </div>
+
+                <p class="gh-inv-flow">
+                  <span>{{ movement.previous_stock }}</span>
+                  <i class="fa-solid fa-arrow-right-long"></i>
+                  <span class="is-result">{{ movement.new_stock }}</span>
+                  <small>en bodega</small>
+                </p>
+              </div>
+
+              <dl class="gh-inv-meta">
+                <div>
+                  <dt>Fecha</dt>
+                  <dd>{{ getMovementDateLabel(movement) }}</dd>
+                </div>
+                <div>
+                  <dt>Referencia</dt>
+                  <dd>{{ getReferenceLabel(movement) }}</dd>
+                </div>
+                <div class="is-wide">
+                  <dt>Motivo</dt>
+                  <dd [title]="getNotesLabel(movement)">{{ getNotesLabel(movement) }}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div class="gh-inv-foot" (click)="$event.stopPropagation()">
+              <button type="button" class="gh-inv-btn is-primary" (click)="openDetail(movement)">
+                <i class="fa-regular fa-eye"></i>
+                Ver detalle
+              </button>
+
+              <button
+                type="button"
+                class="gh-inv-btn is-icon"
+                [title]="movement.is_active ? 'Desactivar' : 'Activar'"
+                (click)="toggleMovementStatus(movement)">
+                <i [class]="movement.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+              </button>
+
+              <button
+                type="button"
+                class="gh-inv-btn is-icon is-danger"
+                title="Eliminar"
+                (click)="confirmDelete(movement)">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
             </div>
           </article>
         </div>

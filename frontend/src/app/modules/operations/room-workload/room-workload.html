@@ -1,0 +1,90 @@
+<div class="workload-page">
+  <!-- Ninguna habitacion con trabajo es una buena noticia, no un vacio. -->
+  <section class="workload-empty" *ngIf="!rooms.length">
+    <i class="fa-solid fa-circle-check"></i>
+    <strong>Ninguna habitacion con trabajo pendiente</strong>
+    <p>Todo lo reportado esta cerrado. Aqui apareceran las habitaciones en cuanto se abra algo.</p>
+  </section>
+
+  <ng-container *ngIf="rooms.length">
+    <div class="workload-toolbar">
+      <label class="workload-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" [(ngModel)]="search" placeholder="Buscar habitacion..." />
+      </label>
+
+      <div class="workload-filters">
+        <button
+          type="button"
+          *ngFor="let option of filterOptions"
+          [class.is-active]="filter === option.value"
+          (click)="filter = option.value">
+          {{ option.label }}
+        </button>
+      </div>
+    </div>
+
+    <p class="workload-empty-filter" *ngIf="!visibleRooms.length">
+      Ninguna habitacion coincide con este filtro.
+    </p>
+
+    <div class="workload-grid">
+      <article
+        class="room-card"
+        *ngFor="let room of visibleRooms; trackBy: trackByRoom"
+        [ngStyle]="{ '--room-tone': tone(room).bar, '--room-tone-soft': tone(room).bg }">
+        <header class="room-head">
+          <div class="room-id">
+            <span class="room-icon"><i class="fa-solid fa-bed"></i></span>
+            <div>
+              <strong>{{ room.label }}</strong>
+              <small>{{ workload(room) }} pendiente(s)</small>
+            </div>
+          </div>
+
+          <span
+            class="room-state"
+            [ngStyle]="{ 'background-color': tone(room).bg, color: tone(room).color }">
+            {{ headline(room) }}
+          </span>
+        </header>
+
+        <!-- Los dos frentes, separados: son dos equipos distintos. -->
+        <div class="room-fronts">
+          <button
+            type="button"
+            class="front"
+            [class.is-empty]="!room.tasks.length"
+            [disabled]="!room.tasks.length"
+            (click)="goToCleaning(room)">
+            <i class="fa-solid fa-broom"></i>
+            <strong>{{ room.tasks.length }}</strong>
+            <span>Limpieza</span>
+          </button>
+
+          <button
+            type="button"
+            class="front"
+            [class.is-empty]="!room.orders.length"
+            [disabled]="!room.orders.length"
+            (click)="goToMaintenance(room)">
+            <i class="fa-solid fa-screwdriver-wrench"></i>
+            <strong>{{ room.orders.length }}</strong>
+            <span>Mantenimiento</span>
+          </button>
+        </div>
+
+        <!-- Que hay en la cola, sin obligar a abrirla. -->
+        <ul class="room-preview">
+          <li *ngFor="let line of previewLines(room)">{{ line }}</li>
+          <li class="is-more" *ngIf="hiddenLines(room)">+{{ hiddenLines(room) }} mas</li>
+        </ul>
+
+        <p class="room-overdue" *ngIf="room.overdue">
+          <i class="fa-solid fa-clock"></i>
+          {{ room.overdue }} paso su fecha y sigue abierto
+        </p>
+      </article>
+    </div>
+  </ng-container>
+</div>

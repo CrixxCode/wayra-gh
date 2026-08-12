@@ -37,8 +37,8 @@
             </strong>
           </div>
           <div class="check-summary-row">
-            <span>Reserva</span>
-            <strong>#{{ reservation.id }} · {{ reservation.status_name || reservation.status_code }}</strong>
+            <span>Habitacion</span>
+            <strong>{{ roomLabel }}</strong>
           </div>
         </section>
 
@@ -140,6 +140,40 @@
                     <small *ngIf="chargeUnitLabel(charge)">{{ chargeUnitLabel(charge) }}</small>
                   </span>
                   <strong>{{ chargeTotalLabel(charge) }}</strong>
+                </li>
+              </ul>
+            </section>
+
+            <!-- Historial: trazabilidad de lo que ya se cobro en esta estadia -->
+            <section class="history-block" *ngIf="!moneyIsHidden">
+              <header>
+                <h4>Historial de pagos</h4>
+                <strong *ngIf="hasPaymentHistory">{{ historyNetTotalLabel }}</strong>
+              </header>
+
+              <p class="consumption-empty" *ngIf="historyLoading">Cargando historial...</p>
+
+              <p class="consumption-empty" *ngIf="!historyLoading && !hasPaymentHistory">
+                El huesped todavia no ha hecho ningun pago en esta estadia.
+              </p>
+
+              <ul class="history-list" *ngIf="!historyLoading && hasPaymentHistory">
+                <li
+                  *ngFor="let entry of paymentHistory; trackBy: trackByHistory"
+                  [class.is-refund]="entry.kind === 'refund'"
+                  [class.is-void]="!entry.counts">
+                  <span class="history-main">
+                    <strong>{{ entry.method }}</strong>
+                    <small>
+                      {{ historyDateLabel(entry) }}
+                      <ng-container *ngIf="entry.author">· por {{ entry.author }}</ng-container>
+                      <ng-container *ngIf="entry.reference">· {{ entry.reference }}</ng-container>
+                    </small>
+                  </span>
+                  <span class="history-side">
+                    <strong>{{ historyAmountLabel(entry) }}</strong>
+                    <small *ngIf="entry.status">{{ entry.status }}</small>
+                  </span>
                 </li>
               </ul>
             </section>

@@ -2,129 +2,152 @@
   <aside class="item-drawer" (click)="$event.stopPropagation()">
     <header class="drawer-head">
       <div class="drawer-title-block">
-        <p class="drawer-type">{{ getTypeLabel() }}</p>
+        <!-- Tipo, uso y SKU en una linea: antes el tipo salia aqui y otra vez abajo. -->
+        <p class="drawer-type">
+          {{ getTypeLabel() }} &middot; {{ getPurposeLabel() }}
+          <span class="drawer-sku" *ngIf="itemData?.sku">{{ itemData?.sku }}</span>
+        </p>
         <h2>{{ itemData?.name || 'Item sin nombre' }}</h2>
-        <span class="status-chip" [class.is-inactive]="!itemData?.is_active">{{ getStatusLabel() }}</span>
       </div>
 
       <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6 6 18" />
-          <path d="m6 6 12 12" />
-        </svg>
+        <i class="fa-solid fa-xmark"></i>
       </button>
     </header>
 
     <div class="drawer-body">
-      <section class="hero-card">
-        <div>
-          <span>Stock actual</span>
-          <strong>{{ getStockLabel() }}</strong>
+      <!-- Titular: el stock frente a su minimo y su maximo, de un vistazo. Antes eran
+           tres cifras sueltas en dos paneles distintos. -->
+      <section class="stock-hero">
+        <div class="stock-top">
+          <div class="stock-number">
+            <strong>{{ stock }}</strong>
+            <span>{{ getUnitLabel() }}</span>
+          </div>
+
+          <span
+            class="stock-pill"
+            [ngStyle]="{ 'background-color': getStockStateTone().bg, color: getStockStateTone().color }">
+            {{ getStockStateLabel() }}
+          </span>
         </div>
-        <div>
-          <span>Valor en costo</span>
-          <strong>{{ getStockValueLabel() }}</strong>
+
+        <div class="stock-bar">
+          <i [style.width.%]="stockPercent" [ngStyle]="{ 'background-color': getStockStateTone().bar }"></i>
+          <b
+            *ngIf="minimumMarkPercent > 0"
+            [style.left.%]="minimumMarkPercent"
+            [title]="'Minimo: ' + minimumStock"></b>
         </div>
+
+        <div class="stock-scale">
+          <span>Minimo {{ minimumStock }}</span>
+          <span>Maximo {{ getMaximumStockLabel() }}</span>
+        </div>
+
+        <!-- Una frase con lo que hay que hacer, no solo con lo que pasa. -->
+        <p class="stock-headline">{{ stockHeadline }}</p>
       </section>
 
-      <section>
-        <h3>Resumen</h3>
-        <div class="info-list">
-          <div>
-            <span>SKU</span>
-            <strong>{{ itemData?.sku || 'N/D' }}</strong>
-          </div>
-          <div>
-            <span>Unidad de medida</span>
-            <strong>{{ getUnitLabel() }}</strong>
-          </div>
-          <div>
-            <span>Tipo</span>
-            <strong>{{ getTypeLabel() }}</strong>
-          </div>
-          <div>
-            <span>Uso</span>
-            <strong>{{ getPurposeLabel() }}</strong>
-          </div>
-          <div>
-            <span>Estado</span>
-            <strong>{{ getStatusLabel() }}</strong>
-          </div>
-          <div>
-            <span>ID</span>
-            <strong>#{{ itemData?.id || '--' }}</strong>
-          </div>
-          <div>
-            <span>Hotel</span>
-            <strong>{{ itemData?.hotel_name || 'No definido' }}</strong>
-          </div>
-        </div>
+      <!-- Por que el stock esta como esta: la pregunta que trae aqui a cualquiera, y
+           por eso se contesta en el sitio en vez de a un salto de pestaña. -->
+      <section class="panel history">
+        <h3>Ultimos movimientos</h3>
+
+        <p class="history-state" *ngIf="loadingMovements">Cargando la bitacora del item...</p>
+        <p class="history-state is-error" *ngIf="movementsError">
+          No fue posible cargar los movimientos de este item.
+        </p>
+
+        <p class="history-state" *ngIf="!loadingMovements && !movementsError && !movements.length">
+          Este item no tiene movimientos registrados: su stock es el que se cargo al crearlo.
+        </p>
+
+        <ol class="history-list" *ngIf="recentMovements.length">
+          <li
+            *ngFor="let movement of recentMovements; trackBy: trackByMovement"
+            [ngClass]="'is-' + movementDirection(movement).toLowerCase()">
+            <span class="history-delta">{{ movementDeltaLabel(movement) }}</span>
+
+            <div class="history-body">
+              <strong>
+                {{ movementTypeLabel(movement) }}
+                <small>{{ movement.previous_stock }} &rarr; {{ movement.new_stock }}</small>
+              </strong>
+              <small class="history-meta">
+                {{ formatDateTime(movement.movement_date || movement.created_at) }}
+                <ng-container *ngIf="movementAuthorLabel(movement)">
+                  &middot; {{ movementAuthorLabel(movement) }}
+                </ng-container>
+              </small>
+              <small class="history-note" *ngIf="movement.notes" [title]="movement.notes">
+                {{ movement.notes }}
+              </small>
+            </div>
+          </li>
+        </ol>
+
+        <button
+          type="button"
+          class="history-more"
+          *ngIf="!loadingMovements"
+          (click)="requestMovements()">
+          <i class="fa-solid fa-right-left"></i>
+          {{ hasMoreMovements ? 'Ver los ' + hiddenMovementsCount + ' movimientos restantes' : 'Ver el historico completo' }}
+        </button>
       </section>
 
-      <section>
-        <h3>Stock y alertas</h3>
-        <div class="info-list">
+      <!-- El otro salto util: donde esta repartido este item. -->
+      <div class="drawer-jumps">
+        <button type="button" (click)="requestRooms()">
+          <i class="fa-solid fa-bed"></i>
+          Ver en que habitaciones esta
+        </button>
+      </div>
+
+      <section class="panel">
+        <h3>Cuanto vale y cuanto deja</h3>
+        <dl class="figures">
           <div>
-            <span>Stock actual</span>
-            <strong>{{ itemData?.stock || 0 }}</strong>
+            <dt>Valor en bodega</dt>
+            <dd>{{ getStockValueLabel() }}</dd>
+            <small>{{ stock }} x {{ getCostPriceLabel() }}</small>
           </div>
           <div>
-            <span>Stock minimo</span>
-            <strong>{{ itemData?.minimum_stock || 0 }}</strong>
+            <dt>Si se vende todo</dt>
+            <dd>{{ getPotentialSaleLabel() }}</dd>
+            <small>a {{ getSalePriceLabel() }} c/u</small>
           </div>
           <div>
-            <span>Stock maximo</span>
-            <strong>{{ getMaximumStockLabel() }}</strong>
+            <dt>Margen por unidad</dt>
+            <dd>{{ getMarginLabel() }}</dd>
+            <small>{{ getMarginPercentLabel() }}</small>
           </div>
-          <div>
-            <span>Estado inventario</span>
-            <strong
-              class="stock-state"
-              [ngStyle]="{
-                'background-color': getStockStateTone().bg,
-                color: getStockStateTone().color
-              }">
-              {{ getStockStateLabel() }}
-            </strong>
-          </div>
-        </div>
+        </dl>
       </section>
 
-      <section>
-        <h3>Precios</h3>
-        <div class="info-list">
+      <section class="panel">
+        <h3>Ficha</h3>
+        <dl class="facts">
           <div>
-            <span>Costo unitario</span>
-            <strong>{{ getCostPriceLabel() }}</strong>
+            <dt>Unidad de medida</dt>
+            <dd>{{ getUnitLabel() }}</dd>
           </div>
           <div>
-            <span>Precio de venta</span>
-            <strong>{{ getSalePriceLabel() }}</strong>
+            <dt>Estado</dt>
+            <dd>{{ getStatusLabel() }}</dd>
           </div>
           <div>
-            <span>Margen bruto</span>
-            <strong>{{ getMarginLabel() }}</strong>
+            <dt>Creado</dt>
+            <dd>{{ formatDate(itemData?.created_at) }}</dd>
           </div>
-        </div>
-      </section>
+          <div>
+            <dt>Ultima actualizacion</dt>
+            <dd>{{ formatDate(itemData?.updated_at) }}</dd>
+          </div>
+        </dl>
 
-      <section>
-        <h3>Descripcion</h3>
-        <p class="description">{{ itemData?.description || 'Sin descripcion registrada.' }}</p>
-      </section>
-
-      <section>
-        <h3>Trazabilidad</h3>
-        <div class="info-list">
-          <div>
-            <span>Creado</span>
-            <strong>{{ formatDate(itemData?.created_at) }}</strong>
-          </div>
-          <div>
-            <span>Ultima actualizacion</span>
-            <strong>{{ formatDate(itemData?.updated_at) }}</strong>
-          </div>
-        </div>
+        <p class="description" *ngIf="getDescription()">{{ getDescription() }}</p>
       </section>
     </div>
 

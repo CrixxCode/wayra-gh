@@ -1,4 +1,5 @@
 <div class="payments-page">
+  <ng-container *ngIf="!embedded">
   <header class="page-header">
     <div>
       <h1>Gestion de Pagos</h1>
@@ -10,7 +11,9 @@
       Reembolsos
     </a>
   </header>
+  </ng-container>
 
+  <ng-container *ngIf="!embedded">
   <section class="stats-grid">
     <article class="stat-card">
       <div class="stat-head">
@@ -57,6 +60,7 @@
       <div class="stat-note">{{ methodCount }} metodos activos</div>
     </article>
   </section>
+  </ng-container>
 
   <section class="filters-card">
     <div class="filters-grid">
@@ -96,8 +100,13 @@
       </label>
 
       <div class="filter-actions-inline">
-        <button type="button" class="icon-action" (click)="refreshPaymentsData()" [disabled]="loading" title="Actualizar">
-          <i class="fa-solid fa-rotate-right"></i>
+        <button
+          type="button"
+          class="icon-action"
+          (click)="refreshPaymentsData(true)"
+          [disabled]="loading || refreshing"
+          title="Actualizar">
+          <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
         </button>
 
         <button type="button" class="icon-action icon-action-dark" (click)="exportCsv()" title="Exportar">
@@ -137,7 +146,10 @@
     </p>
   </section>
 
-  <section class="table-card" *ngIf="!loading && !errorMessage && filteredPayments.length > 0 && viewMode === 'table'">
+  <section
+    class="table-card"
+    [class.is-refreshing]="refreshing"
+    *ngIf="!loading && !errorMessage && filteredPayments.length > 0 && viewMode === 'table'">
     <div class="table-wrap">
       <table>
         <thead>
@@ -204,64 +216,95 @@
     </div>
   </section>
 
-  <section class="payment-grid" *ngIf="!loading && !errorMessage && filteredPayments.length > 0 && viewMode === 'cards'">
+  <section
+    class="payment-grid"
+    [class.is-refreshing]="refreshing"
+    *ngIf="!loading && !errorMessage && filteredPayments.length > 0 && viewMode === 'cards'">
     <article
-      class="payment-card"
+      class="gh-doc-card is-clickable"
       *ngFor="let payment of filteredPayments; trackBy: trackByPayment"
-      [class.inactive-card]="!payment.is_active"
+      [class.is-void]="!payment.is_active"
+      [ngStyle]="{
+        '--doc-tone': getStatusTone(payment).dot,
+        '--doc-tone-soft': getStatusTone(payment).bg
+      }"
       (click)="openDetail(payment)">
-      <header class="payment-head">
-        <div>
-          <span class="invoice-number">{{ getInvoiceNumber(payment) }}</span>
-          <small>{{ getPaymentDateLabel(payment) }}</small>
+      <header class="gh-doc-head">
+        <div class="gh-doc-ids">
+          <div class="gh-doc-number">
+            <strong>{{ getInvoiceNumber(payment) }}</strong>
+          </div>
+          <!-- Distingue dos pagos de la misma factura sin recurrir a su id. -->
+          <span class="gh-doc-date">{{ getPaymentDateLabel(payment) }}</span>
         </div>
 
         <span
-          class="status-chip"
+          class="gh-doc-status"
           [ngStyle]="{
             'background-color': getStatusTone(payment).bg,
             color: getStatusTone(payment).color
           }">
-          <span class="dot" [ngStyle]="{ 'background-color': getStatusTone(payment).dot }"></span>
-          {{ payment.is_active ? 'Activo' : 'Inactivo' }}
+          <span class="gh-doc-dot" [ngStyle]="{ 'background-color': getStatusTone(payment).dot }"></span>
+          {{ payment.is_active ? 'Registrado' : 'Anulado' }}
         </span>
       </header>
 
-      <div class="payment-body">
-        <div class="guest-block">
-          <span class="guest-avatar">{{ getPaymentInitials(payment) }}</span>
-          <div>
-            <h3>{{ getGuestLabel(payment) }}</h3>
-            <p>{{ getGuestDocument(payment) }}</p>
+      <div class="gh-doc-body">
+        <div class="gh-doc-party">
+          <span class="gh-doc-avatar">{{ getPaymentInitials(payment) }}</span>
+          <div class="gh-doc-party-text">
+            <strong>{{ getGuestLabel(payment) }}</strong>
+            <small>{{ getGuestDocument(payment) }}</small>
           </div>
         </div>
 
-        <div class="meta-list">
-          <span>
-            <i class="fa-regular fa-calendar"></i>
-            {{ getReservationCode(payment) }}
-          </span>
-          <span>
-            <i class="fa-solid fa-credit-card"></i>
-            {{ getMethodLabel(payment) }}
-          </span>
-          <span>
-            <i class="fa-solid fa-hashtag"></i>
-            {{ payment.reference || 'Sin referencia' }}
-          </span>
-        </div>
+        <dl class="gh-doc-meta">
+          <div>
+            <dt>Metodo</dt>
+            <dd>{{ getMethodLabel(payment) }}</dd>
+          </div>
+          <div>
+            <dt>Reserva</dt>
+            <dd>{{ getReservationCode(payment) }}</dd>
+          </div>
+          <div>
+            <dt>Referencia</dt>
+            <dd>{{ payment.reference || '--' }}</dd>
+          </div>
+          <div>
+            <dt>Registro</dt>
+            <dd>{{ payment.created_by_username || 'Sin autor' }}</dd>
+          </div>
+        </dl>
       </div>
 
-      <footer class="payment-foot">
-        <div>
-          <small>Total pago</small>
+      <footer class="gh-doc-foot">
+        <div class="gh-doc-amount">
+          <span>Total pago</span>
           <strong>{{ getAmountLabel(payment) }}</strong>
         </div>
 
-        <button type="button" class="row-btn primary-action" (click)="openDetail(payment); $event.stopPropagation()">
-          <i class="fa-regular fa-eye"></i>
-          Ver detalle
-        </button>
+        <div class="gh-doc-actions">
+          <!-- Un reembolso siempre es de un pago concreto, asi que se entra por aqui:
+               el formulario vive en el detalle, con el tope reembolsable ya calculado. -->
+          <button
+            type="button"
+            class="gh-doc-btn"
+            *ngIf="payment.is_active"
+            title="Registrar un reembolso de este pago"
+            (click)="openRefund(payment); $event.stopPropagation()">
+            <i class="fa-solid fa-arrow-rotate-left"></i>
+            Reembolsar
+          </button>
+
+          <button
+            type="button"
+            class="gh-doc-btn is-primary"
+            (click)="openDetail(payment); $event.stopPropagation()">
+            <i class="fa-regular fa-eye"></i>
+            Ver detalle
+          </button>
+        </div>
       </footer>
     </article>
   </section>
@@ -270,11 +313,21 @@
     Mostrando {{ filteredPayments.length }} de {{ totalPayments }} pagos registrados
   </p>
 
+  <!-- Dos modales, dos intenciones: consultar un pago y devolver dinero. -->
   <app-detail-payment
     *ngIf="selectedPayment"
     [payment]="selectedPayment"
     [initialInvoice]="selectedPayment ? invoicesMap.get(selectedPayment.invoice) || null : null"
     (closed)="closeDetail()"
-    (paymentUpdated)="onPaymentUpdated($event)">
+    (paymentUpdated)="onPaymentUpdated($event)"
+    (refundRequested)="openRefund($event)">
   </app-detail-payment>
+
+  <app-refund-payment
+    *ngIf="refundingPayment"
+    [payment]="refundingPayment"
+    [initialInvoice]="refundingPayment ? invoicesMap.get(refundingPayment.invoice) || null : null"
+    (closed)="closeRefund()"
+    (registered)="onRefundRegistered()">
+  </app-refund-payment>
 </div>

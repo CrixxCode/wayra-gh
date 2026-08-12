@@ -1,0 +1,290 @@
+/* Solo tokens --gh-*: el modo oscuro sale del mismo sitio que el resto (AGENTS 5.15). */
+
+:host {
+  display: block;
+}
+
+.workload-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 16px;
+}
+
+/* ------------------------------------------------------------------ toolbar */
+
+.workload-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.workload-search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 10px;
+  background: var(--gh-surface);
+  color: var(--gh-text-soft);
+}
+
+.workload-search input {
+  flex: 1;
+  min-height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--gh-text);
+  font-size: 0.85rem;
+}
+
+.workload-search input:focus {
+  outline: none;
+}
+
+.workload-filters {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--gh-surface-soft);
+}
+
+.workload-filters button {
+  padding: 6px 13px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gh-text-muted);
+  font-size: 0.79rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workload-filters button.is-active {
+  background: var(--gh-surface);
+  color: var(--gh-text-strong);
+  box-shadow: var(--gh-shadow-soft-sm);
+}
+
+/* -------------------------------------------------------------------- vacio */
+
+.workload-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 48px 20px;
+  border: 1px dashed var(--gh-status-success-border);
+  border-radius: 14px;
+  background: var(--gh-status-success-bg);
+  text-align: center;
+}
+
+.workload-empty i {
+  color: var(--gh-status-success-strong);
+  font-size: 1.7rem;
+}
+
+.workload-empty strong {
+  color: var(--gh-status-success-text);
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.workload-empty p {
+  max-width: 460px;
+  margin: 0;
+  color: var(--gh-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.workload-empty-filter {
+  margin: 0;
+  padding: 22px 16px;
+  border: 1px dashed var(--gh-border-strong);
+  border-radius: 12px;
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- tarjetas */
+
+.workload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 14px;
+}
+
+.room-card {
+  --room-tone: var(--gh-status-info-strong);
+  --room-tone-soft: var(--gh-status-info-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 0 14px;
+  border: 1px solid var(--gh-border);
+  border-radius: 15px;
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-soft-sm);
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.room-card:hover {
+  border-color: var(--gh-border-strong);
+  box-shadow: var(--gh-shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* Franja de urgencia: atraso, doble frente o trabajo normal. */
+.room-card::before {
+  content: '';
+  display: block;
+  height: 4px;
+  background: var(--room-tone);
+}
+
+.room-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 16px 0;
+}
+
+.room-id {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.room-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--room-tone-soft);
+  color: var(--room-tone);
+  font-size: 1rem;
+}
+
+.room-id strong {
+  display: block;
+  color: var(--gh-text-strong);
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.room-id small {
+  color: var(--gh-text-soft);
+  font-size: 0.76rem;
+}
+
+.room-state {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.71rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Los dos frentes: son dos equipos distintos y por eso se cuentan aparte. */
+.room-fronts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  padding: 0 16px;
+}
+
+.front {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 11px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease;
+}
+
+.front:hover:not(:disabled) {
+  border-color: var(--room-tone);
+}
+
+.front i {
+  color: var(--gh-text-soft);
+  font-size: 0.88rem;
+}
+
+.front strong {
+  color: var(--gh-text-strong);
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.front span {
+  color: var(--gh-text-muted);
+  font-size: 0.75rem;
+}
+
+/* Un frente sin trabajo sigue visible: dice que ese equipo no tiene nada que hacer. */
+.front.is-empty {
+  border-style: dashed;
+  opacity: 0.55;
+  cursor: default;
+}
+
+.room-preview {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.room-preview li {
+  color: var(--gh-text-muted);
+  font-size: 0.79rem;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-preview li.is-more {
+  color: var(--gh-text-soft);
+  font-weight: 600;
+}
+
+.room-overdue {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 16px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+  font-size: 0.79rem;
+  font-weight: 600;
+}

@@ -1,0 +1,247 @@
+/* Solo tokens --gh-*: el modo oscuro sale del mismo sitio que el resto (AGENTS 5.15). */
+
+:host {
+  display: block;
+}
+
+.ledger-page {
+  min-height: 100%;
+  padding: 22px 34px 30px;
+  color: var(--gh-text);
+}
+
+/* --------------------------------------------------------------- encabezado */
+
+.ledger-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.ledger-title h1 {
+  margin: 0;
+  color: var(--gh-text-strong);
+  font-size: 2.05rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.ledger-title p {
+  max-width: 640px;
+  margin: 10px 0 0;
+  color: var(--gh-text-muted);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.ledger-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 11px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ledger-refresh:hover:not(:disabled) {
+  border-color: var(--gh-search-focus);
+  color: var(--gh-text-strong);
+}
+
+.ledger-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ledger-refresh .is-spinning {
+  animation: ledger-spin 0.9s linear infinite;
+}
+
+@keyframes ledger-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ------------------------------------------------------------------ resumen */
+
+.ledger-metrics {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+/* Cada metrica es un atajo: lleva a la pestaña donde se resuelve. */
+.ledger-metric {
+  --metric-bg: var(--gh-status-neutral-bg);
+  --metric-border: var(--gh-status-neutral-border);
+  --metric-text: var(--gh-status-neutral-text);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  border: 1px solid var(--gh-border);
+  border-top: 3px solid var(--metric-border);
+  border-radius: 14px;
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-soft-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.ledger-metric:hover {
+  box-shadow: var(--gh-shadow-hover);
+  transform: translateY(-2px);
+}
+
+.ledger-metric.tone-brand {
+  --metric-bg: var(--gh-status-info-bg);
+  --metric-border: var(--gh-status-info-border);
+  --metric-text: var(--gh-status-info-text);
+}
+
+.ledger-metric.tone-success {
+  --metric-bg: var(--gh-status-success-bg);
+  --metric-border: var(--gh-status-success-border);
+  --metric-text: var(--gh-status-success-text);
+}
+
+.ledger-metric.tone-warning {
+  --metric-bg: var(--gh-status-warn-bg);
+  --metric-border: var(--gh-status-warn-border);
+  --metric-text: var(--gh-status-warn-text);
+}
+
+.ledger-metric.tone-danger {
+  --metric-bg: var(--gh-status-danger-bg);
+  --metric-border: var(--gh-status-danger-border);
+  --metric-text: var(--gh-status-danger-text);
+}
+
+.metric-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--metric-bg);
+  color: var(--metric-text);
+  font-size: 0.95rem;
+}
+
+.metric-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.metric-label {
+  color: var(--gh-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Importes: se comparan entre tarjetas, asi que no pueden partirse ni truncarse. */
+.metric-value {
+  color: var(--gh-text-strong);
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.metric-note {
+  color: var(--gh-text-soft);
+  font-size: 0.76rem;
+}
+
+/* ----------------------------------------------------------------- pestañas */
+
+.ledger-tabs {
+  margin-top: 22px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 14px;
+  background: var(--gh-surface-soft);
+}
+
+.ledger-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 15px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--gh-text-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ledger-tab:hover:not(.is-active) {
+  background: var(--gh-surface);
+  color: var(--gh-text-strong);
+}
+
+.ledger-tab.is-active {
+  border-color: var(--gh-border);
+  background: var(--gh-surface);
+  color: var(--gh-text-strong);
+  box-shadow: var(--gh-shadow-soft-sm);
+}
+
+.tab-count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--gh-status-neutral-bg);
+  color: var(--gh-status-neutral-text);
+  font-size: 0.74rem;
+  text-align: center;
+}
+
+.ledger-tab.is-active .tab-count {
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+}
+
+/* ------------------------------------------------------------------- panel */
+
+.ledger-panel {
+  margin-top: 6px;
+}
+
+/* Las listas embebidas ya no traen encabezado propio, asi que se les quita el
+   relleno superior de pagina para que no dejen un hueco bajo las pestañas. */
+.ledger-panel ::ng-deep .billing-page,
+.ledger-panel ::ng-deep .payments-page,
+.ledger-panel ::ng-deep .refunds-page {
+  padding: 0;
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  .ledger-page {
+    padding: 18px 16px 24px;
+  }
+
+  .ledger-tab .tab-label {
+    display: none;
+  }
+}

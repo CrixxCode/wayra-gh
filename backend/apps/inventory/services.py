@@ -433,3 +433,174 @@ def sync_low_stock_restock_alert_for_item(*, item_id: int | None) -> dict[str, A
             )
 
         return result
+
+
+# ---------------------------------------------------------------------------
+# Operaciones masivas: conteo fisico e ingreso de compra
+# ---------------------------------------------------------------------------
+
+STOCK_COUNT_REFERENCE_PREFIX = "CONTEO"
+PURCHASE_ENTRY_REFERENCE_PREFIX = "COMPRA"
+ADJUSTMENT_MOVEMENT_CODE = "ADJUSTMENT"
+IN_MOVEMENT_CODE = "IN"
+
+
+def _batch_reference(prefix: str) -> str:
+    """Una referencia compartida por todas las lineas de la misma operacion.
+
+    Es lo que permite reconstruir despues "el conteo del 12 de agosto" a partir de la
+    bitacora: sin ella, un conteo de 80 items queda como 80 ajustes sueltos que nadie
+    puede agrupar.
+    """
+    return f"{prefix}-{timezone.now().strftime('%Y%m%d-%H%M%S')}"
+
+
+def _load_items_for_hotel(item_ids: list[int], hotel_settings_id: int | None) -> dict[int, Item]:
+    """Los items del lote, acotados al hotel de quien opera.
+
+    El filtro por hotel no es una comodidad: sin el, un lote podria colar el id de un
+    item de otro hotel y moverle el stock (AGENTS.md 5.4).
+    """
+    queryset = Item.objects.filter(id__in=item_ids)
+    if hotel_settings_id is not None:
+        queryset = queryset.filter(hotel_settings_id=hotel_settings_id)
+
+    return {item.id: item for item in queryset}
+
+
+@transaction.atomic
+def register_stock_count(
+    *,
+    lines: list[dict[str, Any]],
+    user=None,
+    hotel_settings_id: int | None = None,
+    notes: str = "",
+) -> dict[str, Any]:
+    """Asienta un conteo fisico de inventario.
+
+    Un conteo declara **cuanto hay de verdad**, asi que cada linea se registra como un
+    `ADJUSTMENT`, que fija el valor absoluto en vez de sumar o restar. Solo se registran
+    las lineas que difieren: contar 80 items y encontrar 3 descuadres debe dejar 3
+    movimientos, no 80 asientos identicos que ensucian la bitacora.
+
+    Todo el lote comparte referencia y va en una transaccion: o queda el conteo entero o
+    no queda nada. Un conteo a medias es peor que ninguno, porque el stock queda mezclado
+    entre lo contado y lo viejo sin que nadie sepa donde esta el corte.
+    """
+    movement_type = get_or_create_inventory_movement_type(ADJUSTMENT_MOVEMENT_CODE, "Ajuste")
+    if movement_type is None:
+        raise ValueError("No se pudo resolver el tipo de movimiento de ajuste.")
+
+    parsed: list[tuple[int, int]] = []
+    for line in lines or []:
+        item_id = _safe_positive_int(line.get("item"))
+        if item_id <= 0:
+            continue
+        parsed.append((item_id, _safe_positive_int(line.get("counted"))))
+
+    items = _load_items_for_hotel([item_id for item_id, _ in parsed], hotel_settings_id)
+    reference = _batch_reference(STOCK_COUNT_REFERENCE_PREFIX)
+    clean_notes = str(notes or "").strip()
+
+    created: list[InventoryMovement] = []
+    skipped_unchanged = 0
+    unknown_items: list[int] = []
+
+    for item_id, counted in parsed:
+        item = items.get(item_id)
+        if item is None:
+            unknown_items.append(item_id)
+            continue
+
+        previous = int(item.stock or 0)
+        if previous == counted:
+            skipped_unchanged += 1
+            continue
+
+        difference = counted - previous
+        line_note = (
+            f"Conteo fisico: contado {counted}, sistema tenia {previous} "
+            f"({'+' if difference > 0 else ''}{difference})."
+        )
+        if clean_notes:
+            line_note = f"{line_note} {clean_notes}"
+
+        created.append(
+            InventoryMovement.objects.create(
+                item=item,
+                movement_type=movement_type,
+                quantity=counted,
+                reference=reference,
+                notes=line_note,
+                created_by=user if user and user.is_authenticated else None,
+            )
+        )
+
+    return {
+        "reference": reference,
+        "counted_lines": len(parsed),
+        "adjusted_lines": len(created),
+        "unchanged_lines": skipped_unchanged,
+        "unknown_items": unknown_items,
+        "movement_ids": [movement.id for movement in created],
+    }
+
+
+@transaction.atomic
+def register_purchase_entry(
+    *,
+    lines: list[dict[str, Any]],
+    user=None,
+    hotel_settings_id: int | None = None,
+    reference: str = "",
+    notes: str = "",
+) -> dict[str, Any]:
+    """Asienta la entrada de una compra.
+
+    A diferencia del conteo, aqui cada linea **suma** lo que llego (`IN`), porque una
+    compra no declara el total sino lo que entra. La referencia la puede poner el usuario
+    --el numero de la factura del proveedor es lo natural-- y si no, se genera una.
+    """
+    movement_type = get_or_create_inventory_movement_type(IN_MOVEMENT_CODE, "Entrada")
+    if movement_type is None:
+        raise ValueError("No se pudo resolver el tipo de movimiento de entrada.")
+
+    parsed: list[tuple[int, int]] = []
+    for line in lines or []:
+        item_id = _safe_positive_int(line.get("item"))
+        quantity = _safe_positive_int(line.get("quantity"))
+        # Una linea de cero no es una entrada: es una linea que el usuario dejo vacia.
+        if item_id <= 0 or quantity <= 0:
+            continue
+        parsed.append((item_id, quantity))
+
+    items = _load_items_for_hotel([item_id for item_id, _ in parsed], hotel_settings_id)
+    batch_reference = str(reference or "").strip() or _batch_reference(PURCHASE_ENTRY_REFERENCE_PREFIX)
+    clean_notes = str(notes or "").strip() or "Ingreso por lista de compra."
+
+    created: list[InventoryMovement] = []
+    unknown_items: list[int] = []
+
+    for item_id, quantity in parsed:
+        item = items.get(item_id)
+        if item is None:
+            unknown_items.append(item_id)
+            continue
+
+        created.append(
+            InventoryMovement.objects.create(
+                item=item,
+                movement_type=movement_type,
+                quantity=quantity,
+                reference=batch_reference[:100],
+                notes=clean_notes,
+                created_by=user if user and user.is_authenticated else None,
+            )
+        )
+
+    return {
+        "reference": batch_reference,
+        "entered_lines": len(created),
+        "unknown_items": unknown_items,
+        "movement_ids": [movement.id for movement in created],
+    }

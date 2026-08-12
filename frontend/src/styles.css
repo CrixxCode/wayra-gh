@@ -1643,3 +1643,1192 @@ app-room-modal .inventory-number-field input {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===========================================================================
+   Tarjeta de catalogo comercial (servicios, paquetes y promociones)
+   ===========================================================================
+   Las tres pantallas usaban una portada decorativa de 124 px —y la de promociones,
+   media tarjeta— que no mostraba ningun dato: solo un degradado y un icono de marca de
+   agua. Ademas cada una colocaba el precio, el estado y las acciones a su manera, asi
+   que al cambiar de pestaña habia que reaprender donde mirar.
+
+   Este bloque define una sola anatomia para las tres. La identidad por color se
+   conserva, pero en una placa de icono de 46 px en vez de un bloque enorme, y el
+   espacio recuperado se lo queda el contenido.
+
+   Construido solo con tokens --gh-* (ver seccion 5.15): el modo oscuro no necesita
+   una linea extra. El color de cada categoria llega por la variable --cat-tone, que el
+   componente inyecta con [ngStyle].
+   =========================================================================== */
+
+.gh-cat-card {
+  --cat-tone: var(--gh-brand);
+  --cat-tone-soft: var(--gh-surface-soft);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--gh-border);
+  border-radius: 16px;
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-soft-sm);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.gh-cat-card:hover {
+  border-color: var(--gh-border-strong);
+  box-shadow: var(--gh-shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* Franja superior: lo unico que queda de la portada, y aqui si identifica. */
+.gh-cat-card::before {
+  content: '';
+  display: block;
+  height: 4px;
+  background: var(--cat-tone);
+}
+
+.gh-cat-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px 0;
+}
+
+.gh-cat-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 13px;
+  background: var(--cat-tone-soft);
+  color: var(--cat-tone);
+  font-size: 1.15rem;
+}
+
+.gh-cat-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.gh-cat-titles h3 {
+  margin: 0;
+  color: var(--gh-text-strong);
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.gh-cat-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.gh-cat-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--cat-tone-soft);
+  color: var(--cat-tone);
+  font-size: 0.71rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Distintivo neutro para "Popular", "Destacado" y similares. */
+.gh-cat-tag.is-flag {
+  background: var(--gh-status-warn-bg);
+  color: var(--gh-status-warn-text);
+}
+
+.gh-cat-tag.is-muted {
+  background: var(--gh-status-neutral-bg);
+  color: var(--gh-status-neutral-text);
+}
+
+.gh-cat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px 0;
+  flex: 1;
+}
+
+/* Dos lineas fijas: mantiene las tarjetas alineadas en la cuadricula. */
+.gh-cat-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  min-height: 2.5em;
+  color: var(--gh-text-muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.gh-cat-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  color: var(--gh-text-soft);
+  font-size: 0.78rem;
+}
+
+.gh-cat-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gh-cat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.gh-cat-chips span {
+  padding: 3px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--gh-border-soft);
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-muted);
+  font-size: 0.73rem;
+}
+
+/* Precio y estado comparten fila: es lo que se compara entre tarjetas. */
+.gh-cat-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 16px 0;
+  border-top: 1px solid var(--gh-border-soft);
+}
+
+.gh-cat-price {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.gh-cat-price span {
+  color: var(--gh-text-soft);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.gh-cat-price strong {
+  color: var(--gh-text-strong);
+  font-size: 1.32rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.gh-cat-price small {
+  color: var(--gh-text-soft);
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.gh-cat-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.gh-cat-status .gh-cat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* Misma barra de acciones en las tres pestañas, en el mismo orden. */
+.gh-cat-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 10px 16px 14px;
+}
+
+.gh-cat-btn {
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid var(--gh-border);
+  border-radius: 10px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  font-size: 0.81rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.gh-cat-btn:hover {
+  border-color: var(--gh-search-focus);
+  background: var(--gh-surface-hover);
+  color: var(--gh-text-strong);
+}
+
+/* "Ver" ocupa el espacio libre: es la accion que se busca por defecto. */
+.gh-cat-btn.is-primary {
+  flex: 1;
+  border-color: var(--gh-status-info-border);
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+}
+
+.gh-cat-btn.is-danger:hover {
+  border-color: var(--gh-status-danger-border);
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+}
+
+.gh-cat-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===========================================================================
+   TARJETA DE DOCUMENTO DE COBRO  (.gh-doc-*)
+   ---------------------------------------------------------------------------
+   Factura, pago y reembolso son el mismo tipo de objeto: un documento con un
+   identificador, un estado, un responsable y un importe. Tenian tres tarjetas
+   distintas que ademas titulaban las tres con el numero de factura, asi que dos
+   pagos de una misma factura se veian identicos.
+
+   Aqui el color no identifica la categoria (como en .gh-cat-*) sino el ESTADO,
+   que es lo que se escanea en un listado de cobros: el componente lo inyecta con
+   [ngStyle] en --doc-tone / --doc-tone-soft.
+
+   Construido solo con tokens --gh-* (seccion 5.15).
+   =========================================================================== */
+
+.gh-doc-card {
+  --doc-tone: var(--gh-brand);
+  --doc-tone-soft: var(--gh-surface-soft);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--gh-border);
+  border-radius: 16px;
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-soft-sm);
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.gh-doc-card.is-clickable {
+  cursor: pointer;
+}
+
+.gh-doc-card:hover {
+  border-color: var(--gh-border-strong);
+  box-shadow: var(--gh-shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* Franja de estado: pagada, pendiente, anulada. Se lee antes que el texto. */
+.gh-doc-card::before {
+  content: '';
+  display: block;
+  height: 4px;
+  background: var(--doc-tone);
+}
+
+/* Un documento anulado sigue en el listado por trazabilidad, pero no compite. */
+.gh-doc-card.is-void {
+  opacity: 0.62;
+}
+
+.gh-doc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 16px 0;
+}
+
+.gh-doc-ids {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.gh-doc-number {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.gh-doc-number strong {
+  color: var(--gh-text-strong);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Identificador propio del documento: sin el, dos pagos de la misma factura son
+   indistinguibles de un vistazo. */
+.gh-doc-seq {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 7px;
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-soft);
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.gh-doc-date {
+  color: var(--gh-text-soft);
+  font-size: 0.76rem;
+}
+
+.gh-doc-status {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gh-doc-status .gh-doc-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+}
+
+.gh-doc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 13px 16px 0;
+  flex: 1;
+}
+
+/* Persona o contraparte del documento. */
+.gh-doc-party {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.gh-doc-avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--doc-tone-soft);
+  color: var(--doc-tone);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.gh-doc-party-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.gh-doc-party-text strong {
+  color: var(--gh-text-strong);
+  font-size: 0.9rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gh-doc-party-text small {
+  color: var(--gh-text-muted);
+  font-size: 0.76rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Metadatos con etiqueta: una lista de iconos sueltos obliga a adivinar que es
+   cada linea ("Activa" junto a un icono de documento no dice nada). */
+.gh-doc-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 12px;
+}
+
+.gh-doc-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.gh-doc-meta.is-single {
+  grid-template-columns: 1fr;
+}
+
+.gh-doc-meta dt,
+.gh-doc-meta .gh-doc-label {
+  margin: 0;
+  color: var(--gh-text-soft);
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.gh-doc-meta dd,
+.gh-doc-meta .gh-doc-value {
+  margin: 0;
+  color: var(--gh-text);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* El motivo de un reembolso es texto libre: se le deja respirar. */
+.gh-doc-note {
+  margin: 0;
+  color: var(--gh-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Importe y acciones: lo que se compara entre tarjetas va siempre aqui. */
+.gh-doc-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 13px;
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--gh-border-soft);
+  background: var(--gh-surface-soft);
+}
+
+.gh-doc-amount {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.gh-doc-amount span {
+  color: var(--gh-text-soft);
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.gh-doc-amount strong {
+  color: var(--gh-text-strong);
+  font-size: 1.32rem;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.gh-doc-amount small {
+  color: var(--gh-text-soft);
+  font-size: 0.72rem;
+}
+
+.gh-doc-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+}
+
+.gh-doc-btn {
+  min-height: 32px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.gh-doc-btn:hover:not(:disabled) {
+  border-color: var(--gh-search-focus);
+  color: var(--gh-text-strong);
+}
+
+.gh-doc-btn.is-primary {
+  border-color: var(--gh-brand);
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+}
+
+.gh-doc-btn.is-primary:hover:not(:disabled) {
+  color: var(--gh-on-brand);
+  opacity: 0.9;
+}
+
+/* Aprobar un reembolso saca dinero de caja: no se disfraza de accion neutra. */
+.gh-doc-btn.is-approve {
+  border-color: var(--gh-status-success-border);
+  background: var(--gh-status-success-bg);
+  color: var(--gh-status-success-text);
+}
+
+.gh-doc-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .gh-doc-meta {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===========================================================================
+   TARJETA DE INVENTARIO  (.gh-inv-*)
+   ---------------------------------------------------------------------------
+   Item, dotacion de habitacion y movimiento comparten una pregunta: ¿cuanto hay
+   frente a cuanto deberia haber? Las tres tarjetas la contestaban con texto
+   ("Minimo: 5 | Maximo: 20"), que obliga a comparar numeros mentalmente en cada
+   tarjeta de la cuadricula.
+
+   El centro de esta anatomia es la BARRA: la posicion del stock respecto a su
+   minimo se ve sin leer. El color de la barra --inv-tone lo inyecta el componente
+   segun el estado de existencias, no segun la categoria.
+
+   Construido solo con tokens --gh-* (seccion 5.15).
+   =========================================================================== */
+
+.gh-inv-card {
+  --inv-tone: var(--gh-status-success-strong);
+  --inv-tone-soft: var(--gh-status-success-bg);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--gh-border);
+  border-radius: 16px;
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-soft-sm);
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.gh-inv-card.is-clickable {
+  cursor: pointer;
+}
+
+.gh-inv-card:hover {
+  border-color: var(--gh-border-strong);
+  box-shadow: var(--gh-shadow-hover);
+  transform: translateY(-2px);
+}
+
+.gh-inv-card::before {
+  content: '';
+  display: block;
+  height: 4px;
+  background: var(--inv-tone);
+}
+
+.gh-inv-card.is-void {
+  opacity: 0.62;
+}
+
+.gh-inv-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 16px 0;
+}
+
+.gh-inv-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--inv-tone-soft);
+  color: var(--inv-tone);
+  font-size: 1rem;
+}
+
+.gh-inv-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.gh-inv-titles h3 {
+  margin: 0;
+  color: var(--gh-text-strong);
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gh-inv-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.gh-inv-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 7px;
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.gh-inv-tag.is-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+}
+
+.gh-inv-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 13px 16px 0;
+  flex: 1;
+}
+
+/* ------------------------------------------------------ medidor de stock */
+
+/* El bloque que da sentido a la tarjeta: cuanto hay, en que unidad, y donde cae
+   respecto al minimo. */
+.gh-inv-gauge {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.gh-inv-gauge-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.gh-inv-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+.gh-inv-amount strong {
+  color: var(--gh-text-strong);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.gh-inv-amount span {
+  color: var(--gh-text-muted);
+  font-size: 0.76rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gh-inv-state {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.gh-inv-state .gh-inv-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+}
+
+.gh-inv-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--gh-surface-soft);
+  border: 1px solid var(--gh-border-soft);
+  overflow: hidden;
+}
+
+.gh-inv-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--inv-tone);
+  transition: width 0.3s ease;
+}
+
+/* Marca del minimo: la referencia contra la que se compara todo lo demas. */
+.gh-inv-bar > b {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--gh-text-soft);
+  opacity: 0.75;
+}
+
+.gh-inv-scale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--gh-text-soft);
+  font-size: 0.71rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------- detalles */
+
+.gh-inv-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 12px;
+}
+
+.gh-inv-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.gh-inv-meta dt,
+.gh-inv-meta .gh-inv-label {
+  margin: 0;
+  color: var(--gh-text-soft);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.gh-inv-meta dd,
+.gh-inv-meta .gh-inv-value {
+  margin: 0;
+  color: var(--gh-text);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gh-inv-foot {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 13px;
+  padding: 11px 16px 13px;
+  border-top: 1px solid var(--gh-border-soft);
+  background: var(--gh-surface-soft);
+}
+
+.gh-inv-btn {
+  min-height: 31px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  font-size: 0.77rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.gh-inv-btn:hover:not(:disabled) {
+  border-color: var(--gh-search-focus);
+  color: var(--gh-text-strong);
+}
+
+.gh-inv-btn.is-icon {
+  width: 31px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.gh-inv-btn.is-primary {
+  flex: 1;
+  border-color: var(--gh-brand);
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+}
+
+.gh-inv-btn.is-primary:hover:not(:disabled) {
+  color: var(--gh-on-brand);
+  opacity: 0.9;
+}
+
+.gh-inv-btn.is-danger:hover:not(:disabled) {
+  border-color: var(--gh-status-danger-border);
+  color: var(--gh-status-danger-text);
+}
+
+.gh-inv-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .gh-inv-meta {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Un metadato que ocupa toda la fila (una descripcion, una lista de contenido). */
+.gh-inv-meta > div.is-wide {
+  grid-column: 1 / -1;
+}
+
+/* Salto de stock de un movimiento: el antes y el despues, que es lo que un
+   movimiento significa. Sustituye a la barra en la tarjeta de movimiento. */
+.gh-inv-flow {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 10px;
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-muted);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.gh-inv-flow .is-result {
+  color: var(--gh-text-strong);
+  font-weight: 800;
+}
+
+.gh-inv-flow i {
+  color: var(--gh-text-soft);
+  font-size: 0.8rem;
+}
+
+.gh-inv-flow small {
+  margin-left: auto;
+  color: var(--gh-text-soft);
+  font-size: 0.71rem;
+}
+
+/* ===========================================================================
+   TARJETA DE ORDEN DE TRABAJO  (.gh-task-*)
+   ---------------------------------------------------------------------------
+   Una tarea de limpieza y una orden de mantenimiento son el mismo objeto: trabajo
+   pendiente sobre una habitacion, con estado, prioridad y una fecha que se puede
+   incumplir. Tan iguales que sus dos modelos apuntan al mismo catalogo de
+   prioridad.
+
+   Las dos tarjetas anteriores ensenaban el ESTADO tres veces --en la portada, en
+   una fila de "progreso" y en el pie-- y ninguna decia lo unico accionable: si la
+   fecha ya paso. Aqui el estado se dice una vez, la habitacion titula, y el
+   siguiente paso es un boton con nombre propio.
+
+   El color --task-tone lo inyecta el componente segun urgencia, no segun tipo.
+   Construido solo con tokens --gh-* (seccion 5.15).
+   =========================================================================== */
+
+.gh-task-card {
+  --task-tone: var(--gh-status-info-strong);
+  --task-tone-soft: var(--gh-status-info-bg);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--gh-border);
+  border-radius: 15px;
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-soft-sm);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.gh-task-card:hover {
+  border-color: var(--gh-border-strong);
+  box-shadow: var(--gh-shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* Franja de urgencia: lo unico que hereda de la portada anterior, y aqui si dice algo. */
+.gh-task-card::before {
+  content: '';
+  display: block;
+  height: 4px;
+  background: var(--task-tone);
+}
+
+.gh-task-card.is-done {
+  opacity: 0.62;
+}
+
+.gh-task-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 16px 0;
+}
+
+.gh-task-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--task-tone-soft);
+  color: var(--task-tone);
+  font-size: 1rem;
+}
+
+.gh-task-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+/* La habitacion titula: es donde hay que ir, y es como se busca el trabajo. */
+.gh-task-titles h3 {
+  margin: 0;
+  color: var(--gh-text-strong);
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gh-task-titles p {
+  margin: 0;
+  color: var(--gh-text-muted);
+  font-size: 0.83rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.gh-task-status {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.71rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.gh-task-status .gh-task-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+}
+
+.gh-task-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px 0;
+  flex: 1;
+}
+
+.gh-task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.gh-task-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 7px;
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-muted);
+  font-size: 0.71rem;
+  font-weight: 600;
+}
+
+/* La fecha es el dato accionable: o esta a tiempo o ya se incumplio. */
+.gh-task-when {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 10px;
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-muted);
+  font-size: 0.8rem;
+}
+
+.gh-task-when.is-late {
+  border-color: var(--gh-status-danger-border);
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+  font-weight: 600;
+}
+
+.gh-task-when i {
+  flex-shrink: 0;
+}
+
+.gh-task-when strong {
+  color: inherit;
+  font-weight: 700;
+}
+
+.gh-task-foot {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 11px 16px 13px;
+  border-top: 1px solid var(--gh-border-soft);
+  background: var(--gh-surface-soft);
+}
+
+/* El siguiente paso, con nombre propio: "Empezar", "Terminar". Un icono suelto
+   obligaba a adivinar en que estado quedaba la tarea al pulsarlo. */
+.gh-task-next {
+  flex: 1;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--gh-brand);
+  border-radius: 9px;
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+  font-size: 0.79rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gh-task-next:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.gh-task-next:disabled {
+  border-color: var(--gh-border-strong);
+  background: var(--gh-surface);
+  color: var(--gh-text-soft);
+  cursor: not-allowed;
+}
+
+.gh-task-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.gh-task-btn:hover {
+  border-color: var(--gh-search-focus);
+  color: var(--gh-text-strong);
+}
+
+.gh-task-btn.is-danger:hover {
+  border-color: var(--gh-status-danger-border);
+  color: var(--gh-status-danger-text);
+}

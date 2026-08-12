@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
@@ -108,7 +108,30 @@ const MOVEMENT_TONES: Record<string, MovementTypeTone> = {
   styleUrls: ['./list-inventory-movements.css']
 })
 export class ListInventoryMovements implements OnInit {
+  /** Dentro del contenedor de inventario: sin encabezado ni metricas propias. */
+  @Input() embedded = false;
+
+  /** Un cambio aqui mueve las existencias que ven las otras dos pestañas. */
+  @Output() changed = new EventEmitter<void>();
+
+  /**
+   * Item que se viene siguiendo desde otra pestaña.
+   *
+   * Llega del contenedor y acota la lista sin tocar los filtros propios, que el
+   * usuario puede seguir moviendo por encima.
+   */
+  @Input() set focusItemId(value: number | null) {
+    this.trackedItemId = typeof value === 'number' && value > 0 ? value : null;
+    this.applyFilters();
+  }
+
+  trackedItemId: number | null = null;
+
+  /** Solo la primera carga: es la unica que puede dejar la pantalla vacia. */
   loading = false;
+
+  /** Recarga posterior a una accion: la cuadricula sigue en pantalla. */
+  refreshing = false;
   errorMessage = '';
   infoMessage = '';
   viewMode: MovementViewMode = 'cards';
@@ -201,14 +224,17 @@ export class ListInventoryMovements implements OnInit {
     return this.items.some((item) => item.is_active) && this.movementTypes.length > 0;
   }
 
-  loadCatalogData(): void {
-    this.loading = true;
+  loadCatalogData(options: { silent?: boolean; force?: boolean } = {}): void {
+    // Una recarga silenciosa no toca `loading`, asi que la cuadricula no se desmonta
+    // y la pantalla no parpadea con cada accion.
+    if (options.silent) this.refreshing = true;
+    else this.loading = true;
     this.errorMessage = '';
     const selectedMovementId = this.selectedMovement?.id ?? null;
 
     forkJoin({
       movements: this.inventoryMovementsService
-        .listInventoryMovements({ include_inactive: true })
+        .listInventoryMovements({ include_inactive: true, forceRefresh: options.force })
         .pipe(catchError(() => of([] as InventoryMovementI[]))),
       allMovements: this.inventoryMovementsService
         .listInventoryMovements({ include_inactive: true, include_deleted: true })
@@ -220,6 +246,7 @@ export class ListInventoryMovements implements OnInit {
     }).subscribe({
       next: ({ movements, allMovements, movementTypes, items }) => {
         this.loading = false;
+        this.refreshing = false;
         this.movements = movements;
         const visibleIds = new Set(movements.map((movement) => movement.id));
         this.deletedMovements = allMovements.filter((movement) => !visibleIds.has(movement.id));
@@ -244,13 +271,24 @@ export class ListInventoryMovements implements OnInit {
       },
       error: () => {
         this.loading = false;
+        this.refreshing = false;
         this.errorMessage = 'No fue posible cargar los movimientos de inventario.';
       }
     });
   }
 
-  refreshMovements(): void {
-    this.loadCatalogData();
+  /**
+   * Recarga tras una accion, o a peticion del boton "Actualizar".
+   *
+   * `force` **solo** para el boton: una escritura ya invalido el cache desde el servicio,
+   * asi que la recarga posterior va al servidor igual. Forzarla ademas anula la
+   * deduplicacion de peticiones en vuelo del `ResourceCache`, y entonces esta lista y su
+   * contenedor piden lo mismo dos veces. Con unos pocos clics seguidos eso agotaba el
+   * limite de peticiones por minuto y la API respondia 429.
+   */
+  refreshMovements(force = false): void {
+    this.changed.emit();
+    this.loadCatalogData({ silent: true, force });
   }
 
   exportCsv(): void {
@@ -302,6 +340,9 @@ export class ListInventoryMovements implements OnInit {
     const searchValue = this.normalizeSearch(this.search);
 
     this.filteredMovements = this.movements.filter((movement) => {
+      // Seguimiento desde otra pestaña: acota sin tocar los filtros del usuario.
+      if (this.trackedItemId !== null && Number(movement.item) !== this.trackedItemId) return false;
+
       const statusMatch =
         this.statusFilter === 'ALL' ||
         (this.statusFilter === 'ACTIVE' && movement.is_active) ||
@@ -427,7 +468,7 @@ export class ListInventoryMovements implements OnInit {
 
   getItemLabel(movement: InventoryMovementI): string {
     if (movement.item_name?.trim()) return movement.item_name.trim();
-    if (typeof movement.item === 'number' && movement.item > 0) return `Item #${movement.item}`;
+    if (typeof movement.item === 'number' && movement.item > 0) return 'Item sin nombre';
     return 'Item no definido';
   }
 
@@ -454,6 +495,15 @@ export class ListInventoryMovements implements OnInit {
     if (direction === 'ADJUSTMENT') return 'Ajuste';
     if (direction === 'TRANSFER') return 'Transferencia';
     return 'Otro';
+  }
+
+  /** Icono segun a donde va el stock: entra, sale o se corrige. */
+  getMovementDirectionIcon(movement: InventoryMovementI): string {
+    const direction = this.resolveDirection(movement);
+    if (direction === 'IN') return 'fa-solid fa-arrow-down-long';
+    if (direction === 'OUT') return 'fa-solid fa-arrow-up-long';
+    if (direction === 'TRANSFER') return 'fa-solid fa-right-left';
+    return 'fa-solid fa-sliders';
   }
 
   getMovementDirectionTone(movement: InventoryMovementI): { bg: string; color: string; dot: string } {

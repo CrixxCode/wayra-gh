@@ -809,3 +809,10 @@
     flex-direction: column;
   }
 }
+
+/* Recarga tras una accion: la cuadricula se queda donde esta y solo se atenua. Con
+   `loading` se desmontaba entera y cada accion parecia una recarga de pagina. */
+.catalog-sections.is-refreshing {
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}

@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, tap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
+import { CACHE_TTL, ResourceCache } from './resource-cache';
 import { PromotionFormPayload, PromotionI } from '../modules/promotions/promotion-model';
 import { ServiceI } from '../modules/services/service-model';
 import { PackageI } from '../modules/packages/package-model';
@@ -31,14 +32,39 @@ export class PromotionsService {
 
   constructor(
     private http: HttpClient,
-    private auth: AuthService
+    private auth: AuthService,
+    private cache: ResourceCache
   ) {}
+
+  // --------------------------------------------------------------------- cache
+  // Cache-aside sobre las lecturas (ver `resource-cache.ts`). Es un catalogo:
+  // cambia cuando alguien lo edita, no solo.
+  private static readonly CACHE_KEY = 'promotions';
+
+  private cacheKey(filters?: Record<string, unknown>): string {
+    const entries = Object.entries(filters || {})
+      .filter(([, value]) => value !== undefined && value !== null && value !== '')
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`);
+    return entries.length
+      ? `${PromotionsService.CACHE_KEY}:${entries.join('&')}`
+      : PromotionsService.CACHE_KEY;
+  }
+
+  /** Invalida tambien lo que muestra este dato prestado. */
+  private invalidateCatalog(): void {
+    this.cache.invalidateAll([
+      'promotions'
+    ]);
+  }
 
   listPromotions(filters?: {
     search?: string;
     ordering?: string;
     include_inactive?: boolean;
     include_deleted?: boolean;
+    /** Salta el cache y lo repuebla: es lo que usa el boton de actualizar. */
+    forceRefresh?: boolean;
   }): Observable<PromotionI[]> {
     let params = new HttpParams();
 
@@ -58,12 +84,18 @@ export class PromotionsService {
       params = params.set('include_deleted', String(filters.include_deleted));
     }
 
-    return this.http
-      .get<PromotionI[] | DRFPaginated<PromotionI>>(this.promotionsUrl, {
-        withCredentials: true,
-        params
-      })
-      .pipe(map((res) => this.unwrapArray<PromotionI>(res)));
+    return this.cache.get(
+      this.cacheKey(filters as Record<string, unknown>),
+      () =>
+        this.http
+          .get<PromotionI[] | DRFPaginated<PromotionI>>(this.promotionsUrl, {
+            withCredentials: true,
+            params
+          })
+          .pipe(map((res) => this.unwrapArray<PromotionI>(res))),
+      CACHE_TTL.CATALOG,
+      (filters as { forceRefresh?: boolean } | undefined)?.forceRefresh
+    );
   }
 
   getPromotionById(id: number): Observable<PromotionI> {
@@ -75,7 +107,7 @@ export class PromotionsService {
       this.promotionsUrl,
       this.normalizeCreatePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateCatalog()));
   }
 
   updatePromotion(id: number, payload: Partial<PromotionFormPayload>): Observable<PromotionI> {
@@ -83,15 +115,15 @@ export class PromotionsService {
       `${this.promotionsUrl}${id}/`,
       this.normalizePatchPayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateCatalog()));
   }
 
   deletePromotion(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.promotionsUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http.delete<void>(`${this.promotionsUrl}${id}/`, this.auth.buildCsrfRequestOptions()).pipe(tap(() => this.invalidateCatalog()));
   }
 
   restorePromotion(id: number): Observable<PromotionI> {
-    return this.http.post<PromotionI>(`${this.promotionsUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions());
+    return this.http.post<PromotionI>(`${this.promotionsUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions()).pipe(tap(() => this.invalidateCatalog()));
   }
 
   getTargetCatalog(hotelSettingsId?: number | null): Observable<{ services: ServiceI[]; packages: PackageI[] }> {

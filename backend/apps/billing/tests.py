@@ -77,9 +77,11 @@ class BillingAutomationTestCase(TestCase):
             1,
         )
         self.service_type = self._md(MasterData.Group.SERVICE_TYPE, "ROOMSERVICE", "Room Service", 1)
-        self.payment_method = PaymentMethod.objects.create(
-            hotel_settings=self.hotel_settings, code="EFECTIVO", name="Efectivo"
-        )
+        self.payment_method = PaymentMethod.objects.get_or_create(
+            hotel_settings=self.hotel_settings,
+            code="EFECTIVO",
+            defaults={"name": "Efectivo"}
+        )[0]
         self.payment_refund_status_pending = self._md(
             MasterData.Group.PAYMENT_REFUND_STATUS,
             "PENDIENTE",
@@ -873,9 +875,11 @@ class BillingApiFilterAndPaginationTestCase(TestCase):
         self.client_api = APIClient()
         self.client_api.force_login(self.user)
         self.hotel_settings = HotelSettings.objects.create(hotel_name="Hotel Billing API")
-        self.payment_method = PaymentMethod.objects.create(
-            hotel_settings=self.hotel_settings, code="EFECTIVO", name="Efectivo"
-        )
+        self.payment_method = PaymentMethod.objects.get_or_create(
+            hotel_settings=self.hotel_settings,
+            code="EFECTIVO",
+            defaults={"name": "Efectivo"}
+        )[0]
         self.user.hotel_settings = self.hotel_settings
         self.user.save(update_fields=["hotel_settings"])
         self.client_api.force_login(self.user)
@@ -1212,6 +1216,84 @@ class BillingApiFilterAndPaginationTestCase(TestCase):
 
         self.payment_one.refresh_from_db()
         self.assertFalse(self.payment_one.is_active)
+
+    def test_registered_payment_records_its_author(self):
+        """Trazabilidad: un cobro debe decir quien lo registro."""
+        write_resource = Resource.objects.get_or_create(
+            key="payments.write",
+            defaults={"name": "Write payments", "link_backend": "/api/payments/"},
+        )[0]
+        role = Role.objects.get_or_create(slug="admin", defaults={"name": "Administrador"})[0]
+        role.resources.add(write_resource)
+
+        cashier = User.objects.create_user(
+            username="cajera",
+            email="cajera@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel_settings,
+        )
+        cashier.roles.add(role)
+
+        client = APIClient()
+        client.force_login(cashier)
+
+        response = client.post(
+            "/api/payments/",
+            {
+                "invoice": self.invoice_one.id,
+                "payment_method": self.payment_method.id,
+                "amount": "10.00",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["created_by_username"], "cajera")
+        self.assertEqual(
+            Payment.objects.get(pk=response.data["id"]).created_by_id, cashier.id
+        )
+
+    def test_author_comes_from_the_session_not_from_the_payload(self):
+        """Nadie registra un cobro a nombre de otro."""
+        write_resource = Resource.objects.get_or_create(
+            key="payments.write",
+            defaults={"name": "Write payments", "link_backend": "/api/payments/"},
+        )[0]
+        role = Role.objects.get_or_create(slug="admin", defaults={"name": "Administrador"})[0]
+        role.resources.add(write_resource)
+
+        cashier = User.objects.create_user(
+            username="cajera_real",
+            email="cajera_real@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel_settings,
+        )
+        cashier.roles.add(role)
+        impersonated = User.objects.create_user(
+            username="otro_empleado",
+            email="otro@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel_settings,
+        )
+
+        client = APIClient()
+        client.force_login(cashier)
+
+        response = client.post(
+            "/api/payments/",
+            {
+                "invoice": self.invoice_one.id,
+                "payment_method": self.payment_method.id,
+                "amount": "10.00",
+                "created_by": str(impersonated.id),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(
+            Payment.objects.get(pk=response.data["id"]).created_by_id, cashier.id
+        )
 
     def test_invoice_pdf_endpoint_returns_pdf_document(self):
         response = self.client_api.get(f"/api/invoices/{self.invoice_one.id}/pdf/")

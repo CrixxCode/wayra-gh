@@ -158,7 +158,7 @@
                 <div class="avatar">{{ getInitials(client) }}</div>
                 <div>
                   <p class="client-name">{{ client.full_name || (client.first_name + ' ' + client.last_name) }}</p>
-                  <p class="client-id">ID #{{ client.id }}</p>
+                  <p class="client-id">{{ client.document_number || 'Sin documento' }}</p>
                 </div>
               </div>
             </td>

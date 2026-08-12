@@ -559,6 +559,10 @@ class PaymentViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.Model
             return ["payments.write"]
         return self.required_scopes
 
+    def perform_create(self, serializer):
+        # El autor del cobro sale de la sesion, no del cuerpo de la peticion.
+        serializer.save(created_by=self.request.user)
+
     def get_permissions(self):
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()

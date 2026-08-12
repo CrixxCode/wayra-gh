@@ -148,6 +148,8 @@ class InventoryMovementSerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source="item.name", read_only=True)
     movement_type_name = serializers.CharField(source="movement_type.name", read_only=True)
     movement_type_code = serializers.CharField(source="movement_type.code", read_only=True)
+    # Quien movio el stock: es lo que hace auditable un conteo.
+    created_by_username = serializers.CharField(source="created_by.username", read_only=True)
 
     class Meta:
         model = InventoryMovement
@@ -161,6 +163,8 @@ class InventoryMovementSerializer(serializers.ModelSerializer):
             "quantity",
             "previous_stock",
             "new_stock",
+            "created_by",
+            "created_by_username",
             "reference",
             "notes",
             "movement_date",
@@ -172,6 +176,8 @@ class InventoryMovementSerializer(serializers.ModelSerializer):
             "id",
             "previous_stock",
             "new_stock",
+            "created_by",
+            "created_by_username",
             "movement_date",
             "created_at",
             "updated_at",
@@ -188,6 +194,15 @@ class InventoryMovementSerializer(serializers.ModelSerializer):
             )
 
         return fields
+
+    def create(self, validated_data):
+        """El autor sale de la sesion, no del payload: es un dato de auditoria."""
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user and user.is_authenticated:
+            validated_data["created_by"] = user
+
+        return super().create(validated_data)
 
     def validate_quantity(self, value):
         if value < 1:

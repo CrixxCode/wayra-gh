@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
@@ -9,6 +9,7 @@ import { ReservationService } from '../../../services/reservation';
 import { InvoiceI, PaymentI } from '../../billing/billing-model';
 import { ReservationI } from '../../reservations/reservation-model';
 import { DetailPayment } from '../detail-payment/detail-payment';
+import { RefundPayment } from '../refund-payment/refund-payment';
 
 type PaymentActivityFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 type PaymentDateFilter = 'ALL' | 'TODAY' | 'LAST_30';
@@ -17,12 +18,22 @@ type PaymentViewMode = 'cards' | 'table';
 @Component({
   selector: 'app-list-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, DetailPayment],
+  imports: [CommonModule, FormsModule, RouterModule, DetailPayment, RefundPayment],
   templateUrl: './list-payments.html',
   styleUrls: ['./list-payments.css']
 })
 export class ListPayments implements OnInit {
+  /** Dentro del contenedor de facturacion: sin encabezado ni metricas propias. */
+  @Input() embedded = false;
+
+  /** Un cambio aqui mueve las cifras de las otras dos pestañas. */
+  @Output() changed = new EventEmitter<void>();
+
+  /** Solo la primera carga: es la unica que puede dejar la pantalla vacia. */
   loading = false;
+
+  /** Recarga posterior a una accion: la tabla sigue en pantalla. */
+  refreshing = false;
   errorMessage = '';
   infoMessage = '';
 
@@ -39,6 +50,9 @@ export class ListPayments implements OnInit {
   viewMode: PaymentViewMode = 'cards';
 
   selectedPayment: PaymentI | null = null;
+
+  /** Pago que se esta reembolsando, en su propio modal. */
+  refundingPayment: PaymentI | null = null;
 
   readonly activityOptions: Array<{ value: PaymentActivityFilter; label: string }> = [
     { value: 'ACTIVE', label: 'Activos' },
@@ -103,7 +117,7 @@ export class ListPayments implements OnInit {
     const options = this.paymentMethods
       .map((method) => ({
         value: this.normalizeCode(method.code || method.name || String(method.id)),
-        label: method.name || method.code || `Metodo #${method.id}`
+        label: method.name || method.code || 'Metodo sin nombre'
       }))
       .filter((option) => !!option.value);
 
@@ -123,14 +137,17 @@ export class ListPayments implements OnInit {
     ];
   }
 
-  loadPaymentsData(): void {
-    this.loading = true;
+  loadPaymentsData(options: { silent?: boolean; force?: boolean } = {}): void {
+    // Una recarga silenciosa no toca `loading`, asi que la tabla no se desmonta y
+    // la pantalla no parpadea con cada accion.
+    if (options.silent) this.refreshing = true;
+    else this.loading = true;
     this.errorMessage = '';
     this.infoMessage = '';
 
     forkJoin({
       payments: this.billingService
-        .listPayments({ ordering: '-payment_date,-id', include_inactive: true })
+        .listPayments({ ordering: '-payment_date,-id', include_inactive: true, forceRefresh: options.force })
         .pipe(catchError(() => of([] as PaymentI[]))),
       invoices: this.billingService
         .listInvoices({ ordering: '-id', include_inactive: true })
@@ -153,6 +170,7 @@ export class ListPayments implements OnInit {
     }).subscribe({
       next: ({ payments, invoices, reservationsPage, paymentMethods }) => {
         this.loading = false;
+        this.refreshing = false;
         this.payments = [...payments].sort((a, b) => b.id - a.id);
         this.invoicesMap = new Map(invoices.map((invoice) => [invoice.id, invoice]));
         this.reservationsMap = new Map((reservationsPage.results || []).map((reservation) => [reservation.id, reservation]));
@@ -166,13 +184,24 @@ export class ListPayments implements OnInit {
       },
       error: () => {
         this.loading = false;
+        this.refreshing = false;
         this.errorMessage = 'No fue posible cargar los pagos.';
       }
     });
   }
 
-  refreshPaymentsData(): void {
-    this.loadPaymentsData();
+  /**
+   * Recarga tras una accion, o a peticion del boton "Actualizar".
+   *
+   * `force` **solo** para el boton: una escritura ya invalido el cache desde el servicio,
+   * asi que la recarga posterior va al servidor igual. Forzarla ademas anula la
+   * deduplicacion de peticiones en vuelo del `ResourceCache`, y entonces esta lista y su
+   * contenedor piden lo mismo dos veces. Con unos pocos clics seguidos eso agotaba el
+   * limite de peticiones por minuto y la API respondia 429.
+   */
+  refreshPaymentsData(force = false): void {
+    this.changed.emit();
+    this.loadPaymentsData({ silent: true, force });
   }
 
   exportCsv(): void {
@@ -250,6 +279,29 @@ export class ListPayments implements OnInit {
 
   openDetail(payment: PaymentI): void {
     this.selectedPayment = payment;
+  }
+
+  /**
+   * Abre el modal de reembolso.
+   *
+   * Un reembolso siempre es **de un pago concreto** -- el tope reembolsable y el metodo
+   * salen de ese pago--, pero no es una lectura mas del detalle: es una decision, y
+   * por eso tiene su propio modal. Si se llego desde el detalle, ese se cierra para no
+   * apilar dos capas.
+   */
+  openRefund(payment: PaymentI): void {
+    this.selectedPayment = null;
+    this.refundingPayment = payment;
+  }
+
+  closeRefund(): void {
+    this.refundingPayment = null;
+  }
+
+  /** El reembolso queda pendiente de aprobacion, pero ya cuenta en los saldos. */
+  onRefundRegistered(): void {
+    this.refundingPayment = null;
+    this.refreshPaymentsData();
   }
 
   setViewMode(mode: PaymentViewMode): void {

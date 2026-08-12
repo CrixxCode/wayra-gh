@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, tap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
+import { CACHE_TTL, ResourceCache } from './resource-cache';
 import {
   PackageFormPayload,
   PackageI,
@@ -24,14 +25,40 @@ export class PackagesService {
 
   constructor(
     private http: HttpClient,
-    private auth: AuthService
+    private auth: AuthService,
+    private cache: ResourceCache
   ) {}
+
+  // --------------------------------------------------------------------- cache
+  // Cache-aside sobre las lecturas (ver `resource-cache.ts`). Es un catalogo:
+  // cambia cuando alguien lo edita, no solo.
+  private static readonly CACHE_KEY = 'packages';
+
+  private cacheKey(filters?: Record<string, unknown>): string {
+    const entries = Object.entries(filters || {})
+      .filter(([, value]) => value !== undefined && value !== null && value !== '')
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`);
+    return entries.length
+      ? `${PackagesService.CACHE_KEY}:${entries.join('&')}`
+      : PackagesService.CACHE_KEY;
+  }
+
+  /** Invalida tambien lo que muestra este dato prestado. */
+  private invalidateCatalog(): void {
+    this.cache.invalidateAll([
+      'packages',
+      'promotions'
+    ]);
+  }
 
   listPackages(filters?: {
     search?: string;
     ordering?: string;
     include_inactive?: boolean;
     include_deleted?: boolean;
+    /** Salta el cache y lo repuebla: es lo que usa el boton de actualizar. */
+    forceRefresh?: boolean;
   }): Observable<PackageI[]> {
     let params = new HttpParams();
 
@@ -51,12 +78,18 @@ export class PackagesService {
       params = params.set('include_deleted', String(filters.include_deleted));
     }
 
-    return this.http
-      .get<PackageI[] | DRFPaginated<PackageI>>(this.packagesUrl, {
-        withCredentials: true,
-        params
-      })
-      .pipe(map((res) => this.unwrapArray<PackageI>(res)));
+    return this.cache.get(
+      this.cacheKey(filters as Record<string, unknown>),
+      () =>
+        this.http
+          .get<PackageI[] | DRFPaginated<PackageI>>(this.packagesUrl, {
+            withCredentials: true,
+            params
+          })
+          .pipe(map((res) => this.unwrapArray<PackageI>(res))),
+      CACHE_TTL.CATALOG,
+      (filters as { forceRefresh?: boolean } | undefined)?.forceRefresh
+    );
   }
 
   getPackageById(id: number): Observable<PackageI> {
@@ -68,7 +101,7 @@ export class PackagesService {
       this.packagesUrl,
       this.normalizePackageCreatePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateCatalog()));
   }
 
   updatePackage(id: number, payload: Partial<PackageFormPayload>): Observable<PackageI> {
@@ -76,15 +109,15 @@ export class PackagesService {
       `${this.packagesUrl}${id}/`,
       this.normalizePackagePatchPayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateCatalog()));
   }
 
   deletePackage(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.packagesUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http.delete<void>(`${this.packagesUrl}${id}/`, this.auth.buildCsrfRequestOptions()).pipe(tap(() => this.invalidateCatalog()));
   }
 
   restorePackage(id: number): Observable<PackageI> {
-    return this.http.post<PackageI>(`${this.packagesUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions());
+    return this.http.post<PackageI>(`${this.packagesUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions()).pipe(tap(() => this.invalidateCatalog()));
   }
 
   listPackageServices(filters?: {
@@ -114,7 +147,7 @@ export class PackagesService {
       this.packageServicesUrl,
       this.normalizePackageServicePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateCatalog()));
   }
 
   updatePackageService(id: number, payload: Partial<PackageServiceFormPayload>): Observable<PackageServiceI> {
@@ -122,11 +155,11 @@ export class PackagesService {
       `${this.packageServicesUrl}${id}/`,
       this.normalizePackageServicePatchPayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateCatalog()));
   }
 
   deletePackageService(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.packageServicesUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http.delete<void>(`${this.packageServicesUrl}${id}/`, this.auth.buildCsrfRequestOptions()).pipe(tap(() => this.invalidateCatalog()));
   }
 
   restorePackageService(id: number): Observable<PackageServiceI> {
@@ -134,7 +167,7 @@ export class PackagesService {
       `${this.packageServicesUrl}${id}/restore/`,
       {},
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateCatalog()));
   }
 
   private unwrapArray<T>(res: unknown): T[] {

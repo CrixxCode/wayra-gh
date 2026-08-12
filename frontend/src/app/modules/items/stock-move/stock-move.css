@@ -1,0 +1,297 @@
+/* Solo tokens --gh-*; la estructura viene de `gh-modal-*` (AGENTS 5.15). */
+
+:host {
+  display: block;
+}
+
+/* El color de la operacion: entrar y salir stock no deben confundirse de un vistazo. */
+.move-modal {
+  --move-tone: var(--gh-status-danger-strong);
+  --move-tone-soft: var(--gh-status-danger-bg);
+  --move-tone-text: var(--gh-status-danger-text);
+  max-width: 440px;
+}
+
+.move-modal.is-entry {
+  --move-tone: var(--gh-status-success-strong);
+  --move-tone-soft: var(--gh-status-success-bg);
+  --move-tone-text: var(--gh-status-success-text);
+}
+
+.move-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--move-tone-soft);
+  color: var(--move-tone-text);
+  font-size: 0.71rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.gh-modal-head h2 {
+  margin: 7px 0 0;
+  font-size: 1.16rem;
+}
+
+.gh-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+/* ------------------------------------------------------------------ preview */
+
+.move-preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--gh-border);
+  border-left: 3px solid var(--move-tone);
+  border-radius: 13px;
+  background: var(--gh-surface-soft);
+}
+
+.move-step {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.move-step span {
+  color: var(--gh-text-soft);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.move-step strong {
+  color: var(--gh-text-muted);
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* El resultado pesa mas que el punto de partida. */
+.move-step.is-result {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.move-step.is-result strong {
+  color: var(--gh-text-strong);
+  font-size: 1.85rem;
+  font-weight: 800;
+}
+
+.move-arrow {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  color: var(--gh-text-soft);
+}
+
+.move-arrow b {
+  color: var(--move-tone-text);
+  font-size: 1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.move-arrow i {
+  font-size: 0.8rem;
+}
+
+.move-unit {
+  position: absolute;
+  right: 16px;
+  bottom: 6px;
+  color: var(--gh-text-soft);
+  font-size: 0.68rem;
+}
+
+/* ----------------------------------------------------------------- cantidad */
+
+.move-input {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.move-input > span {
+  color: var(--gh-text-soft);
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.move-input-row {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--gh-surface);
+}
+
+.move-input.is-invalid .move-input-row {
+  border-color: var(--gh-status-danger-strong);
+}
+
+.move-input-row button {
+  width: 42px;
+  border: 0;
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.move-input-row button:hover:not(:disabled) {
+  background: var(--gh-surface-hover);
+  color: var(--gh-text-strong);
+}
+
+.move-input-row button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.move-input-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 6px;
+  border: 0;
+  border-left: 1px solid var(--gh-border-soft);
+  border-right: 1px solid var(--gh-border-soft);
+  background: transparent;
+  color: var(--gh-text-strong);
+  font-size: 1.35rem;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.move-input-row input:focus {
+  outline: 2px solid var(--gh-search-focus);
+  outline-offset: -2px;
+}
+
+/* Atajos: cubren lo que se mueve normalmente sin teclear. */
+.move-quick {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.move-quick button {
+  min-width: 46px;
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.move-quick button:hover {
+  border-color: var(--move-tone);
+  color: var(--gh-text-strong);
+}
+
+.move-quick button.is-active {
+  border-color: var(--move-tone);
+  background: var(--move-tone-soft);
+  color: var(--move-tone-text);
+}
+
+.move-quick button.is-all {
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------------ avisos */
+
+.move-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.move-alert.is-error {
+  border: 1px solid var(--gh-status-danger-border);
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+}
+
+.move-alert.is-warn {
+  border: 1px solid var(--gh-status-warn-border);
+  background: var(--gh-status-warn-bg);
+  color: var(--gh-status-warn-text);
+}
+
+/* --------------------------------------------------------------- opcionales */
+
+.move-optional {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.move-optional label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.move-optional span {
+  color: var(--gh-text-soft);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.move-optional input {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  font-size: 0.82rem;
+}
+
+.move-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+@media (max-width: 460px) {
+  .move-optional {
+    grid-template-columns: 1fr;
+  }
+}

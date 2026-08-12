@@ -1,62 +1,66 @@
 <div class="services-page">
+  <ng-container *ngIf="!embedded">
   <header class="page-header">
-    <div>
-      <h1>Servicios & Consumos</h1>
-      <p>Catalogo operativo de servicios para room service, restaurante, minibar y actividades.</p>
-    </div>
+      <div>
+        <h1>Servicios & Consumos</h1>
+        <p>Catalogo operativo de servicios para room service, restaurante, minibar y actividades.</p>
+      </div>
 
-    <button type="button" class="btn btn-dark" (click)="openCreateDrawer()">
-      <i class="fa-solid fa-plus"></i>
-      Nuevo servicio
-    </button>
-  </header>
+      <button type="button" class="btn btn-dark" (click)="openCreateDrawer()">
+        <i class="fa-solid fa-plus"></i>
+        Nuevo servicio
+      </button>
+    </header>
+  </ng-container>
 
+  <ng-container *ngIf="!embedded">
   <section class="stats-grid">
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Total servicios</span>
-        <span class="stat-icon blue"><i class="fa-solid fa-layer-group"></i></span>
-      </div>
-      <div class="stat-value">{{ totalServices }}</div>
-      <div class="stat-note">Items en catalogo</div>
-    </article>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Total servicios</span>
+          <span class="stat-icon blue"><i class="fa-solid fa-layer-group"></i></span>
+        </div>
+        <div class="stat-value">{{ totalServices }}</div>
+        <div class="stat-note">Items en catalogo</div>
+      </article>
 
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Activos</span>
-        <span class="stat-icon green"><i class="fa-solid fa-circle-check"></i></span>
-      </div>
-      <div class="stat-value">{{ activeServices }}</div>
-      <div class="stat-note">Disponibles para venta</div>
-    </article>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Activos</span>
+          <span class="stat-icon green"><i class="fa-solid fa-circle-check"></i></span>
+        </div>
+        <div class="stat-value">{{ activeServices }}</div>
+        <div class="stat-note">Disponibles para venta</div>
+      </article>
 
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Inactivos</span>
-        <span class="stat-icon red"><i class="fa-solid fa-circle-pause"></i></span>
-      </div>
-      <div class="stat-value">{{ inactiveServices }}</div>
-      <div class="stat-note">No disponibles para venta</div>
-    </article>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Inactivos</span>
+          <span class="stat-icon red"><i class="fa-solid fa-circle-pause"></i></span>
+        </div>
+        <div class="stat-value">{{ inactiveServices }}</div>
+        <div class="stat-note">No disponibles para venta</div>
+      </article>
 
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Categoria top</span>
-        <span class="stat-icon gold"><i class="fa-solid fa-chart-simple"></i></span>
-      </div>
-      <div class="stat-value">{{ topCategoryLabel }}</div>
-      <div class="stat-note">{{ topCategoryCount }} servicios en esa categoria</div>
-    </article>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Categoria top</span>
+          <span class="stat-icon gold"><i class="fa-solid fa-chart-simple"></i></span>
+        </div>
+        <div class="stat-value">{{ topCategoryLabel }}</div>
+        <div class="stat-note">{{ topCategoryCount }} servicios en esa categoria</div>
+      </article>
 
-    <article class="stat-card">
-      <div class="stat-head">
-        <span>Precio promedio</span>
-        <span class="stat-icon purple"><i class="fa-solid fa-wallet"></i></span>
-      </div>
-      <div class="stat-value stat-money">{{ averagePriceLabel }}</div>
-      <div class="stat-note">{{ categoryCount }} categorias activas</div>
-    </article>
-  </section>
+      <article class="stat-card">
+        <div class="stat-head">
+          <span>Precio promedio</span>
+          <span class="stat-icon purple"><i class="fa-solid fa-wallet"></i></span>
+        </div>
+        <div class="stat-value stat-money">{{ averagePriceLabel }}</div>
+        <div class="stat-note">{{ categoryCount }} categorias activas</div>
+      </article>
+    </section>
+  </ng-container>
 
   <section class="filters-card">
     <div class="filters-grid">
@@ -89,8 +93,13 @@
       </label>
 
       <div class="filter-actions-inline">
-        <button type="button" class="icon-action" (click)="refreshServices()" [disabled]="loading" title="Actualizar">
-          <i class="fa-solid fa-rotate-right"></i>
+        <button
+          type="button"
+          class="icon-action"
+          (click)="refreshServices()"
+          [disabled]="loading || refreshing"
+          title="Actualizar">
+          <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
         </button>
 
         <button type="button" class="icon-action" (click)="exportCsv()" title="Exportar">
@@ -151,7 +160,10 @@
     <p *ngIf="!loading && !errorMessage && groupedServices.length === 0">No hay servicios para los filtros seleccionados.</p>
   </section>
 
-  <section class="catalog-sections" *ngIf="!loading && !errorMessage && groupedServices.length > 0">
+  <section
+    class="catalog-sections"
+    [class.is-refreshing]="refreshing"
+    *ngIf="!loading && !errorMessage && groupedServices.length > 0">
     <article class="category-block" *ngFor="let group of groupedServices; trackBy: trackByGroup">
       <header class="category-head">
         <div class="category-title">
@@ -170,64 +182,67 @@
 
       <div class="services-grid">
         <article
-          class="service-card"
+          class="gh-cat-card"
           *ngFor="let service of group.items; trackBy: trackByService"
+          [ngStyle]="{
+            '--cat-tone': getGroupTone(group).badgeColor,
+            '--cat-tone-soft': getGroupTone(group).badgeBg
+          }"
           (click)="openDetail(service)">
-          <div class="service-cover" [ngStyle]="{ background: getGroupTone(group).cover }">
-            <i [ngClass]="['cover-symbol', getGroupTone(group).icon]"></i>
-            <div class="cover-badges">
-              <span class="cover-badge" *ngIf="isPopular(group.key, service.id)">Popular</span>
-              <span
-                class="cover-type"
-                [ngStyle]="{
-                  'background-color': getGroupTone(group).badgeBg,
-                  color: getGroupTone(group).badgeColor
-                }">
-                {{ getServiceTypeLabel(service) }}
-              </span>
+          <div class="gh-cat-head">
+            <span class="gh-cat-icon"><i [class]="getGroupTone(group).icon"></i></span>
+            <div class="gh-cat-titles">
+              <h3>{{ service.name }}</h3>
+              <div class="gh-cat-tags">
+                <span class="gh-cat-tag">{{ getServiceTypeLabel(service) }}</span>
+                <span class="gh-cat-tag is-flag" *ngIf="isPopular(group.key, service.id)">
+                  <i class="fa-solid fa-star"></i>
+                  Popular
+                </span>
+              </div>
             </div>
           </div>
 
-          <div class="service-body">
-            <h3>{{ service.name }}</h3>
-            <p>{{ getServiceDescription(service) }}</p>
+          <div class="gh-cat-body">
+            <p class="gh-cat-desc">{{ getServiceDescription(service) }}</p>
+          </div>
 
-            <div class="price-row">
+          <div class="gh-cat-foot">
+            <div class="gh-cat-price">
+              <span>Precio</span>
               <strong>{{ getPriceLabel(service) }}</strong>
               <small>por {{ getUnitLabel(service) }}</small>
             </div>
 
-            <div class="card-foot">
-              <span
-                class="status-chip"
-                [ngStyle]="{
-                  'background-color': getStatusTone(service).bg,
-                  color: getStatusTone(service).color
-                }">
-                <span class="status-dot" [ngStyle]="{ 'background-color': getStatusTone(service).dot }"></span>
-                {{ service.is_active ? 'Activo' : 'Inactivo' }}
-              </span>
+            <span
+              class="gh-cat-status"
+              [ngStyle]="{
+                'background-color': getStatusTone(service).bg,
+                color: getStatusTone(service).color
+              }">
+              <span class="gh-cat-dot" [ngStyle]="{ 'background-color': getStatusTone(service).dot }"></span>
+              {{ service.is_active ? 'Activo' : 'Inactivo' }}
+            </span>
+          </div>
 
-              <div class="card-actions" (click)="$event.stopPropagation()">
-                <button type="button" class="row-btn primary-action" title="Ver detalle" (click)="openDetail(service)">
-                  <i class="fa-regular fa-eye"></i>
-                  <span>Ver</span>
-                </button>
-                <button type="button" class="row-btn" title="Editar" (click)="openUpdateDrawer(service)">
-                  <i class="fa-regular fa-pen-to-square"></i>
-                </button>
-                <button
-                  type="button"
-                  class="row-btn"
-                  [title]="service.is_active ? 'Desactivar' : 'Activar'"
-                  (click)="toggleServiceStatus(service)">
-                  <i [class]="service.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
-                </button>
-                <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(service)">
-                  <i class="fa-regular fa-trash-can"></i>
-                </button>
-              </div>
-            </div>
+          <div class="gh-cat-actions" (click)="$event.stopPropagation()">
+            <button type="button" class="gh-cat-btn is-primary" (click)="openDetail(service)">
+              <i class="fa-regular fa-eye"></i>
+              Ver
+            </button>
+            <button type="button" class="gh-cat-btn" title="Editar" (click)="openUpdateDrawer(service)">
+              <i class="fa-regular fa-pen-to-square"></i>
+            </button>
+            <button
+              type="button"
+              class="gh-cat-btn"
+              [title]="service.is_active ? 'Desactivar' : 'Activar'"
+              (click)="toggleServiceStatus(service)">
+              <i [class]="service.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+            </button>
+            <button type="button" class="gh-cat-btn is-danger" title="Eliminar" (click)="confirmDelete(service)">
+              <i class="fa-regular fa-trash-can"></i>
+            </button>
           </div>
         </article>
 

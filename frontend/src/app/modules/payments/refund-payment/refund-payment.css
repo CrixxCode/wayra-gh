@@ -1,0 +1,209 @@
+/* Solo tokens --gh-*; la estructura del modal viene de `gh-modal-*` (AGENTS 5.15). */
+
+:host {
+  display: block;
+}
+
+.refund-modal {
+  max-width: 560px;
+}
+
+.gh-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* --------------------------------------------------------------- saldo */
+
+/* La cifra que decide: se lee antes que el formulario y no compite con nada. */
+.refund-balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 15px 18px;
+  border: 1px solid var(--gh-border);
+  border-left: 3px solid var(--gh-status-info-strong);
+  border-radius: 13px;
+  background: var(--gh-surface-soft);
+}
+
+.refund-balance-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.refund-balance-main span {
+  color: var(--gh-text-soft);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.refund-balance-main strong {
+  color: var(--gh-text-strong);
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.refund-balance-side {
+  display: flex;
+  gap: 20px;
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+.refund-balance-side > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.refund-balance-side dt {
+  margin: 0;
+  color: var(--gh-text-soft);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.refund-balance-side dd {
+  margin: 0;
+  color: var(--gh-text);
+  font-size: 0.86rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.refund-balance.is-loading {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.refund-skeleton {
+  height: 14px;
+  border-radius: 7px;
+  background: var(--gh-border-soft);
+  animation: refund-pulse 1.3s ease-in-out infinite;
+}
+
+.refund-skeleton.is-wide {
+  height: 26px;
+  width: 55%;
+}
+
+@keyframes refund-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ------------------------------------------------------------- mensajes */
+
+.refund-blocked,
+.refund-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: 11px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.refund-blocked {
+  border: 1px solid var(--gh-status-warn-border);
+  background: var(--gh-status-warn-bg);
+  color: var(--gh-status-warn-text);
+}
+
+.refund-error {
+  border: 1px solid var(--gh-status-danger-border);
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+}
+
+/* ------------------------------------------------------------ formulario */
+
+.refund-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.refund-amount-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.refund-amount-row input {
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.refund-amount-row .gh-mbtn {
+  flex-shrink: 0;
+}
+
+/* Consecuencia de lo que se acaba de teclear, sin hacer la resta a mano. */
+.refund-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -6px 0 0;
+  color: var(--gh-text-muted);
+  font-size: 0.8rem;
+}
+
+.refund-preview i {
+  color: var(--gh-status-info-strong);
+}
+
+.refund-counter {
+  margin-left: 6px;
+  color: var(--gh-text-soft);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.refund-optional {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* ------------------------------------------------------------- acciones */
+
+.refund-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+@media (max-width: 560px) {
+  .refund-optional {
+    grid-template-columns: 1fr;
+  }
+
+  .refund-balance {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+}

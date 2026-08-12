@@ -115,7 +115,7 @@ export class ListExpenses implements OnInit {
     const options = this.paymentMethods
       .map((method) => ({
         value: this.normalizeCode(method.code || method.name || String(method.id)),
-        label: method.name || method.code || `Metodo #${method.id}`
+        label: method.name || method.code || 'Metodo sin nombre'
       }))
       .filter((option) => !!option.value);
 

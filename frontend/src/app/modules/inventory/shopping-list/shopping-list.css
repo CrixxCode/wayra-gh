@@ -1,0 +1,630 @@
+/* Solo tokens --gh-*: el modo oscuro sale del mismo sitio que el resto (AGENTS 5.15). */
+
+:host {
+  display: block;
+}
+
+.shopping-page {
+  /* Ancho completo, como el resto de la pagina: limitarlo dejaba la pestaña descuadrada
+     bajo unas metricas que si ocupan todo. El ancho sobrante se llena con columnas que
+     dicen algo, no con hueco. */
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 16px;
+}
+
+/* --------------------------------------------------------------- cabecera */
+
+.order-head {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  border: 1px solid var(--gh-border);
+  border-radius: 14px;
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-soft-sm);
+}
+
+.order-cost {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-right: 26px;
+  border-right: 1px solid var(--gh-border-soft);
+}
+
+.order-cost span {
+  color: var(--gh-text-soft);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.order-cost strong {
+  color: var(--gh-text-strong);
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.order-facts {
+  display: flex;
+  gap: 26px;
+  margin: 0;
+}
+
+.order-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.order-facts dt {
+  margin: 0;
+  color: var(--gh-text-soft);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.order-facts dd {
+  margin: 0;
+  color: var(--gh-text-strong);
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.order-facts dd small {
+  color: var(--gh-text-soft);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.order-facts dd.is-danger {
+  color: var(--gh-status-danger-text);
+}
+
+/* Dice si el pedido resuelve el problema o solo parte de el. */
+.order-coverage {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 0 auto;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: var(--gh-status-success-bg);
+  color: var(--gh-status-success-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.order-coverage.is-partial {
+  background: var(--gh-status-warn-bg);
+  color: var(--gh-status-warn-text);
+}
+
+/* ------------------------------------------------------------------ toolbar */
+
+.shopping-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.shopping-search {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 10px;
+  background: var(--gh-surface);
+  color: var(--gh-text-soft);
+}
+
+.shopping-search input {
+  flex: 1;
+  min-height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--gh-text);
+  font-size: 0.85rem;
+}
+
+.shopping-search input:focus {
+  outline: none;
+}
+
+.shopping-filters {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--gh-surface-soft);
+}
+
+.shopping-filters button {
+  padding: 6px 13px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gh-text-muted);
+  font-size: 0.79rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shopping-filters button.is-active {
+  background: var(--gh-surface);
+  color: var(--gh-text-strong);
+  box-shadow: var(--gh-shadow-soft-sm);
+}
+
+/* Con rotulo: cuatro iconos sueltos obligaban a adivinar cual hacia que. */
+.shopping-tools {
+  display: flex;
+  gap: 6px;
+}
+
+.shopping-tools button {
+  min-height: 36px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 10px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shopping-tools button:hover {
+  border-color: var(--gh-search-focus);
+  color: var(--gh-text-strong);
+}
+
+/* ------------------------------------------------------------------ avisos */
+
+.shopping-note {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  padding: 11px 14px;
+  border: 1px solid var(--gh-status-success-border);
+  border-radius: 11px;
+  background: var(--gh-status-success-bg);
+  color: var(--gh-status-success-text);
+  font-size: 0.85rem;
+}
+
+.shopping-note.is-error {
+  border-color: var(--gh-status-danger-border);
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+}
+
+.shopping-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 48px 20px;
+  border: 1px dashed var(--gh-status-success-border);
+  border-radius: 14px;
+  background: var(--gh-status-success-bg);
+  text-align: center;
+}
+
+.shopping-empty i {
+  color: var(--gh-status-success-strong);
+  font-size: 1.7rem;
+}
+
+.shopping-empty strong {
+  color: var(--gh-status-success-text);
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.shopping-empty p {
+  max-width: 420px;
+  margin: 0;
+  color: var(--gh-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+/* -------------------------------------------------------------------- tabla */
+
+/* Columnas alineadas: es lo que hace comparable una lista de compra. */
+.order-table {
+  border: 1px solid var(--gh-border);
+  border-radius: 14px;
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-soft-sm);
+  overflow: hidden;
+}
+
+.order-row {
+  display: grid;
+  grid-template-columns:
+    40px minmax(200px, 1fr) 90px minmax(140px, 190px) 170px 96px 110px 116px 40px;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--gh-border-soft);
+}
+
+.order-row.is-head {
+  padding: 9px 14px;
+  border-top: 0;
+  background: var(--gh-surface-alt);
+  color: var(--gh-text-soft);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.order-row.is-head .is-center {
+  text-align: center;
+}
+
+.order-row.is-head .is-right {
+  text-align: right;
+}
+
+/* Agotado: detiene la operacion, no solo la reposicion. */
+.order-row.is-out {
+  background: var(--gh-status-danger-bg);
+}
+
+/* Fuera del pedido: sigue en la lista, pero no compite. */
+.order-row.is-off {
+  opacity: 0.5;
+}
+
+.row-check {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gh-status-info-strong);
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.row-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.row-item strong {
+  color: var(--gh-text-strong);
+  font-size: 0.9rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-item small {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--gh-text-soft);
+  font-size: 0.74rem;
+}
+
+.row-sku {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+}
+
+/* La carencia, sola en su columna: es el motivo por el que la linea esta aqui. */
+.row-gap {
+  display: flex;
+  justify-content: center;
+}
+
+.row-gap strong {
+  color: var(--gh-status-warn-text);
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-flag {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--gh-status-danger-border);
+  color: var(--gh-status-danger-text);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* Cuanto queda frente a su minimo, con barra: dos carencias distintas dejan de verse
+   iguales en la lista. */
+.row-stock {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.row-stock-figure {
+  color: var(--gh-text-soft);
+  font-size: 0.77rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-stock-figure b {
+  color: var(--gh-text-strong);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.row-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--gh-surface-soft);
+  border: 1px solid var(--gh-border-soft);
+  overflow: hidden;
+}
+
+.row-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gh-status-warn-strong);
+}
+
+.order-row.is-out .row-bar > i {
+  background: var(--gh-status-danger-strong);
+}
+
+/* ---------------------------------------------------------------- cantidad */
+
+.row-quantity {
+  display: flex;
+  justify-content: center;
+}
+
+.quantity-control {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--gh-surface);
+}
+
+.quantity-control button {
+  width: 30px;
+  border: 0;
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-muted);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.quantity-control button:hover:not(:disabled) {
+  background: var(--gh-surface-hover);
+  color: var(--gh-text-strong);
+}
+
+.quantity-control button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.quantity-control input {
+  width: 68px;
+  padding: 5px 4px;
+  border: 0;
+  border-left: 1px solid var(--gh-border-soft);
+  border-right: 1px solid var(--gh-border-soft);
+  background: transparent;
+  color: var(--gh-text-strong);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.quantity-control input:focus {
+  outline: 2px solid var(--gh-search-focus);
+  outline-offset: -2px;
+}
+
+/* La consecuencia de lo pedido, comparable de un vistazo entre lineas. */
+.row-result {
+  color: var(--gh-status-success-text);
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sigue corto: el pedido no resuelve esta linea. */
+.row-result.is-short {
+  color: var(--gh-status-warn-text);
+}
+
+.row-unit {
+  color: var(--gh-text-muted);
+  font-size: 0.8rem;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-cost {
+  color: var(--gh-text-strong);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-suggest {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 8px;
+  background: var(--gh-surface);
+  color: var(--gh-text-soft);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.row-suggest:hover {
+  border-color: var(--gh-border-strong);
+  color: var(--gh-text-strong);
+}
+
+/* --------------------------------------------------------------------- pie */
+
+.shopping-foot {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 15px 18px;
+  border: 1px solid var(--gh-border);
+  border-radius: 14px;
+  background: var(--gh-surface-soft);
+}
+
+.foot-reference {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.foot-reference span {
+  color: var(--gh-text-soft);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.foot-reference input {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 10px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  font-size: 0.84rem;
+}
+
+.foot-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+@media (max-width: 1200px) {
+  .order-row {
+    grid-template-columns: 40px minmax(180px, 1fr) 70px 150px 150px 80px 110px 40px;
+  }
+
+  /* Se sacrifica el unitario antes que cualquier otra columna: es el dato menos
+     consultado al revisar un pedido. */
+  .order-row > .row-unit,
+  .order-row.is-head > span:nth-child(7) {
+    display: none;
+  }
+}
+
+@media (max-width: 940px) {
+  .order-row {
+    grid-template-columns: 36px minmax(0, 1fr) 150px 40px;
+    grid-template-areas:
+      'check item item suggest'
+      'gap stock stock stock'
+      'qty qty result cost';
+    gap: 10px;
+  }
+
+  .order-row.is-head {
+    display: none;
+  }
+
+  .row-check {
+    grid-area: check;
+  }
+
+  .row-item {
+    grid-area: item;
+  }
+
+  .row-gap {
+    grid-area: gap;
+    justify-content: flex-start;
+  }
+
+  .row-stock {
+    grid-area: stock;
+  }
+
+  .row-quantity {
+    grid-area: qty;
+    justify-content: flex-start;
+  }
+
+  .row-result {
+    grid-area: result;
+  }
+
+  .row-cost {
+    grid-area: cost;
+  }
+
+  .row-suggest {
+    grid-area: suggest;
+  }
+
+  .order-cost {
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .order-coverage {
+    margin-left: 0;
+  }
+
+  .foot-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+}

@@ -7,12 +7,35 @@ import { BillingService } from '../../../services/billing';
 import { PaymentMethodI, PaymentMethodService } from '../../../services/payment-method';
 import { ReservationService } from '../../../services/reservation';
 import { RoomInventoryService } from '../../../services/room-inventory';
-import { ChargeI } from '../../billing/billing-model';
+import { ChargeI, PaymentI, PaymentRefundI } from '../../billing/billing-model';
 import { ReservationDetailI, ReservationGuestI } from '../../reservations/reservation-model';
 import { RoomInventoryI } from '../../room-inventory/room-inventory-model';
 import { RoomI } from '../room-model';
 
 export type RoomCheckMode = 'check-in' | 'check-out';
+
+/**
+ * Movimiento de dinero de la estadia, para trazabilidad en el mostrador.
+ *
+ * Incluye reembolsos ademas de pagos a proposito: el total "Pagado" que muestra la
+ * reserva ya les resta los reembolsos aprobados, asi que un historial de solo pagos no
+ * cuadraria con esa cifra y la recepcionista no sabria a cual creerle.
+ */
+export type PaymentHistoryEntry = {
+  id: string;
+  kind: 'payment' | 'refund';
+  date: string | null;
+  /** Positivo en pagos, negativo en reembolsos. */
+  amount: number;
+  method: string;
+  reference: string;
+  /** Estado del reembolso, o "Anulado" para un pago dado de baja. */
+  status: string;
+  /** Un pago inactivo o un reembolso no aprobado no mueve el saldo. */
+  counts: boolean;
+  /** Quien lo registro. Vacio en los pagos anteriores al campo `created_by`. */
+  author: string;
+};
 
 /** Un huesped con su casilla de verificacion de documento. */
 export type GuestVerification = {
@@ -54,6 +77,10 @@ export class RoomCheckModal implements OnInit {
   /** Consumos y cargos de la reserva, para que el huesped vea el detalle. */
   charges: ChargeI[] = [];
   paymentMethods: PaymentMethodI[] = [];
+
+  /** Historial de movimientos de dinero de la estadia. */
+  paymentHistory: PaymentHistoryEntry[] = [];
+  historyLoading = false;
 
   paymentForm = {
     payment_method: null as number | null,
@@ -124,7 +151,122 @@ export class RoomCheckModal implements OnInit {
       this.charges = charges.filter((charge) => !charge.is_automatic);
       this.paymentMethods = paymentMethods;
       this.resetPaymentForm();
+
+      if (isCheckOut) this.loadPaymentHistory();
     });
+  }
+
+  /**
+   * Historial de movimientos de dinero de la estadia.
+   *
+   * Se piden los pagos **incluyendo los inactivos** y los reembolsos: para auditar hace
+   * falta ver tambien lo que se anulo o se devolvio, no solo lo que quedo en pie.
+   */
+  private loadPaymentHistory(): void {
+    const reservationId = this.reservation?.id;
+    if (!reservationId) return;
+
+    this.historyLoading = true;
+
+    this.billingService
+      .listInvoices({ reservation: reservationId, is_active: true, ordering: '-id' })
+      .pipe(catchError(() => of([])))
+      .subscribe((invoices) => {
+        const invoiceId = invoices[0]?.id;
+        if (!invoiceId) {
+          this.historyLoading = false;
+          this.paymentHistory = [];
+          return;
+        }
+
+        forkJoin({
+          payments: this.billingService
+            .listPayments({ invoice: invoiceId, include_inactive: true, ordering: 'payment_date' })
+            .pipe(catchError(() => of([] as PaymentI[]))),
+          refunds: this.billingService
+            .listPaymentRefunds({ invoice: invoiceId, ordering: 'refund_date' })
+            .pipe(catchError(() => of([] as PaymentRefundI[])))
+        }).subscribe(({ payments, refunds }) => {
+          this.historyLoading = false;
+          this.paymentHistory = this.buildHistory(payments, refunds);
+        });
+      });
+  }
+
+  private buildHistory(payments: PaymentI[], refunds: PaymentRefundI[]): PaymentHistoryEntry[] {
+    const entries: PaymentHistoryEntry[] = payments.map((payment) => ({
+      id: `payment-${payment.id}`,
+      kind: 'payment' as const,
+      date: payment.payment_date || payment.created_at || null,
+      amount: this.toAmount(payment.amount),
+      method: payment.payment_method_name || 'Sin metodo',
+      reference: String(payment.reference || '').trim(),
+      status: payment.is_active ? '' : 'Anulado',
+      counts: payment.is_active !== false,
+      author: String(payment.created_by_username || '').trim()
+    }));
+
+    // Solo los reembolsos aprobados o procesados descuentan del saldo; el resto se
+    // muestra igual, marcado, porque para auditar importa que exista la solicitud.
+    const settledStatuses = new Set(['APROBADO', 'PROCESADO']);
+
+    for (const refund of refunds) {
+      const code = String(refund.status_code || '').trim().toUpperCase();
+      entries.push({
+        id: `refund-${refund.id}`,
+        kind: 'refund',
+        date: refund.refund_date || refund.created_at || null,
+        amount: -this.toAmount(refund.amount),
+        method: refund.payment_method_name || 'Reembolso',
+        reference: String(refund.reference || refund.reason || '').trim(),
+        status: refund.status_name || code || 'Reembolso',
+        counts: settledStatuses.has(code) && refund.is_active !== false,
+        author: ''
+      });
+    }
+
+    return entries.sort((a, b) => {
+      const left = a.date ? new Date(a.date).getTime() : 0;
+      const right = b.date ? new Date(b.date).getTime() : 0;
+      return left - right;
+    });
+  }
+
+  get hasPaymentHistory(): boolean {
+    return this.paymentHistory.length > 0;
+  }
+
+  /** Suma de lo que efectivamente movio el saldo; debe cuadrar con "Pagado". */
+  get historyNetTotal(): number {
+    return this.paymentHistory
+      .filter((entry) => entry.counts)
+      .reduce((total, entry) => total + entry.amount, 0);
+  }
+
+  get historyNetTotalLabel(): string {
+    return this.formatMoney(this.historyNetTotal);
+  }
+
+  historyAmountLabel(entry: PaymentHistoryEntry): string {
+    const prefix = entry.amount < 0 ? '-' : '';
+    return `${prefix}${this.formatMoney(Math.abs(entry.amount))}`;
+  }
+
+  historyDateLabel(entry: PaymentHistoryEntry): string {
+    if (!entry.date) return 'Sin fecha';
+    const parsed = new Date(entry.date);
+    if (Number.isNaN(parsed.getTime())) return 'Sin fecha';
+
+    return new Intl.DateTimeFormat('es-CO', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(parsed);
+  }
+
+  trackByHistory(_: number, entry: PaymentHistoryEntry): string {
+    return entry.id;
   }
 
   private resetPaymentForm(): void {
@@ -156,6 +298,19 @@ export class RoomCheckModal implements OnInit {
   get confirmLabel(): string {
     if (this.submitting) return 'Procesando...';
     return this.mode === 'check-in' ? 'Confirmar ingreso' : 'Confirmar salida';
+  }
+
+  /**
+   * Habitacion de la estadia, con piso y tipo. Sustituye al numero de reserva, que es
+   * un id interno y no le dice nada a quien esta en el mostrador.
+   */
+  get roomLabel(): string {
+    const number = this.room?.number ? `Habitacion ${this.room.number}` : 'Sin habitacion';
+    const details = [this.room?.floor_name, this.room?.room_type_name]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
+
+    return details.length ? `${number} · ${details.join(' · ')}` : number;
   }
 
   get holderName(): string {
@@ -381,6 +536,8 @@ export class RoomCheckModal implements OnInit {
       this.charges = (charges || []).filter((charge) => !charge.is_automatic);
       this.paymentFeedback = `Pago de ${this.formatMoney(amount)} registrado.`;
       this.resetPaymentForm();
+      // El pago recien hecho tiene que aparecer en el historial sin recargar el modal.
+      this.loadPaymentHistory();
     });
   }
 

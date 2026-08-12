@@ -146,6 +146,34 @@ NAV_RESOURCES = [
         "Vista de reembolsos (la API valida con payments.read/write).",
         "",
     ),
+    (
+        "commercial_catalog.read",
+        "Catalogo comercial",
+        "Servicios, paquetes y promociones en una sola pantalla. La API sigue protegida "
+        "por services.*, packages.* y promotions.*.",
+        "",
+    ),
+    (
+        "billing_center.read",
+        "Facturas y pagos",
+        "Facturas, pagos y reembolsos en una sola pantalla. La API sigue protegida "
+        "por invoices.* y payments.*.",
+        "",
+    ),
+    (
+        "inventory_center.read",
+        "Inventario",
+        "Items, dotacion por habitacion y movimientos en una sola pantalla. La API "
+        "sigue protegida por items.*, room-inventory.* e inventory-movements.*.",
+        "",
+    ),
+    (
+        "operations_center.read",
+        "Limpieza y mantenimiento",
+        "Tareas de limpieza y ordenes de mantenimiento en una sola pantalla. La API "
+        "sigue protegida por cleaning_tasks.* y maintenance_orders.*.",
+        "",
+    ),
     # Panel SaaS. Solo sirven para pintar el menu: el administrador de plataforma es
     # superusuario sin hotel y `HasResourcePermission` lo deja pasar sin consultar RBAC.
     ("saasadmin.button", "SaaS Admin", "Grupo de menu del panel de plataforma.", ""),
@@ -153,12 +181,15 @@ NAV_RESOURCES = [
     ("saas_hotels.read", "Hoteles", "Listado global de hoteles.", ""),
     ("saas_demo_requests.read", "Solicitudes de demo", "Gestion de solicitudes de demo.", ""),
     ("saas_amenities.read", "Amenidades globales", "Catalogo global de amenidades.", ""),
+    # Administracion de la plataforma. Son entradas de menu, no scopes: la API sigue
+    # protegida por `users.*`, `roles.*`, `resources.*` y `master_data.*`.
+    ("saas_users.read", "Usuarios", "Gestion de usuarios desde el panel de plataforma.", ""),
+    ("saas_roles.read", "Roles", "Gestion de roles desde el panel de plataforma.", ""),
+    ("saas_resources.read", "Recursos", "Gestion de recursos RBAC.", ""),
+    ("saas_master_data.read", "Master Data", "Catalogos y enums del sistema.", ""),
     # Grupos del menu lateral (contenedores sin ruta propia).
     ("packages", "Paquetes y promociones", "Grupo de menu.", ""),
-    ("invoicesandpayment", "Facturas y pagos", "Grupo de menu.", ""),
     ("finance", "Finanzas", "Grupo de menu.", ""),
-    ("inventory", "Inventario", "Grupo de menu.", ""),
-    ("mantenimiento", "Limpieza y mantenimiento", "Grupo de menu.", ""),
     ("security", "Seguridad", "Grupo de menu.", ""),
 ]
 
@@ -178,20 +209,21 @@ MENU = [
     ("rooms.read", "Habitaciones", "fa-solid fa-bed", "/habitaciones", 3, None),
     ("clients.read", "Clientes y huespedes", "fa-solid fa-users", "/clientes", 4, None),
     (
-        "services.read",
-        "Catalogo de servicios",
+        "commercial_catalog.read",
+        "Catalogo comercial",
         "fa-solid fa-bell-concierge",
-        "/catalogo-servicios",
+        "/catalogo-comercial",
         5,
         None,
     ),
-    ("packages", "Paquetes y promociones", "fa-solid fa-box-open", "", 6, None),
-    ("packages.read", "Catalogo de paquetes", "", "/catalogo-paquetes", 1, "packages"),
-    ("promotions.read", "Promociones", "", "/promociones", 2, "packages"),
-    ("invoicesandpayment", "Facturas y pagos", "fa-solid fa-credit-card", "", 7, None),
-    ("invoices.read", "Facturas", "", "/facturas", 1, "invoicesandpayment"),
-    ("payments.read", "Pagos", "", "/pagos", 2, "invoicesandpayment"),
-    ("payment-refunds.read", "Reembolsos", "", "/reembolsos", 3, "invoicesandpayment"),
+    (
+        "billing_center.read",
+        "Facturas y pagos",
+        "fa-solid fa-credit-card",
+        "/facturacion",
+        7,
+        None,
+    ),
     ("finance", "Finanzas", "fa-solid fa-money-bill-transfer", "", 8, None),
     (
         "income_consolidated.read",
@@ -203,33 +235,21 @@ MENU = [
     ),
     ("expenses.read", "Egresos", "", "/egresos", 2, "finance"),
     ("financial_control.read", "Control financiero", "", "/control-financiero", 3, "finance"),
-    ("inventory", "Inventario", "fa-solid fa-boxes-stacked", "", 9, None),
-    ("items.read", "Items", "", "/items", 1, "inventory"),
     (
-        "room-inventory.read",
-        "Inventario por habitacion",
-        "",
-        "/inventario-habitaciones",
-        2,
-        "inventory",
+        "inventory_center.read",
+        "Inventario",
+        "fa-solid fa-boxes-stacked",
+        "/inventario",
+        9,
+        None,
     ),
     (
-        "inventory-movements.read",
-        "Movimientos de inventario",
-        "",
-        "/movimientos-inventario",
-        3,
-        "inventory",
-    ),
-    ("mantenimiento", "Limpieza y mantenimiento", "fa-solid fa-screwdriver-wrench", "", 10, None),
-    ("cleaning_tasks.read", "Tareas de limpieza", "", "/tareas-limpieza", 1, "mantenimiento"),
-    (
-        "maintenance_orders.read",
-        "Ordenes de mantenimiento",
-        "",
-        "/ordenes-mantenimiento",
-        2,
-        "mantenimiento",
+        "operations_center.read",
+        "Limpieza y mantenimiento",
+        "fa-solid fa-screwdriver-wrench",
+        "/limpieza-mantenimiento",
+        10,
+        None,
     ),
     ("reports.read", "Reportes", "fa-solid fa-clipboard-list", "/reportes", 11, None),
     (
@@ -248,12 +268,7 @@ MENU = [
         13,
         None,
     ),
-    ("security", "Seguridad", "fa-solid fa-shield-halved", "", 14, None),
-    ("users.read", "Usuarios", "pi pi-users", "/usuarios", 1, "security"),
-    ("roles.read", "Roles", "pi pi-shield", "/roles", 2, "security"),
-    ("resources.read", "Recursos", "pi pi-list", "/recursos", 3, "security"),
-    ("master_data.read", "Master Data", "pi pi-database", "/master-data", 4, "security"),
-    ("saasadmin.button", "SaaS Admin", "fa-solid fa-sliders", "", 15, None),
+    ("saasadmin.button", "SaaS Admin", "fa-solid fa-sliders", "", 14, None),
     ("saas.panel.read", "Panel SaaS", "fa-solid fa-chart-line", "/saas-panel", 1, "saasadmin.button"),
     ("saas_hotels.read", "Hoteles", "fa-solid fa-hotel", "/saas-hoteles", 2, "saasadmin.button"),
     (
@@ -272,6 +287,17 @@ MENU = [
         4,
         "saasadmin.button",
     ),
+    ("saas_users.read", "Usuarios", "pi pi-users", "/usuarios", 5, "saasadmin.button"),
+    ("saas_roles.read", "Roles", "pi pi-shield", "/roles", 6, "saasadmin.button"),
+    ("saas_resources.read", "Recursos", "pi pi-list", "/recursos", 7, "saasadmin.button"),
+    (
+        "saas_master_data.read",
+        "Master Data",
+        "pi pi-database",
+        "/master-data",
+        8,
+        "saasadmin.button",
+    ),
 ]
 
 MENU_KEYS = [key for key, *_ in MENU]
@@ -282,6 +308,11 @@ SAAS_MENU_KEYS = [
     "saas_hotels.read",
     "saas_demo_requests.read",
     "saas_amenities.read",
+    # Administracion de la plataforma: no la ve ningun usuario de hotel.
+    "saas_users.read",
+    "saas_roles.read",
+    "saas_resources.read",
+    "saas_master_data.read",
 ]
 
 
@@ -301,6 +332,11 @@ LEGACY_KEYS = [
     "clientes-huespedes",  # grupo de un solo hijo; clients.read subio a primer nivel
     "services",  # grupo de un solo hijo; services.read subio a primer nivel
     "rooms.view",  # grupo vaciado por accounts/0019 y 0020
+    "security",  # sus paginas se movieron al panel SaaS
+    "packages",  # grupo reemplazado por la vista unica de catalogo comercial
+    "invoicesandpayment",  # grupo reemplazado por la vista unica de facturacion
+    "inventory",  # grupo reemplazado por la vista unica de inventario
+    "mantenimiento",  # grupo reemplazado por la vista unica de limpieza y mantenimiento
 ]
 
 
@@ -402,9 +438,17 @@ def _menu_keys_for(allowed_prefixes, include_saas=False):
     return keys
 
 
+# Dominios cuya administracion pasa al panel SaaS: un usuario de hotel no los necesita
+# ni siquiera por API. `master_data` NO esta aqui a proposito -- su lectura la usan doce
+# pantallas de hotel (facturas, limpieza, inventario, reservas...).
+PLATFORM_ONLY_DOMAINS = {"users", "roles", "resources"}
+
+
 def _admin_keys():
     keys = list(COMMON_KEYS)
     for prefix, _, _, has_write in DOMAINS:
+        if prefix in PLATFORM_ONLY_DOMAINS:
+            continue
         keys.append(_read(prefix))
         keys.append(_deleted(prefix))
         # amenities es un catalogo global del panel SaaS: el ViewSet exige
@@ -412,19 +456,35 @@ def _admin_keys():
         # (AGENTS.md 5.14).
         if has_write and prefix != "amenities":
             keys.append(_write(prefix))
-    keys += ["income_consolidated.read", "payment-refunds.read", "activity-log.view"]
+    keys += [
+        "income_consolidated.read",
+        "payment-refunds.read",
+        "activity-log.view",
+        "commercial_catalog.read",
+        "billing_center.read",
+        "inventory_center.read",
+        "operations_center.read",
+    ]
     keys += _menu_keys_for(DOMAIN_KEYS)
     return sorted(set(keys))
 
 
 def _manager_keys():
     keys = list(COMMON_KEYS)
-    allowed = set(MANAGER_WRITE_DOMAINS) | {"reports", "amenities", "users", "roles"}
+    allowed = set(MANAGER_WRITE_DOMAINS) | {"reports", "amenities"}
     for prefix in sorted(allowed):
         keys.append(_read(prefix))
     for prefix in MANAGER_WRITE_DOMAINS:
         keys.append(_write(prefix))
-    keys += ["income_consolidated.read", "payment-refunds.read", "activity-log.view"]
+    keys += [
+        "income_consolidated.read",
+        "payment-refunds.read",
+        "activity-log.view",
+        "commercial_catalog.read",
+        "billing_center.read",
+        "inventory_center.read",
+        "operations_center.read",
+    ]
     keys += _menu_keys_for(allowed)
     return sorted(set(keys))
 
@@ -436,6 +496,10 @@ def _staff_keys():
         keys.append(_read(prefix))
     for prefix in STAFF_WRITE_DOMAINS:
         keys.append(_write(prefix))
+    # Recepcion ya operaba facturas y pagos; la entrada de menu ahora es una sola.
+    # `payment-refunds.read` sigue sin concederse, asi que la pestaña de reembolsos no
+    # se le pinta (ver `BillingPage.canSeeRefunds`).
+    keys += ["billing_center.read", "inventory_center.read", "operations_center.read"]
     keys += _menu_keys_for(allowed)
     return sorted(set(keys))
 

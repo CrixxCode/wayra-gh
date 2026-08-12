@@ -675,6 +675,10 @@ class ReservationDepositSerializer(serializers.Serializer):
                     {"reservation": "No fue posible obtener la factura activa de la reserva."}
                 )
 
+            # El abono tambien es un cobro: queda con autor para la trazabilidad del
+            # historial de pagos (ver AGENTS.md 5.16).
+            request = self.context.get("request")
+            actor = getattr(request, "user", None)
             payment = Payment.objects.create(
                 invoice=invoice,
                 payment_method=validated_data["payment_method"],
@@ -682,6 +686,7 @@ class ReservationDepositSerializer(serializers.Serializer):
                 reference=validated_data.get("reference"),
                 notes=validated_data.get("notes"),
                 is_active=True,
+                created_by=actor if actor and actor.is_authenticated else None,
             )
             self._apply_payment_date(payment, deposit_date)
             return payment

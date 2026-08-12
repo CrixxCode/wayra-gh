@@ -126,9 +126,11 @@ class ReservationFlowTestCase(TestCase):
             MasterData.Group.RESERVATION_STATUS, "FINALIZADA", "Finalizada", 3
         )
         self.reservation_origin = self._md(MasterData.Group.RESERVATION_ORIGIN, "WEB", "Web", 1)
-        self.payment_method_cash = PaymentMethod.objects.create(
-            hotel_settings=self.hotel_settings, code="EFECTIVO", name="Efectivo"
-        )
+        self.payment_method_cash = PaymentMethod.objects.get_or_create(
+            hotel_settings=self.hotel_settings,
+            code="EFECTIVO",
+            defaults={"name": "Efectivo"}
+        )[0]
         self.deposit_status_validated = self._md(
             MasterData.Group.RESERVATION_DEPOSIT_STATUS, "VALIDADO", "Validado", 1
         )
@@ -989,9 +991,11 @@ class ReservationApiFlowTestCase(APITestCase):
             hotel_name="Hotel API Test",
             check_in_time=time(0, 0),
         )
-        self.payment_method_cash = PaymentMethod.objects.create(
-            hotel_settings=self.hotel_settings, code="EFECTIVO", name="Efectivo"
-        )
+        self.payment_method_cash = PaymentMethod.objects.get_or_create(
+            hotel_settings=self.hotel_settings,
+            code="EFECTIVO",
+            defaults={"name": "Efectivo"}
+        )[0]
         self.floor = HotelFloor.objects.create(
             hotel_settings=self.hotel_settings,
             floor_number=1,

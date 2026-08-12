@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
@@ -126,7 +126,20 @@ const CATEGORY_TONES: Record<string, PackageCategoryTone> = {
   styleUrls: ['./list-packages.css']
 })
 export class ListPackages implements OnInit {
+  /**
+   * La vista vive dentro del catalogo comercial: el contenedor pone el encabezado y las
+   * metricas, asi que aqui se ocultan para no repetirlos en cada pestaña.
+   */
+  @Input() embedded = false;
+
+  /** Avisa al catalogo comercial que sus metricas quedaron desactualizadas. */
+  @Output() changed = new EventEmitter<void>();
+
+  /** Solo la primera carga: es la unica que puede dejar la pantalla vacia. */
   loading = false;
+
+  /** Recarga posterior a una accion: la cuadricula sigue en pantalla. */
+  refreshing = false;
   errorMessage = '';
   infoMessage = '';
   showDeletedPackages = false;
@@ -203,8 +216,11 @@ export class ListPackages implements OnInit {
     return this.formatCurrency(total / this.packages.length);
   }
 
-  loadCatalogData(): void {
-    this.loading = true;
+  loadCatalogData(options: { silent?: boolean } = {}): void {
+    // Una recarga silenciosa no toca `loading`, asi que el `*ngIf` de la cuadricula
+    // no se cae y la pantalla no parpadea con cada activar/desactivar/eliminar.
+    if (options.silent) this.refreshing = true;
+    else this.loading = true;
     this.errorMessage = '';
     const selectedPackageId = this.selectedPackage?.id ?? null;
     const packageToEditId = this.packageToEdit?.id ?? null;
@@ -229,6 +245,7 @@ export class ListPackages implements OnInit {
     }).subscribe({
       next: ({ packages, allPackages, roomTypes, servicesCatalog, packageServices, settings }) => {
         this.loading = false;
+        this.refreshing = false;
         this.packages = packages;
         const visibleIds = new Set(packages.map((pkg) => pkg.id));
         this.deletedPackages = allPackages.filter((pkg) => !visibleIds.has(pkg.id));
@@ -262,13 +279,15 @@ export class ListPackages implements OnInit {
       },
       error: () => {
         this.loading = false;
+        this.refreshing = false;
         this.errorMessage = 'No fue posible cargar el catalogo de paquetes.';
       }
     });
   }
 
   refreshPackages(): void {
-    this.loadCatalogData();
+    this.changed.emit();
+    this.loadCatalogData({ silent: true });
   }
 
   exportCsv(): void {
@@ -287,7 +306,7 @@ export class ListPackages implements OnInit {
 
     const rows = this.filteredPackages.map((pkg) => {
       const services = this.getPackageServices(pkg)
-        .map((service) => service.service_name || `Servicio #${service.service}`)
+        .map((service) => service.service_name || 'Servicio sin nombre')
         .join(' | ');
 
       const row = [
@@ -406,7 +425,11 @@ export class ListPackages implements OnInit {
   togglePackageStatus(pkg: PackageI): void {
     this.errorMessage = '';
     this.packagesService.updatePackage(pkg.id, { is_active: !pkg.is_active }).subscribe({
-      next: () => {
+      next: (updated) => {
+        // El estado se pinta con la respuesta, sin esperar a la recarga: es el dato que
+        // el usuario acaba de cambiar y verlo tardar se siente como un bloqueo.
+        pkg.is_active = updated?.is_active ?? !pkg.is_active;
+        this.applyFilters();
         this.refreshPackages();
       },
       error: () => {
@@ -740,7 +763,7 @@ export class ListPackages implements OnInit {
         service_type: null,
         service_type_name: link.service_type_name || 'General',
         service_type_code: '',
-        name: link.service_name || `Servicio #${serviceId}`,
+        name: link.service_name || 'Servicio sin nombre',
         description: '',
         base_price: 0,
         is_active: true

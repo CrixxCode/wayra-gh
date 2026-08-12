@@ -102,6 +102,9 @@ export interface PaymentI {
   reference?: string | null;
   notes?: string | null;
   is_active: boolean;
+  /** Quien registro el cobro. Null en los pagos anteriores al campo. */
+  created_by?: string | null;
+  created_by_username?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -118,6 +121,9 @@ export interface PaymentCreatePayloadI {
 export interface PaymentRefundI {
   id: number;
   payment: number;
+  /** Del pago que devuelve: es como se reconoce, sin recurrir a su id. */
+  payment_amount?: string | number;
+  payment_date?: string;
   invoice?: number;
   invoice_number?: string;
   payment_method?: number | null;
