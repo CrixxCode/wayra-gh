@@ -64,6 +64,7 @@ def reverse_payment_methods(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
 
     dependencies = [
         ("finance", "0004_financialcontrolconfig_operational_high_occupancy_threshold_pct_and_more"),

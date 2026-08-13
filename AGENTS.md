@@ -954,6 +954,25 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-13 — Migraciones de metodos de pago compatibles con PostgreSQL
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** deploy
+- **Que se hizo:** las migraciones que repuntan metodos de pago desde `MasterData` hacia
+  `hotel_settings.PaymentMethod` ahora se ejecutan sin transaccion global, y la migracion que elimina
+  `description` y `sort_order` de `PaymentMethod` espera explicitamente a que billing, finance y
+  reservas terminen de migrar sus referencias.
+- **Por que:** el deploy de Railway fallaba en `billing.0007_payment_hotel_payment_method` con
+  `cannot ALTER TABLE "payment_method" because it has pending trigger events`; PostgreSQL no permite
+  mezclar esos cambios de datos y esquema sobre tablas con triggers FK pendientes en una sola
+  transaccion.
+- **Archivos/areas afectadas:** `backend/apps/billing/migrations/0007_payment_hotel_payment_method.py`,
+  `backend/apps/finance/migrations/0005_expense_hotel_payment_method.py`,
+  `backend/apps/reservations/migrations/0010_deposit_hotel_payment_method.py`,
+  `backend/apps/hotel_settings/migrations/0007_payment_method_type_and_account.py`.
+- **Impacto:** requiere redeploy; no agrega migraciones nuevas ni variables de entorno.
+
 ### 2026-08-13 — Check-in online publico separado del modulo interno
 
 - **Autor:** Codex, a solicitud de rastor65

@@ -42,9 +42,13 @@ def reset_method_type(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
 
     dependencies = [
         ("hotel_settings", "0006_seed_payment_methods"),
+        ("billing", "0007_payment_hotel_payment_method"),
+        ("finance", "0005_expense_hotel_payment_method"),
+        ("reservations", "0010_deposit_hotel_payment_method"),
     ]
 
     operations = [
