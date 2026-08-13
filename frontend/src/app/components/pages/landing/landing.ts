@@ -7,7 +7,8 @@ import {
   inject,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { DatePickerModule } from 'primeng/datepicker';
 import { catchError, finalize, of } from 'rxjs';
 
 import {
@@ -27,6 +28,8 @@ import {
   loadDepartmentsForCountry,
   loadHotelCountries,
 } from '../../../shared/hotel-location-options';
+
+import { ALLIED_HOTELS } from '../../../shared/allied-hotels';
 
 
 interface NavLink {
@@ -88,12 +91,29 @@ type DemoFormSection =
   | 'operation'
   | 'requester';
 
+type LandingBookingControlName =
+  | 'destination'
+  | 'dateRange'
+  | 'rooms'
+  | 'guests';
+
+interface BookingDestinationMatch {
+  country: string;
+  city: string;
+}
+
+interface BookingDestinationOption {
+  city: string;
+  country: string;
+}
+
 
 @Component({
   selector: 'app-landing',
   standalone: true,
   imports: [
     CommonModule,
+    DatePickerModule,
     ReactiveFormsModule,
     RouterLink,
   ],
@@ -105,6 +125,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
   private readonly formBuilder = inject(FormBuilder);
   private readonly demoRequestService = inject(DemoRequestService);
   private readonly rolesService = inject(RolesService);
+  private readonly router = inject(Router);
 
   private previousBodyOverflow = '';
   private revealObserver: IntersectionObserver | null = null;
@@ -239,12 +260,54 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     }),
   });
 
+  readonly bookingMinDate =
+    this.getTodayDate();
+
+  readonly bookingSearchForm =
+    this.formBuilder.nonNullable.group({
+      destination: [
+        '',
+        Validators.required,
+      ],
+
+      dateRange: [
+        [] as Date[],
+        Validators.required,
+      ],
+
+      rooms: [
+        1,
+        [
+          Validators.required,
+          Validators.min(1),
+          Validators.max(4),
+        ],
+      ],
+
+      guests: [
+        1,
+        [
+          Validators.required,
+          Validators.min(1),
+          Validators.max(8),
+        ],
+      ],
+    });
+
 
   // =========================================================
   // NAVEGACIÓN
   // =========================================================
 
   readonly navLinks: NavLink[] = [
+    {
+      label: 'Buscar alojamiento',
+      sectionId: 'buscar-alojamiento',
+    },
+    {
+      label: 'Hoteles aliados',
+      sectionId: 'hoteles-aliados',
+    },
     {
       label: 'Producto',
       sectionId: 'producto',
@@ -444,6 +507,118 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     'Configuración del hotel',
   ];
 
+  readonly alliedHotels = ALLIED_HOTELS.slice(0, 3);
+  readonly alliedHotelsTotal = ALLIED_HOTELS.length;
+
+  bookingDestinationPanelOpen = false;
+
+  get bookingDestinationOptions(): BookingDestinationOption[] {
+
+    const optionsByKey =
+      new Map<string, BookingDestinationOption>();
+
+    ALLIED_HOTELS.forEach((hotel) => {
+      const key =
+        this.normalizeBookingText(
+          `${hotel.city}-${hotel.country}`
+        );
+
+      optionsByKey.set(
+        key,
+        {
+          city: hotel.city,
+          country: hotel.country,
+        }
+      );
+    });
+
+    return [
+      ...optionsByKey.values(),
+    ].sort(
+      (first, second) =>
+        first.city.localeCompare(second.city, 'es-CO')
+    );
+  }
+
+  get filteredBookingDestinationOptions(): BookingDestinationOption[] {
+
+    const query =
+      this.bookingSearchForm.controls.destination.value;
+
+    const normalizedQuery =
+      this.normalizeBookingText(query);
+
+    const options =
+      normalizedQuery
+        ? this.bookingDestinationOptions.filter(
+            (option) =>
+              this.matchesBookingDestination(
+                option.country,
+                option.city,
+                query
+              )
+          )
+        : this.bookingDestinationOptions;
+
+    return options.slice(0, 6);
+  }
+
+  get bookingSelectedDateRange(): Date[] {
+
+    const dateRange =
+      this.bookingSearchForm.controls.dateRange.value;
+
+    if (!Array.isArray(dateRange)) {
+      return [];
+    }
+
+    return dateRange
+      .filter(
+        (date): date is Date =>
+          date instanceof Date &&
+          !Number.isNaN(date.getTime())
+      );
+  }
+
+  get hasIncompleteBookingDateRange(): boolean {
+
+    const selectedDates =
+      this.bookingSelectedDateRange;
+
+    return (
+      selectedDates.length > 0 &&
+      selectedDates.length < 2
+    );
+  }
+
+  get bookingNights(): number {
+
+    const [
+      checkIn,
+      checkOut,
+    ] = this.bookingSelectedDateRange;
+
+    if (!checkIn || !checkOut) {
+      return 0;
+    }
+
+    const diff =
+      checkOut.getTime() - checkIn.getTime();
+
+    return Math.max(
+      Math.ceil(diff / 86400000),
+      0
+    );
+  }
+
+  get hasBookingDateRangeError(): boolean {
+
+    return (
+      this.bookingSelectedDateRange.length === 2 &&
+      this.bookingNights <= 0
+    );
+  }
+
 
   // =========================================================
   // BENEFICIOS
@@ -575,7 +750,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     {
       question: '¿Qué es el check-in online?',
       answer:
-        'Es un acceso pensado para iniciar el proceso de ingreso antes de llegar al hotel. En esta versión se conserva el acceso mediante la ruta operativa existente de reservas.',
+        'Es una vista publica para que el huesped principal ingrese el codigo de su reserva y complete sus datos antes de llegar al hotel.',
     },
     {
       question: '¿Puedo usar Wayra desde diferentes dispositivos?',
@@ -1066,6 +1241,86 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
 
   // =========================================================
+  // BUSQUEDA DE ALOJAMIENTO
+  // =========================================================
+
+  openBookingDestinationPanel(): void {
+    this.bookingDestinationPanelOpen = true;
+  }
+
+
+  closeBookingDestinationPanel(): void {
+    window.setTimeout(() => {
+      this.bookingDestinationPanelOpen = false;
+    }, 120);
+  }
+
+
+  selectBookingDestination(
+    destination: BookingDestinationOption
+  ): void {
+
+    this.bookingSearchForm.controls.destination.setValue(
+      destination.city
+    );
+
+    this.bookingDestinationPanelOpen = false;
+  }
+
+
+  submitBookingSearch(): void {
+
+    this.bookingSearchForm.markAllAsTouched();
+
+    if (
+      this.bookingSearchForm.invalid ||
+      !this.hasBookingDestinationMatches() ||
+      this.hasIncompleteBookingDateRange ||
+      this.hasBookingDateRangeError
+    ) {
+      return;
+    }
+
+    const search =
+      this.bookingSearchForm.getRawValue();
+
+    const [
+      checkIn,
+      checkOut,
+    ] = this.bookingSelectedDateRange;
+
+    const destination =
+      search.destination.trim();
+
+    const destinationMatch =
+      this.resolveBookingDestination(destination);
+
+    this.router.navigate(
+      [
+        '/reservar',
+      ],
+      {
+        queryParams: {
+          destination,
+          country: destinationMatch?.country,
+          city: destinationMatch?.city,
+          checkIn:
+            checkIn
+              ? this.toBookingDateInputValue(checkIn)
+              : '',
+          checkOut:
+            checkOut
+              ? this.toBookingDateInputValue(checkOut)
+              : '',
+          rooms: search.rooms,
+          guests: search.guests,
+        },
+      }
+    );
+  }
+
+
+  // =========================================================
   // ENVÍO
   // =========================================================
 
@@ -1167,8 +1422,60 @@ export class LandingPage implements AfterViewInit, OnDestroy {
   }
 
 
+  isBookingSearchInvalid(
+    controlName: LandingBookingControlName
+  ): boolean {
+
+    const control =
+      this.bookingSearchForm.controls[controlName];
+
+    if (
+      controlName === 'destination' &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    ) {
+      return (
+        control.invalid ||
+        !this.hasBookingDestinationMatches()
+      );
+    }
+
+    if (
+      controlName === 'dateRange' &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    ) {
+      return (
+        this.bookingSelectedDateRange.length < 2 ||
+        this.hasBookingDateRangeError
+      );
+    }
+
+    return Boolean(
+      control.invalid &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    );
+  }
+
+
   trackByIndex(index: number): number {
     return index;
+  }
+
+
+  trackByBookingDestination(
+    index: number,
+    destination: BookingDestinationOption
+  ): string {
+
+    return `${destination.city}-${destination.country}-${index}`;
   }
 
 
@@ -1287,6 +1594,150 @@ export class LandingPage implements AfterViewInit, OnDestroy {
         ),
       behavior: 'auto',
     });
+  }
+
+
+  private toBookingDateInputValue(date: Date): string {
+
+    const year =
+      date.getFullYear();
+
+    const month =
+      `${date.getMonth() + 1}`.padStart(2, '0');
+
+    const day =
+      `${date.getDate()}`.padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+  }
+
+
+  private hasBookingDestinationMatches(): boolean {
+
+    const destination =
+      this.bookingSearchForm.controls.destination.value;
+
+    return ALLIED_HOTELS.some(
+      (hotel) =>
+        this.matchesBookingDestination(
+          hotel.country,
+          hotel.city,
+          destination
+        )
+    );
+  }
+
+
+  private resolveBookingDestination(
+    destination: string
+  ): BookingDestinationMatch | null {
+
+    const normalizedDestination =
+      this.normalizeBookingText(destination);
+
+    if (!normalizedDestination) {
+      return null;
+    }
+
+    const exactCity =
+      ALLIED_HOTELS.find(
+        (hotel) =>
+          this.normalizeBookingText(
+            `${hotel.city}, ${hotel.country}`
+          ) === normalizedDestination ||
+          this.normalizeBookingText(hotel.city) ===
+            normalizedDestination
+      );
+
+    if (exactCity) {
+      return {
+        country: exactCity.country,
+        city: exactCity.city,
+      };
+    }
+
+    const exactCountry =
+      ALLIED_HOTELS.find(
+        (hotel) =>
+          this.normalizeBookingText(hotel.country) ===
+          normalizedDestination
+      );
+
+    if (exactCountry) {
+      return {
+        country: exactCountry.country,
+        city: '',
+      };
+    }
+
+    const partialMatch =
+      ALLIED_HOTELS.find(
+        (hotel) =>
+          this.matchesBookingDestination(
+            hotel.country,
+            hotel.city,
+            destination
+          )
+      );
+
+    if (!partialMatch) {
+      return null;
+    }
+
+    return {
+      country: partialMatch.country,
+      city:
+        this.normalizeBookingText(partialMatch.city)
+          .includes(normalizedDestination)
+          ? partialMatch.city
+          : '',
+    };
+  }
+
+
+  private matchesBookingDestination(
+    country: string,
+    city: string,
+    destination: string
+  ): boolean {
+
+    const normalizedDestination =
+      this.normalizeBookingText(destination);
+
+    if (!normalizedDestination) {
+      return false;
+    }
+
+    return [
+      country,
+      city,
+      `${city}, ${country}`,
+    ].some(
+      (option) =>
+        this.normalizeBookingText(option)
+          .includes(normalizedDestination)
+    );
+  }
+
+
+  private normalizeBookingText(value: string): string {
+
+    return value
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  }
+
+
+  private getTodayDate(): Date {
+
+    const today =
+      new Date();
+
+    today.setHours(0, 0, 0, 0);
+
+    return today;
   }
 
 

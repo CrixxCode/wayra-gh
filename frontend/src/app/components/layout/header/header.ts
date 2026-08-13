@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, HostListener, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { catchError, of } from 'rxjs';
@@ -31,6 +31,8 @@ interface HeaderNotification {
   styleUrl: './header.css',
 })
 export class Header implements OnInit {
+  @Input() asideOpen = true;
+  @Input() isMobile = false;
   @Output() menuToggle = new EventEmitter<void>();
   @Output() tourStart = new EventEmitter<void>();
 
@@ -79,6 +81,22 @@ export class Header implements OnInit {
 
   get actionableNotificationCount(): number {
     return this.notifications.filter((notification) => notification.id !== 'none').length;
+  }
+
+  get menuToggleLabel(): string {
+    if (this.isMobile) {
+      return this.asideOpen ? 'Cerrar menu lateral' : 'Abrir menu lateral';
+    }
+
+    return this.asideOpen ? 'Colapsar menu lateral' : 'Expandir menu lateral';
+  }
+
+  get menuToggleIcon(): string {
+    if (this.isMobile) {
+      return this.asideOpen ? 'fa-solid fa-xmark text-lg' : 'fa-solid fa-bars text-lg';
+    }
+
+    return this.asideOpen ? 'fa-solid fa-angles-left text-base' : 'fa-solid fa-bars text-lg';
   }
 
   ngOnInit(): void {

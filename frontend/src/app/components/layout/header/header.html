@@ -4,10 +4,15 @@
     <div class="header-left flex items-center min-w-0">
       <button
         class="header-menu-btn p-2 rounded-lg inline-flex items-center justify-center"
+        type="button"
         (click)="menuToggle.emit()"
-        aria-label="Abrir menu lateral"
+        [attr.aria-label]="menuToggleLabel"
+        [attr.title]="menuToggleLabel"
+        [attr.aria-expanded]="asideOpen"
+        aria-controls="app-sidebar"
+        [class.is-collapsed]="!asideOpen"
       >
-        <i class="fa-solid fa-bars text-lg"></i>
+        <i [class]="menuToggleIcon"></i>
       </button>
 
       <label

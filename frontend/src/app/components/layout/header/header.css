@@ -9,6 +9,8 @@
 }
 
 .app-header-shell .header-menu-btn {
+  width: 40px;
+  height: 40px;
   background: transparent;
   color: #111827;
   border: 1px solid transparent;
@@ -17,6 +19,11 @@
 .app-header-shell .header-menu-btn:hover {
   background: #eef2f8;
   border-color: #e1e7f0;
+}
+
+.app-header-shell .header-menu-btn.is-collapsed {
+  background: #eef2f8;
+  border-color: #d9e1ed;
 }
 
 .header-left {
@@ -131,12 +138,6 @@
 .app-header-shell .header-chevron {
   color: #111827 !important;
   font-size: 0.86rem;
-}
-
-@media (min-width: 768px) {
-  .app-header-shell .header-menu-btn {
-    visibility: hidden;
-  }
 }
 
 @media (max-width: 640px) {

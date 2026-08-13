@@ -53,6 +53,12 @@ const loadDemoRequestsComponent = () =>
   import('./modules/saas/list-demo-requests/list-demo-requests').then((m) => m.ListDemoRequests);
 const loadGlobalAmenitiesComponent = () =>
   import('./modules/saas/list-global-amenities/list-global-amenities').then((m) => m.ListGlobalAmenities);
+const loadAlliedHotelsComponent = () =>
+  import('./components/pages/allied-hotels/allied-hotels').then((m) => m.AlliedHotelsPage);
+const loadAlliedBookingComponent = () =>
+  import('./components/pages/allied-booking/allied-booking').then((m) => m.AlliedBookingPage);
+const loadOnlineCheckInComponent = () =>
+  import('./components/pages/online-check-in/online-check-in').then((m) => m.OnlineCheckInPage);
 
 
 /**
@@ -79,6 +85,36 @@ export const routes: Routes = [
         path: '',
         component: LandingPage,
         title: 'Gestion Hotelera',
+    },
+    {
+        path: 'hoteles-aliados',
+        loadComponent: loadAlliedHotelsComponent,
+        title: 'Hoteles Aliados',
+    },
+    {
+        path: 'reservar',
+        loadComponent: loadAlliedBookingComponent,
+        title: 'Reservar Hotel Aliado',
+    },
+    {
+        path: 'booking',
+        redirectTo: 'reservar',
+        pathMatch: 'full',
+    },
+    {
+        path: 'check-in-online',
+        loadComponent: loadOnlineCheckInComponent,
+        title: 'Check-in Online',
+    },
+    {
+        path: 'online-check-in',
+        redirectTo: 'check-in-online',
+        pathMatch: 'full',
+    },
+    {
+        path: 'checkin-online',
+        redirectTo: 'check-in-online',
+        pathMatch: 'full',
     },
     {
         path: 'login',
