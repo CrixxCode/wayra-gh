@@ -517,7 +517,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   bookingDestinationPanelOpen = false;
 
   get featuredAlliedHotels(): AlliedHotel[] {
-    return this.alliedHotels.slice(0, 3);
+    return this.alliedHotels.slice(0, 6);
   }
 
   get bookingDestinationOptions(): BookingDestinationOption[] {
@@ -1767,6 +1767,10 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
       .subscribe((hotels) => {
         this.alliedHotels = hotels;
         this.alliedHotelsTotal = hotels.length;
+
+        window.setTimeout(() => {
+          this.setupLandingAnimations();
+        });
       });
   }
 

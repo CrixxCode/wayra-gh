@@ -954,6 +954,32 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-14 — Tarjetas dinamicas visibles en landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Que se hizo:** la landing vuelve a registrar las animaciones de entrada despues de cargar los
+  hoteles aliados activos desde el backend.
+- **Por que:** las tarjetas de hoteles aliados se renderizan despues de la llamada HTTP y quedaban
+  con `opacity: 0` porque el `IntersectionObserver` se habia inicializado antes de que existieran en
+  el DOM.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.ts`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-14 — Landing con seis hoteles aliados
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** la landing ahora muestra hasta seis hoteles aliados activos en la seccion
+  publica de hoteles aliados.
+- **Por que:** el endpoint publico ya devuelve los hoteles aliados activos de Wayra, pero la landing
+  seguia limitando la vista destacada a tres tarjetas.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.ts`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API; si hay menos de seis hoteles
+  activos, se muestran solo los disponibles.
+
 ### 2026-08-14 — Hoteles aliados activos desde backend
 
 - **Autor:** Codex, a solicitud de rastor65
