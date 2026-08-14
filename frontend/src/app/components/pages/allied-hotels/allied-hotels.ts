@@ -123,7 +123,6 @@ export class AlliedHotelsPage implements OnInit, AfterViewInit {
             hotel.city,
             hotel.department,
             hotel.country,
-            hotel.description,
             hotel.highlights.join(' '),
           ].join(' ')
         );

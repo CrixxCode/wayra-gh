@@ -954,6 +954,33 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-14 — Hoteles aliados sin opacidad inicial
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Que se hizo:** las tarjetas de hoteles aliados de la landing dejaron de usar la clase
+  `wayra-reveal`, por lo que ya no arrancan con `opacity: 0`.
+- **Por que:** al ser contenido cargado dinamicamente desde el backend, la animacion de entrada podia
+  dejar cards invisibles si el `IntersectionObserver` no las alcanzaba a marcar como visibles.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.html`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-14 — Ocultar descripcion tecnica en hoteles aliados
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** las vistas publicas de hoteles aliados dejaron de mostrar `HotelSettings.description`
+  en la landing, el directorio y el flujo de reserva aliado; el directorio tampoco usa ese campo en
+  el texto buscable.
+- **Por que:** algunos hoteles creados desde solicitud de demo tienen una descripcion tecnica como
+  "Creado desde solicitud de demo. Tipo de alojamiento: Hotel.", que no debe mostrarse al publico.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/allied-hotels/`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.html`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
 ### 2026-08-14 — Tarjetas dinamicas visibles en landing
 
 - **Autor:** Codex, a solicitud de rastor65
