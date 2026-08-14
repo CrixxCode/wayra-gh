@@ -84,6 +84,9 @@ class HotelSettings(models.Model):
     # Zona horaria
     timezone = models.CharField(max_length=80, default="America/Bogota")
 
+    # Estado operativo del hotel dentro de Wayra.
+    is_active = models.BooleanField(default=True)
+
     # Fechas de control
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

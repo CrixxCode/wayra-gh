@@ -4,6 +4,7 @@ import {
   Component,
   HostListener,
   OnDestroy,
+  OnInit,
   inject,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -29,7 +30,8 @@ import {
   loadHotelCountries,
 } from '../../../shared/hotel-location-options';
 
-import { ALLIED_HOTELS } from '../../../shared/allied-hotels';
+import { AlliedHotel } from '../../../shared/allied-hotels';
+import { AlliedHotelService } from '../../../services/allied-hotels';
 
 
 interface NavLink {
@@ -120,12 +122,13 @@ interface BookingDestinationOption {
   templateUrl: './landing.html',
   styleUrl: './landing.css',
 })
-export class LandingPage implements AfterViewInit, OnDestroy {
+export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
   private readonly formBuilder = inject(FormBuilder);
   private readonly demoRequestService = inject(DemoRequestService);
   private readonly rolesService = inject(RolesService);
   private readonly router = inject(Router);
+  private readonly alliedHotelService = inject(AlliedHotelService);
 
   private previousBodyOverflow = '';
   private revealObserver: IntersectionObserver | null = null;
@@ -507,17 +510,22 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     'Configuración del hotel',
   ];
 
-  readonly alliedHotels = ALLIED_HOTELS.slice(0, 3);
-  readonly alliedHotelsTotal = ALLIED_HOTELS.length;
+  alliedHotels: AlliedHotel[] = [];
+  alliedHotelsTotal = 0;
+  alliedHotelsLoading = true;
 
   bookingDestinationPanelOpen = false;
+
+  get featuredAlliedHotels(): AlliedHotel[] {
+    return this.alliedHotels.slice(0, 3);
+  }
 
   get bookingDestinationOptions(): BookingDestinationOption[] {
 
     const optionsByKey =
       new Map<string, BookingDestinationOption>();
 
-    ALLIED_HOTELS.forEach((hotel) => {
+    this.alliedHotels.forEach((hotel) => {
       const key =
         this.normalizeBookingText(
           `${hotel.city}-${hotel.country}`
@@ -877,6 +885,10 @@ export class LandingPage implements AfterViewInit, OnDestroy {
   // =========================================================
   // LIFECYCLE
   // =========================================================
+
+  ngOnInit(): void {
+    this.loadAlliedHotels();
+  }
 
   ngAfterViewInit(): void {
 
@@ -1617,7 +1629,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     const destination =
       this.bookingSearchForm.controls.destination.value;
 
-    return ALLIED_HOTELS.some(
+    return this.alliedHotels.some(
       (hotel) =>
         this.matchesBookingDestination(
           hotel.country,
@@ -1640,7 +1652,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     }
 
     const exactCity =
-      ALLIED_HOTELS.find(
+      this.alliedHotels.find(
         (hotel) =>
           this.normalizeBookingText(
             `${hotel.city}, ${hotel.country}`
@@ -1657,7 +1669,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     }
 
     const exactCountry =
-      ALLIED_HOTELS.find(
+      this.alliedHotels.find(
         (hotel) =>
           this.normalizeBookingText(hotel.country) ===
           normalizedDestination
@@ -1671,7 +1683,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     }
 
     const partialMatch =
-      ALLIED_HOTELS.find(
+      this.alliedHotels.find(
         (hotel) =>
           this.matchesBookingDestination(
             hotel.country,
@@ -1738,6 +1750,24 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     today.setHours(0, 0, 0, 0);
 
     return today;
+  }
+
+
+  private loadAlliedHotels(): void {
+    this.alliedHotelsLoading = true;
+
+    this.alliedHotelService
+      .listActiveAlliedHotels()
+      .pipe(
+        catchError(() => of([] as AlliedHotel[])),
+        finalize(() => {
+          this.alliedHotelsLoading = false;
+        })
+      )
+      .subscribe((hotels) => {
+        this.alliedHotels = hotels;
+        this.alliedHotelsTotal = hotels.length;
+      });
   }
 
 

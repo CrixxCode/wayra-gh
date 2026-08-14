@@ -2,17 +2,17 @@ import { CommonModule } from '@angular/common';
 import {
   AfterViewInit,
   Component,
+  OnInit,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   ActivatedRoute,
   RouterLink,
 } from '@angular/router';
+import { catchError, of } from 'rxjs';
 
-import {
-  ALLIED_HOTELS,
-  AlliedHotel,
-} from '../../../shared/allied-hotels';
+import { AlliedHotel } from '../../../shared/allied-hotels';
+import { AlliedHotelService } from '../../../services/allied-hotels';
 
 @Component({
   selector: 'app-allied-hotels',
@@ -25,23 +25,55 @@ import {
   templateUrl: './allied-hotels.html',
   styleUrl: './allied-hotels.css',
 })
-export class AlliedHotelsPage implements AfterViewInit {
+export class AlliedHotelsPage implements OnInit, AfterViewInit {
 
-  readonly hotels = ALLIED_HOTELS;
-  readonly totalRooms =
-    this.hotels.reduce(
+  hotels: AlliedHotel[] = [];
+  loading = true;
+  loadError = '';
+
+  get totalRooms(): number {
+    return this.hotels.reduce(
       (sum, hotel) => sum + hotel.rooms,
       0
     );
+  }
 
   search = '';
   typeFilter = 'Todos';
 
   constructor(
-    private readonly route: ActivatedRoute
+    private readonly route: ActivatedRoute,
+    private readonly alliedHotelService: AlliedHotelService
   ) {}
 
+  ngOnInit(): void {
+    this.loadHotels();
+  }
+
   ngAfterViewInit(): void {
+    this.scrollToFragment();
+  }
+
+  private loadHotels(): void {
+    this.loading = true;
+    this.loadError = '';
+
+    this.alliedHotelService
+      .listActiveAlliedHotels()
+      .pipe(
+        catchError(() => {
+          this.loadError = 'No fue posible cargar los hoteles aliados activos.';
+          return of([] as AlliedHotel[]);
+        })
+      )
+      .subscribe((hotels) => {
+        this.hotels = hotels;
+        this.loading = false;
+        this.scrollToFragment();
+      });
+  }
+
+  private scrollToFragment(): void {
 
     const fragment =
       this.route.snapshot.fragment;

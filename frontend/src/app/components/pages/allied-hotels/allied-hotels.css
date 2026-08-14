@@ -311,6 +311,10 @@
   font-weight: 750;
 }
 
+.allied-error {
+  color: #b42318;
+}
+
 .allied-grid {
   display: grid;
   gap: 1.35rem;

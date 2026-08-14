@@ -233,7 +233,41 @@
 
 
           <div
-            *ngIf="!searchSubmitted"
+            *ngIf="loadingHotels"
+            class="booking-empty">
+
+            <i class="pi pi-calendar"></i>
+
+            <h3>
+              Cargando hoteles aliados
+            </h3>
+
+            <p>
+              Estamos consultando los hoteles activos dentro de Wayra.
+            </p>
+
+          </div>
+
+
+          <div
+            *ngIf="!loadingHotels && hotelsLoadError"
+            class="booking-empty">
+
+            <i class="pi pi-search"></i>
+
+            <h3>
+              No fue posible cargar hoteles
+            </h3>
+
+            <p>
+              {{ hotelsLoadError }}
+            </p>
+
+          </div>
+
+
+          <div
+            *ngIf="!loadingHotels && !hotelsLoadError && !searchSubmitted"
             class="booking-empty">
 
             <i class="pi pi-calendar"></i>
@@ -251,6 +285,8 @@
 
           <div
             *ngIf="
+              !loadingHotels &&
+              !hotelsLoadError &&
               searchSubmitted &&
               availableHotels.length === 0
             "

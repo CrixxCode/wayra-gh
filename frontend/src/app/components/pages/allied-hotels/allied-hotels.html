@@ -140,8 +140,21 @@
           alojamiento(s) encontrados
         </p>
 
+        <p
+          *ngIf="loading"
+          class="allied-result-count">
+          Cargando hoteles aliados...
+        </p>
 
-        <div class="allied-grid">
+        <p
+          *ngIf="!loading && loadError"
+          class="allied-result-count allied-error">
+          {{ loadError }}
+        </p>
+
+        <div
+          *ngIf="!loading"
+          class="allied-grid">
           <article
             *ngFor="
               let hotel of filteredHotels;
@@ -200,7 +213,7 @@
 
 
         <div
-          *ngIf="filteredHotels.length === 0"
+          *ngIf="!loading && filteredHotels.length === 0"
           class="allied-empty">
 
           <i class="pi pi-search"></i>

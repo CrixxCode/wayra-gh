@@ -14,12 +14,13 @@ import {
   RouterLink,
 } from '@angular/router';
 import { DatePickerModule } from 'primeng/datepicker';
+import { catchError, of } from 'rxjs';
 
 import {
-  ALLIED_HOTELS,
   AlliedHotel,
   AlliedRoomRate,
 } from '../../../shared/allied-hotels';
+import { AlliedHotelService } from '../../../services/allied-hotels';
 
 type BookingControlName =
   | 'hotelSlug'
@@ -56,8 +57,11 @@ export class AlliedBookingPage implements OnInit {
 
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
+  private readonly alliedHotelService = inject(AlliedHotelService);
 
-  readonly hotels = ALLIED_HOTELS;
+  hotels: AlliedHotel[] = [];
+  loadingHotels = true;
+  hotelsLoadError = '';
   readonly minDate = this.getTodayDate();
 
   searchSubmitted = false;
@@ -127,6 +131,29 @@ export class AlliedBookingPage implements OnInit {
     });
 
   ngOnInit(): void {
+    this.loadHotels();
+  }
+
+  private loadHotels(): void {
+    this.loadingHotels = true;
+    this.hotelsLoadError = '';
+
+    this.alliedHotelService
+      .listActiveAlliedHotels()
+      .pipe(
+        catchError(() => {
+          this.hotelsLoadError = 'No fue posible cargar los hoteles aliados activos.';
+          return of([] as AlliedHotel[]);
+        })
+      )
+      .subscribe((hotels) => {
+        this.hotels = hotels;
+        this.loadingHotels = false;
+        this.applyInitialQueryParams();
+      });
+  }
+
+  private applyInitialQueryParams(): void {
 
     const queryParams =
       this.route.snapshot.queryParamMap;
@@ -469,6 +496,11 @@ export class AlliedBookingPage implements OnInit {
 
     this.searchForm.markAllAsTouched();
     this.submitted = false;
+
+    if (this.loadingHotels) {
+      this.searchSubmitted = false;
+      return;
+    }
 
     if (
       this.searchForm.invalid ||

@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-08-13
+**Última actualización:** 2026-08-14
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -953,6 +953,25 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > debe escribirse en el momento del cambio.
 
 ---
+
+### 2026-08-14 — Hoteles aliados activos desde backend
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Que se hizo:** se agrego `is_active` a `HotelSettings`, el servicio backend que arma el
+  directorio publico de hoteles aliados activos y el endpoint `GET /api/allied-hotels/`. La landing,
+  el directorio de hoteles aliados y la busqueda publica de alojamiento ahora consumen ese endpoint
+  en vez del catalogo estatico del frontend.
+- **Por que:** los hoteles aliados visibles al publico deben salir de los hoteles reales activos
+  dentro de Wayra, no de una lista fija ni de hoteles desactivados por la plataforma.
+- **Archivos/areas afectadas:** `backend/apps/hotel_settings/models.py`,
+  `backend/apps/hotel_settings/services.py`, `backend/apps/hotel_settings/views.py`,
+  `backend/apps/hotel_settings/serializers.py`, `backend/apps/hotel_settings/urls.py`,
+  `backend/apps/hotel_settings/tests.py`, `frontend/src/app/services/allied-hotels.ts`,
+  `frontend/src/app/components/pages/{landing,allied-hotels,allied-booking}/`.
+- **Impacto:** requiere migracion `hotel_settings.0008_hotelsettings_is_active`; agrega el endpoint
+  publico `GET /api/allied-hotels/` sin variables de entorno nuevas.
 
 ### 2026-08-13 — Migraciones de metodos de pago compatibles con PostgreSQL
 
