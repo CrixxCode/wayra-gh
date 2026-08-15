@@ -1,0 +1,30 @@
+<section class="site-preview" *ngIf="!isEmpty">
+  <div class="link-card" [class.is-invalid]="!isValid">
+    <span class="link-icon" *ngIf="isValid; else invalidIcon">
+      <img [src]="faviconUrl" alt="" aria-hidden="true" />
+    </span>
+
+    <ng-template #invalidIcon>
+      <span class="link-icon">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </span>
+    </ng-template>
+
+    <div class="link-copy" *ngIf="isValid; else invalidUrl">
+      <strong>{{ host }}</strong>
+      <small>Se guardara como {{ resolvedUrl }}</small>
+    </div>
+
+    <ng-template #invalidUrl>
+      <div class="link-copy">
+        <strong>Esa direccion no parece un sitio web</strong>
+        <small>Deberia ser algo como <code>hotelwayra.com</code></small>
+      </div>
+    </ng-template>
+
+    <button type="button" class="preview-btn is-primary" *ngIf="isValid" (click)="openInNewTab()">
+      <i class="fa-solid fa-arrow-up-right-from-square"></i>
+      Abrir
+    </button>
+  </div>
+</section>

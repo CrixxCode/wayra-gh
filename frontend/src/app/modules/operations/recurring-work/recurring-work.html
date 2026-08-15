@@ -1,0 +1,258 @@
+<div class="rec-page">
+  <header class="rec-head">
+    <div>
+      <h2>Trabajo programado</h2>
+      <p>
+        Reglas que generan tareas y ordenes solas. Un comando diario las materializa
+        cuando toca; aqui solo se define cada cuanto.
+      </p>
+    </div>
+
+    <div class="rec-head-actions">
+      <button type="button" class="rec-new is-cleaning" (click)="openCreate('CLEANING')">
+        <i class="fa-solid fa-broom"></i>
+        Programar limpieza
+      </button>
+      <button type="button" class="rec-new is-maintenance" (click)="openCreate('MAINTENANCE')">
+        <i class="fa-solid fa-screwdriver-wrench"></i>
+        Programar mantenimiento
+      </button>
+    </div>
+  </header>
+
+  <p class="rec-error" *ngIf="errorMessage" aria-live="polite">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    {{ errorMessage }}
+  </p>
+
+  <p class="rec-loading" *ngIf="loading">Cargando la programacion...</p>
+
+  <section class="rec-empty" *ngIf="!loading && !rules.length">
+    <i class="fa-regular fa-calendar-check"></i>
+    <strong>Nada programado todavia</strong>
+    <p>
+      Programa aqui lo que se repite --la limpieza profunda de los lunes, la revision
+      mensual de aires-- y dejara de depender de que alguien se acuerde.
+    </p>
+  </section>
+
+  <ng-container *ngIf="!loading && rules.length">
+    <section class="rec-group" *ngIf="cleaningRules.length">
+      <h3><i class="fa-solid fa-broom"></i> Limpieza <span>{{ cleaningRules.length }}</span></h3>
+      <div class="rec-grid">
+        <ng-container *ngTemplateOutlet="ruleCards; context: { $implicit: cleaningRules }"></ng-container>
+      </div>
+    </section>
+
+    <section class="rec-group" *ngIf="maintenanceRules.length">
+      <h3>
+        <i class="fa-solid fa-screwdriver-wrench"></i>
+        Mantenimiento <span>{{ maintenanceRules.length }}</span>
+      </h3>
+      <div class="rec-grid">
+        <ng-container *ngTemplateOutlet="ruleCards; context: { $implicit: maintenanceRules }"></ng-container>
+      </div>
+    </section>
+  </ng-container>
+</div>
+
+<ng-template #ruleCards let-list>
+  <article
+    class="rule-card"
+    *ngFor="let rule of list; trackBy: trackByRule"
+    [class.is-paused]="!rule.is_active"
+    [class.is-soon]="isImminent(rule)">
+    <header class="rule-head">
+      <div class="rule-titles">
+        <strong [title]="rule.name">{{ rule.name }}</strong>
+        <!-- La regla en castellano: es como se comprueba que dice lo que debe. -->
+        <span class="rule-rhythm">{{ describe(rule) }}</span>
+      </div>
+
+      <span class="rule-next" [class.is-soon]="isImminent(rule)">
+        {{ nextRunLabel(rule) }}
+      </span>
+    </header>
+
+    <dl class="rule-facts">
+      <div>
+        <dt>Alcance</dt>
+        <dd>{{ scopeLabel(rule) }}</dd>
+      </div>
+      <div *ngIf="rule.task_type_label">
+        <dt>Tipo</dt>
+        <dd>{{ rule.task_type_label }}</dd>
+      </div>
+      <div *ngIf="rule.priority_label">
+        <dt>Prioridad</dt>
+        <dd>{{ rule.priority_label }}</dd>
+      </div>
+      <div>
+        <dt>Generadas</dt>
+        <dd>{{ rule.generated_count }}</dd>
+      </div>
+    </dl>
+
+    <p class="rule-window">
+      <i class="fa-regular fa-calendar"></i>
+      Desde {{ formatDate(rule.starts_on) }}
+      <ng-container *ngIf="rule.ends_on">&nbsp;hasta {{ formatDate(rule.ends_on) }}</ng-container>
+      <ng-container *ngIf="!rule.ends_on">&nbsp;&middot; sin fecha de fin</ng-container>
+    </p>
+
+    <footer class="rule-foot">
+      <button type="button" class="rule-btn" (click)="openEdit(rule)">
+        <i class="fa-regular fa-pen-to-square"></i>
+        Editar
+      </button>
+      <button
+        type="button"
+        class="rule-btn"
+        [title]="rule.is_active ? 'Pausar la programacion' : 'Reanudar la programacion'"
+        (click)="toggleActive(rule)">
+        <i [class]="rule.is_active ? 'fa-solid fa-pause' : 'fa-solid fa-play'"></i>
+        {{ rule.is_active ? 'Pausar' : 'Reanudar' }}
+      </button>
+      <button type="button" class="rule-btn is-danger" title="Eliminar" (click)="confirmDelete(rule)">
+        <i class="fa-regular fa-trash-can"></i>
+      </button>
+    </footer>
+  </article>
+</ng-template>
+
+<!-- Alta y edicion de una regla -->
+<div class="gh-modal-overlay" *ngIf="showForm" (click)="closeForm()">
+  <article class="gh-modal is-narrow rec-modal" (click)="$event.stopPropagation()">
+    <header class="gh-modal-head">
+      <div>
+        <h2>{{ editingId ? 'Editar programacion' : 'Nueva programacion' }}</h2>
+        <p>Define cada cuanto se genera el trabajo y sobre que habitaciones.</p>
+      </div>
+      <button type="button" class="gh-modal-close" (click)="closeForm()" title="Cerrar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <div class="gh-modal-body">
+      <!-- La frase de arriba: dice lo que la regla va a hacer, antes de guardarla. -->
+      <p class="rec-preview">
+        <i class="fa-regular fa-calendar-check"></i>
+        <strong>{{ formPreview }}</strong>
+        <span>{{ form.room ? 'en una habitacion' : 'en todas las habitaciones' }}</span>
+      </p>
+
+      <div class="rec-kind">
+        <button
+          type="button"
+          *ngFor="let option of kindOptions"
+          [class.is-active]="form.kind === option.value"
+          (click)="form.kind = option.value">
+          <i [class]="option.icon"></i>
+          {{ option.label }}
+        </button>
+      </div>
+
+      <label class="gh-field">
+        <span>Nombre de la programacion</span>
+        <input
+          type="text"
+          [(ngModel)]="form.name"
+          [placeholder]="isCleaning ? 'Ej: limpieza profunda semanal' : 'Ej: revision de aires'" />
+      </label>
+
+      <div class="rec-row">
+        <label class="gh-field">
+          <span>Habitacion</span>
+          <select [(ngModel)]="form.room">
+            <option [ngValue]="null">Todas las habitaciones</option>
+            <option *ngFor="let room of rooms" [ngValue]="room.id">{{ room.number }}</option>
+          </select>
+        </label>
+
+        <label class="gh-field" *ngIf="isCleaning">
+          <span>Tipo de tarea</span>
+          <select [(ngModel)]="form.task_type">
+            <option [ngValue]="null">Selecciona tipo</option>
+            <option *ngFor="let type of taskTypes" [ngValue]="type.code">{{ type.name }}</option>
+          </select>
+        </label>
+
+        <label class="gh-field">
+          <span>Prioridad</span>
+          <select [(ngModel)]="form.priority">
+            <option [ngValue]="null">Sin prioridad</option>
+            <option *ngFor="let item of priorities" [ngValue]="item.code">{{ item.name }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="rec-row">
+        <label class="gh-field">
+          <span>Se repite</span>
+          <select [(ngModel)]="form.frequency">
+            <option *ngFor="let option of frequencyOptions" [ngValue]="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+
+        <label class="gh-field">
+          <span>Cada cuantos</span>
+          <input type="number" min="1" [(ngModel)]="form.interval" />
+        </label>
+
+        <label class="gh-field" *ngIf="form.frequency === 'WEEKLY'">
+          <span>Dia de la semana</span>
+          <select [(ngModel)]="form.weekday">
+            <option *ngFor="let day of weekdays; let i = index" [ngValue]="i">{{ day }}</option>
+          </select>
+        </label>
+
+        <label class="gh-field" *ngIf="form.frequency === 'MONTHLY'">
+          <span>Dia del mes</span>
+          <input type="number" min="1" max="31" [(ngModel)]="form.day_of_month" />
+          <small>Si el mes no lo tiene, se usa su ultimo dia.</small>
+        </label>
+      </div>
+
+      <div class="rec-row">
+        <label class="gh-field">
+          <span>Empieza</span>
+          <input type="date" [(ngModel)]="form.starts_on" />
+        </label>
+
+        <label class="gh-field">
+          <span>Termina</span>
+          <input type="date" [(ngModel)]="form.ends_on" />
+          <small>Vacio: se repite indefinidamente.</small>
+        </label>
+      </div>
+
+      <label class="gh-field">
+        <span>Notas para quien lo haga</span>
+        <textarea rows="2" [(ngModel)]="form.notes" placeholder="Opcional"></textarea>
+      </label>
+
+      <p class="rec-error" *ngIf="errorMessage">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        {{ errorMessage }}
+      </p>
+    </div>
+
+    <footer class="gh-modal-foot">
+      <span class="gh-foot-note">
+        <i class="fa-regular fa-clock"></i>
+        El trabajo se genera automaticamente cada dia que toque.
+      </span>
+
+      <div class="rec-actions">
+        <button type="button" class="gh-mbtn gh-mbtn-light" (click)="closeForm()" [disabled]="saving">
+          Cancelar
+        </button>
+        <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="save()" [disabled]="!canSave">
+          {{ saving ? 'Guardando...' : 'Guardar programacion' }}
+        </button>
+      </div>
+    </footer>
+  </article>
+</div>

@@ -217,42 +217,103 @@
   border: 1px solid #fecaca;
 }
 
+/* Pestañas en pastilla, como el resto de las vistas consolidadas del sistema. */
 .tabs-nav {
   margin-top: 18px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   overflow-x: auto;
-  padding-bottom: 2px;
-  border-bottom: 1px solid var(--fc-border);
+  padding: 4px;
+  border: 1px solid var(--fc-border);
+  border-radius: 12px;
+  background: #f4f7fc;
 }
 
 .tab-btn {
-  min-height: 36px;
+  min-height: 38px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 0 12px;
+  padding: 0 14px;
   border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 7px 7px 0 0;
+  border-radius: 9px;
   color: #475569;
   background: transparent;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
+  transition: color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.tab-btn i {
+  font-size: 0.86rem;
+  opacity: 0.85;
 }
 
 .tab-btn:hover {
   color: var(--fc-blue);
-  background: #f8fbff;
+  background: #eaf2ff;
 }
 
 .tab-btn.active {
   color: var(--fc-blue);
-  border-bottom-color: var(--fc-blue);
-  background: #f8fbff;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.tab-btn.active i {
+  opacity: 1;
+}
+
+/* Atajos de periodo. */
+.period-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.preset-chip {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--fc-border);
+  border-radius: 999px;
+  color: #475569;
+  background: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.preset-chip:hover {
+  color: var(--fc-blue);
+  border-color: #a9c9f5;
+  background: #f4f9ff;
+}
+
+.preset-chip.active {
+  color: #ffffff;
+  border-color: var(--fc-blue);
+  background: var(--fc-blue);
+}
+
+.is-spinning {
+  animation: fc-spin 0.9s linear infinite;
+}
+
+@keyframes fc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning {
+    animation: none;
+  }
 }
 
 .module-card {
@@ -287,279 +348,10 @@
   line-height: 1.45;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.stat-card {
-  min-height: 132px;
-  padding: 18px 18px 16px;
-  border: 1px solid var(--fc-border-soft);
-  border-radius: 8px;
-  background: var(--fc-surface);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
-}
-
-.stat-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.stat-head span:first-child {
-  color: #111827;
-  font-size: 0.72rem;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.stat-icon {
-  flex: 0 0 auto;
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  font-size: 1rem;
-}
-
-.stat-icon.blue {
-  color: #0b5ed7;
-  background: #e8f1ff;
-}
-
-.stat-icon.green {
-  color: #059669;
-  background: #dcfce7;
-}
-
-.stat-icon.amber {
-  color: #ea580c;
-  background: #fff3dc;
-}
-
-.stat-icon.red {
-  color: #dc2626;
-  background: #fee2e2;
-}
-
-.stat-icon.gray {
-  color: #475569;
-  background: #f1f5f9;
-}
-
-.stat-value {
-  margin-top: 22px;
-  color: #020617;
-  font-size: 1.58rem;
-  font-weight: 650;
-  line-height: 1.12;
-}
-
-.stat-note {
-  margin-top: 9px;
-  color: var(--fc-muted);
-  font-size: 0.76rem;
-  line-height: 1.35;
-}
-
-.dashboard-grid {
-  margin-top: 18px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr);
-  gap: 18px;
-}
-
-.insight-card,
-.metric-card,
-.scenario-column {
-  border: 1px solid var(--fc-border-soft);
-  border-radius: 8px;
-  background: var(--fc-surface);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
-}
-
-.insight-card {
-  padding: 18px;
-}
-
-.card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.card-head h3,
-.block-head h3,
-.table-head h3,
-.scenario-column header h3 {
-  margin: 0;
-  color: var(--fc-text);
-  font-size: 1rem;
-  font-weight: 650;
-  line-height: 1.2;
-}
-
-.card-body {
-  margin-top: 14px;
-}
-
-.tone-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: 0.66rem;
-  font-weight: 700;
-  line-height: 1;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.tone-badge.tone-green {
-  color: #047857;
-  background: #dcfce7;
-}
-
-.tone-badge.tone-yellow {
-  color: #b45309;
-  background: #fef3c7;
-}
-
-.tone-badge.tone-red {
-  color: #b91c1c;
-  background: #fee2e2;
-}
-
-.tone-badge.tone-gray {
-  color: #475569;
-  background: #f1f5f9;
-}
-
-.reason-list {
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-  list-style: none;
-}
-
-.reason-list li {
-  padding: 10px 12px;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  color: #991b1b;
-  background: #fff1f2;
-  font-size: 0.8rem;
-  line-height: 1.4;
-}
-
 .muted {
   margin: 0;
   color: var(--fc-muted);
   font-size: 0.84rem;
-}
-
-.progress-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: #334155;
-  font-size: 0.8rem;
-}
-
-.progress-label b {
-  color: var(--fc-text);
-  font-size: 1.1rem;
-  font-weight: 650;
-}
-
-.progress-track {
-  height: 8px;
-  margin-top: 10px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e5edf8;
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: inherit;
-}
-
-.progress-fill.tone-green {
-  background: #16a34a;
-}
-
-.progress-fill.tone-yellow {
-  background: #f59e0b;
-}
-
-.progress-fill.tone-red {
-  background: #dc2626;
-}
-
-.progress-fill.tone-gray {
-  background: #94a3b8;
-}
-
-.key-values {
-  margin-top: 16px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.key-values div {
-  padding: 10px;
-  border-radius: 8px;
-  background: var(--fc-blue-soft);
-}
-
-.key-values small {
-  display: block;
-  color: #475569;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.key-values strong {
-  display: block;
-  margin-top: 4px;
-  color: var(--fc-text);
-  font-size: 0.9rem;
-  font-weight: 650;
-  line-height: 1.25;
-  word-break: break-word;
-}
-
-.metric-block {
-  margin-top: 22px;
-}
-
-.block-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.block-head small,
-.scenario-column header small {
-  color: var(--fc-muted);
-  font-size: 0.76rem;
-  line-height: 1.35;
 }
 
 .metric-grid {
@@ -649,11 +441,28 @@
   color: #334155;
 }
 
+.scenario-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.scenario-presets .preset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.scenario-presets .preset-chip.is-reset {
+  color: #64748b;
+}
+
 .scenario-controls {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  align-items: end;
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: start;
+  gap: 18px;
   padding: 18px;
   border: 1px solid var(--fc-border-soft);
   border-radius: 8px;
@@ -661,14 +470,80 @@
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
 }
 
-.scenario-action {
+/* Palancas del simulador. */
+.lever {
+  display: grid;
+  gap: 8px;
   min-width: 0;
+}
+
+.lever-head {
   display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--fc-text);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.lever-head b {
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #475569;
+  background: #eef2f7;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.lever-head b.is-up {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.lever-head b.is-down {
+  color: #9a3412;
+  background: #ffedd5;
+}
+
+.lever-head b.is-soft {
+  color: #94a3b8;
+  background: transparent;
+  font-weight: 500;
+}
+
+.lever small {
+  color: var(--fc-muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.lever input[type='range'] {
+  width: 100%;
+  accent-color: var(--fc-blue);
+  cursor: pointer;
+}
+
+.scenario-action {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.scenario-sentence {
+  margin: 0;
+  min-width: 0;
+  color: #334155;
+  font-size: 0.88rem;
+  font-style: italic;
+  line-height: 1.4;
 }
 
 .scenario-action .gh-btn {
-  width: 100%;
+  flex: 0 0 auto;
 }
 
 .scenario-results {
@@ -816,48 +691,298 @@ tbody tr:last-child td {
   margin-top: 20px;
 }
 
-.config-form {
+/* ================================================================== ajustes
+
+   Antes era una rejilla de tres tarjetas. Con una seccion de ocho campos y otras de dos,
+   la fila crecia hasta la mas alta y las cortas quedaban medio vacias; un
+   `min-height: 252px` remataba el efecto. Una pantalla de ajustes se lee mejor como una
+   **columna de secciones**: explicacion a la izquierda, campos a la derecha. */
+
+/* Nada de `max-width`: la tarjeta de filtros de arriba ocupa todo el ancho, y limitar
+   solo esta dejaba media pantalla vacia a la derecha. */
+.settings {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
-.form-group-section {
-  min-height: 252px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 18px;
-  border: 1px solid var(--fc-border-soft);
-  border-radius: 8px;
-  background: var(--fc-surface);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
-}
-
-.form-group-section h3 {
+.settings-intro h2 {
   margin: 0;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--fc-border-soft);
   color: var(--fc-text);
-  font-size: 0.86rem;
-  font-weight: 650;
+  font-size: 1.34rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.settings-intro p {
+  max-width: 720px;
+  margin: 6px 0 0;
+  color: #334155;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.settings-group {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 32px;
+  padding: 24px 26px;
+  border: 1px solid var(--fc-border-soft);
+  border-radius: 14px;
+  background: var(--fc-surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 28px rgba(15, 23, 42, 0.05);
+}
+
+.group-intro h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--fc-text);
+  font-size: 1rem;
+  font-weight: 700;
   line-height: 1.25;
 }
 
-.config-actions {
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid var(--fc-border-soft);
-  border-radius: 8px;
-  background: var(--fc-surface);
+.group-intro h3 i {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--fc-blue-soft);
+  color: var(--fc-blue);
+  font-size: 0.82rem;
 }
 
-.config-form .inline-messages {
+.group-intro p {
+  margin: 9px 0 0;
+  color: var(--fc-muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+/* `auto-fill` con tope: a pantalla ancha los campos mantienen un ancho legible y se
+   alinean a la izquierda, en vez de estirarse hasta el absurdo. */
+.group-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 240px));
+  justify-content: start;
+  align-content: start;
+  gap: 20px 22px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Ocupa la fila entera --el interruptor y su campo-- pero el texto libre se queda en un
+   ancho comodo: un input de 1.500 px para escribir "Riohacha" se ve mal. */
+.field.is-wide {
   grid-column: 1 / -1;
+  max-width: 502px;
+}
+
+.field-label {
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+/* La unidad dentro del campo, no en la etiqueta: "%" o "x mil" pertenecen al numero. */
+.field-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.field-input input {
+  width: 100%;
+  height: 42px;
+  padding: 0 13px;
+  border: 1px solid #d7deea;
+  border-radius: 10px;
+  color: var(--fc-text);
+  background: #ffffff;
+  font-size: 0.94rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  outline: 0;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.field-input input:hover {
+  border-color: #b9c6da;
+}
+
+.field-input:has(.field-unit) input {
+  padding-right: 52px;
+}
+
+.field-input input:focus {
+  border-color: var(--fc-blue);
+  box-shadow: 0 0 0 3px rgba(11, 94, 215, 0.14);
+}
+
+.field-unit {
+  position: absolute;
+  right: 12px;
+  color: var(--fc-muted);
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.field small {
+  color: var(--fc-muted);
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+/* Interruptor + su campo dependiente, en una fila que no salta al pulsarlo. */
+.switch-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--fc-border-soft);
+  border-radius: 12px;
+  background: #f8fafc;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+/* Encendido, el interruptor se nota sin gritar. */
+.switch-row:has(input:checked) {
+  border-color: #bcd4f7;
+  background: var(--fc-blue-soft);
+}
+
+.switch-row.is-wide {
+  grid-column: 1 / -1;
+  max-width: 748px;
+}
+
+.switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-track {
+  flex: 0 0 auto;
+  position: relative;
+  width: 40px;
+  height: 22px;
+  margin-top: 2px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background 0.18s ease;
+}
+
+.switch-track > i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.3);
+  transition: transform 0.18s ease;
+}
+
+.switch input:checked + .switch-track {
+  background: var(--fc-blue);
+}
+
+.switch input:checked + .switch-track > i {
+  transform: translateX(18px);
+}
+
+.switch input:focus-visible + .switch-track {
+  box-shadow: 0 0 0 3px rgba(11, 94, 215, 0.25);
+}
+
+.switch-copy b {
+  display: block;
+  color: var(--fc-text);
+  font-size: 0.85rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.switch-copy small {
+  display: block;
+  margin-top: 2px;
+  color: var(--fc-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.field.is-inline {
+  flex: 0 0 auto;
+  width: 170px;
+}
+
+/* Con el formulario largo, el boton de guardar quedaba fuera de pantalla al editar. */
+.settings-bar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 15px 20px;
+  border: 1px solid var(--fc-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.1);
+}
+
+.bar-note {
+  margin: 0;
+  color: var(--fc-muted);
+  font-size: 0.78rem;
+}
+
+.bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.settings .inline-messages {
   margin-top: 0;
+}
+
+@media (max-width: 860px) {
+  .settings-group {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .field.is-inline {
+    width: 100%;
+  }
 }
 
 .indicators-grid {
@@ -885,13 +1010,8 @@ tbody tr:last-child td {
 
 @media (max-width: 1320px) {
   .financial-filters-grid,
-  .scenario-controls,
-  .config-form {
+  .scenario-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
-  .dashboard-grid {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -900,37 +1020,397 @@ tbody tr:last-child td {
     padding: 18px;
   }
 
-  .page-header,
-  .gh-filters-actions,
-  .section-head,
-  .block-head {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .financial-filters-grid,
-  .scenario-controls,
-  .stats-grid,
-  .metric-grid,
-  .metric-grid.compact,
-  .config-form,
-  .key-values {
-    grid-template-columns: 1fr !important;
-  }
-
   .header-actions,
   .gh-action-group,
-  .config-actions {
+  .bar-actions {
     width: 100%;
   }
 
   .header-actions .gh-btn,
   .gh-action-group .gh-btn,
-  .config-actions .gh-btn {
+  .bar-actions .gh-btn {
     flex: 1;
   }
 
   table {
     min-width: 900px;
+  }
+}
+
+/* ================================================================= veredicto
+
+   El tablero abria con trece tarjetas del mismo peso y el semaforo --que es LA
+   respuesta-- enterrado en la mitad. Ahora la respuesta va primera y grande, y el resto
+   es el detalle que la sustenta. */
+
+.verdict {
+  --verdict-tone: var(--fc-blue);
+  --verdict-bg: #f4f8ff;
+  margin-top: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(260px, 1fr);
+  align-items: center;
+  gap: 24px;
+  padding: 22px 24px;
+  border: 1px solid var(--fc-border-soft);
+  border-left: 5px solid var(--verdict-tone);
+  border-radius: 14px;
+  background: var(--verdict-bg);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+}
+
+.verdict.tone-green {
+  --verdict-tone: #16a34a;
+  --verdict-bg: #f0fdf4;
+}
+
+.verdict.tone-yellow {
+  --verdict-tone: #d97706;
+  --verdict-bg: #fffbeb;
+}
+
+.verdict.tone-red {
+  --verdict-tone: #dc2626;
+  --verdict-bg: #fef2f2;
+}
+
+.verdict.tone-gray {
+  --verdict-tone: #94a3b8;
+  --verdict-bg: #f8fafc;
+}
+
+.verdict-eyebrow {
+  display: block;
+  color: var(--fc-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.verdict-main h2 {
+  margin: 6px 0 0;
+  color: var(--verdict-tone);
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.verdict-main p {
+  margin: 8px 0 0;
+  color: #334155;
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
+/* El medidor del punto de equilibrio, con la meta marcada: sin ella la barra no dice
+   contra que se compara. */
+/* En una rejilla, sin `min-width: 0` una columna no puede encoger por debajo de su
+   contenido y la barra desborda la tarjeta. */
+.verdict-gauge {
+  min-width: 0;
+}
+
+.gauge-track {
+  position: relative;
+  height: 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid var(--fc-border-soft);
+  overflow: hidden;
+}
+
+.gauge-track > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--verdict-tone);
+  transition: width 0.35s ease;
+}
+
+.gauge-track > i.tone-green { background: #16a34a; }
+.gauge-track > i.tone-yellow { background: #d97706; }
+.gauge-track > i.tone-red { background: #dc2626; }
+.gauge-track > i.tone-gray { background: #cbd5e1; }
+
+.gauge-goal {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 2px;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.gauge-legend {
+  margin: 10px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  color: #334155;
+  font-size: 0.85rem;
+}
+
+.gauge-legend b {
+  font-variant-numeric: tabular-nums;
+}
+
+.gauge-legend .is-soft {
+  color: var(--fc-muted);
+}
+
+.verdict-reasons {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.verdict-reasons li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 14px;
+  border: 1px solid var(--fc-border-soft);
+  border-radius: 10px;
+  background: var(--fc-surface);
+  color: #334155;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.verdict-reasons i {
+  margin-top: 2px;
+  color: var(--fc-blue);
+  font-size: 0.82rem;
+}
+
+/* ========================================================= veredicto escenario */
+
+.scenario-verdict {
+  --scen-tone: #16a34a;
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px;
+  border: 1px solid var(--fc-border-soft);
+  border-left: 5px solid var(--scen-tone);
+  border-radius: 14px;
+  background: #f0fdf4;
+}
+
+.scenario-verdict.is-down {
+  --scen-tone: #d97706;
+  background: #fffbeb;
+}
+
+.scenario-verdict.is-loss {
+  --scen-tone: #dc2626;
+  background: #fef2f2;
+}
+
+.scenario-verdict h3 {
+  margin: 6px 0 0;
+  color: var(--scen-tone);
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.scenario-verdict p {
+  margin: 6px 0 0;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.loss-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 13px;
+  border-radius: 10px;
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .verdict {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+}
+
+/* ---------------------------------------------------------- estados e indicadores */
+
+.delta-arrow {
+  margin-right: 5px;
+  font-size: 0.68rem;
+  opacity: 0.75;
+}
+
+.indicator-delta {
+  margin: 8px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--fc-muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.indicator-delta i {
+  font-size: 0.72rem;
+}
+
+/* Direccion, no juicio: en un estado financiero "hacia arriba" no siempre es bueno. */
+.indicator-delta.dir-up {
+  color: #166534;
+}
+
+.indicator-delta.dir-down {
+  color: #b91c1c;
+}
+
+.indicator-delta span {
+  color: var(--fc-muted);
+  font-weight: 500;
+}
+
+/* =================================================================== graficos
+
+   El tablero eran trece tarjetas de cifras. Comparar magnitudes leyendo numeros
+   alineados es trabajo que hace mejor una barra; una tendencia de doce meses, una linea.
+   Cada grafico lleva sus cifras al pie: la lectura no puede depender del cursor. */
+
+.chart-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.chart-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px;
+  border: 1px solid var(--fc-border-soft);
+  border-radius: 14px;
+  background: var(--fc-surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 28px rgba(15, 23, 42, 0.05);
+}
+
+.chart-card.is-wide {
+  grid-column: 1 / -1;
+}
+
+.chart-head h3 {
+  margin: 0;
+  color: var(--fc-text);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.chart-head small {
+  display: block;
+  margin-top: 5px;
+  color: var(--fc-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.chart-canvas {
+  height: 260px;
+  min-width: 0;
+}
+
+.chart-canvas.is-short {
+  height: 190px;
+}
+
+/* Las cifras exactas al pie del grafico: el tooltip es una comodidad, no la unica via. */
+.chart-figures {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--fc-border-soft);
+}
+
+.chart-figures.is-stacked {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.chart-figures dt {
+  color: var(--fc-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.chart-figures dd {
+  margin: 3px 0 0;
+  color: var(--fc-text);
+  font-size: 1.08rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+/* El signo del resultado si merece color; el resto de cifras son tinta normal. */
+.chart-figures dd.green {
+  color: var(--fc-success);
+}
+
+.chart-figures dd.red {
+  color: var(--fc-danger);
+}
+
+.chart-figures span {
+  display: block;
+  margin-top: 3px;
+  color: var(--fc-muted);
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+/* La ocupacion se mide en puntos: fuera del eje de porcentajes, con su aclaracion. */
+.chart-aside {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--fc-border-soft);
+  color: var(--fc-muted);
+  font-size: 0.82rem;
+}
+
+.chart-aside b {
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-aside span {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.74rem;
+}
+
+@media (max-width: 1100px) {
+  .chart-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -8,15 +8,50 @@
       </p>
     </div>
 
-    <button
-      type="button"
-      class="ops-refresh"
-      (click)="loadSummary(true, true)"
-      [disabled]="loading || refreshing"
-      title="Actualizar">
-      <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
-      Actualizar
-    </button>
+    <div class="ops-header-actions">
+      <!-- Generar trabajo desde cualquier pestaña: es la accion de la pantalla, no de
+           una lista concreta. -->
+      <button type="button" class="ops-new is-cleaning" (click)="createWork('cleaning')">
+        <i class="fa-solid fa-broom"></i>
+        Nueva tarea
+      </button>
+
+      <button type="button" class="ops-new is-maintenance" (click)="createWork('maintenance')">
+        <i class="fa-solid fa-screwdriver-wrench"></i>
+        Nueva orden
+      </button>
+
+      <!-- Lo que se repite: "cada 6 meses revisar los aires" se busca aqui, no en una
+           pestaña llamada "Programado". -->
+      <div class="ops-schedule">
+        <button type="button" class="ops-new is-schedule" (click)="toggleScheduleMenu()">
+          <i class="fa-regular fa-calendar-check"></i>
+          Programar periodica
+          <i class="fa-solid fa-chevron-down is-caret"></i>
+        </button>
+
+        <div class="ops-schedule-menu" *ngIf="showScheduleMenu">
+          <button type="button" (click)="scheduleWork('cleaning')">
+            <i class="fa-solid fa-broom"></i>
+            Limpieza que se repite
+          </button>
+          <button type="button" (click)="scheduleWork('maintenance')">
+            <i class="fa-solid fa-screwdriver-wrench"></i>
+            Mantenimiento que se repite
+          </button>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="ops-refresh"
+        (click)="loadSummary(true, true)"
+        [disabled]="loading || refreshing"
+        title="Actualizar">
+        <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
+        Actualizar
+      </button>
+    </div>
   </header>
 
   <!-- Resumen: cada tarjeta lleva a la pestaña donde se resuelve -->
@@ -96,5 +131,8 @@
       [focusRoomId]="focus?.id ?? null"
       (changed)="onWorkChanged()">
     </app-list-maintenance-orders>
+
+    <app-recurring-work *ngIf="activeTab === 'scheduled'" (changed)="onWorkChanged()">
+    </app-recurring-work>
   </section>
 </div>

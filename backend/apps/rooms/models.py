@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.hotel_settings.models import HotelFloor
@@ -248,3 +249,118 @@ class CleaningTask(models.Model):
 
     def __str__(self):
         return f"{self.room.number} - {self.task_type}"
+
+
+class RecurringWork(models.Model):
+    """Regla que genera trabajo periodico: "cada lunes", "el 1 de cada mes".
+
+    Se modela como una **regla que produce tareas**, no como una tarea que se repite.
+    La diferencia importa: si la periodicidad viviera en la propia tarea, cerrarla
+    borraria la programacion, cambiar la frecuencia reescribiria el historico, y no
+    habria forma de contestar "que trabajo esta programado" sin recorrer todo lo hecho.
+
+    El trabajo real lo materializa el comando `generate_recurring_work`, igual que el
+    resto de tareas programadas del sistema (AGENTS.md 5.12).
+    """
+
+    class Kind(models.TextChoices):
+        CLEANING = "CLEANING", "Limpieza"
+        MAINTENANCE = "MAINTENANCE", "Mantenimiento"
+
+    class Frequency(models.TextChoices):
+        DAILY = "DAILY", "Diaria"
+        WEEKLY = "WEEKLY", "Semanal"
+        MONTHLY = "MONTHLY", "Mensual"
+
+    hotel_settings = models.ForeignKey(
+        "hotel_settings.HotelSettings",
+        on_delete=models.CASCADE,
+        related_name="recurring_work",
+    )
+
+    # Sin habitacion, la regla aplica a **todas** las activas del hotel: es el caso de
+    # "revision de aires cada mes", que no es de una habitacion sino de todas.
+    room = models.ForeignKey(
+        Room,
+        on_delete=models.CASCADE,
+        related_name="recurring_work",
+        blank=True,
+        null=True,
+    )
+
+    kind = models.CharField(max_length=20, choices=Kind.choices, db_index=True)
+    name = models.CharField(max_length=150)
+
+    # Solo para limpieza: que tipo de tarea se crea.
+    task_type = models.ForeignKey(
+        MasterData,
+        on_delete=models.PROTECT,
+        related_name="recurring_work_by_task_type",
+        limit_choices_to={"group": MasterData.Group.CLEANING_TASK_TYPE},
+        blank=True,
+        null=True,
+    )
+    priority = models.ForeignKey(
+        MasterData,
+        on_delete=models.PROTECT,
+        related_name="recurring_work_by_priority",
+        limit_choices_to={"group": MasterData.Group.MAINTENANCE_PRIORITY},
+        blank=True,
+        null=True,
+    )
+    notes = models.TextField(blank=True, null=True)
+
+    frequency = models.CharField(max_length=20, choices=Frequency.choices)
+    # Cada cuantos periodos: 1 = todas las semanas, 2 = cada dos semanas.
+    interval = models.PositiveIntegerField(default=1)
+    # Lunes = 0, domingo = 6. Solo aplica a la frecuencia semanal.
+    weekday = models.PositiveSmallIntegerField(blank=True, null=True)
+    # Dia del mes. Si el mes no lo tiene (31 en febrero) se usa el ultimo dia.
+    day_of_month = models.PositiveSmallIntegerField(blank=True, null=True)
+
+    starts_on = models.DateField()
+    ends_on = models.DateField(blank=True, null=True)
+
+    # Proxima fecha en la que toca generar. Es el estado de la regla: se adelanta al
+    # generar, y consultarlo contesta "cuando vuelve a tocar" sin recalcular nada.
+    next_run_on = models.DateField(db_index=True)
+    last_generated_on = models.DateField(blank=True, null=True)
+    generated_count = models.PositiveIntegerField(default=0)
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "recurring_work"
+        ordering = ["next_run_on", "id"]
+
+    def clean(self):
+        errors = {}
+
+        if self.interval is not None and self.interval < 1:
+            errors["interval"] = "El intervalo debe ser de al menos 1."
+
+        if self.frequency == self.Frequency.WEEKLY and self.weekday is None:
+            errors["weekday"] = "Una regla semanal necesita un dia de la semana."
+
+        if self.frequency == self.Frequency.MONTHLY and self.day_of_month is None:
+            errors["day_of_month"] = "Una regla mensual necesita un dia del mes."
+
+        if self.weekday is not None and not 0 <= self.weekday <= 6:
+            errors["weekday"] = "El dia de la semana va de 0 (lunes) a 6 (domingo)."
+
+        if self.day_of_month is not None and not 1 <= self.day_of_month <= 31:
+            errors["day_of_month"] = "El dia del mes va de 1 a 31."
+
+        if self.ends_on and self.starts_on and self.ends_on < self.starts_on:
+            errors["ends_on"] = "La fecha de fin no puede ser anterior a la de inicio."
+
+        if self.kind == self.Kind.CLEANING and not self.task_type_id:
+            errors["task_type"] = "Una regla de limpieza necesita un tipo de tarea."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self):
+        return f"{self.name} ({self.get_frequency_display()})"

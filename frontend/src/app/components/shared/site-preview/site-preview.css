@@ -1,0 +1,122 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.site-preview {
+  margin-top: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.link-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--gh-border);
+  border-radius: 12px;
+  background: var(--gh-surface);
+  padding: 11px 13px;
+}
+
+.link-card.is-invalid {
+  border-color: var(--gh-status-orange-border);
+  background: var(--gh-status-orange-bg);
+}
+
+.link-icon {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--gh-status-success-bg);
+  color: var(--gh-status-success-text);
+}
+
+.link-icon img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.link-card.is-invalid .link-icon {
+  background: var(--gh-status-orange-bg);
+  color: var(--gh-status-orange-text);
+}
+
+.link-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.link-copy strong {
+  display: block;
+  color: var(--gh-text-strong);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-copy small {
+  display: block;
+  margin-top: 2px;
+  color: var(--gh-text-muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-copy code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--gh-surface-soft);
+  font-size: 11px;
+}
+
+.preview-btn {
+  min-height: 34px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 8px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+.preview-btn:hover {
+  border-color: var(--gh-brand);
+  background: var(--gh-surface-soft);
+}
+
+.preview-btn.is-primary {
+  border-color: transparent;
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+}
+
+@media (max-width: 640px) {
+  .link-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .preview-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

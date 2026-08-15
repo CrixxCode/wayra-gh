@@ -8,8 +8,17 @@ from accounts.permissions import HasResourcePermission
 from accounts.soft_delete import LogicalDeleteViewSetMixin
 from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
 from apps.reservations.services import sync_room_status_for_room_ids
-from .models import Rate, Amenity, Room, MaintenanceOrder, CleaningTask, RoomType
+from .models import (
+    Rate,
+    Amenity,
+    Room,
+    MaintenanceOrder,
+    CleaningTask,
+    RecurringWork,
+    RoomType,
+)
 from .operations import build_room_operations_map
+from .recurring import has_due_rules, materialize_due_recurring_work
 from .serializers import (
     RoomTypeSerializer,
     RateSerializer,
@@ -17,6 +26,7 @@ from .serializers import (
     RoomSerializer,
     MaintenanceOrderSerializer,
     CleaningTaskSerializer,
+    RecurringWorkSerializer,
     RoomPanelSerializer,
 )
 
@@ -214,7 +224,34 @@ class RoomViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
         return Response(serializer.data)
 
 
+
+class MaterializeRecurringWorkMixin:
+    """Pone al dia el trabajo periodico vencido antes de listar.
+
+    Existe para que el sistema **no dependa de que alguien programe un cron**: abrir la
+    pantalla ya genera lo que tocaba. Se comprueba primero con una consulta por indice,
+    asi que el caso normal --nada vencido-- no cuesta nada.
+
+    Un fallo aqui no puede tumbar la lectura: si la generacion falla, el usuario debe ver
+    igual su trabajo. El comando o la siguiente carga volveran a intentarlo.
+    """
+
+    def list(self, request, *args, **kwargs):
+        hotel_settings_id = (
+            None if is_effective_global_admin(request.user) else getattr(request.user, "hotel_settings_id", None)
+        )
+
+        try:
+            if has_due_rules(hotel_settings_id):
+                materialize_due_recurring_work(hotel_settings_id)
+        except Exception:  # noqa: BLE001 - la lectura no puede caerse por esto
+            pass
+
+        return super().list(request, *args, **kwargs)
+
+
 class MaintenanceOrderViewSet(
+    MaterializeRecurringWorkMixin,
     LogicalDeleteViewSetMixin,
     TenantScopeMixin,
     viewsets.ModelViewSet,
@@ -255,7 +292,12 @@ class MaintenanceOrderViewSet(
         return super().get_permissions()
 
 
-class CleaningTaskViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
+class CleaningTaskViewSet(
+    MaterializeRecurringWorkMixin,
+    LogicalDeleteViewSetMixin,
+    TenantScopeMixin,
+    viewsets.ModelViewSet,
+):
     queryset = CleaningTask.objects.select_related(
         "room",
         "room__floor",
@@ -314,3 +356,49 @@ class CleaningTaskViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.
         room_id = instance.room_id
         super().perform_destroy(instance)
         sync_room_status_for_room_ids([room_id])
+
+
+class RecurringWorkViewSet(MaterializeRecurringWorkMixin, TenantScopeMixin, viewsets.ModelViewSet):
+    """Reglas de trabajo periodico.
+
+    Sin borrado logico a proposito: una regla no se archiva, se **desactiva**
+    (`is_active`), que es lo que el comando consulta cada dia. Un borrado logico anadiria
+    un segundo estado apagado para lo mismo.
+    """
+
+    queryset = RecurringWork.objects.select_related(
+        "room",
+        "room__floor",
+        "hotel_settings",
+        "task_type",
+        "priority",
+    ).all()
+    serializer_class = RecurringWorkSerializer
+    pagination_class = OptionalPageNumberPagination
+    permission_classes = [HasResourcePermission]
+    required_scopes = ["recurring_work.read"]
+    tenant_filter = "hotel_settings"
+
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["name", "notes", "room__number"]
+    ordering_fields = ["id", "next_run_on", "name", "created_at"]
+    ordering = ["next_run_on", "id"]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # `?kind=CLEANING`: cada pestaña muestra su propia programacion.
+        kind = str(self.request.query_params.get("kind", "")).strip().upper()
+        if kind in RecurringWork.Kind.values:
+            queryset = queryset.filter(kind=kind)
+
+        return queryset
+
+    def get_required_scopes(self):
+        if self.request.method in ("POST", "PUT", "PATCH", "DELETE"):
+            return ["recurring_work.write"]
+        return self.required_scopes
+
+    def get_permissions(self):
+        self.required_scopes = self.get_required_scopes()
+        return super().get_permissions()

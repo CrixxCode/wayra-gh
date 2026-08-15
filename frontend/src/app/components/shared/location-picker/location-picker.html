@@ -1,0 +1,66 @@
+<section class="picker">
+  <header class="picker-head">
+    <div class="picker-title">
+      <span class="picker-icon"><i class="fa-solid fa-map-location-dot"></i></span>
+      <div>
+        <h3>Ubicacion en el mapa</h3>
+        <p>Busca por la direccion y arrastra el marcador hasta la puerta del hotel.</p>
+      </div>
+    </div>
+
+    <div class="picker-actions">
+      <button
+        type="button"
+        class="picker-btn is-primary"
+        (click)="searchAddress()"
+        [disabled]="!canSearch">
+        <i class="fa-solid" [class.fa-magnifying-glass]="!searching" [class.fa-spinner]="searching" [class.is-spinning]="searching"></i>
+        {{ searching ? 'Buscando...' : 'Buscar por direccion' }}
+      </button>
+
+      <!-- Estando en el hotel es el camino mas corto: no hay que escribir nada, solo
+           revisar lo que se rellena. -->
+      <button
+        type="button"
+        class="picker-btn is-accent"
+        (click)="useMyLocation()"
+        [disabled]="!canLocate">
+        <i class="fa-solid" [class.fa-location-crosshairs]="!locating" [class.fa-spinner]="locating" [class.is-spinning]="locating"></i>
+        {{ locating ? 'Ubicando...' : 'Usar mi ubicacion' }}
+      </button>
+
+      <button
+        type="button"
+        class="picker-btn"
+        (click)="clearPoint()"
+        [disabled]="disabled || !hasPoint">
+        <i class="fa-solid fa-eraser"></i>
+        Borrar
+      </button>
+    </div>
+  </header>
+
+  <!-- El mapa siempre esta en el DOM: Leaflet necesita medir su contenedor al montar, y
+       si naciera dentro de un *ngIf lo mediria en cero y se pintaria roto. -->
+  <div class="map-frame">
+    <div class="map-host" #mapHost></div>
+
+    <p class="map-loading" *ngIf="loadingMap">Cargando mapa...</p>
+
+    <p class="map-hint" *ngIf="!loadingMap && !hasPoint">
+      <i class="fa-solid fa-hand-pointer"></i>
+      Haz clic en el mapa para fijar la ubicacion
+    </p>
+  </div>
+
+  <footer class="picker-foot">
+    <span class="coords" [class.is-empty]="!hasPoint">
+      <i class="fa-solid fa-location-crosshairs"></i>
+      {{ coordsLabel }}
+    </span>
+
+    <p class="picker-message" *ngIf="message" [class.is-error]="messageTone === 'error'">
+      {{ message }}
+    </p>
+  </footer>
+</section>

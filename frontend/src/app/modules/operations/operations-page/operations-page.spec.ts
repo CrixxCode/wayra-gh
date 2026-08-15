@@ -8,11 +8,21 @@ import { of } from 'rxjs';
 import { OperationsPage } from './operations-page';
 import { CleaningTasksService } from '../../../services/cleaning-task';
 import { MaintenanceOrdersService } from '../../../services/maintenance-order';
+import { RecurringWorkService } from '../../../services/recurring-work';
 
 const dayKey = (offset: number): string => {
   const date = new Date();
   date.setDate(date.getDate() + offset);
   return date.toISOString();
+};
+
+/** Las reglas guardan fecha suelta (`YYYY-MM-DD`), no un instante. */
+const plainDay = (offset: number): string => {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 };
 
 const task = (id: number, room: number, overrides: any = {}) => ({
@@ -39,15 +49,20 @@ describe('OperationsPage', () => {
 
   const listCleaningTasks = jasmine.createSpy('listCleaningTasks');
   const listMaintenanceOrders = jasmine.createSpy('listMaintenanceOrders');
+  const listRecurringWork = jasmine.createSpy('listRecurringWork');
   const navigate = jasmine.createSpy('navigate');
 
-  const setup = async (data: { tasks?: any[]; orders?: any[]; tab?: string } = {}) => {
+  const setup = async (
+    data: { tasks?: any[]; orders?: any[]; rules?: any[]; tab?: string } = {}
+  ) => {
     listCleaningTasks.calls.reset();
     listMaintenanceOrders.calls.reset();
+    listRecurringWork.calls.reset();
     navigate.calls.reset();
 
     listCleaningTasks.and.returnValue(of(data.tasks || []));
     listMaintenanceOrders.and.returnValue(of(data.orders || []));
+    listRecurringWork.and.returnValue(of(data.rules || []));
 
     await TestBed.resetTestingModule()
       .configureTestingModule({
@@ -58,6 +73,7 @@ describe('OperationsPage', () => {
           ConfirmationService,
           { provide: CleaningTasksService, useValue: { listCleaningTasks } },
           { provide: MaintenanceOrdersService, useValue: { listMaintenanceOrders } },
+          { provide: RecurringWorkService, useValue: { listRecurringWork } },
           { provide: Router, useValue: { navigate } },
           {
             provide: ActivatedRoute,
@@ -207,5 +223,75 @@ describe('OperationsPage', () => {
 
     expect(loadingDuranteRecarga).toBeFalse();
     expect(component.loading).toBeFalse();
+  });
+
+  describe('generar trabajo', () => {
+    // Al embeber las listas se oculto su encabezado, y con el se fue el boton de alta:
+    // la vista quedo sin forma de generar trabajo.
+    it('abre el alta de limpieza sin cambiar de pestaña si ya esta en ella', async () => {
+      await setup({ tab: 'cleaning' });
+      const abierto = jasmine.createSpy('openCreateDrawer');
+      (component as any).cleaningList = { openCreateDrawer: abierto };
+
+      component.createWork('cleaning');
+
+      expect(abierto).toHaveBeenCalled();
+      expect(component.activeTab).toBe('cleaning');
+    });
+
+    // La lista vive tras un `*ngIf` de pestaña: primero hay que montarla.
+    it('cambia de pestaña antes de abrir el alta de otra', async () => {
+      await setup({ tab: 'rooms' });
+
+      component.createWork('maintenance');
+
+      expect(component.activeTab).toBe('maintenance');
+    });
+  });
+
+  describe('programar trabajo periodico', () => {
+    // Una pestaña llamada "Programado" no dice que ahi se crea: quien busca "cada 6
+    // meses revisar los aires" mira los botones de arriba.
+    it('lleva a la pestaña de programacion desde cualquier otra', async () => {
+      await setup({ tab: 'rooms' });
+
+      component.scheduleWork('maintenance');
+
+      expect(component.activeTab).toBe('scheduled');
+      expect(component.showScheduleMenu).toBeFalse();
+    });
+
+    it('abre el formulario del tipo pedido si ya esta en la pestaña', async () => {
+      await setup({ tab: 'scheduled' });
+      const abierto = jasmine.createSpy('openCreate');
+      (component as any).scheduleList = { openCreate: abierto };
+
+      component.scheduleWork('cleaning');
+
+      expect(abierto).toHaveBeenCalledWith('CLEANING');
+    });
+
+    it('cuenta solo las programaciones activas', async () => {
+      await setup({
+        rules: [
+          { id: 1, is_active: true, next_run_on: plainDay(5) },
+          { id: 2, is_active: false, next_run_on: plainDay(1) }
+        ]
+      });
+
+      expect(component.tabCount('scheduled')).toBe(1);
+    });
+
+    it('avisa de las que generan hoy o maniana', async () => {
+      await setup({
+        rules: [
+          { id: 1, is_active: true, next_run_on: plainDay(0) },
+          { id: 2, is_active: true, next_run_on: plainDay(9) }
+        ]
+      });
+
+      expect(component.imminentRules).toBe(1);
+      expect(metric('scheduled').note).toContain('1 genera');
+    });
   });
 });

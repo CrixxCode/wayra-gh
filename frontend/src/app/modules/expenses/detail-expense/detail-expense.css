@@ -56,6 +56,8 @@
 }
 
 .expense-drawer {
+  /* Respaldo por si el tono de la categoria no llega desde el componente. */
+  --cat-tone: var(--drawer-brand);
   width: 520px;
   max-width: 100%;
   height: 100%;
@@ -65,14 +67,28 @@
   box-shadow: var(--drawer-shadow-side);
 }
 
+/* Antes: un degradado rojo oscuro a plena altura. Un egreso normal no es una alarma, y
+   ese rojo se comia el dato que de verdad importa --el monto--. Ahora el encabezado es
+   sobrio y el color vive en una linea del tono de la categoria, el mismo que ya usa la
+   fila en el listado. */
 .drawer-head {
-  background: linear-gradient(160deg, #450a0a, #b91c1c);
-  color: var(--drawer-on-brand);
-  padding: 24px;
+  position: relative;
+  background: var(--drawer-surface);
+  color: var(--drawer-text-strong);
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--drawer-border);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+}
+
+.drawer-head::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--cat-tone);
 }
 
 .drawer-title-block {
@@ -83,28 +99,49 @@
 
 .drawer-type {
   margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-size: 12px;
-  letter-spacing: 0.1em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--cat-tone);
+}
+
+.cat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cat-tone);
 }
 
 .drawer-head h2 {
   margin: 0;
-  font-size: 28px;
-  line-height: 1.1;
+  color: var(--drawer-text-strong);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
 }
 
 .drawer-close {
+  flex: 0 0 auto;
   width: 34px;
   height: 34px;
-  border: 0;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--drawer-on-brand);
+  border: 1px solid var(--drawer-border-strong);
+  border-radius: 9px;
+  background: var(--drawer-surface);
+  color: var(--drawer-text-muted);
   display: grid;
   place-items: center;
   cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease;
+}
+
+.drawer-close:hover {
+  color: var(--drawer-text-strong);
+  border-color: var(--drawer-text-muted);
 }
 
 .drawer-close svg {
@@ -155,56 +192,77 @@
   color: var(--drawer-success-text);
 }
 
+/* `flex: 1` con `justify-content` por defecto dejaba el contenido arriba y un hueco
+   enorme debajo. Sigue ocupando el alto para poder hacer scroll, pero ahora se nota que
+   el bloque termina donde termina el dato. */
 .drawer-body {
   flex: 1;
   overflow: auto;
-  padding: 18px 24px 20px;
+  padding: 18px 20px 22px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
+/* El monto es de lo que trata la pantalla: antes compartia una caja de dos columnas con
+   la fecha, los dos del mismo tamaño. */
 .hero-card {
   border: 1px solid var(--drawer-border-strong);
+  border-left: 4px solid var(--cat-tone);
   border-radius: 14px;
   background: var(--drawer-surface-soft);
-  padding: 14px 16px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  padding: 16px 18px;
 }
 
-.hero-card span {
-  font-size: 12px;
-  color: var(--drawer-text-muted);
+.hero-label {
   display: block;
-  margin-bottom: 4px;
+  color: var(--drawer-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.hero-card strong {
+.hero-amount {
+  display: block;
+  margin-top: 4px;
   color: var(--drawer-text-strong);
-  font-size: 17px;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
-section {
+.hero-when {
+  margin: 8px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--drawer-text-muted);
+  font-size: 13px;
+}
+
+.detail-block {
   border: 1px solid var(--drawer-border);
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   background: var(--drawer-surface);
 }
 
-section h3 {
-  margin: 0 0 10px;
-  font-size: 13px;
+.detail-block h3 {
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--drawer-text);
+  color: var(--drawer-text-muted);
 }
 
 .info-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 14px 16px;
 }
 
 .info-list span {
@@ -217,6 +275,7 @@ section h3 {
 .info-list strong {
   color: var(--drawer-text-strong);
   font-size: 14px;
+  font-weight: 650;
   word-break: break-word;
 }
 
@@ -224,8 +283,34 @@ section h3 {
   margin: 0;
   color: var(--drawer-text);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
   white-space: pre-wrap;
+}
+
+.trace-line {
+  margin: 0;
+  color: var(--drawer-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.trace-line + .trace-line {
+  margin-top: 5px;
+}
+
+.trace-line b {
+  color: var(--drawer-text-strong);
+  font-weight: 650;
+}
+
+/* Lo que no se registro: una linea al final, en voz baja. Antes eran tres celdas del
+   mismo peso que las que si tenian dato. */
+.missing-note {
+  margin: 0;
+  padding: 0 4px;
+  color: var(--drawer-text-muted);
+  font-size: 12px;
+  font-style: italic;
 }
 
 .drawer-footer {

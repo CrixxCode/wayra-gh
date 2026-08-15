@@ -1,0 +1,378 @@
+/* Solo tokens --gh-*: el modo oscuro sale del mismo sitio que el resto (AGENTS 5.15). */
+
+:host {
+  display: block;
+}
+
+.rec-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 16px;
+}
+
+/* ------------------------------------------------------------------ cabecera */
+
+.rec-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.rec-head h2 {
+  margin: 0;
+  color: var(--gh-text-strong);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.rec-head p {
+  max-width: 560px;
+  margin: 5px 0 0;
+  color: var(--gh-text-muted);
+  font-size: 0.87rem;
+  line-height: 1.45;
+}
+
+.rec-head-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rec-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 10px;
+  background: var(--gh-surface);
+  font-size: 0.83rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rec-new.is-cleaning {
+  color: var(--gh-status-info-text);
+}
+
+.rec-new.is-maintenance {
+  color: var(--gh-status-orange-text);
+}
+
+.rec-new:hover {
+  border-color: currentColor;
+}
+
+/* -------------------------------------------------------------------- estado */
+
+.rec-error {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  padding: 10px 13px;
+  border: 1px solid var(--gh-status-danger-border);
+  border-radius: 10px;
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+  font-size: 0.84rem;
+}
+
+.rec-loading {
+  margin: 0;
+  color: var(--gh-text-muted);
+  font-size: 0.86rem;
+}
+
+.rec-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 46px 20px;
+  border: 1px dashed var(--gh-border-strong);
+  border-radius: 14px;
+  background: var(--gh-surface-soft);
+  text-align: center;
+}
+
+.rec-empty i {
+  color: var(--gh-status-info-strong);
+  font-size: 1.7rem;
+}
+
+.rec-empty strong {
+  color: var(--gh-text-strong);
+  font-size: 1.02rem;
+}
+
+.rec-empty p {
+  max-width: 500px;
+  margin: 0;
+  color: var(--gh-text-muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------- grupos */
+
+.rec-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 11px;
+  color: var(--gh-text-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.rec-group h3 span {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--gh-status-neutral-bg);
+  color: var(--gh-status-neutral-text);
+  font-size: 0.72rem;
+  letter-spacing: 0;
+}
+
+.rec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 13px;
+}
+
+/* ----------------------------------------------------------------- tarjetas */
+
+.rule-card {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 14px 16px;
+  border: 1px solid var(--gh-border);
+  border-radius: 14px;
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-soft-sm);
+}
+
+/* Pausada: sigue ahi, pero no genera nada. */
+.rule-card.is-paused {
+  opacity: 0.6;
+}
+
+/* Genera hoy o maniana: es lo unico de esta pantalla que pide atencion. */
+.rule-card.is-soon {
+  border-color: var(--gh-status-info-border);
+}
+
+.rule-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rule-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rule-titles strong {
+  color: var(--gh-text-strong);
+  font-size: 0.98rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* La regla en castellano pesa mas que su nombre: es lo que hay que verificar. */
+.rule-rhythm {
+  color: var(--gh-status-info-text);
+  font-size: 0.83rem;
+  font-weight: 600;
+}
+
+.rule-next {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-muted);
+  font-size: 0.71rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rule-next.is-soon {
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+}
+
+.rule-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 14px;
+  margin: 0;
+}
+
+.rule-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.rule-facts dt {
+  margin: 0;
+  color: var(--gh-text-soft);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.rule-facts dd {
+  margin: 0;
+  color: var(--gh-text);
+  font-size: 0.83rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rule-window {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--gh-text-soft);
+  font-size: 0.78rem;
+}
+
+.rule-foot {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-top: 11px;
+  border-top: 1px solid var(--gh-border-soft);
+}
+
+.rule-btn {
+  min-height: 31px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rule-btn:hover {
+  border-color: var(--gh-search-focus);
+  color: var(--gh-text-strong);
+}
+
+.rule-btn.is-danger {
+  margin-left: auto;
+  padding: 0 10px;
+}
+
+.rule-btn.is-danger:hover {
+  border-color: var(--gh-status-danger-border);
+  color: var(--gh-status-danger-text);
+}
+
+/* ------------------------------------------------------------------- modal */
+
+.rec-modal {
+  max-width: 620px;
+}
+
+.gh-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* La regla escrita, antes de guardarla: comprobar "cada 2 semanas los lunes" leyendo
+   tres selectores sueltos es justo lo que hace que se programe mal. */
+.rec-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 12px 15px;
+  border: 1px solid var(--gh-status-info-border);
+  border-radius: 12px;
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+}
+
+.rec-preview strong {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.rec-preview span {
+  color: var(--gh-text-muted);
+  font-size: 0.84rem;
+}
+
+.rec-kind {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.rec-kind button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 42px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 11px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rec-kind button.is-active {
+  border-color: var(--gh-brand);
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+}
+
+.rec-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.gh-field small {
+  color: var(--gh-text-soft);
+  font-size: 0.71rem;
+}
+
+.rec-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}

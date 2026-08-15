@@ -376,6 +376,19 @@
                     </select>
                   </label>
                 </div>
+
+                <!-- El punto exacto va aqui y no en otra tarjeta: es parte de la
+                     direccion, y el mapa se alimenta de los campos de arriba. -->
+                <app-location-picker
+                  [latitude]="form.latitude"
+                  [longitude]="form.longitude"
+                  [address]="form.address || ''"
+                  [city]="form.city || ''"
+                  [state]="form.state || ''"
+                  [country]="form.country || ''"
+                  (locationChange)="onLocationChange($event)"
+                  (addressResolved)="onAddressResolved($event)">
+                </app-location-picker>
               </div>
             </article>
 
@@ -413,28 +426,65 @@
                   <input [(ngModel)]="form.reservations_email" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
                 </label>
 
-                <label class="grid gap-1">
+                <label class="grid min-w-0 gap-1">
                   <span class="text-sm font-medium text-slate-700">Sitio Web</span>
-                  <input [(ngModel)]="form.website" class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+                  <input
+                    [(ngModel)]="form.website"
+                    placeholder="hotelwayra.com"
+                    class="rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500" />
+
+                  <!-- Para que el usuario vea que enlace esta poniendo antes de guardarlo. -->
+                  <app-site-preview
+                    [url]="form.website || ''"
+                    (normalized)="onWebsiteNormalized($event)">
+                  </app-site-preview>
                 </label>
               </div>
             </article>
           </div>
 
-          <article class="rounded-2xl border border-gray-200 bg-white px-5 py-12 text-center text-gray-500 shadow-sm">
-            <div class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-amber-50 text-amber-600">
-              <i class="fa-solid fa-location-dot"></i>
+          <!-- El resumen de como quedo la ubicacion. Antes decia "integracion con mapa
+               disponible proximamente"; ahora el mapa existe, asi que dice si el punto
+               esta puesto y cual es. -->
+          <article class="rounded-2xl border border-gray-200 bg-white px-5 py-6 shadow-sm">
+            <div class="flex flex-wrap items-center justify-center gap-4 text-center sm:justify-between sm:text-left">
+              <div class="flex items-center gap-3">
+                <span
+                  class="grid h-12 w-12 shrink-0 place-items-center rounded-full"
+                  [class]="hasHotelCoordinates ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'">
+                  <i class="fa-solid" [class.fa-map-location-dot]="hasHotelCoordinates" [class.fa-location-dot]="!hasHotelCoordinates"></i>
+                </span>
+
+                <div>
+                  <p class="font-medium text-slate-700">
+                    {{ form.address || 'Dirección pendiente de configurar' }}
+                    @if (form.city) {
+                      , {{ form.city }}
+                    }
+                    @if (form.country) {
+                      , {{ form.country }}
+                    }
+                  </p>
+
+                  @if (hasHotelCoordinates) {
+                    <p class="mt-1 text-sm text-emerald-700">
+                      Ubicación exacta fijada en el mapa
+                      <span class="font-mono text-xs text-gray-500">({{ hotelCoordinatesLabel }})</span>
+                    </p>
+                  } @else {
+                    <p class="mt-1 text-sm text-gray-400">
+                      Falta señalar el punto exacto en el mapa de arriba
+                    </p>
+                  }
+                </div>
+              </div>
+
+              <span
+                class="rounded-full px-3 py-1 text-xs font-semibold"
+                [class]="hasHotelCoordinates ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'">
+                {{ hasHotelCoordinates ? 'Ubicación completa' : 'Ubicación incompleta' }}
+              </span>
             </div>
-            <p class="font-medium text-slate-700">
-              {{ form.address || 'Dirección pendiente de configurar' }}
-              @if (form.city) {
-                , {{ form.city }}
-              }
-              @if (form.country) {
-                , {{ form.country }}
-              }
-            </p>
-            <p class="mt-1 text-sm text-gray-400">Integración con mapa disponible próximamente</p>
           </article>
         </section>
       }
@@ -1269,4 +1319,3 @@
     }
   </div>
 </div>
-

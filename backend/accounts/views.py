@@ -25,6 +25,7 @@ from rest_framework.views import APIView
 from rest_framework.throttling import ScopedRateThrottle
 from accounts.pagination import OptionalPageNumberPagination
 from accounts.permissions import HasResourcePermission
+from accounts.audit import AuditLog
 from accounts.soft_delete import LogicalDeleteViewSetMixin
 from accounts.tenancy import is_effective_global_admin, scope_queryset_to_hotel
 
@@ -709,3 +710,188 @@ class NotificationMarkUnreadView(APIView):
     
 
 
+
+
+class AuditLogSerializer(drf_serializers.ModelSerializer):
+    """El rastro se lee, nunca se escribe: todos los campos son de solo lectura."""
+
+    user_username = drf_serializers.SerializerMethodField()
+    action_label = drf_serializers.CharField(source="get_action_display", read_only=True)
+
+    class Meta:
+        model = AuditLog
+        fields = [
+            "id",
+            "occurred_at",
+            "user",
+            "user_username",
+            "action",
+            "action_label",
+            "entity",
+            "object_id",
+            "object_label",
+            "changes",
+            "ip_address",
+            "user_agent",
+            "request_path",
+            "request_method",
+        ]
+        read_only_fields = fields
+
+    def get_user_username(self, obj) -> str:
+        # El nombre guardado manda sobre la relacion: si el usuario se renombro o se
+        # borro, el rastro tiene que seguir diciendo quien era **entonces**.
+        return obj.username or (obj.user.username if obj.user else "")
+
+
+class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """Consulta del rastro de auditoria.
+
+    Solo lectura por diseño: un rastro que se puede editar no sirve para auditar. No hay
+    `create`, `update` ni `destroy`, y nadie los va a añadir sin darse cuenta porque el
+    viewset base no los trae.
+    """
+
+    serializer_class = AuditLogSerializer
+    pagination_class = OptionalPageNumberPagination
+    permission_classes = [HasResourcePermission]
+    required_scopes = ["audit.read"]
+
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["username", "entity", "object_label", "request_path"]
+    ordering_fields = ["occurred_at", "id"]
+    ordering = ["-occurred_at", "-id"]
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return AuditLog.objects.none()
+
+        queryset = AuditLog.objects.select_related("user")
+
+        # El aislamiento va por la columna denormalizada: resolver la entidad de cada
+        # fila para saber de que hotel es costaria una consulta por fila.
+        if not is_effective_global_admin(user):
+            hotel_id = getattr(user, "hotel_settings_id", None)
+            queryset = queryset.filter(hotel_settings_id=hotel_id)
+
+        return self._apply_filters(queryset)
+
+    def _apply_filters(self, queryset):
+        params = self.request.query_params
+
+        action_filter = (params.get("action") or "").strip().upper()
+        if action_filter in dict(AuditLog.Action.choices):
+            queryset = queryset.filter(action=action_filter)
+
+        entity = (params.get("entity") or "").strip()
+        if entity:
+            queryset = queryset.filter(entity__iexact=entity)
+
+        username = (params.get("username") or "").strip()
+        if username:
+            queryset = queryset.filter(username__iexact=username)
+
+        # Rango por **fecha local**, no por instante: un `lte` con la fecha suelta
+        # recortaria el ultimo dia a su primer segundo.
+        date_from = (params.get("occurred_after") or "").strip()
+        if date_from:
+            queryset = queryset.filter(occurred_at__date__gte=date_from)
+
+        date_to = (params.get("occurred_before") or "").strip()
+        if date_to:
+            queryset = queryset.filter(occurred_at__date__lte=date_to)
+
+        return queryset
+
+    @action(detail=False, methods=["get"], url_path="entities")
+    def entities(self, request):
+        """Las entidades y usuarios que de verdad aparecen, para poblar los filtros.
+
+        Ofrecer la lista completa de modelos del sistema llenaria el desplegable de
+        opciones que no devuelven nada.
+        """
+        queryset = self.get_queryset()
+        return Response(
+            {
+                "entities": sorted(
+                    queryset.exclude(entity="")
+                    .values_list("entity", flat=True)
+                    .distinct()
+                ),
+                "users": sorted(
+                    queryset.exclude(username="")
+                    .values_list("username", flat=True)
+                    .distinct()
+                ),
+            }
+        )
+
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request):
+        """Descarga el rastro filtrado en CSV.
+
+        Sirve para entregarle el periodo al contador o al auditor sin darle acceso al
+        sistema. Se respeta el filtro de la consulta y el aislamiento por hotel; se
+        limita el volumen para no tumbar el proceso con una exportacion de años.
+        """
+        import csv
+
+        from django.http import HttpResponse
+
+        queryset = self.filter_queryset(self.get_queryset())[:20000]
+
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="auditoria.csv"'
+        # BOM: es lo que hace que Excel en español lo abra sin preguntar nada.
+        response.write("\ufeff")
+
+        writer = csv.writer(response, delimiter=";")
+        writer.writerow(
+            [
+                "Fecha",
+                "Usuario",
+                "Accion",
+                "Entidad",
+                "Registro",
+                "Cambios",
+                "IP",
+                "Ruta",
+                "Metodo",
+            ]
+        )
+
+        for entry in queryset:
+            writer.writerow(
+                [
+                    timezone.localtime(entry.occurred_at).strftime("%Y-%m-%d %H:%M:%S"),
+                    entry.username or "sistema",
+                    entry.get_action_display(),
+                    entry.entity,
+                    entry.object_label or entry.object_id,
+                    _describe_changes(entry.changes),
+                    entry.ip_address or "",
+                    entry.request_path,
+                    entry.request_method,
+                ]
+            )
+
+        return response
+
+
+def _describe_changes(changes) -> str:
+    """El diff en una celda legible: `campo: antes -> despues`."""
+    if not isinstance(changes, dict) or not changes:
+        return ""
+
+    if "after" in changes and "before" not in changes:
+        return "alta"
+    if "before" in changes and "after" not in changes:
+        return "baja"
+
+    parts = []
+    for field, values in changes.items():
+        if not isinstance(values, dict):
+            continue
+        parts.append(f"{field}: {values.get('before')} -> {values.get('after')}")
+    return " | ".join(parts)

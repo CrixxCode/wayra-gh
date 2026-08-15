@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, time as dt_time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -1314,3 +1314,150 @@ class BillingApiFilterAndPaginationTestCase(TestCase):
         self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertIn(".pdf", response["Content-Disposition"])
         self.assertTrue(response.content.startswith(b"%PDF"))
+
+
+class PaymentDateRangeFilterTests(TestCase):
+    """El detalle de un dia tiene que cuadrar con la fila de ese dia.
+
+    `payment_date` es un `DateTimeField`. Filtrarlo por instante --y no por fecha local--
+    recortaria el ultimo dia a su primer segundo y dejaria fuera todo lo cobrado esa
+    jornada: el modal ensenaria menos de lo que dice el consolidado.
+    """
+
+    def _md(self, group, code, name=None, sort_order=1):
+        return MasterData.objects.update_or_create(
+            group=group,
+            code=code,
+            defaults={"name": name or code.title(), "sort_order": sort_order, "is_active": True},
+        )[0]
+
+    def setUp(self):
+        self.document_type = self._md(MasterData.Group.DOCUMENT_TYPE, "CC", "Cedula")
+        self.client_type = self._md(MasterData.Group.CLIENT_TYPE, "REGULAR", "Regular")
+        self.client_status = self._md(MasterData.Group.CLIENT_STATUS, "ACTIVO", "Activo")
+        self.reservation_status = self._md(
+            MasterData.Group.RESERVATION_STATUS, "CONFIRMADA", "Confirmada"
+        )
+        self.reservation_origin = self._md(MasterData.Group.RESERVATION_ORIGIN, "WEB", "Web")
+        self.invoice_status = self._md(MasterData.Group.INVOICE_STATUS, "BORRADOR", "Borrador")
+
+        self.hotel_settings = HotelSettings.objects.create(hotel_name="Hotel Rango")
+        # El hotel nuevo ya trae sus metodos por defecto.
+        self.payment_method = PaymentMethod.objects.get_or_create(
+            hotel_settings=self.hotel_settings,
+            code="EFECTIVO",
+            defaults={"name": "Efectivo"},
+        )[0]
+
+        role = Role.objects.create(name="Pagos Lector", slug="pagos-lector-rango")
+        resource, _ = Resource.objects.get_or_create(
+            key="payments.read", defaults={"name": "payments.read", "link_backend": "/api/"}
+        )
+        role.resources.add(resource)
+
+        self.user = User.objects.create_user(
+            username="pagos_rango", password="pass12345", hotel_settings=self.hotel_settings
+        )
+        self.user.roles.add(role)
+
+        self.api = APIClient()
+        self.api.force_login(self.user)
+
+        client = Client.objects.create(
+            hotel_settings=self.hotel_settings,
+            document_type=self.document_type,
+            document_number="RANGO-1",
+            first_name="Ana",
+            last_name="Lopez",
+            email="ana.rango@example.com",
+            phone="3000000001",
+            country="CO",
+            client_type=self.client_type,
+            status=self.client_status,
+        )
+        today = timezone.now().date()
+        reservation = Reservation.objects.create(
+            hotel_settings=self.hotel_settings,
+            client=client,
+            status=self.reservation_status,
+            origin=self.reservation_origin,
+            expected_check_in=today + timedelta(days=1),
+            expected_check_out=today + timedelta(days=2),
+        )
+        self.invoice = Invoice.objects.create(
+            reservation=reservation,
+            status=self.invoice_status,
+            invoice_number="FAC-RANGO-001",
+            subtotal=Decimal("1000.00"),
+            tax_amount=Decimal("0.00"),
+            is_active=True,
+        )
+
+    def _payment(self, when, amount="100.00"):
+        """`payment_date` es `auto_now_add`: hay que reescribirlo despues de crear."""
+        payment = Payment.objects.create(
+            invoice=self.invoice,
+            payment_method=self.payment_method,
+            amount=Decimal(amount),
+            is_active=True,
+        )
+        Payment.objects.filter(pk=payment.pk).update(payment_date=when)
+        payment.refresh_from_db()
+        return payment
+
+    def _list(self, **params):
+        response = self.api.get("/api/payments/", params)
+        self.assertEqual(response.status_code, 200, response.data)
+        payload = response.data
+        rows = payload["results"] if isinstance(payload, dict) else payload
+        return {row["id"] for row in rows}
+
+    def test_filters_by_day_range(self):
+        now = timezone.localtime()
+        today = now.date()
+
+        inside = self._payment(now)
+        before = self._payment(now - timedelta(days=5))
+
+        ids = self._list(
+            payment_date_after=today.isoformat(), payment_date_before=today.isoformat()
+        )
+
+        self.assertIn(inside.id, ids)
+        self.assertNotIn(before.id, ids)
+
+    def test_the_last_day_is_not_cut_at_midnight(self):
+        """Lo cobrado a las 11 de la noche sigue siendo de ese dia."""
+        today = timezone.localdate()
+        late = timezone.make_aware(
+            datetime.combine(today, dt_time(23, 30)), timezone.get_current_timezone()
+        )
+
+        payment = self._payment(late)
+
+        ids = self._list(
+            payment_date_after=today.isoformat(), payment_date_before=today.isoformat()
+        )
+
+        self.assertIn(payment.id, ids)
+
+    def test_without_range_nothing_is_filtered(self):
+        now = timezone.localtime()
+        recent = self._payment(now)
+        old = self._payment(now - timedelta(days=400))
+
+        ids = self._list()
+
+        self.assertIn(recent.id, ids)
+        self.assertIn(old.id, ids)
+
+    def test_the_other_filters_still_work(self):
+        now = timezone.localtime()
+        active = self._payment(now)
+        inactive = self._payment(now)
+        Payment.objects.filter(pk=inactive.pk).update(is_active=False)
+
+        ids = self._list(is_active="true")
+
+        self.assertIn(active.id, ids)
+        self.assertNotIn(inactive.id, ids)

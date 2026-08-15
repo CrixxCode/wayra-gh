@@ -127,7 +127,7 @@ export class ListMaintenanceOrders implements OnInit {
   statuses: MasterDataI[] = [];
 
   search = '';
-  statusFilter = 'ALL';
+  statusFilter = 'OPEN';
   selectedPriorityFilter = 'ALL';
   selectedRoomFilter = 'ALL';
 
@@ -303,6 +303,12 @@ export class ListMaintenanceOrders implements OnInit {
     URL.revokeObjectURL(url);
   }
 
+  /** Cerrado: completado o cancelado. Lo demas sigue siendo cola. */
+  private isClosedStatus(status: unknown): boolean {
+    const code = this.normalizeCode(status);
+    return code === 'COMPLETADA' || code === 'COMPLETADO' || code === 'CANCELADA';
+  }
+
   applyFilters(): void {
     const searchValue = this.normalizeSearch(this.search);
 
@@ -311,7 +317,9 @@ export class ListMaintenanceOrders implements OnInit {
       if (this.trackedRoomId !== null && Number(order.room) !== this.trackedRoomId) return false;
 
       const statusMatch =
-        this.statusFilter === 'ALL' || this.normalizeCode(order.status) === this.normalizeCode(this.statusFilter);
+        this.statusFilter === 'ALL' ||
+        (this.statusFilter === 'OPEN' && !this.isClosedStatus(order.status)) ||
+        this.normalizeCode(order.status) === this.normalizeCode(this.statusFilter);
 
       const priorityMatch =
         this.selectedPriorityFilter === 'ALL' ||
@@ -688,6 +696,8 @@ export class ListMaintenanceOrders implements OnInit {
     });
 
     this.statusFilterOptions = [
+      // Primero la cola: es lo que se viene a hacer. El historico sigue a un clic.
+      { value: 'OPEN', label: 'Solo pendientes' },
       { value: 'ALL', label: 'Todos los estados' },
       ...sortedStatuses.map((statusItem) => ({
         value: statusItem.code,

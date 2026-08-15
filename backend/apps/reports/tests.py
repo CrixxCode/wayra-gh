@@ -1,16 +1,22 @@
+import zoneinfo
 from datetime import date, datetime, timezone as dt_timezone
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
 
 from accounts.models import Resource, Role
 from apps.hotel_settings.models import HotelSettings
 
 from apps.reports.serializers import ReportQuerySerializer
-from apps.reports.services import resolve_income_consolidated_period, resolve_report_period
+from apps.reports.services import (
+    _coerce_to_date,
+    resolve_income_consolidated_period,
+    resolve_report_period,
+)
 from apps.reports.views import ReportsViewSet
 
 User = get_user_model()
@@ -450,3 +456,47 @@ class ReportsTenantIsolationTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["filters"]["hotel_settings"], self.hotel_b.id)
+
+
+class CoerceToDateLocalDayTests(SimpleTestCase):
+    """El dia de un cobro es el dia **local**, no el de UTC.
+
+    Con `America/Bogota` (UTC-5), `.date()` sobre el instante consciente adelantaba un
+    dia todo lo cobrado a partir de las 7 de la tarde. En un hotel eso es media jornada:
+    el consolidado diario venia corrido y el detalle de un dia no podia cuadrar con su
+    propia fila.
+    """
+
+    def test_an_evening_payment_belongs_to_that_day(self):
+        # 21:00 del 12 en Bogota son las 02:00 del 13 en UTC.
+        bogota = zoneinfo.ZoneInfo("America/Bogota")
+        evening = datetime(2026, 8, 12, 21, 0, tzinfo=bogota)
+
+        with override_settings(TIME_ZONE="America/Bogota"):
+            timezone.activate(bogota)
+            try:
+                self.assertEqual(_coerce_to_date(evening), date(2026, 8, 12))
+            finally:
+                timezone.deactivate()
+
+    def test_a_morning_payment_stays_where_it_was(self):
+        bogota = zoneinfo.ZoneInfo("America/Bogota")
+        morning = datetime(2026, 8, 12, 9, 0, tzinfo=bogota)
+
+        with override_settings(TIME_ZONE="America/Bogota"):
+            timezone.activate(bogota)
+            try:
+                self.assertEqual(_coerce_to_date(morning), date(2026, 8, 12))
+            finally:
+                timezone.deactivate()
+
+    def test_a_plain_date_passes_through(self):
+        self.assertEqual(_coerce_to_date(date(2026, 8, 12)), date(2026, 8, 12))
+
+    def test_a_naive_datetime_is_taken_as_local(self):
+        """Sin huso no hay nada que convertir, y `localtime` reventaria."""
+        self.assertEqual(_coerce_to_date(datetime(2026, 8, 12, 23, 30)), date(2026, 8, 12))
+
+    def test_nothing_in_nothing_out(self):
+        self.assertIsNone(_coerce_to_date(None))
+        self.assertIsNone(_coerce_to_date("2026-08-12"))

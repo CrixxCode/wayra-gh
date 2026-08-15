@@ -1,5 +1,16 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  NgZone,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  Output,
+  SimpleChanges
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
 import { MasterDataI } from '../../../components/pages/master-data/master-data-model';
@@ -10,9 +21,27 @@ import { HotelSettingsService } from '../../../services/hotel-settings';
 import { MasterDataService } from '../../../services/master-data.service';
 import { PaymentMethodI, PaymentMethodService } from '../../../services/payment-method';
 import { ExpenseService } from '../../../services/expense';
+import { MotionService } from '../../../services/motion';
 
 type ExpenseActivityFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
-type ExpenseViewMode = 'table' | 'grid';
+/**
+ * Antes era `table | grid`: los **mismos datos dos veces**, con las mismas columnas en
+ * dos formas. Ahora son dos preguntas distintas --el detalle de cada gasto, y en que se
+ * va el dinero por categoria--.
+ */
+type ExpenseViewMode = 'list' | 'categories';
+
+/**
+ * El filtro que faltaba.
+ *
+ * Se podia filtrar por estado, categoria y metodo, pero **no por fecha**: la pregunta
+ * mas comun sobre un gasto --"cuanto llevo gastado este mes"-- no tenia respuesta en su
+ * propia pantalla. Se resolvia mirando la lista entera a ojo.
+ */
+type ExpensePeriodFilter = 'THIS_MONTH' | 'LAST_MONTH' | 'LAST_30' | 'THIS_YEAR' | 'ALL';
+
+/** Por fecha se lee el diario; por monto se encuentra el gasto gordo. */
+type ExpenseSort = 'DATE_DESC' | 'DATE_ASC' | 'AMOUNT_DESC' | 'AMOUNT_ASC';
 
 @Component({
   selector: 'app-list-expenses',
@@ -21,8 +50,28 @@ type ExpenseViewMode = 'table' | 'grid';
   templateUrl: './list-expenses.html',
   styleUrls: ['./list-expenses.css']
 })
-export class ListExpenses implements OnInit {
+export class ListExpenses implements OnInit, OnChanges, OnDestroy {
+  /** Dentro del contenedor de finanzas: sin encabezado ni metricas propias. */
+  @Input() embedded = false;
+
+  /**
+   * Rango que impone el contenedor (dias sueltos `YYYY-MM-DD`, vacios = todo).
+   *
+   * Cuando llega, manda sobre el selector de periodo propio: las tres pestañas de
+   * finanzas tienen que estar mirando lo mismo o sus cifras no se pueden comparar.
+   */
+  @Input() rangeFrom = '';
+  @Input() rangeTo = '';
+
+  /** Un cambio aqui mueve el resultado que ensena el contenedor. */
+  @Output() changed = new EventEmitter<void>();
+
+  /** Primera carga: no hay nada que ensenar todavia. */
   loading = false;
+
+  /** Recargas: hay datos en pantalla y se atenuan en vez de desaparecer. */
+  refreshing = false;
+
   errorMessage = '';
   infoMessage = '';
 
@@ -35,7 +84,9 @@ export class ListExpenses implements OnInit {
   activityFilter: ExpenseActivityFilter = 'ACTIVE';
   categoryFilter = 'ALL';
   methodFilter = 'ALL';
-  viewMode: ExpenseViewMode = 'table';
+  periodFilter: ExpensePeriodFilter = 'THIS_MONTH';
+  sortBy: ExpenseSort = 'DATE_DESC';
+  viewMode: ExpenseViewMode = 'list';
 
   hotelSettingsId: number | null = null;
   showCreateDrawer = false;
@@ -47,15 +98,64 @@ export class ListExpenses implements OnInit {
     { value: 'ALL', label: 'Todos' }
   ];
 
+  readonly periodOptions: Array<{ value: ExpensePeriodFilter; label: string }> = [
+    { value: 'THIS_MONTH', label: 'Este mes' },
+    { value: 'LAST_MONTH', label: 'Mes pasado' },
+    { value: 'LAST_30', label: 'Ultimos 30 dias' },
+    { value: 'THIS_YEAR', label: 'Este ano' },
+    { value: 'ALL', label: 'Todo el historico' }
+  ];
+
+  readonly sortOptions: Array<{ value: ExpenseSort; label: string }> = [
+    { value: 'DATE_DESC', label: 'Mas reciente' },
+    { value: 'DATE_ASC', label: 'Mas antiguo' },
+    { value: 'AMOUNT_DESC', label: 'Mayor monto' },
+    { value: 'AMOUNT_ASC', label: 'Menor monto' }
+  ];
+
+  private revealFrame: number | null = null;
+
   constructor(
     private paymentMethodService: PaymentMethodService,
     private expenseService: ExpenseService,
     private masterDataService: MasterDataService,
-    private hotelSettingsService: HotelSettingsService
+    private hotelSettingsService: HotelSettingsService,
+    private motion: MotionService,
+    private hostRef: ElementRef<HTMLElement>,
+    private zone: NgZone
   ) {}
 
   ngOnInit(): void {
     this.loadExpensesData();
+  }
+
+  /** El contenedor cambio de periodo: re-filtrar sin volver a pedir nada. */
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['rangeFrom'] && !changes['rangeTo']) return;
+    if (!this.expenses.length) return;
+    this.applyFilters();
+  }
+
+  ngOnDestroy(): void {
+    if (this.revealFrame !== null) cancelAnimationFrame(this.revealFrame);
+    this.motion.killWithin(this.hostRef.nativeElement);
+  }
+
+  private scheduleReveal(): void {
+    if (this.motion.prefersReducedMotion) return;
+    if (this.revealFrame !== null) cancelAnimationFrame(this.revealFrame);
+
+    this.zone.runOutsideAngular(() => {
+      this.revealFrame = requestAnimationFrame(() => {
+        this.revealFrame = null;
+        const host = this.hostRef.nativeElement;
+        this.motion.reveal(host.querySelectorAll('.expense-row, .cat-row'), {
+          stagger: 0.03,
+          y: 10,
+          duration: 0.26
+        });
+      });
+    });
   }
 
   get totalExpenses(): number {
@@ -83,6 +183,93 @@ export class ListExpenses implements OnInit {
 
   get canCreateExpense(): boolean {
     return !!this.hotelSettingsId && this.expenseCategories.length > 0;
+  }
+
+  // ------------------------------------------------------------------- lectura
+  //
+  // La tabla tenia diez columnas y encabezaba cada fila con un codigo --"EGR-0042"--
+  // que no le dice nada a nadie. Lo que se quiere saber mirando los egresos es en que
+  // se va el dinero y cual fue el gasto gordo, y eso son categorias y barras.
+
+  /** Lo filtrado, no lo total: si hay un filtro puesto, la cifra debe seguirlo. */
+  get filteredTotal(): number {
+    return this.filteredExpenses
+      .filter((expense) => expense.is_active !== false)
+      .reduce((sum, expense) => sum + this.toNumber(expense.amount), 0);
+  }
+
+  /** El gasto mas grande marca el 100%: las barras se comparan entre si. */
+  get maxAmount(): number {
+    return this.filteredExpenses.reduce(
+      (max, expense) => Math.max(max, this.toNumber(expense.amount)),
+      0
+    );
+  }
+
+  amountShare(expense: ExpenseI): number {
+    const max = this.maxAmount;
+    if (max <= 0) return 0;
+    return Math.max((this.toNumber(expense.amount) / max) * 100, 2);
+  }
+
+  isBiggest(expense: ExpenseI): boolean {
+    const amount = this.toNumber(expense.amount);
+    return amount > 0 && amount === this.maxAmount;
+  }
+
+  /** En que se va: el desglose por categoria de lo que hay en pantalla. */
+  get categoryBreakdown(): Array<{ label: string; amount: number; share: number; count: number }> {
+    const byCategory = new Map<string, { amount: number; count: number }>();
+
+    for (const expense of this.filteredExpenses) {
+      if (expense.is_active === false) continue;
+      const label = this.getCategoryLabel(expense);
+      const current = byCategory.get(label) || { amount: 0, count: 0 };
+      current.amount += this.toNumber(expense.amount);
+      current.count += 1;
+      byCategory.set(label, current);
+    }
+
+    const total = this.filteredTotal;
+    return [...byCategory.entries()]
+      .map(([label, entry]) => ({
+        label,
+        amount: entry.amount,
+        count: entry.count,
+        share: total > 0 ? (entry.amount / total) * 100 : 0
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }
+
+  get topCategory(): { label: string; amount: number; share: number; count: number } | null {
+    return this.categoryBreakdown[0] || null;
+  }
+
+  /**
+   * Un tono por categoria, estable.
+   *
+   * Se deriva del nombre y no del orden en la lista: si cambia el filtro, "Nomina" sigue
+   * siendo del mismo color y la vista se sigue reconociendo.
+   */
+  categoryTone(label: string): string {
+    const palette = [
+      'var(--gh-status-info-text)',
+      'var(--gh-status-success-text)',
+      'var(--gh-status-orange-text)',
+      'var(--gh-status-violet-text)',
+      'var(--gh-status-danger-text)',
+      'var(--gh-status-neutral-text)'
+    ];
+
+    let hash = 0;
+    for (let index = 0; index < label.length; index += 1) {
+      hash = (hash * 31 + label.charCodeAt(index)) % 997;
+    }
+    return palette[hash % palette.length];
+  }
+
+  formatMoney(value: number): string {
+    return this.formatCurrency(value);
   }
 
   get categoryOptions(): Array<{ value: string; label: string }> {
@@ -136,7 +323,10 @@ export class ListExpenses implements OnInit {
   }
 
   loadExpensesData(): void {
-    this.loading = true;
+    // Si ya hay egresos en pantalla la recarga es silenciosa.
+    if (this.expenses.length) this.refreshing = true;
+    else this.loading = true;
+
     this.errorMessage = '';
     this.infoMessage = '';
     const selectedExpenseId = this.selectedExpense?.id ?? null;
@@ -155,6 +345,7 @@ export class ListExpenses implements OnInit {
     }).subscribe({
       next: ({ expenses, expenseCategories, paymentMethods, settings }) => {
         this.loading = false;
+        this.refreshing = false;
         this.expenses = [...expenses].sort((a, b) => b.id - a.id);
         this.expenseCategories = expenseCategories;
         this.paymentMethods = paymentMethods;
@@ -303,12 +494,110 @@ export class ListExpenses implements OnInit {
         .toLowerCase();
 
       const searchMatch = !query || searchPool.includes(query);
-      return activityMatch && categoryMatch && methodMatch && searchMatch;
+      const periodMatch = this.matchesPeriod(expense);
+      return activityMatch && categoryMatch && methodMatch && searchMatch && periodMatch;
     });
+
+    this.sortFilteredExpenses();
+    this.scheduleReveal();
+  }
+
+  /**
+   * Las fechas de egreso son dias sueltos (`YYYY-MM-DD`), sin hora.
+   *
+   * Se comparan como texto contra los limites del periodo: parsearlas a `Date` las
+   * desplazaria un dia segun el huso, y un gasto del dia 1 saldria del mes.
+   */
+  private matchesPeriod(expense: ExpenseI): boolean {
+    const { from, to } = this.periodBounds();
+    if (!from || !to) return true;
+
+    const day = String(expense.expense_date || '').slice(0, 10);
+    if (!day) return false;
+
+    return day >= from && day <= to;
+  }
+
+  /** Manda el contenedor si impuso un rango; si no, el selector propio. */
+  private get containerRange(): { from: string; to: string } | null {
+    if (this.rangeFrom && this.rangeTo) return { from: this.rangeFrom, to: this.rangeTo };
+    // Empotrado sin rango significa "todo el historico", no "vuelve a tu mes".
+    return this.embedded ? { from: '', to: '' } : null;
+  }
+
+  private periodBounds(): { from: string; to: string } {
+    const imposed = this.containerRange;
+    if (imposed) return imposed;
+
+    if (this.periodFilter === 'ALL') return { from: '', to: '' };
+
+    const now = new Date();
+    const iso = (date: Date): string => {
+      const month = `${date.getMonth() + 1}`.padStart(2, '0');
+      const day = `${date.getDate()}`.padStart(2, '0');
+      return `${date.getFullYear()}-${month}-${day}`;
+    };
+
+    if (this.periodFilter === 'LAST_MONTH') {
+      return {
+        from: iso(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+        // Dia 0 del mes actual es el ultimo del anterior.
+        to: iso(new Date(now.getFullYear(), now.getMonth(), 0))
+      };
+    }
+
+    if (this.periodFilter === 'LAST_30') {
+      return {
+        from: iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)),
+        to: iso(now)
+      };
+    }
+
+    if (this.periodFilter === 'THIS_YEAR') {
+      return { from: iso(new Date(now.getFullYear(), 0, 1)), to: iso(now) };
+    }
+
+    return { from: iso(new Date(now.getFullYear(), now.getMonth(), 1)), to: iso(now) };
+  }
+
+  private sortFilteredExpenses(): void {
+    const byDate = (a: ExpenseI, b: ExpenseI): number =>
+      String(a.expense_date || '').localeCompare(String(b.expense_date || ''));
+
+    this.filteredExpenses = [...this.filteredExpenses].sort((a, b) => {
+      if (this.sortBy === 'AMOUNT_DESC') return this.toNumber(b.amount) - this.toNumber(a.amount);
+      if (this.sortBy === 'AMOUNT_ASC') return this.toNumber(a.amount) - this.toNumber(b.amount);
+      if (this.sortBy === 'DATE_ASC') return byDate(a, b) || a.id - b.id;
+      // Mismo dia: el ultimo registrado primero, que es el orden en que se anotaron.
+      return byDate(b, a) || b.id - a.id;
+    });
+  }
+
+  /**
+   * Salida del vacio.
+   *
+   * Con el periodo por defecto en "este mes", una lista vacia puede significar que no hay
+   * gastos **o** que el filtro los esconde. Sin esto habria que adivinar cual de las dos.
+   */
+  showAllPeriods(): void {
+    this.periodFilter = 'ALL';
+    this.applyFilters();
+  }
+
+  /** El periodo en palabras, para que la cifra grande diga de que habla. */
+  get periodLabel(): string {
+    const imposed = this.containerRange;
+    if (imposed) return imposed.from && imposed.to ? `${imposed.from} a ${imposed.to}` : 'todo el historico';
+
+    return (
+      this.periodOptions.find((option) => option.value === this.periodFilter)?.label ||
+      'Todo el historico'
+    );
   }
 
   setViewMode(mode: ExpenseViewMode): void {
     this.viewMode = mode;
+    this.scheduleReveal();
   }
 
   getExpenseCode(expense: ExpenseI): string {

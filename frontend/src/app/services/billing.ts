@@ -48,7 +48,9 @@ export class BillingService {
   // TTL operativo, no de catalogo: esto es dinero. El cache existe para que abrir la
   // pantalla o saltar entre pestañas no repita las mismas consultas, no para ahorrarle
   // trabajo al servidor durante minutos.
-  private static readonly LEDGER_KEYS = ['invoices', 'payments', 'payment-refunds'];
+  // `reports` entra aqui porque el consolidado de ingresos se calcula sobre los pagos:
+  // cobrar cambia la cifra que la vista de finanzas ensena como ingreso del periodo.
+  private static readonly LEDGER_KEYS = ['invoices', 'payments', 'payment-refunds', 'reports'];
 
   private cacheKey(base: string, filters?: Record<string, unknown>): string {
     const entries = Object.entries(filters || {})
@@ -309,10 +311,26 @@ export class BillingService {
     is_active?: boolean;
     include_inactive?: boolean;
     include_deleted?: boolean;
+    /**
+     * Rango de dias (`YYYY-MM-DD`), inclusivo en los dos extremos.
+     *
+     * El backend filtra por la **fecha local** del cobro, no por el instante: si no,
+     * el ultimo dia se cortaria a medianoche y se perderia lo cobrado esa noche.
+     */
+    payment_date_after?: string;
+    payment_date_before?: string;
     /** Salta el cache y lo repuebla: es lo que usa el boton de actualizar. */
     forceRefresh?: boolean;
   }): Observable<PaymentI[]> {
     let params = new HttpParams();
+
+    if (filters?.payment_date_after?.trim()) {
+      params = params.set('payment_date_after', filters.payment_date_after.trim());
+    }
+
+    if (filters?.payment_date_before?.trim()) {
+      params = params.set('payment_date_before', filters.payment_date_before.trim());
+    }
 
     if (filters?.search?.trim()) {
       params = params.set('search', filters.search.trim());

@@ -99,8 +99,28 @@
   font-size: 13px;
 }
 
+/* Antes eran cuatro columnas de ancho fijo. Con seis campos y una ventana estrecha eso
+   desbordaba; que se acomoden solas aguanta cualquier ancho. */
 .expenses-filters-grid {
-  grid-template-columns: minmax(320px, 1fr) 180px 220px 200px !important;
+  grid-template-columns: minmax(240px, 1.8fr) repeat(auto-fit, minmax(150px, 1fr)) !important;
+}
+
+/* La barra de acciones tiene que poder bajar de linea, no comprimirse. */
+.expenses-page .gh-filters-actions {
+  flex-wrap: wrap !important;
+}
+
+/* Salida del vacio cuando el filtro de periodo es el que esconde los egresos. */
+.link-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  margin-left: 6px;
+  color: var(--gh-brand);
+  font-size: inherit;
+  font-weight: 650;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .state-message {
@@ -129,211 +149,317 @@
   color: var(--gh-status-success-text);
 }
 
-.table-card {
+/* ----------------------------------------------------------------- lectura
+
+   Antes: una tabla de diez columnas que empezaba por un codigo "EGR-0042" y dejaba el
+   monto en la octava, mas una rejilla de tarjetas con exactamente los mismos campos.
+   Aqui el monto manda y la barra lo compara con el gasto mas grande del periodo. */
+
+.expense-readout {
   margin-top: 14px;
-  background: var(--gh-surface);
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  padding: 16px 18px;
   border: 1px solid var(--gh-border);
   border-radius: 14px;
-  box-shadow: var(--gh-shadow-strong);
-  overflow: hidden;
-}
-
-.table-wrap {
-  overflow: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 1080px;
-}
-
-th {
-  text-align: left;
-  font-size: 12px;
-  letter-spacing: 0.05em;
-  color: var(--gh-text-muted);
-  font-weight: 700;
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--gh-border);
-  background: var(--gh-surface-soft);
-}
-
-td {
-  padding: 10px;
-  border-bottom: 1px solid var(--gh-border-soft);
-  vertical-align: middle;
-  color: var(--gh-text);
-  font-size: 14px;
-}
-
-tbody tr:hover {
-  background: var(--gh-surface-soft);
-}
-
-.clickable-row {
-  cursor: pointer;
-}
-
-.clickable-row:hover {
-  background: var(--gh-surface-soft);
-}
-
-.table-main {
-  margin: 0;
-  font-weight: 700;
-  color: var(--gh-text-strong);
-}
-
-td small {
-  color: var(--gh-text-muted);
-  font-size: 12px;
-}
-
-.row-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.table-card .row-btn {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--gh-border-strong);
-  border-radius: 8px;
   background: var(--gh-surface);
-  color: var(--gh-text-muted);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  padding: 0;
-}
-
-.table-card .row-btn:hover {
-  background: var(--gh-surface-soft);
-}
-
-.expense-grid {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.expense-card {
-  border-radius: 14px;
-  border: 1px solid var(--gh-border-strong);
-  background: var(--gh-surface);
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
-}
-
-.expense-card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--gh-shadow-strong);
+  transition: opacity 0.18s ease;
 }
 
-.expense-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.expense-code {
+.readout-main span,
+.readout-side span {
   display: block;
-  color: var(--gh-brand);
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.expense-head small {
   color: var(--gh-text-muted);
   font-size: 12px;
-}
-
-.status-chip {
-  border-radius: 999px;
-  font-size: 12px;
   font-weight: 700;
-  padding: 4px 9px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.status-chip .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
+.readout-main strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--gh-text-strong);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
 }
 
-.expense-body h3 {
-  margin: 0;
-  font-size: 18px;
-  color: var(--gh-brand);
+.readout-side strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--gh-text-strong);
+  font-size: 16px;
+  font-weight: 650;
   line-height: 1.2;
 }
 
-.expense-body p {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--gh-text);
-}
-
-.meta-row {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.meta-row span {
-  color: var(--gh-text-muted);
-  font-size: 12px;
-}
-
-.expense-foot {
-  margin-top: auto;
-  border-top: 1px solid var(--gh-border);
-  padding-top: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.expense-foot small {
+.readout-main small,
+.readout-side small {
   display: block;
+  margin-top: 4px;
   color: var(--gh-text-muted);
   font-size: 12px;
+  line-height: 1.4;
 }
 
-.expense-foot strong {
+.readout-side {
+  border-left: 1px solid var(--gh-border-soft);
+  padding-left: 14px;
+  min-width: 0;
+}
+
+.is-dim {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------- egresos */
+
+.expense-list,
+.category-list {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+  transition: opacity 0.18s ease;
+}
+
+.expense-row {
+  --cat-tone: var(--gh-brand);
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(150px, auto);
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  padding-left: 13px;
+  border: 1px solid var(--gh-border);
+  border-left: 4px solid var(--cat-tone);
+  border-radius: 12px;
+  background: var(--gh-surface);
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.expense-row:hover {
+  box-shadow: var(--gh-shadow-strong);
+  transform: translateY(-1px);
+}
+
+.expense-row.is-biggest {
+  background: var(--gh-status-orange-bg);
+}
+
+/* Lo dado de baja sigue visible pero no compite con lo vigente. */
+.expense-row.is-inactive {
+  opacity: 0.62;
+}
+
+.expense-what {
+  min-width: 0;
+}
+
+.expense-what strong {
+  display: block;
+  color: var(--gh-text-strong);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.expense-what > small {
   display: block;
   margin-top: 2px;
-  color: var(--gh-text-strong);
-  font-size: 26px;
-  line-height: 1;
+  color: var(--gh-text-muted);
+  font-size: 12px;
 }
 
-.row-btn {
-  border-radius: 9px;
-  border: 1px solid var(--gh-border-strong);
-  background: var(--gh-surface);
-  color: var(--gh-text);
-  height: 34px;
-  padding: 0 11px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+.expense-tags {
+  margin: 8px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.expense-tags span {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.expense-tags .cat-chip {
+  color: var(--cat-tone);
+  background: color-mix(in srgb, var(--cat-tone) 12%, transparent);
+}
+
+.expense-tags .is-off {
+  color: var(--gh-status-danger-text);
+  background: var(--gh-status-danger-bg);
+}
+
+.expense-bar-wrap {
+  min-width: 0;
+}
+
+.expense-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--gh-surface-soft);
+  overflow: hidden;
+}
+
+.expense-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--cat-tone);
+}
+
+.expense-bar-wrap small {
+  display: block;
+  margin-top: 6px;
+  color: var(--gh-text-muted);
   font-size: 12px;
+}
+
+.expense-amount {
+  text-align: right;
+  min-width: 0;
+}
+
+.expense-amount strong {
+  display: block;
+  color: var(--gh-text-strong);
+  font-size: 20px;
   font-weight: 700;
-  cursor: pointer;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.expense-amount small {
+  display: block;
+  margin-top: 3px;
+  color: var(--gh-status-orange-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------- categorias */
+
+.cat-row {
+  --cat-tone: var(--gh-brand);
+  display: grid;
+  grid-template-columns: minmax(160px, 240px) minmax(0, 1fr) minmax(150px, auto);
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--gh-border);
+  border-radius: 12px;
+  background: var(--gh-surface);
+}
+
+.cat-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cat-dot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cat-tone);
+}
+
+.cat-name strong {
+  display: block;
+  color: var(--gh-text-strong);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.cat-name small,
+.cat-bar-wrap small,
+.cat-amount small {
+  display: block;
+  color: var(--gh-text-muted);
+  font-size: 12px;
+}
+
+.cat-name small {
+  margin-top: 2px;
+}
+
+.cat-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--gh-surface-soft);
+  overflow: hidden;
+}
+
+.cat-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--cat-tone);
+}
+
+.cat-bar-wrap small {
+  margin-top: 6px;
+}
+
+.cat-amount {
+  text-align: right;
+}
+
+.cat-amount strong {
+  display: block;
+  color: var(--gh-text-strong);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.cat-amount small {
+  margin-top: 3px;
+}
+
+.is-spinning {
+  animation: expense-spin 0.9s linear infinite;
+}
+
+@keyframes expense-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning { animation: none; }
+}
+
+@media (max-width: 900px) {
+  .expense-row,
+  .cat-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .expense-amount,
+  .cat-amount {
+    text-align: left;
+  }
+
+  .readout-side {
+    border-left: 0;
+    padding-left: 0;
+  }
 }
 
 .btn {
@@ -362,13 +488,7 @@ td small {
 
 @media (max-width: 1440px) {
   .expenses-filters-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-}
-
-@media (max-width: 1300px) {
-  .expense-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
   }
 }
 
@@ -384,12 +504,17 @@ td small {
   }
 
   .stats-grid,
-  .expense-grid,
   .expenses-filters-grid {
     grid-template-columns: 1fr !important;
   }
 
   .page-header {
     flex-wrap: wrap;
+  }
+
+  /* En pantalla estrecha la lectura se apila y cada dato mantiene su linea. */
+  .expense-readout {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
   }
 }

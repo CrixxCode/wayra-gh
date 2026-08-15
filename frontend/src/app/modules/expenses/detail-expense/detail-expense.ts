@@ -94,14 +94,123 @@ export class DetailExpense implements OnChanges {
     return expenseData.payment_method_name || expenseData.payment_method_code || 'Sin metodo';
   }
 
+  /**
+   * El mapeo propio manda sobre la etiqueta del backend.
+   *
+   * Las opciones del modelo estan rotuladas en ingles --"Operating cost", "Fixed"--, y
+   * el serializador las manda tal cual en `*_label`. Preferirlas dejaba palabras en
+   * ingles sueltas en una interfaz en español. La etiqueta remota queda de respaldo para
+   * valores que este mapeo aun no conozca.
+   */
   getExpenseTypeLabel(expenseData: ExpenseI | null): string {
     if (!expenseData) return 'Sin clasificacion';
-    return expenseData.expense_type_label || this.mapExpenseType(expenseData.expense_type);
+    const mapped = this.mapExpenseType(expenseData.expense_type);
+    if (mapped !== 'Sin clasificacion') return mapped;
+    return expenseData.expense_type_label || mapped;
   }
 
   getCostBehaviorLabel(expenseData: ExpenseI | null): string {
     if (!expenseData) return 'Sin clasificacion';
-    return expenseData.cost_behavior_label || this.mapCostBehavior(expenseData.cost_behavior);
+    const mapped = this.mapCostBehavior(expenseData.cost_behavior);
+    if (mapped !== 'Sin clasificacion') return mapped;
+    return expenseData.cost_behavior_label || mapped;
+  }
+
+  // ------------------------------------------------------------------- lectura
+  //
+  // El detalle ensenaba ocho celdas del mismo peso, tres de ellas diciendo "Sin
+  // proveedor", "Sin referencia" y "Sin descripcion". Un dato que no existe no puede
+  // ocupar lo mismo que uno que si: lo que falta se agrupa en una linea al final y lo
+  // que hay se ensena entero.
+
+  /** Solo lo que tiene valor. Lo vacio no entra en la rejilla. */
+  get summaryRows(): Array<{ label: string; value: string }> {
+    const expense = this.activeExpense;
+    if (!expense) return [];
+
+    const rows: Array<{ label: string; value: string }> = [
+      { label: 'Categoria', value: this.getCategoryLabel(expense) },
+      { label: 'Tipo de egreso', value: this.getExpenseTypeLabel(expense) },
+      { label: 'Comportamiento', value: this.getCostBehaviorLabel(expense) },
+      { label: 'Metodo de pago', value: this.getMethodLabel(expense) }
+    ];
+
+    const supplier = expense.supplier_name?.trim();
+    if (supplier) rows.push({ label: 'Proveedor', value: supplier });
+
+    const reference = expense.reference?.trim();
+    if (reference) rows.push({ label: 'Referencia', value: reference });
+
+    const hotel = expense.hotel_name?.trim();
+    if (hotel) rows.push({ label: 'Hotel', value: hotel });
+
+    return rows;
+  }
+
+  /** Lo que no se registro, dicho una vez y en voz baja. */
+  get missingFields(): string[] {
+    const expense = this.activeExpense;
+    if (!expense) return [];
+
+    const missing: string[] = [];
+    if (!expense.supplier_name?.trim()) missing.push('proveedor');
+    if (!expense.reference?.trim()) missing.push('referencia');
+    if (!expense.description?.trim()) missing.push('descripcion');
+    return missing;
+  }
+
+  get missingLabel(): string {
+    const missing = this.missingFields;
+    if (!missing.length) return '';
+    if (missing.length === 1) return `Sin ${missing[0]} registrada.`;
+
+    const last = missing[missing.length - 1];
+    return `Sin ${missing.slice(0, -1).join(', ')} ni ${last}.`;
+  }
+
+  get hasDescription(): boolean {
+    return !!this.activeExpense?.description?.trim();
+  }
+
+  /**
+   * Un tono por categoria, derivado de su nombre.
+   *
+   * Es el mismo criterio del listado: la misma categoria se pinta igual en los dos
+   * sitios, asi que abrir el detalle no cambia de color bajo los pies del usuario.
+   */
+  get categoryTone(): string {
+    const palette = [
+      'var(--gh-status-info-text)',
+      'var(--gh-status-success-text)',
+      'var(--gh-status-orange-text)',
+      'var(--gh-status-violet-text)',
+      'var(--gh-status-danger-text)',
+      'var(--gh-status-neutral-text)'
+    ];
+
+    const label = this.getCategoryLabel(this.activeExpense);
+    let hash = 0;
+    for (let index = 0; index < label.length; index += 1) {
+      hash = (hash * 31 + label.charCodeAt(index)) % 997;
+    }
+    return palette[hash % palette.length];
+  }
+
+  /**
+   * Si nunca se edito, "creado" y "ultima actualizacion" son la misma fecha.
+   *
+   * Ensenarla dos veces no informa de nada y hace pensar que hubo un cambio.
+   */
+  get wasEdited(): boolean {
+    const expense = this.activeExpense;
+    if (!expense?.created_at || !expense?.updated_at) return false;
+
+    const created = new Date(expense.created_at).getTime();
+    const updated = new Date(expense.updated_at).getTime();
+    if (Number.isNaN(created) || Number.isNaN(updated)) return false;
+
+    // Un segundo de margen: el alta escribe las dos marcas casi a la vez.
+    return updated - created > 1000;
   }
 
   getSupplierLabel(expenseData: ExpenseI | null): string {

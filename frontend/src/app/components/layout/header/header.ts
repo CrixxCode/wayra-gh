@@ -176,7 +176,7 @@ export class Header implements OnInit {
   openAllNotifications(): void {
     this.markNotificationsAsRead();
     this.notificationsOpen = false;
-    void this.router.navigate(['/actividad']);
+    void this.router.navigate(['/auditoria']);
   }
 
   @HostListener('document:click', ['$event'])
@@ -412,9 +412,9 @@ export class Header implements OnInit {
 
   private resolveNotificationRoute(actionUrl?: string | null): string {
     const normalized = String(actionUrl || '').trim();
-    if (!normalized) return '/actividad';
+    if (!normalized) return '/auditoria';
     if (normalized.startsWith('/')) return normalized;
-    return '/actividad';
+    return '/auditoria';
   }
 
   private relativeFromNow(value?: Date | string | null): string {

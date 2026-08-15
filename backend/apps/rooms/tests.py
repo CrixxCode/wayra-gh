@@ -1,6 +1,8 @@
-from datetime import timedelta
+from datetime import date, timedelta
+from io import StringIO
 from decimal import Decimal
 
+from django.core.management import call_command
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
@@ -16,7 +18,19 @@ from apps.inventory.models import InventoryMovement, Item, RoomInventory
 from apps.master_data.models import MasterData
 from apps.reservations.models import Reservation, ReservationRoom
 from apps.reservations.services import get_reservation_financials
-from apps.rooms.models import Amenity, CleaningTask, MaintenanceOrder, Rate, Room, RoomType
+from apps.rooms.models import (
+    Amenity,
+    CleaningTask,
+    MaintenanceOrder,
+    Rate,
+    RecurringWork,
+    Room,
+    RoomType,
+)
+from apps.rooms.recurrence import advance, first_run_on, is_finished, next_run_after
+from apps.rooms.views import CleaningTaskViewSet
+
+User = get_user_model()
 from apps.rooms.serializers import AmenitySerializer
 from apps.rooms.views import AmenityViewSet, RoomTypeViewSet, RoomViewSet
 
@@ -879,3 +893,289 @@ class RoomReservationBalanceTests(TestCase):
             Decimal("0.00"),
         )
         self.assertEqual(self._room_operations()["reservation_pending"], "0.00")
+
+
+class RecurrenceMathTests(TestCase):
+    """Aritmetica de calendario de las reglas periodicas, sin base de datos."""
+
+    def _rule(self, **kwargs):
+        defaults = {
+            "frequency": RecurringWork.Frequency.DAILY,
+            "interval": 1,
+            "starts_on": date(2026, 8, 12),
+        }
+        defaults.update(kwargs)
+        return RecurringWork(**defaults)
+
+    def test_daily_starts_the_same_day(self):
+        rule = self._rule(starts_on=date(2026, 8, 12))
+
+        self.assertEqual(first_run_on(rule), date(2026, 8, 12))
+
+    def test_weekly_waits_for_its_weekday(self):
+        # Una regla semanal que arranca un miercoles pero corre los lunes toca el lunes.
+        rule = self._rule(
+            frequency=RecurringWork.Frequency.WEEKLY,
+            weekday=0,
+            starts_on=date(2026, 8, 12),
+        )
+
+        self.assertEqual(first_run_on(rule), date(2026, 8, 17))
+
+    def test_weekly_starting_on_its_own_weekday_runs_that_day(self):
+        rule = self._rule(
+            frequency=RecurringWork.Frequency.WEEKLY,
+            weekday=2,
+            starts_on=date(2026, 8, 12),
+        )
+
+        self.assertEqual(first_run_on(rule), date(2026, 8, 12))
+
+    def test_monthly_jumps_to_next_month_when_the_day_already_passed(self):
+        rule = self._rule(
+            frequency=RecurringWork.Frequency.MONTHLY,
+            day_of_month=5,
+            starts_on=date(2026, 8, 12),
+        )
+
+        self.assertEqual(first_run_on(rule), date(2026, 9, 5))
+
+    def test_monthly_clamps_to_the_last_day_of_a_shorter_month(self):
+        # Sumar un mes al 31 de enero no da el 31 de febrero.
+        rule = self._rule(
+            frequency=RecurringWork.Frequency.MONTHLY,
+            day_of_month=31,
+            starts_on=date(2026, 1, 31),
+        )
+
+        self.assertEqual(first_run_on(rule), date(2026, 1, 31))
+        self.assertEqual(next_run_after(rule, date(2026, 1, 31)), date(2026, 2, 28))
+
+    def test_interval_counts_periods_not_days(self):
+        weekly = self._rule(frequency=RecurringWork.Frequency.WEEKLY, weekday=0, interval=2)
+
+        self.assertEqual(next_run_after(weekly, date(2026, 8, 17)), date(2026, 8, 31))
+
+    def test_advance_skips_the_occurrences_missed_while_the_job_was_down(self):
+        # Cinco tareas identicas de lunes a viernes no son trabajo pendiente, son ruido.
+        rule = self._rule(interval=1, starts_on=date(2026, 8, 1))
+        rule.next_run_on = date(2026, 8, 1)
+
+        self.assertEqual(advance(rule, date(2026, 8, 12)), date(2026, 8, 13))
+
+    def test_is_finished_respects_the_end_date(self):
+        rule = self._rule(ends_on=date(2026, 8, 20))
+
+        self.assertFalse(is_finished(rule, date(2026, 8, 20)))
+        self.assertTrue(is_finished(rule, date(2026, 8, 21)))
+
+
+class GenerateRecurringWorkCommandTests(TestCase):
+    """El comando materializa el trabajo y adelanta la regla."""
+
+    def _md(self, group, code, name=None):
+        return MasterData.objects.update_or_create(
+            group=group,
+            code=code,
+            defaults={"name": name or code.title(), "is_active": True, "sort_order": 1},
+        )[0]
+
+    def setUp(self):
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Periodico")
+        floor = HotelFloor.objects.create(
+            hotel_settings=self.hotel, floor_number=1, name="Piso 1", prefix="1", room_count=2
+        )
+        room_type = RoomType.objects.create(hotel_settings=self.hotel, name="Estandar", capacity=2)
+        room_status = self._md(MasterData.Group.ROOM_STATUS, "DISPONIBLE", "Disponible")
+
+        self.room_a = Room.objects.create(
+            number="101", room_type=room_type, floor=floor, status=room_status
+        )
+        self.room_b = Room.objects.create(
+            number="102", room_type=room_type, floor=floor, status=room_status
+        )
+
+        self.task_type = self._md(MasterData.Group.CLEANING_TASK_TYPE, "PROFUNDA", "Profunda")
+        self._md(MasterData.Group.CLEANING_STATUS, "PENDIENTE", "Pendiente")
+        self._md(MasterData.Group.MAINTENANCE_STATUS, "PENDIENTE", "Pendiente")
+        self.priority = self._md(MasterData.Group.MAINTENANCE_PRIORITY, "MEDIA", "Media")
+
+    def _rule(self, **kwargs):
+        defaults = {
+            "hotel_settings": self.hotel,
+            "kind": RecurringWork.Kind.CLEANING,
+            "name": "Limpieza profunda semanal",
+            "task_type": self.task_type,
+            "frequency": RecurringWork.Frequency.WEEKLY,
+            "interval": 1,
+            "weekday": timezone.localdate().weekday(),
+            "starts_on": timezone.localdate(),
+            "next_run_on": timezone.localdate(),
+        }
+        defaults.update(kwargs)
+        return RecurringWork.objects.create(**defaults)
+
+    def test_creates_the_task_and_moves_the_rule_forward(self):
+        rule = self._rule(room=self.room_a)
+
+        call_command("generate_recurring_work", stdout=StringIO())
+
+        rule.refresh_from_db()
+        self.assertEqual(CleaningTask.objects.filter(room=self.room_a).count(), 1)
+        self.assertEqual(rule.generated_count, 1)
+        self.assertGreater(rule.next_run_on, timezone.localdate())
+        self.assertEqual(rule.last_generated_on, timezone.localdate())
+
+    def test_running_twice_the_same_day_does_not_duplicate(self):
+        # Correrlo dos veces el mismo dia no debe duplicar trabajo.
+        self._rule(room=self.room_a)
+
+        call_command("generate_recurring_work", stdout=StringIO())
+        call_command("generate_recurring_work", stdout=StringIO())
+
+        self.assertEqual(CleaningTask.objects.count(), 1)
+
+    def test_a_rule_without_room_covers_every_active_room(self):
+        # Sin habitacion, la regla es del hotel entero.
+        self._rule(room=None)
+
+        call_command("generate_recurring_work", stdout=StringIO())
+
+        self.assertEqual(CleaningTask.objects.count(), 2)
+
+    def test_creates_maintenance_orders_for_maintenance_rules(self):
+        self._rule(
+            kind=RecurringWork.Kind.MAINTENANCE,
+            name="Revision de aires",
+            task_type=None,
+            priority=self.priority,
+            room=self.room_a,
+        )
+
+        call_command("generate_recurring_work", stdout=StringIO())
+
+        order = MaintenanceOrder.objects.get(room=self.room_a)
+        self.assertEqual(order.title, "Revision de aires")
+        self.assertIn("Revision de aires", order.description)
+
+    def test_a_finished_rule_is_deactivated_instead_of_generating(self):
+        rule = self._rule(room=self.room_a, ends_on=timezone.localdate() - timedelta(days=1))
+
+        call_command("generate_recurring_work", stdout=StringIO())
+
+        rule.refresh_from_db()
+        self.assertFalse(rule.is_active)
+        self.assertEqual(CleaningTask.objects.count(), 0)
+
+    def test_dry_run_writes_nothing(self):
+        rule = self._rule(room=self.room_a)
+
+        call_command("generate_recurring_work", "--dry-run", stdout=StringIO())
+
+        rule.refresh_from_db()
+        self.assertEqual(CleaningTask.objects.count(), 0)
+        self.assertEqual(rule.generated_count, 0)
+
+
+class RecurringWorkMaterializesOnReadTests(TestCase):
+    """El sistema no puede depender de que alguien programe un cron.
+
+    Un hotel que instala Wayra y crea una regla espera que funcione, no que funcione si
+    ademas configuro una tarea diaria en el servidor. Listar limpieza, mantenimiento o
+    las propias reglas pone al dia lo vencido.
+    """
+
+    def _md(self, group, code, name=None):
+        return MasterData.objects.update_or_create(
+            group=group,
+            code=code,
+            defaults={"name": name or code.title(), "is_active": True, "sort_order": 1},
+        )[0]
+
+    def setUp(self):
+        self.factory = APIRequestFactory()
+
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Sin Cron")
+        floor = HotelFloor.objects.create(
+            hotel_settings=self.hotel, floor_number=1, name="Piso 1", prefix="1", room_count=1
+        )
+        room_type = RoomType.objects.create(hotel_settings=self.hotel, name="Estandar", capacity=2)
+        room_status = self._md(MasterData.Group.ROOM_STATUS, "DISPONIBLE", "Disponible")
+        self.room = Room.objects.create(
+            number="101", room_type=room_type, floor=floor, status=room_status
+        )
+
+        self.task_type = self._md(MasterData.Group.CLEANING_TASK_TYPE, "PROFUNDA", "Profunda")
+        self._md(MasterData.Group.CLEANING_STATUS, "PENDIENTE", "Pendiente")
+
+        self.user = User.objects.create_user(
+            username="recepcion_sin_cron",
+            password="test-pass-123",
+            hotel_settings=self.hotel,
+        )
+        role = Role.objects.create(name="Limpieza", slug="limpieza-lector")
+        for key, path in (
+            ("cleaning_tasks.read", "/api/cleaning-tasks/"),
+            ("recurring_work.read", "/api/recurring-work/"),
+        ):
+            resource, _ = Resource.objects.get_or_create(
+                key=key, defaults={"name": key, "link_backend": path}
+            )
+            role.resources.add(resource)
+        self.user.roles.add(role)
+
+        self.rule = RecurringWork.objects.create(
+            hotel_settings=self.hotel,
+            room=self.room,
+            kind=RecurringWork.Kind.CLEANING,
+            name="Aseo general semanal",
+            task_type=self.task_type,
+            frequency=RecurringWork.Frequency.WEEKLY,
+            interval=1,
+            weekday=timezone.localdate().weekday(),
+            starts_on=timezone.localdate(),
+            next_run_on=timezone.localdate(),
+        )
+
+    def _list_cleaning(self):
+        request = self.factory.get("/api/cleaning-tasks/")
+        force_authenticate(request, user=self.user)
+        response = CleaningTaskViewSet.as_view({"get": "list"})(request)
+        self.assertEqual(response.status_code, 200, response.data)
+        return response.data
+
+    def test_listing_the_work_generates_what_was_due(self):
+        self.assertEqual(CleaningTask.objects.count(), 0)
+
+        self._list_cleaning()
+
+        self.assertEqual(CleaningTask.objects.count(), 1)
+        self.rule.refresh_from_db()
+        self.assertGreater(self.rule.next_run_on, timezone.localdate())
+
+    def test_listing_twice_does_not_duplicate(self):
+        self._list_cleaning()
+        self._list_cleaning()
+
+        self.assertEqual(CleaningTask.objects.count(), 1)
+
+    def test_a_rule_from_another_hotel_is_not_materialized(self):
+        otro = HotelSettings.objects.create(hotel_name="Hotel Ajeno")
+        RecurringWork.objects.create(
+            hotel_settings=otro,
+            kind=RecurringWork.Kind.CLEANING,
+            name="Ajena",
+            task_type=self.task_type,
+            frequency=RecurringWork.Frequency.DAILY,
+            interval=1,
+            starts_on=timezone.localdate(),
+            next_run_on=timezone.localdate(),
+        )
+
+        self._list_cleaning()
+
+        # Solo la del hotel del usuario: la ajena sigue vencida.
+        self.assertEqual(CleaningTask.objects.count(), 1)
+        self.assertTrue(
+            RecurringWork.objects.filter(hotel_settings=otro, next_run_on=timezone.localdate()).exists()
+        )

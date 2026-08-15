@@ -166,3 +166,9 @@ class SoftDeleteMarker(models.Model):
         indexes = [
             models.Index(fields=["content_type", "object_id"]),
         ]
+
+
+# El rastro de auditoria vive en su propio modulo --lleva middleware y señales-- pero el
+# modelo tiene que importarse aqui para que Django lo descubra, y con el se registran los
+# receptores que capturan cada escritura.
+from accounts.audit import AuditLog  # noqa: E402,F401  (import al final: evita ciclos)

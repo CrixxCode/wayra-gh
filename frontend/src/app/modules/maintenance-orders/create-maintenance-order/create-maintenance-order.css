@@ -1,249 +1,266 @@
+/* Solo tokens --gh-*: el modo oscuro sale del mismo sitio que el resto (AGENTS 5.15).
+   Antes este archivo traia una paleta propia de alias y sus propios bloques de modo
+   oscuro, y una cabecera con degradado de 130 px para mostrar un titulo. */
+
 :host {
   display: block;
-  --drawer-overlay-bg: rgba(15, 23, 42, 0.38);
-  --drawer-surface: var(--gh-surface, #ffffff);
-  --drawer-surface-soft: var(--gh-surface-soft, #f8fbff);
-  --drawer-border: var(--gh-border-soft, #edf1f7);
-  --drawer-border-strong: var(--gh-border-strong, #d7deea);
-  --drawer-text: var(--gh-text, #334155);
-  --drawer-text-strong: var(--gh-text-strong, #0f172a);
-  --drawer-text-muted: var(--gh-text-muted, #64748b);
-  --drawer-brand: var(--gh-brand, #0f1f41);
-  --drawer-on-brand: var(--gh-on-brand, #ffffff);
-  --drawer-shadow-side: var(--gh-shadow-side, -10px 0 30px rgba(2, 6, 23, 0.2));
-  --drawer-success-bg: var(--gh-status-success-bg, #dcfce7);
-  --drawer-success-text: var(--gh-status-success-text, #166534);
-  --drawer-warn-bg: var(--gh-status-orange-bg, #ffedd5);
-  --drawer-warn-text: var(--gh-status-orange-text, #c2410c);
-  --drawer-danger-bg: var(--gh-status-danger-bg, #fee2e2);
-  --drawer-danger-text: var(--gh-status-danger-text, #b91c1c);
-  --drawer-danger-border: var(--gh-status-danger-border, #fecaca);
-}
-
-:host-context(.my-app-dark),
-:host-context(.dark) {
-  --drawer-overlay-bg: rgba(2, 6, 23, 0.62);
-  --drawer-surface: #111827;
-  --drawer-surface-soft: #1f2937;
-  --drawer-border: #334155;
-  --drawer-border-strong: #475569;
-  --drawer-text: #cbd5e1;
-  --drawer-text-strong: #f3f4f6;
-  --drawer-text-muted: #94a3b8;
-  --drawer-brand: #1e3a8a;
-  --drawer-on-brand: #f8fafc;
-  --drawer-shadow-side: -10px 0 30px rgba(2, 6, 23, 0.6);
-  --drawer-success-bg: #14532d;
-  --drawer-success-text: #86efac;
-  --drawer-warn-bg: #7c2d12;
-  --drawer-warn-text: #fdba74;
-  --drawer-danger-bg: #7f1d1d;
-  --drawer-danger-text: #fca5a5;
-  --drawer-danger-border: #ef4444;
 }
 
 .maintenance-order-overlay {
   position: fixed;
   inset: 0;
-  z-index: 130;
+  z-index: 160;
   display: flex;
   justify-content: flex-end;
-  background: var(--drawer-overlay-bg);
+  background: rgba(15, 23, 42, 0.45);
 }
 
+/* Alto natural: el panel deja de reservar la pantalla entera para un formulario corto. */
 .maintenance-order-drawer {
-  width: 520px;
-  max-width: 100%;
-  height: 100%;
-  background: var(--drawer-surface);
+  width: min(560px, 100%);
+  max-height: 100%;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--drawer-shadow-side);
+  background: var(--gh-surface);
+  border-left: 1px solid var(--gh-border);
+  box-shadow: var(--gh-shadow-strong);
 }
 
+/* ------------------------------------------------------------------ cabecera */
+
 .drawer-head {
-  background: linear-gradient(155deg, #3a1811, #b45309);
-  color: var(--drawer-on-brand);
-  padding: 22px 24px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--gh-border-soft);
+  background: var(--gh-surface-alt);
+}
+
+.drawer-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--gh-status-orange-bg);
+  color: var(--gh-status-orange-text);
+  font-size: 0.71rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .drawer-head h1 {
-  margin: 0;
-  font-size: 28px;
-  line-height: 1.1;
-}
-
-.drawer-head p {
   margin: 8px 0 0;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 14px;
+  color: var(--gh-text-strong);
+  font-size: 1.32rem;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .drawer-close {
   width: 34px;
   height: 34px;
-  border: 0;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--drawer-on-brand);
+  flex: 0 0 34px;
   display: grid;
   place-items: center;
+  border: 1px solid var(--gh-border);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
   cursor: pointer;
 }
 
-.drawer-close svg {
-  width: 16px;
-  height: 16px;
+.drawer-close:hover {
+  background: var(--gh-surface-hover);
+  color: var(--gh-text-strong);
 }
+
+/* ----------------------------------------------------------------- contenido */
 
 .drawer-body {
   flex: 1;
+  min-height: 0;
   overflow: auto;
-  padding: 18px 24px 20px;
+  padding: 18px 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-section {
-  border-bottom: 1px solid var(--drawer-border);
-  padding: 8px 0 18px;
-  margin-bottom: 12px;
+.drawer-body section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-section:last-of-type {
-  margin-bottom: 6px;
-}
-
-h2 {
-  margin: 0 0 12px;
-  font-size: 13px;
+.drawer-body h2 {
+  margin: 0;
+  color: var(--gh-text-soft);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--drawer-text);
 }
 
 .grid {
   display: grid;
-  gap: 12px;
+  gap: 13px;
 }
 
 .grid.two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-label span {
-  color: var(--drawer-text-muted);
-  font-size: 13px;
-}
-
-input,
-select,
-textarea {
-  border: 1px solid var(--drawer-border-strong);
-  border-radius: 10px;
-  font-size: 14px;
-  color: var(--drawer-text-strong);
-  background: var(--drawer-surface);
-  outline: 0;
-}
-
-input,
-select {
-  height: 42px;
-  padding: 0 12px;
-}
-
-input:disabled,
-select:disabled,
-textarea:disabled {
-  background: var(--drawer-surface-soft);
-  color: var(--drawer-text-muted);
-}
-
-textarea {
-  padding: 10px 12px;
-  resize: vertical;
-  min-height: 92px;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-  border-color: var(--gh-search-focus);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
-}
-
-.full {
+.grid .full {
   grid-column: 1 / -1;
 }
 
-.field-hint {
-  color: var(--drawer-text-muted);
-  font-size: 12px;
+/* ------------------------------------------------------------------- campos */
+
+.drawer-body label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
 }
+
+.drawer-body label > span {
+  color: var(--gh-text-soft);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.drawer-body input,
+.drawer-body select,
+.drawer-body textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 10px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  font-family: inherit;
+  font-size: 0.87rem;
+}
+
+.drawer-body textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.drawer-body input:focus,
+.drawer-body select:focus,
+.drawer-body textarea:focus {
+  outline: none;
+  border-color: var(--gh-search-focus);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.drawer-body input:disabled,
+.drawer-body select:disabled,
+.drawer-body textarea:disabled {
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-soft);
+  cursor: not-allowed;
+}
+
+.input-error {
+  border-color: var(--gh-status-danger-strong);
+}
+
+.field-error {
+  color: var(--gh-status-danger-text);
+  font-size: 0.74rem;
+}
+
+.field-hint {
+  color: var(--gh-text-soft);
+  font-size: 0.74rem;
+}
+
+/* ------------------------------------------------------------------ avisos */
 
 .feedback {
-  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  padding: 10px 13px;
   border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 13px;
-}
-
-.feedback.error {
-  background: var(--drawer-danger-bg);
-  color: var(--drawer-danger-text);
+  font-size: 0.83rem;
+  line-height: 1.4;
 }
 
 .feedback.warning {
-  background: var(--drawer-warn-bg);
-  color: var(--drawer-warn-text);
+  border: 1px solid var(--gh-status-warn-border);
+  background: var(--gh-status-warn-bg);
+  color: var(--gh-status-warn-text);
 }
 
+.feedback.error {
+  border: 1px solid var(--gh-status-danger-border);
+  background: var(--gh-status-danger-bg);
+  color: var(--gh-status-danger-text);
+}
+
+/* ---------------------------------------------------------------- acciones */
+
+/* Pegado al pie del panel: el boton de guardar no se pierde al hacer scroll. */
 .drawer-footer {
   position: sticky;
-  bottom: 0;
-  background: var(--drawer-surface);
-  border-top: 1px solid var(--drawer-border);
+  bottom: -20px;
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 16px 24px 20px;
+  gap: 9px;
+  margin: 4px -22px -20px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--gh-border-soft);
+  background: var(--gh-surface-alt);
 }
 
 .btn {
-  border-radius: 11px;
-  border: 1px solid transparent;
-  padding: 10px 16px;
-  font-size: 14px;
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 0.84rem;
   font-weight: 600;
   cursor: pointer;
 }
 
 .btn-light {
-  background: var(--drawer-surface);
-  color: var(--drawer-text);
-  border-color: var(--drawer-border-strong);
+  border: 1px solid var(--gh-border-strong);
+  background: var(--gh-surface);
+  color: var(--gh-text);
+}
+
+.btn-light:hover:not(:disabled) {
+  border-color: var(--gh-search-focus);
+  color: var(--gh-text-strong);
 }
 
 .btn-dark {
-  background: var(--drawer-brand);
-  color: var(--drawer-on-brand);
+  border: 1px solid var(--gh-brand);
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+}
+
+.btn-dark:hover:not(:disabled) {
+  opacity: 0.9;
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
-@media (max-width: 820px) {
+@media (max-width: 560px) {
   .maintenance-order-drawer {
     width: 100%;
   }
@@ -251,13 +268,4 @@ textarea:focus {
   .grid.two {
     grid-template-columns: 1fr;
   }
-
-  .drawer-footer {
-    flex-direction: column;
-  }
-
-  .drawer-footer .btn {
-    width: 100%;
-  }
 }
-

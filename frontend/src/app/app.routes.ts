@@ -10,7 +10,6 @@ import { UserList } from './modules/users/list/user-list';
 import { UserRegister } from './modules/users/register/register';
 import { RolesComponent } from './components/pages/roles/roles';
 import { RecursosComponent } from './components/pages/recursos/recursos';
-import { HotelSettings } from './components/pages/hotel-settings/hotel-settings';
 import { MasterDataComponent } from './components/pages/master-data/master-data';
 import { ForbiddenPage } from './components/pages/forbidden/forbidden';
 import { NotFoundPage } from './components/pages/not-found/not-found';
@@ -25,24 +24,24 @@ const loadCatalogComponent = () =>
   import('./modules/catalog/catalog-page/catalog-page').then((m) => m.CatalogPage);
 const loadBillingComponent = () =>
   import('./modules/billing/billing-page/billing-page').then((m) => m.BillingPage);
-const loadIncomeConsolidatedComponent = () =>
-  import('./modules/income-consolidated/list-income-consolidated/list-income-consolidated').then(
-    (m) => m.ListIncomeConsolidated
-  );
+const loadFinanceComponent = () =>
+  import('./modules/finance/finance-page/finance-page').then((m) => m.FinancePage);
 const loadFinancialControlComponent = () =>
   import('./modules/financial-control/list-financial-control/list-financial-control').then(
     (m) => m.ListFinancialControl
   );
-const loadExpensesComponent = () =>
-  import('./modules/expenses/list-expenses/list-expenses').then((m) => m.ListExpenses);
 const loadInventoryComponent = () =>
   import('./modules/inventory/inventory-page/inventory-page').then((m) => m.InventoryPage);
 const loadOperationsComponent = () =>
   import('./modules/operations/operations-page/operations-page').then((m) => m.OperationsPage);
 const loadReportsComponent = () =>
   import('./modules/reports/list-reports/list-reports').then((m) => m.ListReports);
-const loadActivityLogComponent = () =>
-  import('./modules/reports/activity-log/activity-log').then((m) => m.ActivityLogPage);
+// Perezosa como el resto: es una pantalla grande, con el mapa y su CSS, y hasta ahora
+// viajaba entera en el paquete inicial de toda la aplicacion.
+const loadHotelSettingsComponent = () =>
+  import('./components/pages/hotel-settings/hotel-settings').then((m) => m.HotelSettings);
+const loadAuditComponent = () =>
+  import('./modules/audit/audit-log/audit-log').then((m) => m.AuditLogPage);
 const loadMyProfileComponent = () =>
   import('./modules/users/my-profile/my-profile').then((m) => m.MyProfilePage);
 const loadSaasDashboardComponent = () =>
@@ -73,6 +72,9 @@ const redirectToInventoryTab = (tab: 'items' | 'rooms' | 'movements') => () =>
 
 const redirectToOperationsTab = (tab: 'cleaning' | 'maintenance' | 'rooms') => () =>
   inject(Router).parseUrl(`/limpieza-mantenimiento?tab=${tab}`);
+
+const redirectToFinanceTab = (tab: 'result' | 'income' | 'expenses') => () =>
+  inject(Router).parseUrl(`/finanzas?tab=${tab}`);
 
 export const routes: Routes = [
     {
@@ -129,13 +131,14 @@ export const routes: Routes = [
             { path: 'reembolsos', redirectTo: redirectToBillingTab('refunds'), pathMatch: 'full' },
             { path: 'payment-refunds', redirectTo: redirectToBillingTab('refunds'), pathMatch: 'full' },
             { path: 'refunds', redirectTo: redirectToBillingTab('refunds'), pathMatch: 'full' },
-            { path: 'consolidado-ingresos', loadComponent: loadIncomeConsolidatedComponent },
+            { path: 'finanzas', loadComponent: loadFinanceComponent, title: 'Finanzas' },
+            { path: 'consolidado-ingresos', redirectTo: redirectToFinanceTab('income'), pathMatch: 'full' },
+            { path: 'ingresos', redirectTo: redirectToFinanceTab('income'), pathMatch: 'full' },
+            { path: 'income-consolidated', redirectTo: redirectToFinanceTab('income'), pathMatch: 'full' },
+            { path: 'egresos', redirectTo: redirectToFinanceTab('expenses'), pathMatch: 'full' },
+            { path: 'expenses', redirectTo: redirectToFinanceTab('expenses'), pathMatch: 'full' },
             { path: 'control-financiero', loadComponent: loadFinancialControlComponent },
             { path: 'financial-control', redirectTo: 'control-financiero', pathMatch: 'full' },
-            { path: 'ingresos', redirectTo: 'consolidado-ingresos', pathMatch: 'full' },
-            { path: 'income-consolidated', redirectTo: 'consolidado-ingresos', pathMatch: 'full' },
-            { path: 'egresos', loadComponent: loadExpensesComponent },
-            { path: 'expenses', redirectTo: 'egresos', pathMatch: 'full' },
             { path: 'catalogo-paquetes', redirectTo: redirectToCatalogTab('packages'), pathMatch: 'full' },
             { path: 'paquetes', redirectTo: redirectToCatalogTab('packages'), pathMatch: 'full' },
             { path: 'packages', redirectTo: redirectToCatalogTab('packages'), pathMatch: 'full' },
@@ -159,11 +162,13 @@ export const routes: Routes = [
             { path: 'ordenes-mantenimiento', redirectTo: redirectToOperationsTab('maintenance'), pathMatch: 'full' },
             { path: 'maintenance-orders', redirectTo: redirectToOperationsTab('maintenance'), pathMatch: 'full' },
             { path: 'reportes', loadComponent: loadReportsComponent },
-            { path: 'actividad', loadComponent: loadActivityLogComponent },
-            { path: 'activity-log', redirectTo: 'actividad', pathMatch: 'full' },
+            { path: 'auditoria', loadComponent: loadAuditComponent, title: 'Auditoria' },
+            // Los enlaces viejos siguen funcionando: la pantalla cambio de nombre, no de sitio.
+            { path: 'actividad', redirectTo: 'auditoria', pathMatch: 'full' },
+            { path: 'activity-log', redirectTo: 'auditoria', pathMatch: 'full' },
             { path: 'reports', redirectTo: 'reportes', pathMatch: 'full' },
             { path: 'mi-perfil', loadComponent: loadMyProfileComponent, title: 'Mi Perfil', data: { breadcrumbLabel: 'Mi Perfil' } },
-            { path: 'hotel-config', component: HotelSettings, title: 'Configuracion Hotel' },
+            { path: 'hotel-config', loadComponent: loadHotelSettingsComponent, title: 'Configuracion Hotel' },
             { path: 'saas-panel', loadComponent: loadSaasDashboardComponent, title: 'Panel SaaS', data: { breadcrumbLabel: 'Panel SaaS', platformAdminOnly: true } },
             { path: 'saas-hoteles', loadComponent: loadSaasHotelsComponent, title: 'Hoteles Globales SaaS', data: { breadcrumbLabel: 'Hoteles Globales SaaS', platformAdminOnly: true } },
             { path: 'saas-hotels', redirectTo: 'saas-hoteles', pathMatch: 'full' },

@@ -2,14 +2,11 @@
   <article class="maintenance-order-drawer" (click)="$event.stopPropagation()">
     <header class="drawer-head">
       <div>
-        <h1>Nueva orden de mantenimiento</h1>
-        <p>Registra la incidencia, prioridad y estado para seguimiento tecnico.</p>
+        <p class="drawer-kind"><i class="fa-solid fa-screwdriver-wrench"></i> Mantenimiento</p>
+        <h1>Nueva orden</h1>
       </div>
       <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6 6 18" />
-          <path d="m6 6 12 12" />
-        </svg>
+        <i class="fa-solid fa-xmark"></i>
       </button>
     </header>
 
