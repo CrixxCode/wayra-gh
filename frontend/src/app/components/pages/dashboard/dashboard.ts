@@ -149,15 +149,45 @@ export class Dashboard implements OnInit, OnDestroy {
   activityFeed: ActivityItem[] = [];
 
   readonly quickActions: QuickAction[] = [
-    { label: 'Nuevo Check-in', icon: 'fa-solid fa-right-to-bracket', tone: 'primary', route: '/reservas', queryParams: { action: 'CHECKIN' } },
-    { label: 'Registrar Salida', icon: 'fa-solid fa-right-from-bracket', tone: 'neutral', route: '/reservas' },
-    { label: 'Nueva Reserva', icon: 'fa-regular fa-calendar-plus', tone: 'neutral', route: '/reservas', queryParams: { action: 'CREATE' } },
-    { label: 'Cobrar Cuenta', icon: 'fa-regular fa-credit-card', tone: 'neutral', route: '/facturas' },
+    {
+      label: 'Nuevo Check-in',
+      icon: 'fa-solid fa-right-to-bracket',
+      tone: 'primary',
+      route: '/reservas',
+      queryParams: { action: 'CHECKIN' },
+    },
+    {
+      label: 'Registrar Salida',
+      icon: 'fa-solid fa-right-from-bracket',
+      tone: 'neutral',
+      route: '/reservas',
+    },
+    {
+      label: 'Nueva Reserva',
+      icon: 'fa-regular fa-calendar-plus',
+      tone: 'neutral',
+      route: '/reservas',
+      queryParams: { action: 'CREATE' },
+    },
+    {
+      label: 'Cobrar Cuenta',
+      icon: 'fa-regular fa-credit-card',
+      tone: 'neutral',
+      route: '/facturas',
+    },
     { label: 'Ver Reportes', icon: 'fa-solid fa-wave-square', tone: 'gold', route: '/reportes' },
   ];
 
   private readonly weekdayLabels = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
-  private readonly avatarTones: AvatarTone[] = ['indigo', 'pink', 'orange', 'green', 'blue', 'purple', 'cyan'];
+  private readonly avatarTones: AvatarTone[] = [
+    'indigo',
+    'pink',
+    'orange',
+    'green',
+    'blue',
+    'purple',
+    'cyan',
+  ];
   private readonly currencyFormatter = new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: 'COP',
@@ -173,7 +203,7 @@ export class Dashboard implements OnInit, OnDestroy {
     private maintenanceOrdersService: MaintenanceOrdersService,
     private inventoryMovementsService: InventoryMovementsService,
     private notificationStateService: NotificationStateService,
-    private authService: AuthService
+    private authService: AuthService,
   ) {}
 
   get dayResume(): string {
@@ -211,7 +241,11 @@ export class Dashboard implements OnInit, OnDestroy {
     forkJoin({
       rooms: this.roomService.listRooms().pipe(catchError(() => of([] as RoomI[]))),
       reservations: this.reservationService
-        .listReservations({ include_finished: true, page_size: 350, ordering: '-expected_check_in' })
+        .listReservations({
+          include_finished: true,
+          page_size: 350,
+          ordering: '-expected_check_in',
+        })
         .pipe(catchError(() => of([] as ReservationI[]))),
       invoices: this.billingService
         .listInvoices({ ordering: '-id' })
@@ -222,7 +256,9 @@ export class Dashboard implements OnInit, OnDestroy {
       charges: this.billingService
         .listCharges({ ordering: '-charge_date', is_active: true })
         .pipe(catchError(() => of([] as ChargeI[]))),
-      items: this.itemsService.listItems({ ordering: 'stock' }).pipe(catchError(() => of([] as ItemI[]))),
+      items: this.itemsService
+        .listItems({ ordering: 'stock' })
+        .pipe(catchError(() => of([] as ItemI[]))),
       maintenance: this.maintenanceOrdersService
         .listMaintenanceOrders({ ordering: '-reported_at' })
         .pipe(catchError(() => of([] as MaintenanceOrderI[]))),
@@ -284,7 +320,10 @@ export class Dashboard implements OnInit, OnDestroy {
 
     this.allRoomTiles = this.buildRoomTiles(data.rooms);
     this.roomFloorFilterOptions = this.buildFloorFilterOptions(this.allRoomTiles);
-    if (this.roomFloorFilter !== 'ALL' && !this.roomFloorFilterOptions.some((floor) => floor.id === this.roomFloorFilter)) {
+    if (
+      this.roomFloorFilter !== 'ALL' &&
+      !this.roomFloorFilterOptions.some((floor) => floor.id === this.roomFloorFilter)
+    ) {
       this.roomFloorFilter = 'ALL';
     }
     this.applyRoomFilters();
@@ -295,23 +334,31 @@ export class Dashboard implements OnInit, OnDestroy {
     const occupied = this.allRoomTiles.filter((room) => room.state === 'occupied').length;
     const totalRooms = this.allRoomTiles.length;
     const occupancyPct = totalRooms > 0 ? (occupied * 100) / totalRooms : 0;
-    const occupancyBase = Math.max(0, occupied - (this.checkInsToday.length - this.checkOutsToday.length));
+    const occupancyBase = Math.max(
+      0,
+      occupied - (this.checkInsToday.length - this.checkOutsToday.length),
+    );
 
     const incomeToday = this.sumPaymentsForDate(data.payments, today);
     const incomeYesterday = this.sumPaymentsForDate(data.payments, yesterday);
     const inHouseGuests = this.countInHouseGuests(data.reservations);
     const reservationPendingById = new Map(
-      data.reservations.map((reservation) => [reservation.id, this.toNumber(reservation.pending_amount)])
+      data.reservations.map((reservation) => [
+        reservation.id,
+        this.toNumber(reservation.pending_amount),
+      ]),
     );
     const pendingIssuedInvoices = data.invoices.filter((invoice) => {
       if (!invoice.is_active) return false;
       if (this.normalizeCode(invoice.status_code) !== 'EMITIDA') return false;
       return (reservationPendingById.get(invoice.reservation) ?? 0) > 0;
     });
-    const pendingReservationIds = new Set(pendingIssuedInvoices.map((invoice) => invoice.reservation));
+    const pendingReservationIds = new Set(
+      pendingIssuedInvoices.map((invoice) => invoice.reservation),
+    );
     const pendingTotal = [...pendingReservationIds].reduce(
       (sum, reservationId) => sum + (reservationPendingById.get(reservationId) ?? 0),
-      0
+      0,
     );
 
     this.metrics = [
@@ -355,7 +402,10 @@ export class Dashboard implements OnInit, OnDestroy {
         label: 'Cuentas pendientes',
         value: this.formatCurrency(pendingTotal),
         note: 'Facturas emitidas por cobrar',
-        trend: pendingIssuedInvoices.length > 0 ? `${pendingIssuedInvoices.length} facturas emitidas con saldo` : 'Sin facturas emitidas pendientes',
+        trend:
+          pendingIssuedInvoices.length > 0
+            ? `${pendingIssuedInvoices.length} facturas emitidas con saldo`
+            : 'Sin facturas emitidas pendientes',
         trendPositive: pendingIssuedInvoices.length === 0,
         icon: 'fa-regular fa-rectangle-list',
         tone: 'red',
@@ -364,7 +414,12 @@ export class Dashboard implements OnInit, OnDestroy {
 
     const chartPalette = this.getChartPalette();
     const occupancySeries = this.buildOccupancySeries(data.reservations, totalRooms);
-    const occupancyMax = Math.max(...occupancySeries.occupiedValues, ...occupancySeries.freeValues, totalRooms, 1);
+    const occupancyMax = Math.max(
+      ...occupancySeries.occupiedValues,
+      ...occupancySeries.freeValues,
+      totalRooms,
+      1,
+    );
     this.occupancyChartData = {
       labels: occupancySeries.labels,
       datasets: [
@@ -395,18 +450,20 @@ export class Dashboard implements OnInit, OnDestroy {
     const incomeSeries = this.buildIncomeSeries(data.payments);
     this.incomeChartData = {
       labels: incomeSeries.labels,
-      datasets: [{
-        label: 'Ingresos',
-        data: incomeSeries.values,
-        borderColor: chartPalette.revenue,
-        backgroundColor: chartPalette.revenueFill,
-        pointBackgroundColor: chartPalette.revenue,
-        pointBorderColor: chartPalette.revenue,
-        pointRadius: 3,
-        pointHoverRadius: 4,
-        tension: 0.35,
-        fill: true,
-      }],
+      datasets: [
+        {
+          label: 'Ingresos',
+          data: incomeSeries.values,
+          borderColor: chartPalette.revenue,
+          backgroundColor: chartPalette.revenueFill,
+          pointBackgroundColor: chartPalette.revenue,
+          pointBorderColor: chartPalette.revenue,
+          pointRadius: 3,
+          pointHoverRadius: 4,
+          tension: 0.35,
+          fill: true,
+        },
+      ],
     };
     this.incomeChartOptions = this.buildLineOptions(Math.max(...incomeSeries.values, 1000));
 
@@ -414,13 +471,14 @@ export class Dashboard implements OnInit, OnDestroy {
     this.serviceTotalLabel = this.formatCurrency(
       data.charges
         .filter((charge) => this.isSameDay(this.parseDateTime(charge.charge_date || null), today))
-        .reduce((sum, charge) => sum + this.toNumber(charge.total_amount), 0)
+        .reduce((sum, charge) => sum + this.toNumber(charge.total_amount), 0),
     );
-    this.alerts = this.applyAlertReadState(this.buildAlerts(data.items, data.maintenance, data.reservations));
+    this.alerts = this.applyAlertReadState(
+      this.buildAlerts(data.items, data.maintenance, data.reservations),
+    );
     this.activityFeed = this.buildActivity(data.payments, data.movements);
 
-    const hasData = data.rooms.length > 0 || data.reservations.length > 0 || data.invoices.length > 0 || data.payments.length > 0;
-    this.loadError = hasData ? '' : 'No hay datos del backend para mostrar en el dashboard.';
+    this.loadError = '';
   }
 
   private navigateTo(route: string, queryParams?: NavigationQuery): void {
@@ -436,17 +494,29 @@ export class Dashboard implements OnInit, OnDestroy {
       })
       .map((room) => {
         const state = this.mapRoomState(room.status);
-        const guest = room.active_reservation?.client_name || room.active_reservation?.client?.full_name || '';
+        const guest =
+          room.active_reservation?.client_name || room.active_reservation?.client?.full_name || '';
         const floorId = Number(room.floor);
         const floorNumber = Number(room.florr_number);
         const floorLabel =
           String(room.floor_name || '').trim() ||
-          (Number.isFinite(floorNumber) && floorNumber > 0 ? `Piso ${floorNumber}` : Number.isFinite(floorId) && floorId > 0 ? `Piso ${floorId}` : 'Sin piso');
+          (Number.isFinite(floorNumber) && floorNumber > 0
+            ? `Piso ${floorNumber}`
+            : Number.isFinite(floorId) && floorId > 0
+              ? `Piso ${floorId}`
+              : 'Sin piso');
 
         return {
           number: String(room.number || room.id),
           kind: this.abbreviateRoomType(room.room_type_name),
-          detail: state === 'occupied' && guest ? this.getInitials(guest) : state === 'maintenance' ? 'Mantenimiento' : state === 'cleaning' ? 'Limpieza' : '-',
+          detail:
+            state === 'occupied' && guest
+              ? this.getInitials(guest)
+              : state === 'maintenance'
+                ? 'Mantenimiento'
+                : state === 'cleaning'
+                  ? 'Limpieza'
+                  : '-',
           state,
           floorId: Number.isFinite(floorId) && floorId > 0 ? floorId : null,
           floorLabel,
@@ -498,7 +568,9 @@ export class Dashboard implements OnInit, OnDestroy {
 
     return reservations
       .filter((reservation) => {
-        const date = this.parseDateOnly(mode === 'in' ? reservation.expected_check_in : reservation.expected_check_out);
+        const date = this.parseDateOnly(
+          mode === 'in' ? reservation.expected_check_in : reservation.expected_check_out,
+        );
         if (!date || !this.isSameDay(date, today)) return false;
         if (this.isCanceled(reservation)) return false;
         if (mode === 'in' && reservation.real_check_in) return false;
@@ -516,8 +588,20 @@ export class Dashboard implements OnInit, OnDestroy {
           guest,
           detail: `Reserva #${reservation.id} - ${rooms} hab. - ${nights} noches`,
           time: '--:--',
-          status: mode === 'in' ? (String(reservation.status_code || '').toUpperCase().includes('PENDIENTE') ? 'Pendiente' : 'Confirmado') : 'Programado',
-          amount: mode === 'out' ? this.formatCurrency(this.toNumber(reservation.pending_amount ?? reservation.total_amount)) : undefined,
+          status:
+            mode === 'in'
+              ? String(reservation.status_code || '')
+                  .toUpperCase()
+                  .includes('PENDIENTE')
+                ? 'Pendiente'
+                : 'Confirmado'
+              : 'Programado',
+          amount:
+            mode === 'out'
+              ? this.formatCurrency(
+                  this.toNumber(reservation.pending_amount ?? reservation.total_amount),
+                )
+              : undefined,
           avatarTone: this.avatarTones[index % this.avatarTones.length],
         };
       });
@@ -525,7 +609,7 @@ export class Dashboard implements OnInit, OnDestroy {
 
   private buildOccupancySeries(
     reservations: ReservationI[],
-    totalRooms: number
+    totalRooms: number,
   ): { labels: string[]; occupiedValues: number[]; freeValues: number[] } {
     const dates = this.lastDays(7);
     const occupiedValues = dates.map((day) => {
@@ -542,7 +626,9 @@ export class Dashboard implements OnInit, OnDestroy {
     const freeValues = occupiedValues.map((occupied) => Math.max(totalRooms - occupied, 0));
 
     return {
-      labels: dates.map((day, index) => (index === dates.length - 1 ? 'Hoy' : this.weekdayLabels[day.getDay()] || '')),
+      labels: dates.map((day, index) =>
+        index === dates.length - 1 ? 'Hoy' : this.weekdayLabels[day.getDay()] || '',
+      ),
       occupiedValues,
       freeValues,
     };
@@ -551,7 +637,9 @@ export class Dashboard implements OnInit, OnDestroy {
   private buildIncomeSeries(payments: PaymentI[]): { labels: string[]; values: number[] } {
     const dates = this.lastDays(7);
     return {
-      labels: dates.map((day, index) => (index === dates.length - 1 ? 'Hoy' : this.weekdayLabels[day.getDay()] || '')),
+      labels: dates.map((day, index) =>
+        index === dates.length - 1 ? 'Hoy' : this.weekdayLabels[day.getDay()] || '',
+      ),
       values: dates.map((day) => this.sumPaymentsForDate(payments, day)),
     };
   }
@@ -579,7 +667,16 @@ export class Dashboard implements OnInit, OnDestroy {
     const tones: ServiceTone[] = ['orange', 'violet', 'pink', 'blue', 'teal'];
 
     if (!rows.length) {
-      return [{ name: 'Sin movimientos', transactions: 0, amount: this.formatCurrency(0), ratio: 0, tone: 'blue', icon: 'fa-solid fa-receipt' }];
+      return [
+        {
+          name: 'Sin movimientos',
+          transactions: 0,
+          amount: this.formatCurrency(0),
+          ratio: 0,
+          tone: 'blue',
+          icon: 'fa-solid fa-receipt',
+        },
+      ];
     }
 
     return rows.map((row, index) => ({
@@ -591,7 +688,11 @@ export class Dashboard implements OnInit, OnDestroy {
       icon: this.serviceIcon(row.name),
     }));
   }
-  private buildAlerts(items: ItemI[], maintenance: MaintenanceOrderI[], reservations: ReservationI[]): AlertItem[] {
+  private buildAlerts(
+    items: ItemI[],
+    maintenance: MaintenanceOrderI[],
+    reservations: ReservationI[],
+  ): AlertItem[] {
     const alerts: AlertItem[] = [];
 
     items
@@ -613,7 +714,12 @@ export class Dashboard implements OnInit, OnDestroy {
       });
 
     maintenance
-      .filter((order) => !String(order.status_label || order.status || '').toUpperCase().includes('COMPLET'))
+      .filter(
+        (order) =>
+          !String(order.status_label || order.status || '')
+            .toUpperCase()
+            .includes('COMPLET'),
+      )
       .slice(0, 2)
       .forEach((order) => {
         const occurredAt = this.parseDateTime(order.reported_at || null);
@@ -654,7 +760,17 @@ export class Dashboard implements OnInit, OnDestroy {
     }
 
     if (!alerts.length) {
-      return [{ id: 'none', text: 'Sistema operativo', age: 'El sistema está funcionando correctamente.', action: 'Ver panel', tone: 'success', route: '/dashboard', unread: false }];
+      return [
+        {
+          id: 'none',
+          text: 'Sistema operativo',
+          age: 'El sistema está funcionando correctamente.',
+          action: 'Ver panel',
+          tone: 'success',
+          route: '/dashboard',
+          unread: false,
+        },
+      ];
     }
 
     return alerts.slice(0, 6);
@@ -708,9 +824,14 @@ export class Dashboard implements OnInit, OnDestroy {
       });
     });
 
-    const sorted = rows.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 7).map((row) => row.item);
+    const sorted = rows
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, 7)
+      .map((row) => row.item);
     if (!sorted.length) {
-      return [{ text: 'Sin actividad reciente', time: '--:--', tone: 'gold', icon: 'fa-regular fa-star' }];
+      return [
+        { text: 'Sin actividad reciente', time: '--:--', tone: 'gold', icon: 'fa-regular fa-star' },
+      ];
     }
     return sorted;
   }
@@ -723,11 +844,19 @@ export class Dashboard implements OnInit, OnDestroy {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { grid: { display: false }, ticks: { color: chartPalette.tick, font: { size: 11 } }, border: { display: false } },
+        x: {
+          grid: { display: false },
+          ticks: { color: chartPalette.tick, font: { size: 11 } },
+          border: { display: false },
+        },
         y: {
           min: 0,
           max,
-          ticks: { stepSize: Math.max(1, Math.round(max / 4)), color: chartPalette.tick, font: { size: 11 } },
+          ticks: {
+            stepSize: Math.max(1, Math.round(max / 4)),
+            color: chartPalette.tick,
+            font: { size: 11 },
+          },
           grid: { color: chartPalette.grid },
           border: { display: false },
         },
@@ -743,7 +872,11 @@ export class Dashboard implements OnInit, OnDestroy {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { grid: { color: chartPalette.gridSoft }, ticks: { color: chartPalette.tick, font: { size: 11 } }, border: { display: false } },
+        x: {
+          grid: { color: chartPalette.gridSoft },
+          ticks: { color: chartPalette.tick, font: { size: 11 } },
+          border: { display: false },
+        },
         y: {
           min: 0,
           max,
@@ -794,7 +927,9 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   private normalizeCode(value: unknown): string {
-    return String(value || '').trim().toUpperCase();
+    return String(value || '')
+      .trim()
+      .toUpperCase();
   }
 
   private abbreviateRoomType(value?: string): string {
@@ -817,7 +952,9 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   private isCanceled(reservation: ReservationI): boolean {
-    return String(reservation.status_code || reservation.status_name || '').toUpperCase().includes('CANCEL');
+    return String(reservation.status_code || reservation.status_name || '')
+      .toUpperCase()
+      .includes('CANCEL');
   }
 
   private getNights(reservation: ReservationI): number {
@@ -861,7 +998,11 @@ export class Dashboard implements OnInit, OnDestroy {
 
   private isSameDay(left: Date | null, right: Date | null): boolean {
     if (!left || !right) return false;
-    return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth() && left.getDate() === right.getDate();
+    return (
+      left.getFullYear() === right.getFullYear() &&
+      left.getMonth() === right.getMonth() &&
+      left.getDate() === right.getDate()
+    );
   }
 
   private getToday(): Date {
@@ -900,9 +1041,16 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   private getInitials(name: string): string {
-    const parts = name.split(' ').map((part) => part.trim()).filter(Boolean).slice(0, 2);
+    const parts = name
+      .split(' ')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .slice(0, 2);
     if (!parts.length) return '--';
-    return parts.map((part) => part[0]?.toUpperCase() || '').join('').slice(0, 2);
+    return parts
+      .map((part) => part[0]?.toUpperCase() || '')
+      .join('')
+      .slice(0, 2);
   }
 
   private formatCurrency(value: number): string {
@@ -910,7 +1058,9 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   private formatInteger(value: number): string {
-    return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number.isFinite(value) ? value : 0);
+    return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(
+      Number.isFinite(value) ? value : 0,
+    );
   }
 
   private formatSignedPercent(value: number): string {

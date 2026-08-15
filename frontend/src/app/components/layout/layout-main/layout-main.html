@@ -3,27 +3,34 @@
   data-tour="layout-shell"
 >
   <!-- OVERLAY (fondo borroso animado) -->
-  <div *ngIf="isAsideOpen() && isMobile"
+  <div
+    *ngIf="isAsideOpen() && isMobile"
     class="fixed inset-0 bg-black/40 backdrop-blur-sm z-20 md:hidden transition-opacity duration-300 ease-in-out opacity-100"
-    (click)="toggleAside()"></div>
+    (click)="toggleAside()"
+  ></div>
 
   <!-- ASIDE con animación -->
-  <aside id="app-sidebar" class="layout-aside fixed md:static top-0 left-0 h-screen
-           shadow-2xl z-30 md:z-auto
-           transition-all duration-300 ease-in-out transform
-           overflow-hidden shrink-0" data-tour="sidebar" [class.w-64]="isAsideOpen()" [class.w-0]="!isAsideOpen() && !isMobile"
-    [class.-translate-x-full]="!isAsideOpen() && isMobile" [class.translate-x-0]="isAsideOpen() && isMobile">
-
+  <aside
+    id="app-sidebar"
+    class="layout-aside fixed md:static top-0 left-0 h-screen shadow-2xl z-30 md:z-auto transition-all duration-300 ease-in-out transform overflow-hidden shrink-0"
+    data-tour="sidebar"
+    [class.w-64]="isAsideOpen()"
+    [class.w-0]="!isAsideOpen() && !isMobile"
+    [class.-translate-x-full]="!isAsideOpen() && isMobile"
+    [class.translate-x-0]="isAsideOpen() && isMobile"
+  >
     <!-- 👇 ESTE es el contenedor que scrollea -->
     <div class="flex flex-col h-full overflow-y-auto aside-scroll">
       <app-aside></app-aside>
     </div>
   </aside>
 
-
   <!-- HEADER + CONTENT -->
   <div class="layout-main-area flex flex-col h-screen overflow-hidden flex-1">
-    <header class="layout-header h-16 text-black flex items-center px-2 flex-shrink-0 z-10" data-tour="header">
+    <header
+      class="layout-header h-16 text-black flex items-center px-2 flex-shrink-0 z-10"
+      data-tour="header"
+    >
       <app-header
         class="w-full"
         [asideOpen]="isAsideOpen()"
@@ -33,40 +40,62 @@
       ></app-header>
     </header>
 
-    <section class="layout-content flex-1 overflow-y-auto px-6 pb-8 text-[#111827]
-             custom-scroll" data-tour="content">
-      <aside class="hotel-setup-alert" *ngIf="showHotelSetupAlert" role="alert">
-        <div class="hotel-setup-alert__icon">
-          <i class="fa-solid fa-hotel"></i>
-        </div>
-        <div class="hotel-setup-alert__body">
-          <h2>Termina de configurar tu hotel</h2>
-          <p>{{ hotelSetupAlertDetail }}</p>
-        </div>
-        <div class="hotel-setup-alert__actions">
-          <a
-            *ngIf="!mustChangePassword"
-            routerLink="/hotel-config"
-            class="hotel-setup-alert__primary"
-          >
-            Ir a configuración
-          </a>
-          <span *ngIf="mustChangePassword" class="hotel-setup-alert__hint">
-            Cambio de contraseña requerido
-          </span>
-          <button
-            type="button"
-            class="hotel-setup-alert__dismiss"
-            (click)="dismissHotelSetupAlert()"
-            aria-label="Cerrar alerta de configuración del hotel"
-          >
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-      </aside>
+    <section
+      class="layout-content flex-1 overflow-y-auto px-6 pb-8 text-[#111827] custom-scroll"
+      data-tour="content"
+    >
       <app-content></app-content>
     </section>
   </div>
 
   <app-guided-tour #guidedTour></app-guided-tour>
+
+  <div class="gh-modal-overlay hotel-setup-modal-overlay" *ngIf="showHotelSetupAlert">
+    <article
+      class="gh-modal is-narrow hotel-setup-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="hotel-setup-title"
+    >
+      <header class="gh-modal-head hotel-setup-modal__head">
+        <span class="hotel-setup-modal__icon">
+          <i class="fa-solid fa-hotel"></i>
+        </span>
+        <div>
+          <p class="hotel-setup-modal__eyebrow">Configuracion pendiente</p>
+          <h2 id="hotel-setup-title">Termina de configurar tu hotel</h2>
+        </div>
+      </header>
+
+      <div class="gh-modal-body hotel-setup-modal__body">
+        <p>{{ hotelSetupAlertDetail }}</p>
+
+        <ul class="hotel-setup-modal__list" *ngIf="missingHotelSetupFields.length > 0">
+          <li *ngFor="let field of missingHotelSetupFields">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            {{ field }}
+          </li>
+        </ul>
+
+        <p class="hotel-setup-modal__hint" *ngIf="!canManageHotelSetup">
+          Solicita a un administrador que complete esta informacion antes de operar el hotel.
+        </p>
+      </div>
+
+      <footer class="gh-modal-foot hotel-setup-modal__foot">
+        <button type="button" class="gh-mbtn gh-mbtn-light" (click)="dismissHotelSetupAlert()">
+          Recordarme despues
+        </button>
+        <button
+          type="button"
+          class="gh-mbtn gh-mbtn-dark"
+          *ngIf="canManageHotelSetup"
+          (click)="goToHotelSettings()"
+        >
+          <i class="fa-solid fa-gear"></i>
+          Completar configuracion
+        </button>
+      </footer>
+    </article>
+  </div>
 </main>

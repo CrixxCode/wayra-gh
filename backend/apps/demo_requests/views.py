@@ -26,6 +26,8 @@ from accounts.email_utils import (
 )
 from accounts.models import Role, UserRole
 from apps.hotel_settings.models import HotelFloor, HotelSettings
+from apps.master_data.models import MasterData
+from apps.rooms.models import Room
 from .models import DemoRequest
 from .permissions import IsPlatformAdmin
 from .serializers import DemoRequestCreateSerializer, DemoRequestSerializer, DemoRequestStatusSerializer
@@ -35,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 TEMPORARY_ACCESS_PASSWORD_LENGTH = 14
 TEMPORARY_ACCESS_PASSWORD_SPECIALS = "!@#$%*-_"
+DEFAULT_ROOM_STATUS_CODE = "DISPONIBLE"
 
 
 def generate_temporary_access_password(user=None, length: int = TEMPORARY_ACCESS_PASSWORD_LENGTH) -> str:
@@ -194,6 +197,45 @@ def send_demo_temporary_password_email(
     return {"sent": bool(sent_count) and email_backend_delivers_to_inbox(), "error_detail": ""}
 
 
+def get_default_room_status():
+    status_obj = MasterData.objects.filter(
+        group=MasterData.Group.ROOM_STATUS,
+        code=DEFAULT_ROOM_STATUS_CODE,
+    ).first()
+
+    if status_obj is None:
+        raise ValidationError(
+            {
+                "status": (
+                    "No se pudo crear la estructura inicial del hotel porque falta "
+                    "el catalogo ROOM_STATUS:DISPONIBLE."
+                )
+            }
+        )
+
+    return status_obj
+
+
+def create_initial_rooms_for_floor(floor: HotelFloor) -> None:
+    room_count = max(0, int(floor.room_count or 0))
+    if room_count <= 0:
+        return
+
+    default_status = get_default_room_status()
+    prefix = str(floor.prefix or floor.floor_number or "").strip()
+    Room.objects.bulk_create(
+        [
+            Room(
+                number=f"{prefix}{str(room_number).zfill(2)}",
+                floor=floor,
+                status=default_status,
+            )
+            for room_number in range(1, room_count + 1)
+        ],
+        ignore_conflicts=True,
+    )
+
+
 class DemoRequestViewSet(
     mixins.CreateModelMixin,
     mixins.ListModelMixin,
@@ -346,13 +388,14 @@ class DemoRequestViewSet(
             check_out_time=locked_request.check_out_time,
             description=f"Creado desde solicitud de demo. Tipo de alojamiento: {locked_request.hotel_type}.",
         )
-        HotelFloor.objects.create(
+        first_floor = HotelFloor.objects.create(
             hotel_settings=hotel,
             floor_number=1,
             name="Piso 1",
             prefix="1",
             room_count=locked_request.rooms,
         )
+        create_initial_rooms_for_floor(first_floor)
 
         user = User(
             username=username,

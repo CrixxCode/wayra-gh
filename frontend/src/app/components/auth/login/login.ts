@@ -63,7 +63,7 @@ export class LoginComponent {
     private fb: FormBuilder,
     private authService: AuthService,
     private router: Router,
-    private messageService: MessageService
+    private messageService: MessageService,
   ) {
     this.loginForm = this.fb.group({
       username: ['', Validators.required],
@@ -89,28 +89,25 @@ export class LoginComponent {
 
         const isFirstLogin = Boolean(res?.is_first_login);
         const mustChangePassword = Boolean(
-          res?.must_change_password ?? res?.user?.must_change_password
+          res?.must_change_password ?? res?.user?.must_change_password,
         );
-        const isHotelUser = Boolean(res?.user?.hotel_settings);
-
-        if (isFirstLogin && isHotelUser) {
-          sessionStorage.setItem('gh_first_hotel_setup_alert', '1');
-        }
 
         setTimeout(() => {
           this.showLoading = false;
 
           if (mustChangePassword) {
-            this.router.navigate(['/mi-perfil'], {
-              queryParams: {
-                forcePasswordChange: 1,
-                tab: 'password',
-              },
-            }).then(() => {
-              if (isFirstLogin) {
-                this.showWelcomeToast();
-              }
-            });
+            this.router
+              .navigate(['/mi-perfil'], {
+                queryParams: {
+                  forcePasswordChange: 1,
+                  tab: 'password',
+                },
+              })
+              .then(() => {
+                if (isFirstLogin) {
+                  this.showWelcomeToast();
+                }
+              });
             return;
           }
 
@@ -133,7 +130,10 @@ export class LoginComponent {
         } else if (msg.includes('Usuario inactivo')) {
           this.errorMessage = 'Tu cuenta esta inactiva. Contacta al administrador.';
           this.errorType = 'warn';
-        } else if (msg.includes('Debes cambiar tu contrasena antes de continuar') || msg.includes('Debes cambiar tu contraseña antes de continuar')) {
+        } else if (
+          msg.includes('Debes cambiar tu contrasena antes de continuar') ||
+          msg.includes('Debes cambiar tu contraseña antes de continuar')
+        ) {
           this.errorMessage = 'Debes cambiar tu contrasena antes de continuar.';
           this.errorType = 'warn';
         } else {

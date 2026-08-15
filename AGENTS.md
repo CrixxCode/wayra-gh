@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-08-14
+**Última actualización:** 2026-08-15
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -1070,6 +1070,30 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > originales eran breves, por lo que el campo "Por qué" de esas entradas es una reconstrucción
 > razonada, no una cita textual del autor. A partir de la creación de esta bitácora, cada entrada
 > debe escribirse en el momento del cambio.
+
+---
+
+### 2026-08-15 - Aviso emergente de configuracion inicial del hotel
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Que se hizo:** el layout autenticado ahora evalua el estado real de `HotelSettings` y muestra un
+  modal cuando falta informacion inicial del hotel, con accion directa a `/hotel-config`. El
+  dashboard dejo de mostrar el mensaje tecnico "No hay datos del backend" cuando un hotel nuevo aun
+  no tiene operacion. Al convertir una solicitud de demo se crean tambien las habitaciones reales
+  del primer piso usando el numero de habitaciones suministrado.
+- **Por que:** un hotel creado desde demo puede quedar con campos de configuracion pendientes; el
+  sistema debe guiar al usuario a completarlos sin presentar la ausencia de datos como error
+  interno.
+- **Archivos/areas afectadas:** `frontend/src/app/services/hotel-setup-status.ts`,
+  `frontend/src/app/components/layout/layout-main/`,
+  `frontend/src/app/components/pages/dashboard/dashboard.ts`,
+  `frontend/src/app/components/auth/login/login.ts`,
+  `backend/apps/demo_requests/views.py`, `backend/apps/demo_requests/tests.py`.
+- **Impacto:** sin migraciones, variables nuevas ni recursos RBAC nuevos. La conversion de demo
+  requiere que exista el catalogo `ROOM_STATUS:DISPONIBLE`, ya sembrado por migraciones de
+  `master_data`.
 
 ---
 

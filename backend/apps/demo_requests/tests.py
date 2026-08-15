@@ -7,6 +7,8 @@ from rest_framework.test import APITestCase
 from accounts.models import Role
 from apps.demo_requests.models import DemoRequest
 from apps.hotel_settings.models import HotelFloor, HotelSettings
+from apps.master_data.models import MasterData
+from apps.rooms.models import Room
 from backend.settings import resolve_email_backend
 
 
@@ -31,6 +33,11 @@ class DemoRequestFlowTests(APITestCase):
             "requester_phone": "+57 300 111 2222",
             "message": "Solicitud desde test",
         }
+        MasterData.objects.get_or_create(
+            group=MasterData.Group.ROOM_STATUS,
+            code="DISPONIBLE",
+            defaults={"name": "Disponible", "sort_order": 1, "is_active": True},
+        )
 
     def test_public_user_can_create_demo_request(self):
         response = self.client.post("/api/demo-requests/", self.payload, format="json")
@@ -131,6 +138,14 @@ class DemoRequestFlowTests(APITestCase):
         self.assertEqual(
             HotelFloor.objects.get(hotel_settings=hotel, floor_number=1).room_count,
             self.payload["rooms"],
+        )
+        self.assertEqual(Room.objects.filter(floor__hotel_settings=hotel).count(), self.payload["rooms"])
+        self.assertTrue(
+            Room.objects.filter(
+                floor__hotel_settings=hotel,
+                number="101",
+                status__code="DISPONIBLE",
+            ).exists()
         )
         self.assertEqual(first_user.hotel_settings_id, hotel.id)
         self.assertEqual(first_user.email, self.payload["requester_email"])
