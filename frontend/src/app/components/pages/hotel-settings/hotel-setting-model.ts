@@ -49,6 +49,7 @@ export interface HotelSettings {
 
     // Sistema
     timezone?: string;
+    is_active?: boolean;
 
     // Estructura del hotel
     floors?: HotelFloor[];

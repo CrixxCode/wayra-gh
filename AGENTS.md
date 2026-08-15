@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-08-11
+**Última actualización:** 2026-08-14
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -1072,6 +1072,463 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > debe escribirse en el momento del cambio.
 
 ---
+
+### 2026-08-14 — Hoteles aliados sin opacidad inicial
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Que se hizo:** las tarjetas de hoteles aliados de la landing dejaron de usar la clase
+  `wayra-reveal`, por lo que ya no arrancan con `opacity: 0`.
+- **Por que:** al ser contenido cargado dinamicamente desde el backend, la animacion de entrada podia
+  dejar cards invisibles si el `IntersectionObserver` no las alcanzaba a marcar como visibles.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.html`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-14 — Ocultar descripcion tecnica en hoteles aliados
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** las vistas publicas de hoteles aliados dejaron de mostrar `HotelSettings.description`
+  en la landing, el directorio y el flujo de reserva aliado; el directorio tampoco usa ese campo en
+  el texto buscable.
+- **Por que:** algunos hoteles creados desde solicitud de demo tienen una descripcion tecnica como
+  "Creado desde solicitud de demo. Tipo de alojamiento: Hotel.", que no debe mostrarse al publico.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/allied-hotels/`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.html`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-14 — Tarjetas dinamicas visibles en landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Que se hizo:** la landing vuelve a registrar las animaciones de entrada despues de cargar los
+  hoteles aliados activos desde el backend.
+- **Por que:** las tarjetas de hoteles aliados se renderizan despues de la llamada HTTP y quedaban
+  con `opacity: 0` porque el `IntersectionObserver` se habia inicializado antes de que existieran en
+  el DOM.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.ts`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-14 — Landing con seis hoteles aliados
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** la landing ahora muestra hasta seis hoteles aliados activos en la seccion
+  publica de hoteles aliados.
+- **Por que:** el endpoint publico ya devuelve los hoteles aliados activos de Wayra, pero la landing
+  seguia limitando la vista destacada a tres tarjetas.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.ts`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API; si hay menos de seis hoteles
+  activos, se muestran solo los disponibles.
+
+### 2026-08-14 — Hoteles aliados activos desde backend
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Que se hizo:** se agrego `is_active` a `HotelSettings`, el servicio backend que arma el
+  directorio publico de hoteles aliados activos y el endpoint `GET /api/allied-hotels/`. La landing,
+  el directorio de hoteles aliados y la busqueda publica de alojamiento ahora consumen ese endpoint
+  en vez del catalogo estatico del frontend.
+- **Por que:** los hoteles aliados visibles al publico deben salir de los hoteles reales activos
+  dentro de Wayra, no de una lista fija ni de hoteles desactivados por la plataforma.
+- **Archivos/areas afectadas:** `backend/apps/hotel_settings/models.py`,
+  `backend/apps/hotel_settings/services.py`, `backend/apps/hotel_settings/views.py`,
+  `backend/apps/hotel_settings/serializers.py`, `backend/apps/hotel_settings/urls.py`,
+  `backend/apps/hotel_settings/tests.py`, `frontend/src/app/services/allied-hotels.ts`,
+  `frontend/src/app/components/pages/{landing,allied-hotels,allied-booking}/`.
+- **Impacto:** requiere migracion `hotel_settings.0008_hotelsettings_is_active`; agrega el endpoint
+  publico `GET /api/allied-hotels/` sin variables de entorno nuevas.
+
+### 2026-08-13 — Migraciones de metodos de pago compatibles con PostgreSQL
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** deploy
+- **Que se hizo:** las migraciones que repuntan metodos de pago desde `MasterData` hacia
+  `hotel_settings.PaymentMethod` ahora se ejecutan sin transaccion global, y la migracion que elimina
+  `description` y `sort_order` de `PaymentMethod` espera explicitamente a que billing, finance y
+  reservas terminen de migrar sus referencias.
+- **Por que:** el deploy de Railway fallaba en `billing.0007_payment_hotel_payment_method` con
+  `cannot ALTER TABLE "payment_method" because it has pending trigger events`; PostgreSQL no permite
+  mezclar esos cambios de datos y esquema sobre tablas con triggers FK pendientes en una sola
+  transaccion.
+- **Archivos/areas afectadas:** `backend/apps/billing/migrations/0007_payment_hotel_payment_method.py`,
+  `backend/apps/finance/migrations/0005_expense_hotel_payment_method.py`,
+  `backend/apps/reservations/migrations/0010_deposit_hotel_payment_method.py`,
+  `backend/apps/hotel_settings/migrations/0007_payment_method_type_and_account.py`.
+- **Impacto:** requiere redeploy; no agrega migraciones nuevas ni variables de entorno.
+
+### 2026-08-13 — Check-in online publico separado del modulo interno
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Que se hizo:** se creo la ruta publica `/check-in-online` con una vista independiente para que
+  el huesped principal ingrese el codigo de reserva y complete sus datos de check-in. Tambien se
+  agregaron alias publicos (`/online-check-in`, `/checkin-online`) y se cambiaron todos los enlaces
+  publicos de la landing que antes apuntaban a `/reservas?action=CHECKIN`.
+- **Por que:** el check-in online de huespedes no debe llevar al flujo operativo que usa recepcion o
+  un usuario autenticado de la app de gestion hotelera.
+- **Archivos/areas afectadas:** `frontend/src/app/app.routes.ts`,
+  `frontend/src/app/components/pages/landing/`,
+  `frontend/src/app/components/pages/online-check-in/`.
+- **Impacto:** cambio frontend publico sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC; el flujo no ejecuta el endpoint interno de check-in de reservas.
+
+### 2026-08-13 — Botones de volver mas hacia la izquierda
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se aumento el desplazamiento horizontal del boton interno de volver en
+  `/hoteles-aliados` y `/reservar` para acercarlo mas a la esquina izquierda del hero en escritorio.
+- **Por que:** el ajuste anterior todavia quedaba demasiado cerca del eje central del contenido.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/allied-hotels/`,
+  `frontend/src/app/components/pages/allied-booking/`.
+- **Impacto:** cambio visual frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+### 2026-08-13 — Botones de volver en esquina superior izquierda
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se posiciono el enlace interno de volver de `/hoteles-aliados` y `/reservar`
+  como accion absoluta en la esquina superior izquierda del hero, sin ocupar espacio en el bloque de
+  texto central y conservando una posicion contenida en movil.
+- **Por que:** el control debia quedar mas cercano a la esquina superior izquierda y menos integrado
+  al encabezado central de cada vista.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/allied-hotels/`,
+  `frontend/src/app/components/pages/allied-booking/`.
+- **Impacto:** cambio visual frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+### 2026-08-13 — Botones de volver mas sutiles
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se hizo mas discreto el boton interno de volver en `/hoteles-aliados` y
+  `/reservar`, eliminando el fondo fijo, reduciendo altura y padding, bajando contraste por defecto
+  y desplazandolo mas hacia la izquierda en escritorio. En movil vuelve al borde normal del
+  contenedor para evitar recortes.
+- **Por que:** el boton de regreso debia estar disponible sin competir visualmente con el titulo del
+  hero ni sentirse intrusivo.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/allied-hotels/`,
+  `frontend/src/app/components/pages/allied-booking/`.
+- **Impacto:** cambio visual frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+### 2026-08-13 — Botones de volver mas pegados al borde
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se desplazo levemente hacia la izquierda el boton interno de volver en
+  `/hoteles-aliados` y `/reservar`.
+- **Por que:** el boton ya estaba lateral, pero necesitaba quedar un poco mas cercano al borde
+  visual del contenido.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/allied-hotels/`,
+  `frontend/src/app/components/pages/allied-booking/`.
+- **Impacto:** cambio visual frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+### 2026-08-13 — Botones de volver alineados al lateral
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se ajustaron los botones internos de volver en `/hoteles-aliados` y `/reservar`
+  para que queden alineados al lateral del contenedor del hero, no centrados con el texto principal.
+- **Por que:** el boton de regreso debia funcionar como accion contextual de navegacion y no como
+  parte del bloque central del encabezado.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/allied-hotels/`,
+  `frontend/src/app/components/pages/allied-booking/`.
+- **Impacto:** cambio visual frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+### 2026-08-13 — Botones de volver en vistas publicas alternas
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se agrego un boton interno de volver en el hero de `/hoteles-aliados` y otro en
+  el hero de `/reservar`, sin mover acciones al header. El primero vuelve al inicio y el segundo al
+  directorio de hoteles aliados.
+- **Por que:** las vistas publicas alternas necesitaban una salida visible dentro del contenido,
+  independiente de la navegacion superior.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/allied-hotels/`,
+  `frontend/src/app/components/pages/allied-booking/`.
+- **Impacto:** cambio visual/navegacion frontend sin migraciones, variables nuevas, cambios de API
+  ni recursos RBAC.
+
+### 2026-08-13 — Header de hoteles aliados alineado a la landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se reorganizo el header de `/hoteles-aliados` con una navegacion publica mas
+  completa, agregando acceso a busqueda de alojamiento y aplicando proporciones, ancho, sombra,
+  botones y comportamiento responsive coherentes con la landing.
+- **Por que:** la vista de hoteles aliados tenia un header mas angosto y simple que se sentia
+  desconectado del resto de las paginas publicas.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/allied-hotels/`.
+- **Impacto:** cambio visual/navegacion frontend sin migraciones, variables nuevas, cambios de API
+  ni recursos RBAC.
+
+### 2026-08-13 — Header de landing en orden secuencial
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se reordeno la navegacion principal de la landing para que sus enlaces sigan el
+  orden vertical real de las secciones: buscar alojamiento, hoteles aliados, producto,
+  funcionalidades, operacion, publico y FAQ.
+- **Por que:** el header hacia saltos hacia abajo y hacia arriba porque los enlaces no seguian el
+  orden del contenido.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.ts`.
+- **Impacto:** cambio visual/navegacion frontend sin migraciones, variables nuevas, cambios de API
+  ni recursos RBAC.
+
+### 2026-08-13 — Landing menos estrecha en escritorio
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se amplio el ancho maximo base de los contenedores principales de la landing y
+  se dio mas ancho al texto descriptivo del hero.
+- **Por que:** la landing se percibia demasiado estrecha en pantallas de escritorio.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/`.
+- **Impacto:** cambio visual frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+### 2026-08-13 — Card de busqueda en reservar alineado a landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se ajusto el card de busqueda de `/reservar` para que use proporciones,
+  espaciado, campos, labels con iconos y boton similares al buscador de la landing. Tambien se
+  elevo el apilamiento visual del buscador y sus paneles para que el calendario aparezca por encima
+  de las cards inferiores.
+- **Por que:** el flujo de reserva publica debia verse consistente con el buscador inicial de la
+  landing.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/allied-booking/`.
+- **Impacto:** cambio visual frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+### 2026-08-13 — Buscador sin nota de limite
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se elimino del buscador de alojamiento en la landing la nota visual de busqueda
+  limitada y la etiqueta de noches que aparecian encima del boton.
+- **Por que:** el bloque agregaba ruido visual y el usuario pidio retirarlo del card.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/`.
+- **Impacto:** cambio visual frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+### 2026-08-13 — Buscador con destino y rango unificados
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se unificaron pais y ciudad en un solo campo de destino con sugerencias para
+  buscar por pais o ciudad, y se reemplazaron los campos separados de check-in/check-out por un
+  calendario de rango con `DatePicker` de PrimeNG. El destino ahora abre un panel filtrable con
+  ciudad y pais en dos lineas, y el calendario se redujo a un mes para aparecer mas compacto debajo
+  del campo. Tambien se ajusto el texto visible para mostrar plurales reales (`1 noche`, `17
+  noches`) en lugar de etiquetas con parentesis. El flujo publico de `/reservar` conserva
+  compatibilidad con URLs antiguas que envian `country` y `city`.
+- **Por que:** el buscador necesitaba menos campos visibles y una seleccion de fechas mas natural
+  para el usuario.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/`,
+  `frontend/src/app/components/pages/allied-booking/`.
+- **Impacto:** cambio frontend sin migraciones, variables nuevas, cambios de API ni recursos RBAC;
+  no se instalo ninguna libreria porque PrimeNG ya estaba disponible.
+
+### 2026-08-13 — Buscador de alojamiento mas ancho
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se aumento el ancho maximo del contenedor del buscador de alojamiento en la
+  landing y se ajustaron las columnas del card para dar mas espacio a pais, ciudad y fechas.
+- **Por que:** los campos del formulario se veian demasiado angostos en escritorio.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/`.
+- **Impacto:** cambio visual frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+### 2026-08-12 — Estética del buscador de alojamiento
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se centró el encabezado de la sección de búsqueda de alojamiento, se agregaron
+  iconos a los títulos de país, ciudad, check-in, check-out, habitaciones y huéspedes, y se
+  aumentaron altura, separación y ancho útil de los controles para que la barra no se vea apiñada.
+- **Por qué:** la primera versión horizontal resolvía la dirección del layout, pero visualmente se
+  sentía comprimida y poco pulida dentro de la landing.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/`.
+- **Impacto:** cambio visual frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+### 2026-08-12 — Buscador de alojamiento horizontal
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se ajustó la sección de búsqueda de alojamiento en la landing para que el
+  formulario use una barra horizontal de ancho completo en escritorio, con los campos en una sola
+  fila y el botón de búsqueda al costado. En tablet se reorganiza en varias columnas y en móvil se
+  apila para mantener legibilidad.
+- **Por qué:** el buscador debía sentirse como una barra de booking alargada, no como una tarjeta
+  cuadrada dentro de la landing.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/`.
+- **Impacto:** cambio visual frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+### 2026-08-12 — Buscador de alojamiento en la landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** se agregó una sección pública en la landing para buscar alojamiento por país,
+  ciudad, check-in, check-out, habitaciones y huéspedes. El formulario redirige a `/reservar` con
+  los criterios seleccionados, y la vista de booking precarga esos datos y ejecuta la búsqueda si la
+  URL trae una consulta completa.
+- **Por qué:** el usuario debe poder iniciar la búsqueda de alojamiento desde la landing sin entrar
+  primero al listado completo; la selección de hotel, habitación/tarifa y datos personales se mantiene
+  en el flujo público de booking.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/`,
+  `frontend/src/app/components/pages/allied-booking/`.
+- **Impacto:** cambio frontend sin migraciones, variables nuevas, cambios de API ni recursos RBAC;
+  la búsqueda sigue limitada al catálogo público de hoteles aliados.
+
+### 2026-08-12 — Booking por pasos: hotel, habitación/tarifa y datos
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** el booking público ahora sigue el flujo: buscar país, ciudad, fechas,
+  habitaciones y huéspedes; seleccionar un hotel disponible; seleccionar una habitación/tarifa; y
+  solo después mostrar el formulario de datos del huésped. Se añadieron opciones `roomRates` al
+  catálogo de hoteles aliados para mostrar tarifas disponibles y totales estimados.
+- **Por qué:** el formulario de datos no debía aparecer apenas existieran resultados; el huésped
+  primero debe elegir hotel y luego la opción de habitación/tarifa que quiere solicitar.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/allied-booking/`,
+  `frontend/src/app/shared/allied-hotels.ts`.
+- **Impacto:** cambio frontend sin migraciones, variables nuevas, cambios de API ni recursos RBAC;
+  las habitaciones/tarifas y disponibilidad siguen siendo datos públicos simulados en frontend.
+
+### 2026-08-12 — Booking con búsqueda de destino y opciones disponibles
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** la vista pública `/reservar` ahora inicia con un buscador por país, ciudad,
+  check-in, check-out, habitaciones y huéspedes; después muestra opciones disponibles únicamente
+  dentro de `ALLIED_HOTELS`, con disponibilidad estimada, tarifa desde y total estimado. El formulario
+  de datos del huésped aparece solo después de elegir una opción disponible.
+- **Por qué:** el flujo debía parecerse a un booking real: primero consultar destino y fechas, luego
+  seleccionar una alternativa y finalmente preparar la solicitud.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/allied-booking/`,
+  `frontend/src/app/shared/allied-hotels.ts`.
+- **Impacto:** cambio frontend sin migraciones, variables nuevas, cambios de API ni recursos RBAC;
+  la disponibilidad es estimada en frontend hasta que exista un endpoint público de reservas.
+
+### 2026-08-12 — Booking público limitado a hoteles aliados
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** se creó la ruta pública `/reservar` con una vista de solicitud preliminar de
+  reserva limitada al catálogo `ALLIED_HOTELS`; el botón "Reservar" del directorio de hoteles
+  aliados abre esa vista con el hotel preseleccionado. También se agregó el alias `/booking`.
+- **Por qué:** los huéspedes necesitaban iniciar una reserva solo para alojamientos asociados, sin
+  exponer el módulo interno de reservas ni inventar un endpoint público con implicaciones de
+  multi-tenancy y RBAC.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/allied-booking/`,
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.html`,
+  `frontend/src/app/app.routes.ts`.
+- **Impacto:** cambio frontend sin migraciones, variables nuevas, cambios de API ni recursos RBAC;
+  la solicitud se prepara como correo al contacto del hotel aliado.
+
+### 2026-08-12 — Directorio de hoteles aliados alineado a la landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se corrigió el CSS de `/hoteles-aliados` para usar los mismos tokens, sombras,
+  bordes, botones, hero oscuro y superficies claras de la landing de Wayra, eliminando la paleta
+  adicional verde/ámbar/rosa y estilos ajenos a esa página.
+- **Por qué:** la vista completa debía verse como una extensión de la landing existente, no como un
+  diseño nuevo con colores externos.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/allied-hotels/allied-hotels.css`.
+- **Impacto:** cambio frontend sin migraciones, variables nuevas, cambios de API ni recursos RBAC.
+
+### 2026-08-12 — Directorio de hoteles aliados con paleta clara
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** la vista pública `/hoteles-aliados` dejó de usar un fondo completamente oscuro y
+  pasó a una composición clara con header blanco, hero azul/verde/ámbar suave, filtros en tarjeta
+  blanca y cards con acentos rotativos de color.
+- **Por qué:** el directorio completo debía sentirse conectado con la variedad visual de la landing,
+  no como una pantalla oscura independiente.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/allied-hotels/`.
+- **Impacto:** cambio frontend sin migraciones, variables nuevas, cambios de API ni recursos RBAC.
+
+### 2026-08-12 — Ajuste de acciones en Hoteles Aliados
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se quitaron los botones "Ver detalles" de las tarjetas destacadas de Hoteles
+  Aliados en la landing, y en la vista completa el botón de cada hotel cambió de "Contactar" a
+  "Reservar".
+- **Por qué:** la landing debía quedar como una vista resumida sin acciones por tarjeta, mientras
+  que el directorio completo debía orientar la acción principal hacia la reserva.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/`,
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.html`.
+- **Impacto:** cambio frontend sin migraciones, variables nuevas, cambios de API ni recursos RBAC.
+
+### 2026-08-12 — Landing con Hoteles Aliados y vista pública de directorio
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** se agregó una sección de Hoteles Aliados en la landing con tarjetas destacadas y
+  botón "Ver más"; además se creó la ruta pública `/hoteles-aliados` para consultar el directorio
+  completo con búsqueda y filtro por tipo de alojamiento.
+- **Por qué:** los huéspedes necesitan ubicar rápidamente alojamientos que trabajan con Wayra y
+  acceder desde la landing a un listado más completo.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/`,
+  `frontend/src/app/components/pages/allied-hotels/`, `frontend/src/app/shared/allied-hotels.ts`,
+  `frontend/src/app/app.routes.ts`.
+- **Impacto:** cambio frontend sin migraciones, variables nuevas, cambios de API ni recursos RBAC.
+
+### 2026-08-12 — Botón del header para colapsar el menú lateral
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** el botón del header que abre el menú lateral ahora permanece visible también en
+  escritorio, recibe el estado real del aside y cambia su icono, `aria-label`, `title` y
+  `aria-expanded` para indicar si va a colapsar, expandir, abrir o cerrar el menú.
+- **Por qué:** en escritorio el botón existía pero estaba oculto por CSS, así que el usuario no
+  tenía una acción disponible para liberar espacio horizontal colapsando el aside.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/layout/header/`,
+  `frontend/src/app/components/layout/layout-main/layout-main.html`.
+- **Impacto:** cambio frontend sin migraciones ni cambios de API.
 
 ### 2026-08-15 — Vista previa del sitio web en Configuración del Hotel
 

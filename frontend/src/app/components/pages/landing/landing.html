@@ -50,8 +50,7 @@
 
         <a
           class="wayra-header-secondary"
-          routerLink="/reservas"
-          [queryParams]="{ action: 'CHECKIN' }">
+          routerLink="/check-in-online">
 
           Check-in online
 
@@ -134,8 +133,7 @@
         </a>
 
         <a
-          routerLink="/reservas"
-          [queryParams]="{ action: 'CHECKIN' }"
+          routerLink="/check-in-online"
           class="rounded-lg px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
           (click)="closeMobileMenu()">
 
@@ -360,8 +358,7 @@
 
           <a
             class="wayra-btn-secondary"
-            routerLink="/reservas"
-            [queryParams]="{ action: 'CHECKIN' }">
+            routerLink="/check-in-online">
 
             Hacer check-in online
 
@@ -370,6 +367,336 @@
             </i>
 
           </a>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ====================================================
+         BUSCAR ALOJAMIENTO
+    ===================================================== -->
+
+    <section
+      id="buscar-alojamiento"
+      class="wayra-booking-search-section py-12 sm:py-14">
+
+      <div
+        class="wayra-booking-search-container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+
+        <div
+          class="wayra-booking-search-head wayra-reveal">
+
+          <p
+            class="wayra-section-kicker">
+
+            Buscar alojamiento
+
+          </p>
+
+          <h2
+            class="wayra-heading mt-3 text-3xl font-extrabold text-slate-950 sm:text-4xl">
+
+            Encuentra disponibilidad en hoteles aliados
+
+          </h2>
+
+          <p
+            class="mt-4 text-sm leading-7 text-slate-600 sm:text-base">
+
+            Consulta destino, fechas, habitaciones y huespedes para ver
+            opciones disponibles dentro de la red Wayra.
+
+          </p>
+
+        </div>
+
+
+        <form
+          class="wayra-booking-search-shell wayra-reveal"
+          [formGroup]="bookingSearchForm"
+          (ngSubmit)="submitBookingSearch()">
+
+          <div
+            class="wayra-booking-search-grid">
+
+            <label
+              class="wayra-booking-field wayra-booking-field-destination">
+
+              <span>
+                <i class="pi pi-map-marker"></i>
+                Destino
+              </span>
+
+              <input
+                type="text"
+                formControlName="destination"
+                placeholder="Busca pais o ciudad"
+                autocomplete="off"
+                (focus)="openBookingDestinationPanel()"
+                (input)="openBookingDestinationPanel()"
+                (blur)="closeBookingDestinationPanel()"
+                [class.input-error]="isBookingSearchInvalid('destination')" />
+
+              <div
+                *ngIf="bookingDestinationPanelOpen"
+                class="wayra-destination-panel">
+
+                <p>
+                  Destinos populares cerca
+                </p>
+
+                <button
+                  *ngFor="
+                    let destination of filteredBookingDestinationOptions;
+                    trackBy: trackByBookingDestination
+                  "
+                  type="button"
+                  class="wayra-destination-option"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="selectBookingDestination(destination)">
+
+                  <i class="pi pi-map-marker"></i>
+
+                  <span>
+                    <strong>{{ destination.city }}</strong>
+                    <small>{{ destination.country }}</small>
+                  </span>
+
+                </button>
+
+                <span
+                  *ngIf="filteredBookingDestinationOptions.length === 0"
+                  class="wayra-destination-empty">
+
+                  No hay destinos aliados con esa búsqueda.
+
+                </span>
+
+              </div>
+
+              <small *ngIf="isBookingSearchInvalid('destination')">
+                Escribe un pais o ciudad aliado.
+              </small>
+
+            </label>
+
+
+            <label
+              class="wayra-booking-field wayra-booking-field-dates">
+
+              <span>
+                <i class="pi pi-calendar"></i>
+                Fechas
+              </span>
+
+              <p-datepicker
+                formControlName="dateRange"
+                selectionMode="range"
+                rangeSeparator=" - "
+                dateFormat="dd/mm/yy"
+                placeholder="Check-in - Check-out"
+                inputStyleClass="wayra-date-range-input"
+                styleClass="wayra-date-range-picker"
+                panelStyleClass="wayra-date-range-panel"
+                [minDate]="bookingMinDate"
+                [numberOfMonths]="1"
+                [readonlyInput]="true"
+                [showButtonBar]="true"
+                [showClear]="true">
+              </p-datepicker>
+
+              <small *ngIf="isBookingSearchInvalid('dateRange')">
+                Selecciona llegada y salida.
+              </small>
+
+              <small *ngIf="hasBookingDateRangeError">
+                La salida debe ser posterior.
+              </small>
+
+            </label>
+
+
+            <label
+              class="wayra-booking-field wayra-booking-field-compact">
+
+              <span>
+                <i class="pi pi-building"></i>
+                Habitaciones
+              </span>
+
+              <input
+                type="number"
+                min="1"
+                max="4"
+                formControlName="rooms"
+                [class.input-error]="isBookingSearchInvalid('rooms')" />
+
+              <small *ngIf="isBookingSearchInvalid('rooms')">
+                Entre 1 y 4.
+              </small>
+
+            </label>
+
+
+            <label
+              class="wayra-booking-field wayra-booking-field-compact">
+
+              <span>
+                <i class="pi pi-users"></i>
+                Huespedes
+              </span>
+
+              <input
+                type="number"
+                min="1"
+                max="8"
+                formControlName="guests"
+                [class.input-error]="isBookingSearchInvalid('guests')" />
+
+              <small *ngIf="isBookingSearchInvalid('guests')">
+                Entre 1 y 8.
+              </small>
+
+            </label>
+
+          </div>
+
+
+          <div
+            class="wayra-booking-search-footer">
+
+            <button
+              type="submit"
+              class="wayra-btn-primary wayra-booking-search-button">
+
+              Buscar alojamiento
+
+              <i class="pi pi-search text-xs"></i>
+
+            </button>
+
+          </div>
+
+        </form>
+
+      </div>
+
+    </section>
+
+
+    <!-- ====================================================
+         HOTELES ALIADOS
+    ===================================================== -->
+
+    <section
+      id="hoteles-aliados"
+      class="wayra-allied-section py-16 sm:py-20">
+
+      <div
+        class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+
+        <div
+          class="grid gap-5 lg:grid-cols-12 lg:items-end">
+
+          <div
+            class="lg:col-span-7">
+
+            <p
+              class="text-xs font-bold uppercase tracking-[0.18em] text-sky-400">
+
+              Hoteles aliados
+
+            </p>
+
+            <h2
+              class="wayra-heading mt-3 text-3xl font-extrabold text-white sm:text-4xl">
+
+              Encuentra hoteles que trabajan con Wayra
+
+            </h2>
+
+            <p
+              class="mt-4 max-w-2xl text-base leading-7 text-slate-300">
+
+              Consulta alojamientos aliados y encuentra rápidamente la
+              información que necesitas para tu estadía.
+
+            </p>
+
+          </div>
+
+
+          <div
+            class="flex justify-start lg:col-span-5 lg:justify-end">
+
+            <a
+              class="wayra-allied-more"
+              routerLink="/hoteles-aliados">
+
+              Ver más hoteles
+
+              <i
+                class="pi pi-arrow-right text-xs">
+              </i>
+
+            </a>
+
+          </div>
+
+        </div>
+
+
+        <p
+          class="mt-9 text-sm font-semibold text-slate-300">
+
+          {{ alliedHotelsTotal }} alojamientos encontrados
+
+        </p>
+
+
+        <div
+          class="mt-5 grid gap-5 md:grid-cols-3">
+
+          <article
+            *ngFor="
+              let hotel of featuredAlliedHotels;
+              trackBy: trackByIndex
+            "
+            class="wayra-allied-card">
+
+            <span
+              class="wayra-allied-badge">
+
+              <i
+                class="pi pi-sparkles">
+              </i>
+
+              Aliado Wayra
+
+            </span>
+
+            <h3
+              class="wayra-heading mt-4 text-lg font-extrabold text-white">
+
+              {{ hotel.name }}
+
+            </h3>
+
+            <p
+              class="wayra-allied-location">
+
+              <i
+                class="pi pi-map-marker">
+              </i>
+
+              {{ hotel.city }} · {{ hotel.type }}
+
+            </p>
+
+          </article>
 
         </div>
 
@@ -1512,8 +1839,7 @@
 
           <a
             class="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold text-slate-400 transition hover:bg-white/10 hover:text-white"
-            routerLink="/reservas"
-            [queryParams]="{ action: 'CHECKIN' }">
+            routerLink="/check-in-online">
 
             <i
               class="pi pi-id-card text-sky-400">

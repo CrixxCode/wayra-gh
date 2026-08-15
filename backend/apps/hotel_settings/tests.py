@@ -8,8 +8,88 @@ from apps.hotel_settings.models import HotelFloor, HotelSettings, PaymentMethod,
 from apps.hotel_settings.views import PaymentMethodViewSet
 from apps.master_data.models import MasterData
 from apps.rooms.models import Room
+from apps.rooms.models import Rate, RoomType
 
 User = get_user_model()
+
+
+class AlliedHotelDirectoryTests(APITestCase):
+    def setUp(self):
+        self.room_status = MasterData.objects.update_or_create(
+            group=MasterData.Group.ROOM_STATUS,
+            code="DISPONIBLE",
+            defaults={"name": "Disponible", "sort_order": 1, "is_active": True},
+        )[0]
+
+    def _hotel(self, name, *, active=True):
+        hotel = HotelSettings.objects.create(
+            hotel_name=name,
+            description="Creado desde solicitud de demo. Tipo de alojamiento: Hostal.",
+            city="Bogota",
+            state="Cundinamarca",
+            country="Colombia",
+            reservations_email=f"{name.lower().replace(' ', '')}@example.com",
+            is_active=active,
+        )
+        floor = HotelFloor.objects.create(
+            hotel_settings=hotel,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=2,
+        )
+        room_type = RoomType.objects.create(
+            hotel_settings=hotel,
+            code=f"STD{hotel.id}",
+            name="Habitacion estandar",
+            description="Habitacion para reservas publicas.",
+            capacity=2,
+            is_active=True,
+        )
+        rate = Rate.objects.create(
+            hotel_settings=hotel,
+            room_type=room_type,
+            name="Flexible",
+            price=150000,
+            is_active=True,
+        )
+        Room.objects.create(
+            number="101",
+            floor=floor,
+            room_type=room_type,
+            rate=rate,
+            status=self.room_status,
+        )
+        return hotel
+
+    def test_public_directory_returns_only_active_wayra_hotels(self):
+        active_hotel = self._hotel("Hotel Activo", active=True)
+        inactive_hotel = self._hotel("Hotel Inactivo", active=False)
+
+        response = self.client.get("/api/allied-hotels/")
+
+        self.assertEqual(response.status_code, 200)
+        names = [row["name"] for row in response.data]
+        self.assertEqual(names, [active_hotel.hotel_name])
+        self.assertNotIn(inactive_hotel.hotel_name, names)
+        self.assertEqual(response.data[0]["rooms"], 2)
+        self.assertEqual(response.data[0]["roomRates"][0]["nightlyRate"], 150000)
+
+    def test_public_directory_hides_inactive_rates(self):
+        hotel = self._hotel("Hotel Solo Activo", active=True)
+        room_type = RoomType.objects.get(hotel_settings=hotel)
+        Rate.objects.create(
+            hotel_settings=hotel,
+            room_type=room_type,
+            name="Suspendida",
+            price=90000,
+            is_active=False,
+        )
+
+        response = self.client.get("/api/allied-hotels/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([rate["rateName"] for rate in response.data[0]["roomRates"]], ["Flexible"])
 
 
 class HotelSettingsTenantIsolationTests(APITestCase):

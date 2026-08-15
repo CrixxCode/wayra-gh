@@ -1,0 +1,474 @@
+<div class="online-checkin-page">
+
+  <header class="online-header">
+    <div class="online-container online-header-inner">
+
+      <a
+        class="online-brand"
+        routerLink="/">
+
+        <img
+          src="/logo.png"
+          alt="Wayra" />
+
+        <span>
+          Wayra
+        </span>
+
+      </a>
+
+      <nav aria-label="Navegacion publica">
+        <a routerLink="/hoteles-aliados">
+          Hoteles aliados
+        </a>
+
+        <a routerLink="/reservar">
+          Reservar
+        </a>
+
+        <a routerLink="/login">
+          Iniciar sesion
+        </a>
+      </nav>
+
+    </div>
+  </header>
+
+
+  <main>
+
+    <section class="online-hero">
+      <div class="online-container">
+
+        <a
+          class="online-view-back"
+          routerLink="/">
+
+          <i class="pi pi-arrow-left"></i>
+          Volver
+
+        </a>
+
+        <p class="online-kicker">
+          Check-in online
+        </p>
+
+        <h1>
+          Completa tu ingreso antes de llegar
+        </h1>
+
+        <p class="online-lead">
+          Ingresa el codigo de tu reserva y registra los datos del
+          huesped principal sin entrar al sistema interno del hotel.
+        </p>
+
+      </div>
+    </section>
+
+
+    <section class="online-section">
+      <div class="online-container online-layout">
+
+        <div class="online-main">
+
+          <form
+            class="online-card online-code-card"
+            [formGroup]="reservationForm"
+            (ngSubmit)="continueWithCode()">
+
+            <div class="online-card-header">
+              <span class="online-step">
+                1
+              </span>
+
+              <div>
+                <p>
+                  Codigo de reserva
+                </p>
+
+                <h2>
+                  Busca tu reserva
+                </h2>
+              </div>
+            </div>
+
+
+            <label class="online-field online-code-field">
+              <span>
+                <i class="pi pi-ticket"></i>
+                Codigo
+              </span>
+
+              <input
+                type="text"
+                formControlName="reservationCode"
+                placeholder="Ej: WYR-2458"
+                autocomplete="off"
+                [class.input-error]="isReservationInvalid('reservationCode')" />
+
+              <small *ngIf="isReservationInvalid('reservationCode')">
+                {{ getReservationError('reservationCode') }}
+              </small>
+            </label>
+
+
+            <div class="online-code-actions">
+              <button
+                type="submit"
+                class="online-primary">
+
+                Continuar
+
+                <i class="pi pi-arrow-right text-xs"></i>
+
+              </button>
+            </div>
+
+          </form>
+
+
+          <form
+            *ngIf="codeConfirmed"
+            id="guest-check-in-data"
+            class="online-card online-guest-card"
+            [formGroup]="guestForm"
+            (ngSubmit)="submitCheckIn()">
+
+            <div class="online-card-header">
+              <span class="online-step">
+                2
+              </span>
+
+              <div>
+                <p>
+                  Huesped principal
+                </p>
+
+                <h2>
+                  Datos para el check-in
+                </h2>
+              </div>
+            </div>
+
+
+            <div class="online-reservation-chip">
+              <i class="pi pi-check-circle"></i>
+
+              <span>
+                Reserva
+              </span>
+
+              <strong>
+                {{ reservationCodeLabel }}
+              </strong>
+            </div>
+
+
+            <div class="online-form-grid">
+
+              <label class="online-field">
+                <span>Nombres</span>
+
+                <input
+                  type="text"
+                  formControlName="firstName"
+                  autocomplete="given-name"
+                  [class.input-error]="isGuestInvalid('firstName')" />
+
+                <small *ngIf="isGuestInvalid('firstName')">
+                  {{ getGuestError('firstName') }}
+                </small>
+              </label>
+
+
+              <label class="online-field">
+                <span>Apellidos</span>
+
+                <input
+                  type="text"
+                  formControlName="lastName"
+                  autocomplete="family-name"
+                  [class.input-error]="isGuestInvalid('lastName')" />
+
+                <small *ngIf="isGuestInvalid('lastName')">
+                  {{ getGuestError('lastName') }}
+                </small>
+              </label>
+
+
+              <label class="online-field">
+                <span>Tipo de documento</span>
+
+                <select
+                  formControlName="documentType"
+                  [class.input-error]="isGuestInvalid('documentType')">
+
+                  <option
+                    *ngFor="
+                      let option of documentTypes;
+                      trackBy: trackByValue
+                    "
+                    [value]="option.value">
+
+                    {{ option.label }}
+
+                  </option>
+                </select>
+
+                <small *ngIf="isGuestInvalid('documentType')">
+                  {{ getGuestError('documentType') }}
+                </small>
+              </label>
+
+
+              <label class="online-field">
+                <span>Numero de documento</span>
+
+                <input
+                  type="text"
+                  formControlName="documentNumber"
+                  autocomplete="off"
+                  [class.input-error]="isGuestInvalid('documentNumber')" />
+
+                <small *ngIf="isGuestInvalid('documentNumber')">
+                  {{ getGuestError('documentNumber') }}
+                </small>
+              </label>
+
+
+              <label class="online-field">
+                <span>Fecha de nacimiento</span>
+
+                <input
+                  type="date"
+                  formControlName="birthDate"
+                  [max]="maxBirthDate"
+                  [class.input-error]="isGuestInvalid('birthDate')" />
+
+                <small *ngIf="isGuestInvalid('birthDate')">
+                  {{ getGuestError('birthDate') }}
+                </small>
+              </label>
+
+
+              <label class="online-field">
+                <span>Nacionalidad</span>
+
+                <input
+                  type="text"
+                  formControlName="nationality"
+                  autocomplete="country-name"
+                  [class.input-error]="isGuestInvalid('nationality')" />
+
+                <small *ngIf="isGuestInvalid('nationality')">
+                  {{ getGuestError('nationality') }}
+                </small>
+              </label>
+
+
+              <label class="online-field">
+                <span>Correo</span>
+
+                <input
+                  type="email"
+                  formControlName="email"
+                  autocomplete="email"
+                  [class.input-error]="isGuestInvalid('email')" />
+
+                <small *ngIf="isGuestInvalid('email')">
+                  {{ getGuestError('email') }}
+                </small>
+              </label>
+
+
+              <label class="online-field">
+                <span>Telefono</span>
+
+                <input
+                  type="tel"
+                  formControlName="phone"
+                  autocomplete="tel"
+                  [class.input-error]="isGuestInvalid('phone')" />
+
+                <small *ngIf="isGuestInvalid('phone')">
+                  {{ getGuestError('phone') }}
+                </small>
+              </label>
+
+
+              <label class="online-field">
+                <span>Hora estimada de llegada</span>
+
+                <select
+                  formControlName="arrivalTime"
+                  [class.input-error]="isGuestInvalid('arrivalTime')">
+
+                  <option value="">
+                    Selecciona una hora
+                  </option>
+
+                  <option
+                    *ngFor="
+                      let option of arrivalWindows;
+                      trackBy: trackByValue
+                    "
+                    [value]="option.value">
+
+                    {{ option.label }}
+
+                  </option>
+                </select>
+
+                <small *ngIf="isGuestInvalid('arrivalTime')">
+                  {{ getGuestError('arrivalTime') }}
+                </small>
+              </label>
+
+
+              <label class="online-field">
+                <span>Contacto de emergencia</span>
+
+                <input
+                  type="text"
+                  formControlName="emergencyContactName"
+                  autocomplete="name"
+                  [class.input-error]="isGuestInvalid('emergencyContactName')" />
+
+                <small *ngIf="isGuestInvalid('emergencyContactName')">
+                  {{ getGuestError('emergencyContactName') }}
+                </small>
+              </label>
+
+
+              <label class="online-field">
+                <span>Telefono de emergencia</span>
+
+                <input
+                  type="tel"
+                  formControlName="emergencyContactPhone"
+                  autocomplete="tel"
+                  [class.input-error]="isGuestInvalid('emergencyContactPhone')" />
+
+                <small *ngIf="isGuestInvalid('emergencyContactPhone')">
+                  {{ getGuestError('emergencyContactPhone') }}
+                </small>
+              </label>
+
+
+              <label class="online-field online-field-wide">
+                <span>Observaciones</span>
+
+                <textarea
+                  rows="4"
+                  formControlName="notes"
+                  placeholder="Preferencias de llegada o informacion adicional.">
+                </textarea>
+              </label>
+
+            </div>
+
+
+            <label class="online-consent">
+              <input
+                type="checkbox"
+                formControlName="acceptsDataPolicy" />
+
+              <span>
+                Autorizo el tratamiento de mis datos para gestionar el
+                check-in de esta reserva.
+              </span>
+            </label>
+
+            <small
+              *ngIf="isGuestInvalid('acceptsDataPolicy')"
+              class="online-consent-error">
+              {{ getGuestError('acceptsDataPolicy') }}
+            </small>
+
+
+            <div class="online-actions">
+              <button
+                type="button"
+                class="online-secondary"
+                (click)="resetFlow()">
+
+                Limpiar
+
+              </button>
+
+              <button
+                type="submit"
+                class="online-primary">
+
+                Enviar check-in
+
+                <i class="pi pi-send text-xs"></i>
+
+              </button>
+            </div>
+
+          </form>
+
+
+          <section
+            *ngIf="submitted"
+            id="online-check-in-confirmation"
+            class="online-confirmation"
+            tabindex="-1"
+            aria-live="polite">
+
+            <div>
+              <i class="pi pi-check"></i>
+            </div>
+
+            <h2>
+              Check-in preparado
+            </h2>
+
+            <p>
+              Los datos del huesped principal quedaron listos para la
+              reserva {{ reservationCodeLabel }}.
+            </p>
+
+            <a
+              class="online-primary"
+              routerLink="/">
+
+              Volver al inicio
+
+            </a>
+
+          </section>
+
+        </div>
+
+
+        <aside class="online-side-panel">
+          <p>
+            Antes de empezar
+          </p>
+
+          <ul>
+            <li>
+              <i class="pi pi-ticket"></i>
+              <span>Codigo de reserva del hotel.</span>
+            </li>
+
+            <li>
+              <i class="pi pi-id-card"></i>
+              <span>Documento vigente del huesped principal.</span>
+            </li>
+
+            <li>
+              <i class="pi pi-phone"></i>
+              <span>Telefono y contacto de emergencia.</span>
+            </li>
+          </ul>
+        </aside>
+
+      </div>
+    </section>
+
+  </main>
+
+</div>

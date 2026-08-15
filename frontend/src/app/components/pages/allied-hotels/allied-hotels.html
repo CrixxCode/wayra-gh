@@ -1,0 +1,236 @@
+<div class="allied-hotels-page">
+
+  <header class="allied-header">
+    <div class="allied-header-inner">
+
+      <a
+        class="allied-brand"
+        routerLink="/">
+
+        <img
+          src="/logo.png"
+          alt="Wayra" />
+
+        <span>
+          Wayra
+        </span>
+
+      </a>
+
+      <nav
+        class="allied-nav"
+        aria-label="Navegacion publica">
+
+        <a
+          class="allied-nav-link"
+          routerLink="/">
+          Inicio
+        </a>
+
+        <a
+          class="allied-nav-secondary"
+          routerLink="/reservar">
+          Buscar alojamiento
+        </a>
+
+        <a
+          class="allied-nav-login"
+          routerLink="/login">
+          Iniciar sesion
+        </a>
+
+      </nav>
+
+    </div>
+  </header>
+
+
+  <main>
+
+    <section class="allied-hero">
+      <div class="allied-container">
+
+        <a
+          class="allied-view-back"
+          routerLink="/">
+
+          <i class="pi pi-arrow-left"></i>
+          Volver
+
+        </a>
+
+        <p class="allied-kicker">
+          Hoteles aliados
+        </p>
+
+        <h1>
+          Encuentra hoteles que trabajan con Wayra
+        </h1>
+
+        <p class="allied-lead">
+          Consulta alojamientos aliados y encuentra rapidamente la
+          informacion que necesitas para tu estadia.
+        </p>
+
+        <div class="allied-stats" aria-label="Resumen de hoteles aliados">
+          <span>
+            <strong>{{ hotels.length }}</strong>
+            alojamientos encontrados
+          </span>
+
+          <span>
+            <strong>{{ hotelTypes.length - 1 }}</strong>
+            tipos de alojamiento
+          </span>
+
+          <span>
+            <strong>{{ totalRooms }}</strong>
+            habitaciones registradas
+          </span>
+        </div>
+
+      </div>
+    </section>
+
+
+    <section class="allied-directory">
+      <div class="allied-container">
+
+        <div class="allied-toolbar">
+
+          <label>
+            <span>Buscar</span>
+
+            <input
+              type="search"
+              [(ngModel)]="search"
+              placeholder="Hotel, ciudad o servicio" />
+          </label>
+
+          <label>
+            <span>Tipo</span>
+
+            <select [(ngModel)]="typeFilter">
+              <option
+                *ngFor="
+                  let type of hotelTypes;
+                  trackBy: trackByIndex
+                "
+                [value]="type">
+
+                {{ type }}
+
+              </option>
+            </select>
+          </label>
+
+          <button
+            type="button"
+            (click)="clearFilters()">
+
+            Limpiar
+
+          </button>
+
+        </div>
+
+
+        <p class="allied-result-count">
+          {{ filteredHotels.length }}
+          alojamiento(s) encontrados
+        </p>
+
+        <p
+          *ngIf="loading"
+          class="allied-result-count">
+          Cargando hoteles aliados...
+        </p>
+
+        <p
+          *ngIf="!loading && loadError"
+          class="allied-result-count allied-error">
+          {{ loadError }}
+        </p>
+
+        <div
+          *ngIf="!loading"
+          class="allied-grid">
+          <article
+            *ngFor="
+              let hotel of filteredHotels;
+              trackBy: trackByHotel
+            "
+            [id]="hotel.slug"
+            class="allied-card">
+
+            <span class="allied-badge">
+              <i class="pi pi-sparkles"></i>
+              Aliado Wayra
+            </span>
+
+            <h2>
+              {{ hotel.name }}
+            </h2>
+
+            <p class="allied-location">
+              <i class="pi pi-map-marker"></i>
+              {{ hotel.city }} · {{ hotel.type }}
+            </p>
+
+            <ul>
+              <li
+                *ngFor="
+                  let highlight of hotel.highlights;
+                  trackBy: trackByIndex
+                ">
+
+                <i class="pi pi-check"></i>
+                {{ highlight }}
+
+              </li>
+            </ul>
+
+            <div class="allied-card-footer">
+              <span>
+                {{ hotel.rooms }} habitaciones
+              </span>
+
+              <a
+                routerLink="/reservar"
+                [queryParams]="{ hotel: hotel.slug }">
+
+                Reservar
+
+              </a>
+            </div>
+
+          </article>
+        </div>
+
+
+        <div
+          *ngIf="!loading && filteredHotels.length === 0"
+          class="allied-empty">
+
+          <i class="pi pi-search"></i>
+
+          <h2>
+            No hay hoteles con esos filtros
+          </h2>
+
+          <button
+            type="button"
+            (click)="clearFilters()">
+
+            Ver todos
+
+          </button>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+</div>

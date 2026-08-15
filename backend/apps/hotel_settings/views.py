@@ -7,6 +7,7 @@ from rest_framework import status, viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from accounts.pagination import OptionalPageNumberPagination
@@ -18,7 +19,23 @@ from apps.master_data.models import MasterData
 from apps.rooms.models import Room
 
 from .models import HotelFloor, HotelSettings, PaymentMethod, ReservationPolicy
-from .serializers import PaymentMethodSerializer, HotelFloorSerializer, HotelSettingsSerializer, ReservationPolicySerializer
+from .serializers import (
+    AlliedHotelSerializer,
+    PaymentMethodSerializer,
+    HotelFloorSerializer,
+    HotelSettingsSerializer,
+    ReservationPolicySerializer,
+)
+from .services import build_active_allied_hotels
+
+
+class AlliedHotelViewSet(viewsets.ViewSet):
+    serializer_class = AlliedHotelSerializer
+    permission_classes = [AllowAny]
+
+    def list(self, request):
+        serializer = self.serializer_class(build_active_allied_hotels(), many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class HotelSettingsViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):

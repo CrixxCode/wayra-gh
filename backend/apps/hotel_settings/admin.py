@@ -16,10 +16,12 @@ class HotelSettingsAdmin(admin.ModelAdmin):
         "country",
         "primary_phone",
         "general_email",
+        "is_active",
         "currency",
         "tax_rate",
         "updated_at",
     )
+    list_filter = ("is_active", "country", "city")
     inlines = [HotelFloorInline]
 
 

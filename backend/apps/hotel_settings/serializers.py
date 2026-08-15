@@ -111,6 +111,7 @@ class HotelSettingsSerializer(serializers.ModelSerializer):
             "tax_rate",
             "system_language",
             "timezone",
+            "is_active",
             "created_at",
             "updated_at",
             "floors",
@@ -166,6 +167,31 @@ class HotelSettingsSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+
+class AlliedRoomRateSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    roomType = serializers.CharField()
+    rateName = serializers.CharField()
+    description = serializers.CharField(allow_blank=True)
+    maxGuests = serializers.IntegerField()
+    nightlyRate = serializers.IntegerField()
+
+
+class AlliedHotelSerializer(serializers.Serializer):
+    slug = serializers.CharField()
+    name = serializers.CharField()
+    type = serializers.CharField()
+    city = serializers.CharField(allow_blank=True)
+    department = serializers.CharField(allow_blank=True)
+    country = serializers.CharField(allow_blank=True)
+    description = serializers.CharField(allow_blank=True)
+    highlights = serializers.ListField(child=serializers.CharField())
+    rooms = serializers.IntegerField()
+    maxGuestsPerRoom = serializers.IntegerField()
+    nightlyRateFrom = serializers.IntegerField()
+    roomRates = AlliedRoomRateSerializer(many=True)
+    contact = serializers.CharField(allow_blank=True)
 
 
 class ReservationPolicySerializer(TenantSerializerMixin, serializers.ModelSerializer):

@@ -1,0 +1,729 @@
+<div class="booking-page">
+
+  <header class="booking-header">
+    <div class="booking-container booking-header-inner">
+
+      <a
+        class="booking-brand"
+        routerLink="/">
+
+        <img
+          src="/logo.png"
+          alt="Wayra" />
+
+        <span>
+          Wayra
+        </span>
+
+      </a>
+
+      <nav aria-label="Navegacion publica">
+        <a routerLink="/hoteles-aliados">
+          Hoteles aliados
+        </a>
+
+        <a routerLink="/login">
+          Iniciar sesion
+        </a>
+      </nav>
+
+    </div>
+  </header>
+
+
+  <main>
+
+    <section class="booking-hero">
+      <div class="booking-container">
+
+        <a
+          class="booking-view-back"
+          routerLink="/hoteles-aliados">
+
+          <i class="pi pi-arrow-left"></i>
+          Volver
+
+        </a>
+
+        <p class="booking-kicker">
+          Booking limitado
+        </p>
+
+        <h1>
+          Busca disponibilidad en hoteles aliados
+        </h1>
+
+        <p class="booking-lead">
+          Filtra por destino, fechas y ocupacion para ver opciones
+          disponibles dentro de la red de aliados Wayra.
+        </p>
+
+      </div>
+    </section>
+
+
+    <section class="booking-section">
+      <div class="booking-container">
+
+        <form
+          class="booking-search"
+          [formGroup]="searchForm"
+          (ngSubmit)="searchAvailability()">
+
+          <label class="booking-field booking-field-destination">
+            <span>
+              <i class="pi pi-map-marker"></i>
+              Destino
+            </span>
+
+            <input
+              type="text"
+              formControlName="destination"
+              placeholder="Busca pais o ciudad"
+              autocomplete="off"
+              (focus)="openDestinationPanel()"
+              (input)="openDestinationPanel()"
+              (blur)="closeDestinationPanel()"
+              [class.input-error]="isSearchInvalid('destination')" />
+
+            <div
+              *ngIf="destinationPanelOpen"
+              class="booking-destination-panel">
+
+              <p>
+                Destinos populares cerca
+              </p>
+
+              <button
+                *ngFor="
+                  let destination of filteredDestinationOptions;
+                  trackBy: trackByDestination
+                "
+                type="button"
+                class="booking-destination-option"
+                (mousedown)="$event.preventDefault()"
+                (click)="selectDestination(destination)">
+
+                <i class="pi pi-map-marker"></i>
+
+                <span>
+                  <strong>{{ destination.city }}</strong>
+                  <small>{{ destination.country }}</small>
+                </span>
+
+              </button>
+
+              <span
+                *ngIf="filteredDestinationOptions.length === 0"
+                class="booking-destination-empty">
+
+                No hay destinos aliados con esa búsqueda.
+
+              </span>
+
+            </div>
+
+            <small *ngIf="isSearchInvalid('destination')">
+              Escribe un pais o ciudad aliado.
+            </small>
+          </label>
+
+
+          <label class="booking-field booking-field-dates">
+            <span>
+              <i class="pi pi-calendar"></i>
+              Fechas
+            </span>
+
+            <p-datepicker
+              formControlName="dateRange"
+              selectionMode="range"
+              rangeSeparator=" - "
+              dateFormat="dd/mm/yy"
+              placeholder="Check-in - Check-out"
+              inputStyleClass="booking-date-range-input"
+              styleClass="booking-date-range-picker"
+              panelStyleClass="booking-date-range-panel"
+              [minDate]="minDate"
+              [numberOfMonths]="1"
+              [readonlyInput]="true"
+              [showButtonBar]="true"
+              [showClear]="true">
+            </p-datepicker>
+
+            <small *ngIf="isSearchInvalid('dateRange')">
+              Selecciona llegada y salida.
+            </small>
+
+            <small *ngIf="hasDateRangeError">
+              La salida debe ser posterior.
+            </small>
+          </label>
+
+
+          <label class="booking-field">
+            <span>
+              <i class="pi pi-building"></i>
+              Habitaciones
+            </span>
+
+            <input
+              type="number"
+              min="1"
+              max="4"
+              formControlName="rooms" />
+
+            <small *ngIf="isSearchInvalid('rooms')">
+              Entre 1 y 4 habitaciones.
+            </small>
+          </label>
+
+
+          <label class="booking-field">
+            <span>
+              <i class="pi pi-users"></i>
+              Huespedes
+            </span>
+
+            <input
+              type="number"
+              min="1"
+              max="8"
+              formControlName="guests" />
+
+            <small *ngIf="isSearchInvalid('guests')">
+              Entre 1 y 8 huespedes.
+            </small>
+          </label>
+
+
+          <button
+            type="submit"
+            class="booking-primary">
+
+            Buscar alojamiento
+
+            <i class="pi pi-search text-xs"></i>
+
+          </button>
+
+        </form>
+
+
+        <section
+          class="booking-results"
+          aria-live="polite">
+
+          <div class="booking-results-header">
+            <div>
+              <p class="booking-kicker">
+                Opciones disponibles
+              </p>
+
+              <h2>
+                Hoteles aliados para tu búsqueda
+              </h2>
+            </div>
+
+            <span *ngIf="searchSubmitted">
+              {{ availableHotels.length }}
+              {{ availableHotels.length === 1 ? 'resultado' : 'resultados' }}
+            </span>
+          </div>
+
+
+          <div
+            *ngIf="loadingHotels"
+            class="booking-empty">
+
+            <i class="pi pi-calendar"></i>
+
+            <h3>
+              Cargando hoteles aliados
+            </h3>
+
+            <p>
+              Estamos consultando los hoteles activos dentro de Wayra.
+            </p>
+
+          </div>
+
+
+          <div
+            *ngIf="!loadingHotels && hotelsLoadError"
+            class="booking-empty">
+
+            <i class="pi pi-search"></i>
+
+            <h3>
+              No fue posible cargar hoteles
+            </h3>
+
+            <p>
+              {{ hotelsLoadError }}
+            </p>
+
+          </div>
+
+
+          <div
+            *ngIf="!loadingHotels && !hotelsLoadError && !searchSubmitted"
+            class="booking-empty">
+
+            <i class="pi pi-calendar"></i>
+
+            <h3>
+              Ingresa destino y fechas
+            </h3>
+
+            <p>
+              La disponibilidad se muestra solo para hoteles asociados a Wayra.
+            </p>
+
+          </div>
+
+
+          <div
+            *ngIf="
+              !loadingHotels &&
+              !hotelsLoadError &&
+              searchSubmitted &&
+              availableHotels.length === 0
+            "
+            class="booking-empty">
+
+            <i class="pi pi-search"></i>
+
+            <h3>
+              No hay opciones disponibles
+            </h3>
+
+            <p>
+              Ajusta destino, fechas, habitaciones o huéspedes para consultar
+              otras opciones aliadas.
+            </p>
+
+          </div>
+
+
+          <div
+            *ngIf="availableHotels.length > 0"
+            class="booking-options">
+
+            <article
+              *ngFor="
+                let hotel of availableHotels;
+                trackBy: trackByHotel
+              "
+              class="booking-option"
+              [class.booking-option-selected]="
+                hotel.slug === bookingForm.controls.hotelSlug.value
+              ">
+
+              <div>
+                <span class="booking-badge">
+                  <i class="pi pi-sparkles"></i>
+                  Aliado Wayra
+                </span>
+
+                <h3>
+                  {{ hotel.name }}
+                </h3>
+
+                <p class="booking-location">
+                  <i class="pi pi-map-marker"></i>
+                  {{ hotel.city }} · {{ hotel.type }}
+                </p>
+
+              </div>
+
+
+              <div class="booking-option-side">
+                <span>
+                  {{ getAvailableRoomCount(hotel) }} disponibles
+                </span>
+
+                <strong>
+                  {{ formatCurrency(getRateFrom(hotel)) }}
+                </strong>
+
+                <small>
+                  Desde por noche
+                </small>
+
+                <small>
+                  Total estimado:
+                  {{ formatCurrency(getEstimatedTotal(hotel)) }}
+                </small>
+
+                <button
+                  type="button"
+                  class="booking-secondary"
+                  (click)="selectHotel(hotel)">
+
+                  {{
+                    hotel.slug === bookingForm.controls.hotelSlug.value
+                      ? 'Seleccionado'
+                      : 'Seleccionar hotel'
+                  }}
+
+                </button>
+              </div>
+
+            </article>
+
+          </div>
+
+        </section>
+
+
+        <section
+          id="booking-rates"
+          class="booking-rates"
+          *ngIf="canShowRoomRates">
+
+          <div class="booking-results-header">
+            <div>
+              <p class="booking-kicker">
+                Habitacion y tarifa
+              </p>
+
+              <h2>
+                Elige una opcion en {{ selectedHotel.name }}
+              </h2>
+            </div>
+
+            <span>
+              {{ getAvailableRoomRates(selectedHotel).length }} tarifa(s)
+            </span>
+          </div>
+
+
+          <div class="booking-rate-grid">
+            <article
+              *ngFor="
+                let rate of getAvailableRoomRates(selectedHotel);
+                trackBy: trackByIndex
+              "
+              class="booking-rate-card"
+              [class.booking-rate-selected]="
+                rate.id === bookingForm.controls.roomRateId.value
+              ">
+
+              <div>
+                <span class="booking-badge">
+                  {{ rate.rateName }}
+                </span>
+
+                <h3>
+                  {{ rate.roomType }}
+                </h3>
+
+                <p>
+                  {{ rate.description }}
+                </p>
+
+                <ul>
+                  <li>
+                    <i class="pi pi-users"></i>
+                    Hasta {{ rate.maxGuests }} huesped(es) por habitacion
+                  </li>
+
+                  <li>
+                    <i class="pi pi-building"></i>
+                    {{ getAvailableRoomRateCount(selectedHotel, rate) }}
+                    disponible(s)
+                  </li>
+                </ul>
+              </div>
+
+
+              <div class="booking-rate-price">
+                <strong>
+                  {{ formatCurrency(rate.nightlyRate) }}
+                </strong>
+
+                <small>
+                  Por noche
+                </small>
+
+                <small>
+                  Total estimado:
+                  {{ formatCurrency(getRateEstimatedTotal(rate)) }}
+                </small>
+
+                <button
+                  type="button"
+                  class="booking-primary"
+                  (click)="selectRoomRate(rate)">
+
+                  {{
+                    rate.id === bookingForm.controls.roomRateId.value
+                      ? 'Tarifa elegida'
+                      : 'Elegir tarifa'
+                  }}
+
+                </button>
+              </div>
+
+            </article>
+          </div>
+
+        </section>
+
+
+        <section
+          id="booking-request"
+          class="booking-layout"
+          *ngIf="canShowGuestForm">
+
+          <aside class="booking-hotel-card">
+
+            <span class="booking-badge">
+              <i class="pi pi-sparkles"></i>
+              Aliado seleccionado
+            </span>
+
+            <h2>
+              {{ selectedHotel.name }}
+            </h2>
+
+            <p class="booking-location">
+              <i class="pi pi-map-marker"></i>
+              {{ selectedHotel.city }} · {{ selectedHotel.type }}
+            </p>
+
+            <ul>
+              <li
+                *ngFor="
+                  let highlight of selectedHotel.highlights;
+                  trackBy: trackByIndex
+                ">
+
+                <i class="pi pi-check"></i>
+                {{ highlight }}
+
+              </li>
+            </ul>
+
+            <div class="booking-hotel-meta">
+              <span>
+                {{ selectedRoomRate?.roomType }}
+              </span>
+
+              <span>
+                {{ selectedRoomRate?.rateName }}
+                ·
+                {{ formatCurrency(selectedRoomRate?.nightlyRate || 0) }}
+                por noche
+              </span>
+
+              <span>
+                {{ selectedHotel.contact }}
+              </span>
+            </div>
+
+          </aside>
+
+
+          <form
+            class="booking-form"
+            [formGroup]="bookingForm"
+            (ngSubmit)="submitBooking()">
+
+            <div class="booking-form-header">
+              <p class="booking-kicker">
+                Solicitud de reserva
+              </p>
+
+              <h2>
+                Datos del huesped
+              </h2>
+            </div>
+
+
+            <div
+              *ngIf="
+                searchSubmitted &&
+                !selectedOptionAvailable
+              "
+              class="booking-inline-warning">
+
+              Elige una opcion disponible antes de preparar la solicitud.
+
+            </div>
+
+
+            <div class="booking-grid">
+
+              <input
+                type="hidden"
+                formControlName="hotelSlug" />
+
+              <input
+                type="hidden"
+                formControlName="roomRateId" />
+
+              <label class="booking-field booking-field-wide">
+                <span>Nombre completo</span>
+
+                <input
+                  type="text"
+                  formControlName="guestName"
+                  autocomplete="name" />
+
+                <small *ngIf="isInvalid('guestName')">
+                  Ingresa el nombre de contacto.
+                </small>
+              </label>
+
+
+              <label class="booking-field">
+                <span>Correo</span>
+
+                <input
+                  type="email"
+                  formControlName="guestEmail"
+                  autocomplete="email" />
+
+                <small *ngIf="isInvalid('guestEmail')">
+                  Ingresa un correo valido.
+                </small>
+              </label>
+
+
+              <label class="booking-field">
+                <span>Telefono</span>
+
+                <input
+                  type="tel"
+                  formControlName="guestPhone"
+                  autocomplete="tel" />
+
+                <small *ngIf="isInvalid('guestPhone')">
+                  Ingresa un telefono de contacto.
+                </small>
+              </label>
+
+
+              <label class="booking-field booking-field-wide">
+                <span>Comentarios</span>
+
+                <textarea
+                  rows="4"
+                  formControlName="notes"
+                  placeholder="Preferencias de habitacion, hora estimada de llegada o solicitudes especiales.">
+                </textarea>
+              </label>
+
+            </div>
+
+
+            <div class="booking-summary">
+              <span>
+                {{ nights || 0 }}
+                {{ nights === 1 ? 'noche' : 'noches' }}
+              </span>
+
+              <span>
+                {{ searchForm.controls.rooms.value }}
+                {{
+                  searchForm.controls.rooms.value === 1
+                    ? 'habitación'
+                    : 'habitaciones'
+                }}
+              </span>
+
+              <span>
+                {{ searchForm.controls.guests.value }}
+                {{
+                  searchForm.controls.guests.value === 1
+                    ? 'huésped'
+                    : 'huéspedes'
+                }}
+              </span>
+
+              <span>
+                {{ formatCurrency(getRateEstimatedTotal(selectedRoomRate!)) }}
+                estimado
+              </span>
+            </div>
+
+
+            <div class="booking-actions">
+              <a
+                routerLink="/hoteles-aliados"
+                class="booking-secondary">
+
+                Volver
+
+              </a>
+
+              <button
+                type="submit"
+                class="booking-primary">
+
+                Preparar reserva
+
+                <i class="pi pi-arrow-right text-xs"></i>
+
+              </button>
+            </div>
+
+
+            <section
+              *ngIf="submitted"
+              id="booking-confirmation"
+              class="booking-confirmation"
+              tabindex="-1"
+              aria-live="polite">
+
+              <div>
+                <i class="pi pi-check"></i>
+              </div>
+
+              <h2>
+                Solicitud lista para enviar
+              </h2>
+
+              <p>
+                La solicitud queda dirigida a
+                {{ selectedHotel.name }}
+                por
+                {{ nights }}
+                {{ nights === 1 ? 'noche' : 'noches' }}.
+              </p>
+
+              <div class="booking-confirmation-actions">
+                <a
+                  class="booking-primary"
+                  [href]="bookingMailto">
+
+                  Enviar al hotel
+
+                  <i class="pi pi-send text-xs"></i>
+
+                </a>
+
+                <button
+                  type="button"
+                  class="booking-secondary"
+                  (click)="resetRequest()">
+
+                  Nueva solicitud
+
+                </button>
+              </div>
+
+            </section>
+
+          </form>
+
+        </section>
+
+      </div>
+    </section>
+
+  </main>
+
+</div>

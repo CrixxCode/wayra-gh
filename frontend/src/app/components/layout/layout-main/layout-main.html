@@ -8,7 +8,7 @@
     (click)="toggleAside()"></div>
 
   <!-- ASIDE con animación -->
-  <aside class="layout-aside fixed md:static top-0 left-0 h-screen
+  <aside id="app-sidebar" class="layout-aside fixed md:static top-0 left-0 h-screen
            shadow-2xl z-30 md:z-auto
            transition-all duration-300 ease-in-out transform
            overflow-hidden shrink-0" data-tour="sidebar" [class.w-64]="isAsideOpen()" [class.w-0]="!isAsideOpen() && !isMobile"
@@ -24,7 +24,13 @@
   <!-- HEADER + CONTENT -->
   <div class="layout-main-area flex flex-col h-screen overflow-hidden flex-1">
     <header class="layout-header h-16 text-black flex items-center px-2 flex-shrink-0 z-10" data-tour="header">
-      <app-header (menuToggle)="toggleAside()" (tourStart)="guidedTour.startFlow()" class="w-full"></app-header>
+      <app-header
+        class="w-full"
+        [asideOpen]="isAsideOpen()"
+        [isMobile]="isMobile"
+        (menuToggle)="toggleAside()"
+        (tourStart)="guidedTour.startFlow()"
+      ></app-header>
     </header>
 
     <section class="layout-content flex-1 overflow-y-auto px-6 pb-8 text-[#111827]
