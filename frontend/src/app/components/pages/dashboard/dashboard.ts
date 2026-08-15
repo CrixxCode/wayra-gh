@@ -250,7 +250,7 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   openActivityLog(): void {
-    this.navigateTo('/actividad');
+    this.navigateTo('/auditoria');
   }
 
   onAlertAction(alert: AlertItem): void {

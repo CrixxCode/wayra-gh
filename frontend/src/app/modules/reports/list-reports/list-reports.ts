@@ -1,9 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { ChartData, ChartOptions } from 'chart.js';
+import { ChartModule } from 'primeng/chart';
 import { catchError, finalize, forkJoin, Observable, of } from 'rxjs';
 import { HotelSettingsService } from '../../../services/hotel-settings';
+import { MotionService } from '../../../services/motion';
 import { ReportsService } from '../../../services/reports';
 import { DetailReport } from '../detail-report/detail-report';
 import {
@@ -36,11 +40,6 @@ type KpiCard = {
   variationTone: VariationTone;
 };
 
-type ChartPoint = {
-  x: number;
-  y: number;
-};
-
 type TabOption = {
   key: ReportTab;
   label: string;
@@ -50,11 +49,11 @@ type TabOption = {
 @Component({
   selector: 'app-list-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, DetailReport],
+  imports: [CommonModule, FormsModule, ChartModule, DetailReport],
   templateUrl: './list-reports.html',
   styleUrls: ['./list-reports.css'],
 })
-export class ListReports implements OnInit {
+export class ListReports implements OnInit, OnDestroy {
   loading = false;
   errorMessage = '';
   infoMessage = '';
@@ -79,16 +78,67 @@ export class ListReports implements OnInit {
 
   tabErrors: Partial<Record<ReportTab, string>> = {};
 
+  // ------------------------------------------------------------------ graficos
+  //
+  // Antes eran SVG a mano con `preserveAspectRatio="none"`, que estira el trazo de forma
+  // no uniforme: la pendiente que se veia no era la de los datos. Y barras de `div` sin
+  // eje ni valor, donde pasar el cursor no daba nada.
+  //
+  // Se arman al llegar la respuesta y no en un getter: Chart.js redibuja ante cada
+  // cambio de referencia, y un getter le daria un objeto nuevo por ciclo de deteccion.
+  incomeProfitData: ChartData<'line'> = { labels: [], datasets: [] };
+  incomeProfitOptions: ChartOptions<'line'> = {};
+
+  paymentMethodsData: ChartData<'bar'> = { labels: [], datasets: [] };
+  paymentMethodsOptions: ChartOptions<'bar'> = {};
+
+  weeklyOccupancyData: ChartData<'bar'> = { labels: [], datasets: [] };
+  weeklyOccupancyOptions: ChartOptions<'bar'> = {};
+
+  incomeVsExpensesData: ChartData<'bar'> = { labels: [], datasets: [] };
+  incomeVsExpensesOptions: ChartOptions<'bar'> = {};
+
+  netProfitData: ChartData<'line'> = { labels: [], datasets: [] };
+  netProfitOptions: ChartOptions<'line'> = {};
+
+  guestOriginData: ChartData<'bar'> = { labels: [], datasets: [] };
+  guestOriginOptions: ChartOptions<'bar'> = {};
+
+  occupancyRateData: ChartData<'line'> = { labels: [], datasets: [] };
+  occupancyRateOptions: ChartOptions<'line'> = {};
+
+  occupiedRoomsData: ChartData<'bar'> = { labels: [], datasets: [] };
+  occupiedRoomsOptions: ChartOptions<'bar'> = {};
+
+  servicesIncomeData: ChartData<'bar'> = { labels: [], datasets: [] };
+  servicesIncomeOptions: ChartOptions<'bar'> = {};
+
+  servicesTransactionsData: ChartData<'bar'> = { labels: [], datasets: [] };
+  servicesTransactionsOptions: ChartOptions<'bar'> = {};
+
+  /**
+   * Paleta validada contra el fondo real de la tarjeta (#ffffff).
+   *
+   * Azul/rojo pasan todo. El verde queda por debajo de 3:1 de contraste, asi que los
+   * graficos que lo usan llevan **leyenda visible**: es el alivio que exige esa regla,
+   * no algo que se pueda ignorar.
+   */
+  private readonly viz = {
+    income: '#2a78d6',
+    profit: '#1baf7a',
+    expenses: '#e34948',
+    fill: 'rgba(42, 120, 214, 0.1)',
+    profitFill: 'rgba(27, 175, 122, 0.12)',
+    tick: '#64748b',
+    grid: '#e8edf6',
+  };
+
   readonly tabs: TabOption[] = [
     { key: 'executive', label: 'Resumen Ejecutivo', icon: 'fa-solid fa-house' },
     { key: 'revenue', label: 'Ingresos & Facturacion', icon: 'fa-solid fa-dollar-sign' },
     { key: 'occupancy', label: 'Ocupacion', icon: 'fa-solid fa-bed' },
     { key: 'services', label: 'Servicios & Consumos', icon: 'fa-solid fa-mug-hot' },
   ];
-
-  private readonly chartWidth = 680;
-  private readonly chartHeight = 220;
-  private readonly chartPadding = 22;
 
   private readonly compactCurrencyFormatter = new Intl.NumberFormat('es-CO', {
     style: 'currency',
@@ -97,17 +147,56 @@ export class ListReports implements OnInit {
     maximumFractionDigits: 1,
   });
 
+  private revealFrame: number | null = null;
+
   constructor(
     private reportsService: ReportsService,
-    private hotelSettingsService: HotelSettingsService
+    private hotelSettingsService: HotelSettingsService,
+    private motion: MotionService,
+    private hostRef: ElementRef<HTMLElement>,
+    private zone: NgZone,
+    private route: ActivatedRoute,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
+    const requested = String(this.route.snapshot.queryParamMap.get('tab') || '');
+    if (this.isTab(requested)) this.activeTab = requested;
+
     this.yearOptions = this.buildYearOptions();
     this.selectedYear = this.yearOptions[0] || new Date().getFullYear();
     this.syncRangeDatesFromYear(this.selectedYear);
     this.reportQuery = { year: this.selectedYear };
     this.bootstrapReports();
+  }
+
+  ngOnDestroy(): void {
+    if (this.revealFrame !== null) cancelAnimationFrame(this.revealFrame);
+    this.motion.killWithin(this.hostRef.nativeElement);
+  }
+
+  private isTab(value: string): value is ReportTab {
+    return (
+      value === 'executive' || value === 'revenue' || value === 'occupancy' || value === 'services'
+    );
+  }
+
+  private scheduleReveal(): void {
+    if (this.motion.prefersReducedMotion) return;
+    if (this.revealFrame !== null) cancelAnimationFrame(this.revealFrame);
+
+    this.zone.runOutsideAngular(() => {
+      this.revealFrame = requestAnimationFrame(() => {
+        this.revealFrame = null;
+        const host = this.hostRef.nativeElement;
+        this.motion.reveal(host.querySelectorAll('.stat-card'), { stagger: 0.045, y: 14 });
+        this.motion.reveal(host.querySelectorAll('.panel'), {
+          stagger: 0.05,
+          y: 12,
+          delay: 0.05,
+        });
+      });
+    });
   }
 
   get activeKpiCards(): KpiCard[] {
@@ -128,9 +217,20 @@ export class ListReports implements OnInit {
   selectTab(tab: ReportTab): void {
     this.activeTab = tab;
     this.errorMessage = this.tabErrors[tab] || '';
+
+    // La pestaña vive en la URL: recargar o compartir el enlace cae donde estabas.
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab },
+      replaceUrl: true,
+    });
+
     if (!this.hasTabData(tab) && !this.loading) {
       this.loadReports(tab);
+      return;
     }
+
+    this.scheduleReveal();
   }
 
   setFilterMode(mode: 'year' | 'range'): void {
@@ -347,20 +447,12 @@ export class ListReports implements OnInit {
     return (this.revenueReport?.monthly_income_vs_expenses || []).map((item) => this.toNumber(item.expenses));
   }
 
-  getRevenueCombinedSeries(): number[] {
-    return [...this.getRevenueIncomeSeries(), ...this.getRevenueExpensesSeries()];
-  }
-
   getRevenueNetProfitSeries(): number[] {
     return (this.revenueReport?.monthly_net_profit || []).map((item) => this.toNumber(item.value));
   }
 
   getRevenueChartLabels(): string[] {
     return (this.revenueReport?.monthly_income_vs_expenses || []).map((item) => item.month || '-');
-  }
-
-  getWeeklyOccupancyRoomsSeries(): number[] {
-    return (this.executiveReport?.weekly_occupancy || []).map((item) => this.toNumber(item.occupied_rooms));
   }
 
   getOccupancyRateSeries(): number[] {
@@ -379,102 +471,15 @@ export class ListReports implements OnInit {
     return (this.occupancyReport?.occupied_rooms_by_month || []).map((item) => item.month || '-');
   }
 
-  getServicesIncomeSeries(): number[] {
-    return (this.servicesReport?.income_by_category || []).map((item) => this.toNumber(item.amount));
-  }
-
-  getServicesTransactionsSeries(): number[] {
-    return (this.servicesReport?.transactions_by_category || []).map((item) => this.toNumber(item.transactions));
-  }
-
-  getMaxValue(values: number[]): number {
-    if (!values.length) return 0;
-    return Math.max(...values.map((value) => this.toNumber(value)));
-  }
-
-  getBarHeight(value: number, max: number): string {
-    if (!Number.isFinite(max) || max <= 0) return '6%';
-    const ratio = (this.toNumber(value) / max) * 100;
-    return `${Math.min(100, Math.max(6, ratio))}%`;
-  }
-
   getBarWidth(value: number, max: number): string {
     if (!Number.isFinite(max) || max <= 0) return '0%';
     const ratio = (this.toNumber(value) / max) * 100;
     return `${Math.min(100, Math.max(2, ratio))}%`;
   }
 
-  getDonutGradient(items: Array<{ pct: number }>): string {
-    if (!items.length) return 'conic-gradient(var(--gh-border-strong) 0deg, var(--gh-border-strong) 360deg)';
-
-    const palette = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899'];
-    let current = 0;
-    const segments: string[] = [];
-
-    for (let i = 0; i < items.length; i += 1) {
-      const rawPct = this.toNumber(items[i]?.pct);
-      const safePct = Math.max(0, rawPct);
-      const start = current;
-      const end = current + safePct * 3.6;
-      const color = palette[i % palette.length];
-      segments.push(`${color} ${start}deg ${end}deg`);
-      current = end;
-    }
-
-    if (current < 360) {
-      segments.push(`var(--gh-border) ${current}deg 360deg`);
-    }
-
-    return `conic-gradient(${segments.join(',')})`;
-  }
-
   getPaletteColor(index: number): string {
     const palette = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899'];
     return palette[index % palette.length];
-  }
-
-  getLinePath(values: number[]): string {
-    const points = this.getChartPoints(values);
-    if (!points.length) return '';
-    return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
-  }
-
-  getAreaPath(values: number[]): string {
-    const points = this.getChartPoints(values);
-    if (!points.length) return '';
-
-    const baseline = this.chartHeight - this.chartPadding;
-    const first = points[0];
-    const last = points[points.length - 1];
-    const linePath = this.getLinePath(values);
-    return `${linePath} L ${last.x} ${baseline} L ${first.x} ${baseline} Z`;
-  }
-
-  getChartPoints(values: number[]): ChartPoint[] {
-    if (!values.length) return [];
-
-    const normalizedValues = values.map((value) => this.toNumber(value));
-    const min = Math.min(...normalizedValues);
-    const max = Math.max(...normalizedValues);
-    const width = this.chartWidth;
-    const height = this.chartHeight;
-    const padding = this.chartPadding;
-
-    return normalizedValues.map((value, index) => {
-      const ratio = max === min ? 0.5 : (value - min) / (max - min);
-
-      const x =
-        normalizedValues.length === 1
-          ? width / 2
-          : padding + (index / (normalizedValues.length - 1)) * (width - padding * 2);
-
-      const y = height - padding - ratio * (height - padding * 2);
-
-      return {
-        x: Number(x.toFixed(2)),
-        y: Number(y.toFixed(2)),
-      };
-    });
   }
 
   getPeriodBadgeLabel(): string {
@@ -543,6 +548,8 @@ export class ListReports implements OnInit {
 
           this.syncLastUpdatedLabel();
           this.syncInfoMessage();
+          this.buildReportCharts();
+          this.scheduleReveal();
         });
       return;
     }
@@ -564,6 +571,7 @@ export class ListReports implements OnInit {
           delete this.tabErrors[target];
           this.syncLastUpdatedLabel();
           this.syncInfoMessage();
+          this.afterTabData();
         } else {
           this.errorMessage = this.tabErrors[target] || 'No fue posible cargar este tab.';
         }
@@ -602,6 +610,12 @@ export class ListReports implements OnInit {
       return;
     }
     this.servicesReport = payload as ServicesReportResponse;
+  }
+
+  /** Toda asignacion de datos rehace las series y reanima la entrada. */
+  private afterTabData(): void {
+    this.buildReportCharts();
+    this.scheduleReveal();
   }
 
   private hasTabData(tab: ReportTab): boolean {
@@ -998,5 +1012,519 @@ export class ListReports implements OnInit {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  // ------------------------------------------------------------------ graficos
+
+  /** Rehace las series con lo que acaba de llegar. Una vez por respuesta. */
+  private buildReportCharts(): void {
+    this.buildServicesIncomeChart();
+    this.buildServicesTransactionsChart();
+    this.buildIncomeProfitChart();
+    this.buildPaymentMethodsChart();
+    this.buildWeeklyOccupancyChart();
+    this.buildIncomeVsExpensesChart();
+    this.buildNetProfitChart();
+    this.buildGuestOriginChart();
+    this.buildOccupancyRateChart();
+    this.buildOccupiedRoomsChart();
+  }
+
+  /** Ejes de dinero: la cifra exacta la da el tooltip, el eje solo orienta. */
+  private moneyScales(): ChartOptions<'line' | 'bar'>['scales'] {
+    return {
+      x: {
+        grid: { display: false },
+        border: { display: false },
+        ticks: { color: this.viz.tick, font: { size: 11 } },
+      },
+      y: {
+        grid: { color: this.viz.grid },
+        border: { display: false },
+        ticks: {
+          color: this.viz.tick,
+          font: { size: 11 },
+          callback: (raw) => this.formatCompactCurrency(this.toNumber(raw)),
+        },
+      },
+    };
+  }
+
+  private moneyTooltip() {
+    return {
+      callbacks: {
+        label: (context: { dataset: { label?: string }; parsed: { x: number; y: number } }) => {
+          const value = context.parsed.y ?? context.parsed.x;
+          const name = context.dataset.label;
+          const amount = this.formatCurrency(this.toNumber(value));
+          return name ? `${name}: ${amount}` : amount;
+        },
+      },
+    };
+  }
+
+  /**
+   * Ingresos y utilidad comparten eje porque comparten unidad --pesos--.
+   *
+   * Dos series exigen leyenda, y aqui ademas es obligatoria: el verde queda por debajo
+   * de 3:1 de contraste sobre blanco, y la etiqueta es el alivio de esa regla.
+   */
+  private buildIncomeProfitChart(): void {
+    this.incomeProfitData = {
+      labels: this.getExecutiveChartLabels(),
+      datasets: [
+        {
+          label: 'Ingresos',
+          data: this.getExecutiveIncomeSeries(),
+          borderColor: this.viz.income,
+          backgroundColor: this.viz.fill,
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          fill: true,
+          tension: 0.3,
+        },
+        {
+          label: 'Utilidad',
+          data: this.getExecutiveProfitSeries(),
+          borderColor: this.viz.profit,
+          backgroundColor: this.viz.profitFill,
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          fill: true,
+          tension: 0.3,
+        },
+      ],
+    };
+
+    this.incomeProfitOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: { color: this.viz.tick, usePointStyle: true, boxWidth: 8, font: { size: 12 } },
+        },
+        tooltip: { mode: 'index', intersect: false, ...this.moneyTooltip() },
+      },
+      scales: this.moneyScales(),
+    };
+  }
+
+  /**
+   * Metodos de pago: barras y no un anillo.
+   *
+   * Comparar longitudes es mas facil que comparar arcos, y una barra por metodo con el
+   * nombre en el eje no necesita repartir seis colores que despues hay que descifrar en
+   * una leyenda.
+   */
+  private buildPaymentMethodsChart(): void {
+    const rows = this.executiveReport?.payment_methods || [];
+
+    this.paymentMethodsData = {
+      labels: rows.map((row) => row.method || 'Sin metodo'),
+      datasets: [
+        {
+          data: rows.map((row) => this.toNumber(row.amount)),
+          backgroundColor: this.viz.income,
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 26,
+        },
+      ],
+    };
+
+    this.paymentMethodsOptions = {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: this.moneyTooltip() },
+      scales: {
+        x: {
+          grid: { color: this.viz.grid },
+          border: { display: false },
+          ticks: {
+            color: this.viz.tick,
+            font: { size: 11 },
+            callback: (raw) => this.formatCompactCurrency(this.toNumber(raw)),
+          },
+        },
+        y: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+        },
+      },
+    };
+  }
+
+  private buildWeeklyOccupancyChart(): void {
+    const rows = this.executiveReport?.weekly_occupancy || [];
+
+    this.weeklyOccupancyData = {
+      labels: rows.map((row) => row.week || '-'),
+      datasets: [
+        {
+          data: rows.map((row) => this.toNumber(row.occupied_rooms)),
+          backgroundColor: this.viz.income,
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 34,
+        },
+      ],
+    };
+
+    this.weeklyOccupancyOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => `${this.formatInteger(this.toNumber(context.parsed.y))} habitaciones`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+        },
+        y: {
+          grid: { color: this.viz.grid },
+          border: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+        },
+      },
+    };
+  }
+
+  /** Ingresos y gastos, misma unidad y mismo eje. */
+  private buildIncomeVsExpensesChart(): void {
+    this.incomeVsExpensesData = {
+      labels: this.getRevenueChartLabels(),
+      datasets: [
+        {
+          label: 'Ingresos',
+          data: this.getRevenueIncomeSeries(),
+          backgroundColor: this.viz.income,
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 18,
+        },
+        {
+          label: 'Gastos',
+          data: this.getRevenueExpensesSeries(),
+          backgroundColor: this.viz.expenses,
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 18,
+        },
+      ],
+    };
+
+    this.incomeVsExpensesOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: { color: this.viz.tick, usePointStyle: true, boxWidth: 8, font: { size: 12 } },
+        },
+        tooltip: this.moneyTooltip(),
+      },
+      scales: this.moneyScales(),
+    };
+  }
+
+  private buildNetProfitChart(): void {
+    this.netProfitData = {
+      labels: this.getRevenueChartLabels(),
+      datasets: [
+        {
+          data: this.getRevenueNetProfitSeries(),
+          borderColor: this.viz.income,
+          backgroundColor: this.viz.fill,
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          fill: true,
+          tension: 0.3,
+        },
+      ],
+    };
+
+    this.netProfitOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false, ...this.moneyTooltip() } },
+      scales: this.moneyScales(),
+    };
+  }
+
+  private buildGuestOriginChart(): void {
+    const rows = this.revenueReport?.guest_origin || [];
+
+    this.guestOriginData = {
+      labels: rows.map((row) => row.country || 'Sin pais'),
+      datasets: [
+        {
+          data: rows.map((row) => this.toNumber(row.pct)),
+          backgroundColor: this.viz.income,
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 22,
+        },
+      ],
+    };
+
+    this.guestOriginOptions = {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: (context) => this.formatPercent(this.toNumber(context.parsed.x)) },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: this.viz.grid },
+          border: { display: false },
+          ticks: {
+            color: this.viz.tick,
+            font: { size: 11 },
+            callback: (raw) => `${this.toNumber(raw)}%`,
+          },
+        },
+        y: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+        },
+      },
+    };
+  }
+
+  /** La ocupacion es un porcentaje: el eje se fija de 0 a 100 y no al maximo de la serie. */
+  private buildOccupancyRateChart(): void {
+    this.occupancyRateData = {
+      labels: this.getOccupancyRateLabels(),
+      datasets: [
+        {
+          data: this.getOccupancyRateSeries(),
+          borderColor: this.viz.income,
+          backgroundColor: this.viz.fill,
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          fill: true,
+          tension: 0.3,
+        },
+      ],
+    };
+
+    this.occupancyRateOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: { label: (context) => this.formatPercent(this.toNumber(context.parsed.y)) },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+        },
+        y: {
+          min: 0,
+          max: 100,
+          grid: { color: this.viz.grid },
+          border: { display: false },
+          ticks: {
+            color: this.viz.tick,
+            font: { size: 11 },
+            callback: (raw) => `${this.toNumber(raw)}%`,
+          },
+        },
+      },
+    };
+  }
+
+  private buildOccupiedRoomsChart(): void {
+    this.occupiedRoomsData = {
+      labels: this.getOccupiedRoomsLabels(),
+      datasets: [
+        {
+          data: this.getOccupiedRoomsSeries(),
+          backgroundColor: this.viz.income,
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 34,
+        },
+      ],
+    };
+
+    this.occupiedRoomsOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => `${this.formatInteger(this.toNumber(context.parsed.y))} habitaciones`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+        },
+        y: {
+          grid: { color: this.viz.grid },
+          border: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+        },
+      },
+    };
+  }
+
+  private buildServicesIncomeChart(): void {
+    const rows = this.servicesReport?.income_by_category || [];
+
+    this.servicesIncomeData = {
+      labels: rows.map((row) => row.category || 'Sin categoria'),
+      datasets: [
+        {
+          data: rows.map((row) => this.toNumber(row.amount)),
+          backgroundColor: this.viz.income,
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 24,
+        },
+      ],
+    };
+
+    this.servicesIncomeOptions = {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: this.moneyTooltip() },
+      scales: {
+        x: {
+          grid: { color: this.viz.grid },
+          border: { display: false },
+          ticks: {
+            color: this.viz.tick,
+            font: { size: 11 },
+            callback: (raw) => this.formatCompactCurrency(this.toNumber(raw)),
+          },
+        },
+        y: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+        },
+      },
+    };
+  }
+
+  private buildServicesTransactionsChart(): void {
+    const rows = this.servicesReport?.transactions_by_category || [];
+
+    this.servicesTransactionsData = {
+      labels: rows.map((row) => row.category || 'Sin categoria'),
+      datasets: [
+        {
+          data: rows.map((row) => this.toNumber(row.transactions)),
+          backgroundColor: this.viz.income,
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 34,
+        },
+      ],
+    };
+
+    this.servicesTransactionsOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => `${this.formatInteger(this.toNumber(context.parsed.y))} cargos`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+        },
+        y: {
+          grid: { color: this.viz.grid },
+          border: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+        },
+      },
+    };
+  }
+
+  // ------------------------------------------------------- hay algo que dibujar
+
+  get hasServicesIncome(): boolean {
+    return (this.servicesReport?.income_by_category || []).length > 0;
+  }
+
+  get hasServicesTransactions(): boolean {
+    return (this.servicesReport?.transactions_by_category || []).length > 0;
+  }
+
+  get hasIncomeProfitChart(): boolean {
+    return this.getExecutiveIncomeSeries().length > 0;
+  }
+
+  get hasPaymentMethods(): boolean {
+    return (this.executiveReport?.payment_methods || []).length > 0;
+  }
+
+  get hasWeeklyOccupancy(): boolean {
+    return (this.executiveReport?.weekly_occupancy || []).length > 0;
+  }
+
+  get hasIncomeVsExpenses(): boolean {
+    return (this.revenueReport?.monthly_income_vs_expenses || []).length > 0;
+  }
+
+  get hasNetProfit(): boolean {
+    return this.getRevenueNetProfitSeries().length > 0;
+  }
+
+  get hasGuestOrigin(): boolean {
+    return (this.revenueReport?.guest_origin || []).length > 0;
+  }
+
+  get hasOccupancyRate(): boolean {
+    return this.getOccupancyRateSeries().length > 0;
+  }
+
+  get hasOccupiedRooms(): boolean {
+    return this.getOccupiedRoomsSeries().length > 0;
   }
 }

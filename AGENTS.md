@@ -743,7 +743,126 @@ comparar horas produciría atrasos falsos.
 - La entrada de menú `operations_center.read` es **solo menú**: los endpoints los siguen protegiendo
   `cleaning_tasks.*` y `maintenance_orders.*`.
 
+**El trabajo periódico es una regla que produce tareas, no una tarea que se repite.**
+`RecurringWork` guarda el ritmo (`frequency`, `interval`, `weekday`/`day_of_month`, ventana de
+fechas) y **`next_run_on` como estado**; `apps/rooms/recurring.py` materializa la tarea u orden y
+adelanta esa fecha.
+
+**No depende de un cron.** La materialización se dispara **al listar** limpieza, mantenimiento o las
+propias reglas (`MaterializeRecurringWorkMixin`), acotada al hotel de quien consulta. Un hotel que
+instala Wayra y programa algo espera que funcione, no que funcione *si además* alguien configuró una
+tarea diaria en el servidor. El comando `generate_recurring_work` sigue existiendo para quien sí
+tenga programador y quiera el trabajo listo a primera hora aunque nadie haya entrado.
+
+Que lo llamen los dos sitios es seguro porque la operación es **idempotente por día** y cada regla se
+genera bajo `select_for_update()` con revisión dentro de la transacción: dos peticiones simultáneas
+de la misma pantalla no pueden duplicar. Y un fallo al generar **no tumba la lectura** — el usuario
+debe ver su trabajo igual; el siguiente listado reintenta. Si la periodicidad viviera en la propia tarea, cerrarla borraría
+la programación, cambiar la frecuencia reescribiría el histórico, y no habría forma de contestar
+"qué está programado" sin recorrer todo lo hecho.
+
+Tres decisiones del motor que no son obvias:
+
+1. **Una regla sin habitación aplica a todas las del hotel** — es lo que significa "revisión mensual
+   de aires". Excluye las dadas de baja lógicamente, que no tienen `is_active` (5.5).
+2. **Si el comando no corrió en varios días, se genera una sola vez y se salta el resto.** Cinco
+   limpiezas idénticas de lunes a viernes no son trabajo pendiente: son ruido que alguien tendría
+   que cerrar a mano.
+3. **Sumar un mes al 31 recorta al último día del mes destino.** Es lo que espera quien programa
+   "el último día de cada mes" poniendo 31.
+
+La aritmética de calendario vive en `apps/rooms/recurrence.py`, aparte del modelo y del comando: es
+la única parte con lógica de fechas y la que hay que poder probar sin base de datos ni reloj.
+
 ---
+
+### 5.22 Finanzas: el libro del periodo, separado del análisis
+
+**Decisión:** ingresos y egresos viven en `/finanzas`, una ruta con tres pestañas.
+`/consolidado-ingresos`, `/ingresos`, `/egresos` y sus alias redirigen. **`/control-financiero`
+sigue siendo su propia ruta.** Mismo patrón de 5.18 a 5.21.
+
+**Por qué se juntan las dos primeras:** son las dos mitades de la misma pregunta, y la resta entre
+ellas —**cuánto queda**— no estaba en ninguna de las dos. Era el caso del saldo por cobrar de 5.19:
+el número que nadie tenía porque vivía en el hueco entre dos pantallas, y que hasta ahora había que
+sacar abriendo dos vistas, anotando dos cifras y restándolas a mano.
+
+**La pestaña que lo justifica: "Resultado".** Es la pestaña por defecto. Da el resultado del
+periodo, la **proporción de lo que entra que se va en gastos**, y los dos desgloses enfrentados
+—de dónde viene el dinero, en qué se va—. Nada de eso es un dato nuevo del servidor: es la lectura
+que ninguna de las dos vistas podía hacer sola.
+
+**Por qué control financiero no entra ahí:** son cosas distintas. `/finanzas` es el **libro del
+periodo** —lo que entró y lo que salió, hechos registrados—; `/control-financiero` es **análisis**
+—punto de equilibrio, escenarios hipotéticos, estados financieros comparados contra el año
+anterior—. Y hay una razón práctica: control financiero tiene cuatro pestañas propias, y meterlas
+dentro de una pestaña produce dos barras de pestañas, que es justo la navegación que estas
+consolidaciones existen para eliminar.
+
+**El resultado es de caja, no contable.** Ingresos menos egresos del periodo, sin devengos ni
+depreciaciones. La utilidad contable vive en el estado de resultados de `/control-financiero`, y
+las dos cifras **no tienen por qué coincidir**: no es un error, son dos preguntas distintas.
+
+**Control financiero carga por pestaña.** Antes pedía tablero, escenario y estados **de golpe** en
+cada carga y en cada cambio de hotel: tres agregaciones pesadas para mirar una. Ahora cada pestaña
+pide lo suyo la primera vez que se abre (`loadedTabs`), y *Actualizar* refresca **solo lo que se
+está mirando**. Los estados no dependen del rango de fechas sino de año y mes, así que cambiar el
+periodo no los invalida.
+
+**El cache lleva los parámetros en la clave:** el tablero de enero y el de febrero son cosas
+distintas y se guardan por separado, así que volver a un periodo ya consultado es gratis. TTL
+operativo (20 s) y no de catálogo — son cifras de dinero del día. Guardar la configuración invalida
+las cuatro claves: los umbrales alimentan el semáforo y los impuestos el estado de resultados.
+
+---
+
+### 5.23 Auditoría: una tabla propia, inmutable, escrita por señales
+
+**Decisión:** el rastro de auditoría vive en `accounts.AuditLog`, una tabla **append-only** que se
+escribe desde señales `post_save`/`post_delete`, con el contexto de la petición (usuario, IP, ruta)
+inyectado por `AuditContextMiddleware` a través de un `ContextVar`. Se consulta en `/api/audit/`
+—**solo lectura**— y se ve en `/auditoria`.
+
+**Qué había antes:** la pantalla `/actividad` no leía ningún registro. **Reconstruía** una línea de
+tiempo pidiendo pagos, movimientos de inventario, órdenes de mantenimiento y reservas, y
+mezclándolos. Eso no es auditoría por tres razones, y las tres importan:
+
+1. **Cobertura:** 4 dominios de 43 endpoints. Nada de habitaciones, tarifas, usuarios, roles,
+   configuración, egresos ni facturas.
+2. **Solo altas.** No había ediciones ni borrados. Si alguien cambiaba el monto de un pago, la
+   "actividad" pasaba a contar otra cosa **retroactivamente** y nadie se enteraba.
+3. **Sin autor ni origen.** El "quién" era lo que cada modelo guardara por su cuenta —reservas y
+   mantenimiento, nada—, y la hora era la del negocio (`payment_date`), no la de la acción.
+
+**Por qué por señales y no por un mixin de viewset:** un mixin habría obligado a tocar los 43
+endpoints y solo cubriría lo que entra por la API. Las señales cubren **toda** escritura del ORM,
+incluidos comandos de gestión y tareas internas, sin tocar ni un viewset. Lo que las señales no
+saben es *quién*; ese hueco lo tapa el middleware. Se usa `ContextVar` y no una global de hilo
+porque Django puede servir en contextos asíncronos, donde varias peticiones comparten hilo.
+
+**Una escritura sin petición se registra igual**, como acción del sistema. En una auditoría *"lo
+hizo un proceso automático"* es una respuesta; *"no hay registro"* no lo es.
+
+**Tres decisiones que no se ven pero sostienen esto:**
+
+- **Las migraciones de datos no se auditan.** Django las ejecuta con modelos históricos que viven en
+  el módulo `__fake__`, y sus escrituras también disparan señales. Sin excluirlas, un `migrate`
+  desde cero —lo que hace cualquier despliegue nuevo— reventaba al escribir en una tabla que aún no
+  existía.
+- **Los campos `auto_now` no cuentan como cambio.** Si no, cada `save()` de cualquier modelo dejaría
+  una fila que solo dice "updated_at cambió", y esas esconden los cambios de verdad.
+- **El nombre del autor se guarda desnormalizado.** El usuario puede renombrarse o borrarse; el
+  rastro tiene que seguir diciendo quién era **entonces**.
+
+**Aislamiento por hotel** mediante una columna `hotel_settings_id` desnormalizada: resolver la
+entidad de cada fila para saber de qué hotel es costaría una consulta por fila.
+
+**Sin purga automática**, y con exportación a CSV del periodo filtrado —para entregarle el rastro al
+contador o al auditor sin darle acceso al sistema—. Borrar registros de auditoría automáticamente es
+justo lo que una auditoría no quiere; si algún día el volumen molesta, se decide entonces.
+
+**`activity-log.view` no se borra:** se desactiva y pierde su enlace, y quien lo tenía recibe
+`audit.read`. Borrarlo dejaría huérfanas las asignaciones de rol y el rastro de que existió.
 
 ## 6. Módulos funcionales
 
@@ -1553,6 +1672,572 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 - **Archivos/áreas afectadas:** `frontend/src/app/components/layout/header/`,
   `frontend/src/app/components/layout/layout-main/layout-main.html`.
 - **Impacto:** cambio frontend sin migraciones ni cambios de API.
+
+### 2026-08-15 — Vista previa del sitio web en Configuración del Hotel
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** el campo **Sitio Web** en Configuración del Hotel ahora muestra una tarjeta de verificación con favicon, URL normalizada y dominio detectado. La comprobación real se hace con **Abrir sitio**, en pestaña nueva segura, y al confirmar se guarda la URL con esquema `https://`.
+- **Por qué:** el usuario necesita verificar que está escribiendo el enlace correcto del hotel, especialmente cuando pega dominios sin `https://`. Se descartó el iframe porque sitios públicos como Facebook bloquean ser embebidos y mostraban un error del navegador aunque la URL estuviera bien.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/hotel-settings/hotel-settings.ts`, `frontend/src/app/components/pages/hotel-settings/hotel-settings.html`, `frontend/src/app/components/shared/site-preview/`.
+- **Impacto:** cambio frontend sin migraciones, variables nuevas ni cambios de API.
+
+### 2026-08-15 — Minimapa en configuración del hotel: el punto exacto, no solo la calle
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Decisión de arquitectura:** ninguna nueva. Se añade **Leaflet** + **OpenStreetMap/Nominatim**:
+  sin llave de API ni costo, a diferencia de Google Maps.
+- **Por qué hace falta el punto y no basta la dirección:** "carrera 14a # 27b 28" se geocodifica a
+  media cuadra de distancia, y en un pueblo pequeño a varias. Por eso el mapa **propone** un punto y
+  después deja moverlo —clic para saltar, arrastrar para afinar—, y lo que se guarda es lo último
+  que dejó el usuario, no lo que dijo el geocodificador.
+- **Tres caminos, según dónde esté quien configura:**
+  1. **Buscar por dirección** — arma la consulta con dirección + ciudad + departamento + país (con
+     "Colombia" a secas saldría el centro del país). Es explícito y no al teclear: Nominatim admite
+     una petición por segundo, y además mover el mapa bajo los dedos es hostil.
+  2. **Usar mi ubicación** — toma el GPS y **rellena la dirección hacia atrás**. Estando en el
+     hotel es el camino más corto: no hay que escribir nada, solo revisar. El punto del GPS manda
+     sobre la dirección deducida: el aparato sabe dónde está mejor de lo que el geocodificador sabe
+     redactar la calle.
+  3. **Clic en el mapa** — siempre disponible, y es lo que se ofrece cuando cualquiera de los otros
+     dos falla.
+- **La cascada no se pisa a ciegas.** País, departamento y ciudad son desplegables con catálogo. Lo
+  que el geocodificador nombre de otra forma **se queda como estaba**: asignar un valor que el
+  desplegable no reconoce dejaría el campo en blanco, que es peor. La comparación ignora mayúsculas
+  y acentos —"Bogota" y "Bogotá" son el mismo sitio—.
+- **`Decimal` y no `Float`** para las coordenadas: es un dato que se compara y se muestra, y el
+  binario flotante arrastra error al guardarse y releerse. Seis decimales ≈ 11 cm, de sobra para
+  señalar una puerta.
+- **Efecto secundario que vale la pena:** `hotel-config` era una ruta **eager** —una pantalla de
+  1.800 líneas viajando en el paquete inicial de toda la aplicación—. Al hacerla perezosa para que
+  el mapa no engordara el arranque, el paquete inicial bajó a **1,98 MB**: por primera vez en la
+  sesión, **por debajo de su presupuesto**. El aviso de `build:ci` que llevaba semanas ahí,
+  desapareció.
+- **Cinco fallos del mapa, corregidos tras verlo en pantalla** (no se veían leyendo el código):
+  0. **El de fondo: el CSS de Leaflet estaba encapsulado.** Angular marca los estilos de componente
+     con un atributo de ámbito que **solo llevan los elementos del template**. Leaflet crea sus
+     paneles, teselas y marcadores en tiempo de ejecución, sin ese atributo, así que importar
+     `leaflet.css` dentro del componente dejaba sus reglas sin alcanzarlos: los paneles se quedaban
+     en `position: static` y las teselas fluían por el documento en vez de colocarse — el mosaico
+     partido, y el marcador sin sitio. Ahora vive en `styles.css`, global a propósito; todas sus
+     clases van prefijadas `.leaflet-`, así que no colisiona con nada.
+     **Se diagnosticó midiendo**, no leyendo: una prueba que compara `getComputedStyle` sobre
+     `.leaflet-container` (que sí recibía estilo, por ser el `div` del template) contra
+     `.leaflet-pane` (que no). Esa comparación es ahora una prueba de regresión, y se comprobó que
+     **falla** al quitar el import.
+  1. **Interoperabilidad CommonJS.** Leaflet no es ESM: según cómo lo empaquete el bundler,
+     `import()` entrega el módulo directamente o envuelto en `.default`. Con la forma equivocada,
+     `leaflet.map` era `undefined` y el mapa moría en silencio dentro del `catch`. Ahora se aceptan
+     las dos formas.
+  2. **Teselas descuadradas.** Leaflet calcula cuántas pedir al montarse, y aquí nace dentro de una
+     pestaña y una tarjeta que todavía se están maquetando: se medía más pequeño de lo que acaba
+     siendo. Se resuelve con `invalidateSize()` en el siguiente cuadro y un `ResizeObserver`, que
+     además lo arregla solo al cambiar de pestaña o redimensionar.
+  3. **Marcador invisible.** El icono por defecto son tres PNG que Leaflet resuelve por la URL de su
+     CSS; con el empaquetador de Angular esa ruta no existe. El punto quedaba fijado pero no se veía
+     dónde. Ahora es un `divIcon` dibujado con CSS: no depende de ningún archivo y usa los tonos del
+     sistema.
+  4. **Dos mapas en el mismo contenedor.** `initMap` espera a que llegue Leaflet y durante esa
+     espera `this.map` sigue en `null`; Angular dispara `ngOnChanges` una vez por entrada que
+     cambia, y aquí son seis. Ahora un candado garantiza un solo montaje.
+- **La tarjeta de resumen del pie decía "integración con mapa disponible próximamente".** Ahora el
+  mapa existe, así que dice lo que de verdad importa: si el punto exacto está puesto —con sus
+  coordenadas— o si todavía falta señalarlo, con un distintivo de *ubicación completa / incompleta*.
+- **Pruebas:** 508 frontend (25 nuevas: consulta compuesta, redondeo, permiso denegado, ciudad en
+  campos distintos según el país, que el punto sobrevive aunque falle la geocodificación inversa, las tres
+  regresiones del montaje, las dos de estilos y las de la cascada de desplegables) y 65 backend
+  de las apps tocadas.
+
+---
+
+### 2026-08-15 — El registro de actividad no registraba nada: ahora hay auditoría de verdad
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat + fix
+- **Decisión de arquitectura:** **sí** — nueva sección **5.23**, consultada antes con el usuario
+  (alcance: toda escritura de la API con diff campo a campo; retención: sin purga, con exportación
+  a CSV).
+- **El hallazgo:** `/actividad` no leía ninguna tabla de auditoría porque **no existía**.
+  Reconstruía una línea de tiempo con pagos, movimientos, órdenes y reservas. Cubría 4 dominios de
+  43, solo mostraba altas, y cambiaba retroactivamente al editarse cualquier registro.
+- **Lo que hay ahora:** `accounts.AuditLog` —append-only— con autor, nombre desnormalizado, hotel,
+  acción, entidad, registro, **diff campo a campo**, IP, ruta, método y cliente. Se escribe por
+  señales; el usuario y la IP llegan por `AuditContextMiddleware`. El detalle y el porqué, en 5.23.
+- **Dos fallos que aparecieron al probarlo, no al leerlo:**
+  - Las señales se disparan **dentro de las migraciones de datos**, donde la tabla puede no existir
+    todavía: reventaba un `migrate` desde cero, o sea cualquier despliegue nuevo.
+  - Los campos `auto_now` hacían que **cada `save()`** dejara una fila diciendo solo "updated_at
+    cambió".
+- **Un tercero, en una prueba existente:** `SeedRbacCoverageTests` daba por hecho que toda lectura
+  deriva `<scope>_deleted`, cuando `HasResourcePermission` solo lo hace si la vista sabe resolver
+  `include_deleted`. Exigía sembrar un permiso inexistente; la prueba ahora comprueba lo que el
+  permiso hace de verdad, y sigue protegiendo el caso real.
+- **La pantalla:** renombrada a **Auditoría** en `/auditoria` (los enlaces viejos redirigen). Cada
+  fila se despliega en su sitio con la tabla *campo · antes · después*, y debajo el origen —IP,
+  ruta, cliente—. Filtros por acción, entidad, usuario y rango de fechas, poblados **solo con lo
+  que de verdad aparece**, más exportación a CSV.
+- **Pruebas:** 280 backend (12 nuevas, incluidas aislamiento por hotel y que el rastro **no se
+  puede escribir** por la API) y 483 frontend.
+
+---
+
+### 2026-08-15 — Reportes: los gráficos mentían, y ahora son gráficos de verdad
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix + refactor
+- **Decisión de arquitectura:** ninguna. Chart.js vía `p-chart`, igual que el dashboard y control
+  financiero: las tres pantallas de análisis quedan con el mismo motor y el mismo lenguaje visual.
+- **El fallo de fondo: los gráficos mentían.** Las líneas eran SVG a mano con
+  `preserveAspectRatio="none"`, que **estira el trazo de forma no uniforme**: la pendiente que se
+  veía no era la de los datos, y el grosor del trazo variaba con el ancho de la ventana. No es un
+  problema de gusto —es un gráfico que dice algo distinto de lo que pasó—. Eran tres: ingresos vs
+  utilidad, utilidad neta mensual y tasa de ocupación.
+- **Y las barras no eran barras:** `div`s con `height` en porcentaje, sin eje, sin valor y sin nada
+  al pasar el cursor. Había cinco así.
+- **Los anillos pasan a barras.** Métodos de pago y origen de huéspedes se dibujaban con
+  `conic-gradient` y una leyenda de seis colores que había que descifrar. Comparar longitudes es
+  más fácil que comparar arcos, y con el nombre en el eje sobra la leyenda de colores. La lista de
+  debajo se queda, pero ya no como leyenda: es el acceso al detalle de cada fila.
+- **Un eje que no miente:** la tasa de ocupación va fija de **0 a 100**. Escalada al máximo de la
+  serie, un mes flojo llenaba la gráfica y parecía un lleno total.
+- **Dónde sí hace falta leyenda:** ingresos vs utilidad e ingresos vs gastos llevan dos series, y
+  dos series nunca se distinguen solo por color. Además el verde `#1baf7a` queda por debajo de 3:1
+  de contraste sobre blanco, y la etiqueta visible es el alivio que esa regla exige —no es opcional—.
+- **Paleta validada, no elegida a ojo:** azul `#2a78d6`, verde `#1baf7a`, rojo `#e34948`,
+  comprobados con el validador contra el fondo real (`#ffffff`).
+- **Además:** la pestaña vive en la URL (`?tab=`) como en el resto del sistema, y hay animación de
+  entrada por `MotionService`.
+- **Limpieza:** diez métodos que solo existían para dibujar a mano (`getAreaPath`, `getLinePath`,
+  `getDonutGradient`, `getChartPoints`…) y 27 bloques de CSS, eliminados. El componente baja de
+  ~53 kB a ~49 kB y su hoja de estilos de 12,8 kB a 11,4 kB.
+- **Pruebas:** 483 frontend (11 nuevas), `build:ci` limpio salvo el aviso de presupuesto ya
+  existente.
+
+---
+
+### 2026-08-15 — El tablero pasa de trece tarjetas de cifras a cuatro gráficos
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor
+- **Decisión de arquitectura:** ninguna. Se usa **Chart.js vía `p-chart` de PrimeNG**, que ya era
+  dependencia y ya se usaba en el dashboard principal: cero librerías nuevas.
+- **La forma sale del trabajo que hace cada dato**, no del gusto:
+  - *Composición del periodo* (ingresos, costos, gastos, utilidad) → **barras**. No un anillo:
+    la utilidad puede ser **negativa**, y una composición con una parte negativa no significa nada.
+  - *Comparativo interanual* → **barras divergentes desde cero**, que es lo que pide la polaridad.
+  - *Provisiones* (renta, ICA, FONTUR) → **barras**: tres partidas comparables entre sí.
+  - *RevPAR de 12 meses* → **línea**: es cambio en el tiempo.
+- **Un solo eje por gráfico.** La variación de ocupación viene en **puntos** y las otras tres en
+  **porcentaje**: son unidades distintas, así que la ocupación se sale del gráfico y queda como
+  cifra al lado, con su aclaración. Meterlas en el mismo eje habría sido comparar peras con
+  manzanas.
+- **La paleta se validó, no se eligió a ojo.** Azul `#2a78d6` / rojo `#e34948`, comprobados con el
+  validador contra el fondo real de la tarjeta (`#ffffff`): pasan banda de luminosidad, croma,
+  separación para daltonismo (ΔE 21,6 protan) y contraste. El color solo distingue donde aporta —el
+  signo de la utilidad y de cada variación—; donde hay una sola serie, el eje ya nombra cada barra
+  y todas van del mismo color.
+- **Las cifras exactas siguen a la vista**, al pie de cada gráfico. El tooltip es una comodidad, no
+  la única vía de leer un número.
+- **Los datos se recalculan al llegar la respuesta, no en un getter:** Chart.js redibuja ante cada
+  cambio de referencia, y un getter le daría un objeto nuevo en cada ciclo de detección.
+- **Limpieza:** el cambio dejó 31 bloques de CSS sin usar (`.stat-card`, `.metric-block`,
+  `.trend-chart`…), eliminados.
+- **Pruebas:** 472 frontend (7 nuevas sobre el armado de las series). Ojo: `setup()` reinicia los
+  espías, así que la respuesta simulada tiene que entrar **por** `setup()` y no antes —así falló la
+  primera versión de estas pruebas.
+
+---
+
+### 2026-08-15 — Umbrales: de rejilla de tarjetas a pantalla de ajustes
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor
+- **Decisión de arquitectura:** ninguna.
+- **Por qué se veía mal.** Era una **rejilla de tres tarjetas**. Con una sección de ocho campos y
+  otras de dos, la fila entera crecía hasta la más alta y las cortas quedaban medio vacías; un
+  `min-height: 252px` remataba el efecto. Encima, cada campo llevaba su microetiqueta en
+  versalitas y su frase de ayuda debajo: un muro de letra pequeña.
+- **Ahora es una columna de secciones**, que es como se lee una pantalla de ajustes: la explicación
+  a la izquierda —con su icono— y los campos a la derecha. El texto de ayuda deja de colarse entre
+  campo y campo.
+- **Se quedaba todo pegado a la izquierda:** un `max-width: 1080px` que solo tenía esta pestaña,
+  mientras la tarjeta de filtros de arriba ocupa el ancho completo. Fuera. Los campos usan
+  `auto-fill` **con tope**, así que a pantalla ancha mantienen un ancho legible y se alinean a la
+  izquierda en vez de estirarse hasta el absurdo.
+- **Las casillas pasan a interruptores**, con el campo que dependen al lado en la misma fila —así el
+  formulario no salta al pulsarlos— y la fila se tiñe cuando están encendidos.
+- **La barra de guardar es pegajosa.** Con el formulario largo, el botón quedaba fuera de pantalla
+  justo mientras se editaba. Ahora acompaña, y trae *Descartar cambios*, que ya existía en el
+  componente sin estar enchufado a nada.
+- **Limpieza:** el rediseño del tablero dejó 22 bloques de CSS sin usar (`.insight-card`,
+  `.progress-track`, `.tone-badge`…). Eliminarlos devolvió la hoja por debajo de su presupuesto,
+  que se había pasado.
+
+---
+
+### 2026-08-15 — Control financiero: la respuesta primero, y la pestaña que no se podía guardar
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat + fix
+- **Decisión de arquitectura:** ninguna; continúa lo empezado en 5.22.
+- **El fallo que impedía usar la pestaña Umbrales.** Los cuatro umbrales operativos exigen ser
+  mayores que cero al guardar, pero la lectura convierte los ausentes en **0** (`getNumber` devuelve
+  0 por defecto). El formulario cargaba ese 0 y el propio guardado lo rechazaba: cualquier hotel al
+  que le faltara uno **no podía guardar nada** desde esa pestaña, y el error hablaba de un campo que
+  el usuario nunca tocó. Ahora 0 se lee como *"sin configurar"*. Apareció al escribir la prueba del
+  guardado de tarifas, no leyendo el código.
+- **Las tarifas de impuestos ahora se pueden editar.** Distrito, renta, ley de turismo, IVA, ICA y
+  FONTUR se guardaban en la configuración pero **no había dónde tocarlas**: el tablero calculaba
+  provisiones con valores que nadie podía revisar. Es el mismo hueco que ya se tapó con los umbrales
+  del punto de equilibrio.
+- **Tablero: la respuesta primero.** Abría con trece tarjetas del mismo peso y el semáforo —que es
+  *la* respuesta— enterrado en la mitad. Ahora arranca con un **veredicto**: cómo va el periodo, por
+  qué, y un medidor del punto de equilibrio **con la meta marcada** (sin la marca del 100%, la barra
+  no dice contra qué). El subtítulo prefiere lo accionable —*"faltan $X por facturar"*— sobre
+  repetir el color con otras palabras.
+- **La jerga, traducida.** RevPAR, CPHO, ICA, FONTUR: media pantalla eran siglas que el hotelero no
+  tiene por qué saberse. Cada tarjeta lleva ahora una línea en cristiano, y los bloques se titulan
+  por la pregunta que contestan (*"Qué cuesta llenar una habitación"*, *"Contra el año pasado"*,
+  *"Lo que hay que apartar para impuestos"*) en vez de por su origen técnico.
+- **La tendencia de RevPAR pasa de tabla a barras.** Doce filas de cifras no dejan ver una
+  tendencia; doce barras sí, con el mejor mes señalado y los meses escritos `ago 26` y no `2026-08`.
+- **Escenarios: el resultado en una frase.** Devolvía tres columnas de cuatro tarjetas —base,
+  proyectado, delta—; para saber lo único que importa había que buscar "utilidad" en dos columnas y
+  restar de cabeza. Ahora encabeza *"La utilidad sube $X"*, con el de-cuánto-a-cuánto debajo. Y si
+  el escenario **mejora pero sigue en pérdida**, lo dice: las dos cosas son ciertas y la segunda
+  importa más.
+- **Estados: dirección, no juicio.** Cada variación lleva flecha para poder barrer una columna sin
+  leer las cifras. La flecha marca dirección y no bondad, porque en un estado financiero que algo
+  suba no siempre es bueno —que suban los gastos, no lo es—.
+- **Pruebas:** 465 frontend (28 nuevas), `build:ci` limpio salvo el aviso de presupuesto ya
+  existente.
+
+---
+
+### 2026-08-15 — El detalle de un egreso: menos casillas, más jerarquía, y en español
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix + refactor
+- **Decisión de arquitectura:** ninguna.
+- **Palabras en inglés sueltas en la interfaz.** El panel mostraba *"Operating cost"* y *"Fixed"*:
+  las opciones del modelo (`apps/finance/models.py`) están rotuladas en inglés y el serializador las
+  manda tal cual en `*_label`, que el frontend **prefería** sobre su propio mapeo al español —que ya
+  existía y estaba bien—. Ahora manda el mapeo local y la etiqueta remota queda de respaldo para
+  valores que aún no conozca. Se arregla en el frontend y no en el modelo porque cambiar los
+  `choices` toca el contrato de la API y necesita migración, para un problema que es de
+  presentación.
+- **Fuera el identificador.** El encabezado decía **"EGRESO 4"**. Ese 4 es la clave primaria y no
+  significa nada para quien lo lee; ahora el antetítulo es la **categoría**, con el punto de color
+  que ya usa la fila del listado.
+- **El monto manda.** Compartía una caja de dos columnas con la fecha, los dos del mismo tamaño,
+  mientras el rojo del encabezado se llevaba toda la atención. Ahora el monto es la cifra grande y
+  la fecha lo acompaña debajo.
+- **El degradado rojo a plena altura, fuera.** Un egreso corriente no es una alarma. El encabezado
+  queda sobrio y el color pasa a una línea del **tono de la categoría** —el mismo que la fila del
+  listado, derivado del nombre— para que abrir el detalle no cambie el color bajo los pies.
+- **Un dato que no existe no puede ocupar lo mismo que uno que sí.** Había tres casillas diciendo
+  *"Sin proveedor"*, *"Sin referencia"* y un bloque entero para *"Sin descripción"*. Los campos
+  vacíos salen de la rejilla y lo que falta se resume en **una línea al final**, con la concordancia
+  bien (*"Sin descripción registrada."* / *"Sin proveedor, referencia ni descripción."*).
+- **Trazabilidad honesta:** si nunca se editó, *creado* y *última actualización* son la misma fecha;
+  repetirla hacía pensar en un cambio que no hubo. Ahora se dice una vez, y la segunda línea solo
+  aparece si de verdad se editó después (con un segundo de margen, porque el alta escribe las dos
+  marcas casi a la vez).
+- **Y el hueco vacío** del final: el cuerpo estiraba con `flex: 1` y dejaba media pantalla en
+  blanco bajo el contenido.
+- **Pruebas:** 447 frontend (12 nuevas). Ojo al escribirlas: este panel carga desde `ngOnChanges`,
+  así que en pruebas hay que usar `fixture.componentRef.setInput(...)` — asignar la propiedad a mano
+  no dispara nada y deja el detalle en null.
+
+---
+
+### 2026-08-15 — El consolidado diario venía corrido un día para lo cobrado de noche
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Decisión de arquitectura:** ninguna nueva.
+- **El fallo de fondo, que el modal destapó:** `_coerce_to_date` en `apps/reports/services.py`
+  hacía `.date()` sobre el instante **consciente**, o sea el día en **UTC**. Con `America/Bogota`
+  (UTC−5) eso adelanta un día todo lo que pasa a partir de las 7 de la tarde: un cobro de las 9 de
+  la noche del 12 se contaba como del 13. En un hotel cobrar de noche es media jornada, así que el
+  **consolidado diario venía corrido** para esos pagos — y nadie lo había notado porque la cifra
+  del periodo sí cuadraba; lo que estaba mal era el reparto entre días.
+  - Peor: **este mismo módulo ya filtraba por `payment_date__date`**, lookup que Django sí convierte
+    a hora local. Agrupaba en UTC y filtraba en local, contradiciéndose consigo mismo.
+  - Ahora convierte a hora local antes de tomar el día. Los datetime ingenuos pasan tal cual, porque
+    `localtime` exige uno consciente.
+- **Por eso el modal salía vacío.** El detalle pedía la fecha local y la fila venía de la fecha UTC:
+  para los días con cobros nocturnos buscaba en el día equivocado. No era el filtro nuevo el que
+  estaba mal, sino la agrupación contra la que se comparaba.
+- **Y no se comportaba como modal:** usé `gh-modal-backdrop`, clase que **no existe** —la del
+  sistema compartido es `gh-modal-overlay`—, así que sin `position: fixed` se pintaba en el flujo de
+  la página, debajo de la lista. Corregido, más cierre con `Escape`.
+- **El aviso de descuadre salía sobre cero cobros**, encima del "no hay cobros registrados". Sin
+  nada que comparar no hay descuadre: el getter ahora lo dice.
+- **Pruebas:** 435 frontend, 268 backend (5 nuevas sobre el día local, incluida la del cobro de las
+  9 de la noche que es exactamente el caso que fallaba).
+
+---
+
+### 2026-08-13 — Un solo periodo para las tres pestañas, y el detalle de cada día
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat + fix
+- **Decisión de arquitectura:** cierra la nota abierta en **5.22** sobre los periodos divergentes.
+- **El periodo sube al contenedor.** `/finanzas` tiene un único selector —este mes, mes pasado,
+  últimos 30 días, este año, todo, y **entre dos fechas**— que baja a las dos listas por
+  `@Input() rangeFrom/rangeTo` y manda sobre el selector propio de cada una, que se oculta cuando
+  está empotrada. Dos selectores para lo mismo es exactamente como se acaba mirando dos cifras que
+  no cuadran. Resuelve la divergencia que quedó anotada ayer: el encabezado sumaba todo el
+  histórico mientras las pestañas arrancaban en el mes.
+  - **Empotrado sin rango es "todo el histórico"**, no "vuelve a tu mes por defecto": si el
+    contenedor dice *todo*, la pestaña no puede filtrar por su cuenta.
+  - **Entre dos fechas no consulta hasta tener las dos** —filtrar a medias es peor que no filtrar—
+    y si vienen invertidas las endereza, porque eso es un error de tecleo y no una orden.
+- **El detalle de un día.** Pulsar una fila del consolidado abre un modal con **cada cobro** de esa
+  jornada: factura, método, hora, referencia, quién lo registró y las notas. Es la pregunta que
+  siempre sigue a la anterior —*"entraron 200.000, sí, ¿pero de quién?"*— y hasta ahora obligaba a
+  irse a la pantalla de pagos y filtrar a mano. Los **anulados se muestran** —tachados— porque son
+  justo lo que explica que un día cuadre o no.
+  - Si el total del detalle no coincide con la fila **lo dice**: pasa cuando la lista está filtrada
+    por método o por búsqueda y el detalle no. Dos cifras distintas sin explicación es peor.
+- **Backend: `PaymentFilterSet`** con `payment_date_after`/`payment_date_before`. `payment_date` es
+  un `DateTimeField`, así que filtra por `date__gte`/`date__lte` y **no por instante**: un
+  `payment_date__lte=2026-08-12` recortaría el día a su primer segundo y el modal enseñaría menos
+  de lo que dice el consolidado. Es el mismo criterio con el que el informe agrupa por día, y tiene
+  que serlo o los cobros de la noche caerían en días distintos según dónde se miren.
+- **Un fallo que destapó una prueba:** `todayKey()` en el contenedor salía de `toISOString()` —día
+  en **UTC**— mientras el rango del periodo se calcula en local. De noche en Colombia (UTC−5) eso
+  ya es el día siguiente, así que "el movimiento de hoy" caía a cero mientras el resto de la
+  pantalla seguía en el día correcto. Las dos fechas salen ahora del mismo reloj.
+- **Pruebas:** 433 frontend (20 nuevas), 263 backend (4 nuevas sobre el filtro de fechas, una de
+  ellas para el cobro de las 11 de la noche), `build:ci` limpio salvo el aviso de presupuesto ya
+  existente.
+
+---
+
+### 2026-08-13 — Egresos: el filtro por fecha que faltaba, y un segmentado que no cabía
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat + fix
+- **Decisión de arquitectura:** ninguna; amplía el sistema compartido de 5.15 con `.gh-seg`.
+- **Regresión propia, corregida:** al rediseñar egresos e ingresos les puse etiqueta de texto a los
+  botones de cambio de vista, pero `.gh-view-toggle` es un **cuadrado de 36 px de solo icono** con
+  `!important`, así que el texto se desbordaba encima del resto de la vista. Se añade `.gh-seg` al
+  sistema compartido —segmentado **con etiqueta**, hermano de `.gh-view-toggle`, no reemplazo— y lo
+  usan las dos pantallas. Sobreescribir a la fuerza el original habría roto las demás vistas que sí
+  lo quieren cuadrado.
+- **El filtro que faltaba: por periodo.** Egresos dejaba filtrar por estado, categoría y método pero
+  **no por fecha**, así que la pregunta más común sobre un gasto —*"cuánto llevo gastado este mes"*—
+  no tenía respuesta en su propia pantalla; había que sumar la lista a ojo. Ahora hay periodo (este
+  mes por defecto, mes pasado, últimos 30 días, este año, todo) y la cifra grande **dice de qué
+  periodo habla**, que si no es una cifra sin sujeto.
+- **Y orden**, que tampoco había: por fecha se lee el diario, por monto se encuentra el gasto gordo.
+- **Las fechas se comparan como texto**, no como `Date`. El egreso guarda un día suelto
+  (`YYYY-MM-DD`) sin hora: parsearlo lo correría un día según el huso y un gasto del día 1 se
+  saldría del mes. Es la misma decisión de 5.21 con las tareas atrasadas.
+- **Vacío con salida.** Con el periodo por defecto, una lista vacía puede significar que no hay
+  gastos **o** que el filtro los tapa. El mensaje ofrece ver todo el histórico en vez de dejar al
+  usuario adivinando cuál de las dos.
+- **Rejillas de ancho fijo → que se acomoden solas.** Los filtros eran cuatro columnas fijas; con
+  seis campos y una ventana estrecha desbordaban. También se borraron las reglas huérfanas de
+  `.expense-grid` y `.method-grid`, que ya no existen.
+- **Nota para quien siga:** ~~el contenedor `/finanzas` calcula sus métricas sobre **todo** el
+  histórico, mientras que las pestañas de ingresos y egresos arrancan en el mes en curso~~ —
+  resuelto al día siguiente: el periodo subió al contenedor y las tres pestañas miran el mismo
+  rango.
+- **Pruebas:** 413 frontend (10 nuevas de periodo y orden), `build:ci` limpio salvo el aviso de
+  presupuesto inicial ya existente.
+
+---
+
+### 2026-08-12 — Ingresos y egresos rediseñados, y el pipe de moneda que fallaba en silencio
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix + refactor
+- **Decisión de arquitectura:** ninguna nueva; ejecuta 5.22.
+- **El fallo que estaba a la vista y nadie veía:** las columnas de dinero del consolidado de
+  ingresos salían **en blanco**. `| currency: 'COP':'symbol':'1.0-0':'es-CO'` lanza
+  `NG0701: Missing locale data` porque **nunca se registró el locale**, y la celda queda vacía sin
+  error visible. Se registra `es-CO` una vez en `main.ts` — arreglaba también `pos-bar`, el otro
+  sitio que usa el pipe y tenía el mismo fallo. Verificado ejecutando el pipe, no leyéndolo.
+- **La lentitud:** el buscador del consolidado llevaba `(input)="applyFilters()"`, y `applyFilters`
+  **consulta la API**. Escribir "Juan" eran cuatro agregaciones sobre todos los pagos del periodo.
+  Ahora hay antirrebote de 350 ms; los selectores siguen disparando al instante porque un clic no
+  es una racha. Además se quitó un `requestAnimationFrame` **anidado** que retrasaba el pintado dos
+  cuadros por consulta sin comprar nada, y toda recarga dejó de blanquear la vista: si ya hay datos
+  se atenúan (`refreshing`), como en el resto del sistema.
+- **El rediseño, que es el mismo en las dos pantallas:** eran una tabla de 8 columnas y otra de 10,
+  más rejillas de tarjetas que repetían exactamente los mismos campos. Comparar cifras alineadas a
+  ojo era trabajo del usuario. Ahora cada fila lleva **una barra**: en ingresos el día que más entró
+  marca el 100% y el resto se compara con él; en egresos lo hace el gasto más grande. Encima, una
+  lectura del periodo en una línea —cuánto entró, el mejor día, por qué método; cuánto salió, en qué
+  categoría y repartido en cuántas—.
+- **Se fueron los códigos.** "MET-1" en los métodos de pago y "EGR-0042" encabezando cada egreso: son
+  identificadores internos disfrazados de dato, justo lo que se acordó quitar de toda la interfaz.
+  El egreso ahora empieza por su concepto.
+- **Los dos modos de vista dejaron de ser el mismo dato dos veces.** En egresos eran `tabla` y
+  `rejilla` con idénticos campos; ahora son *"cada egreso"* y *"en qué se va"* (desglose por
+  categoría), que son dos preguntas distintas. El color de cada categoría se deriva de su **nombre**
+  y no de su posición, para que cambiar un filtro no repinte la vista entera.
+- **Un fallo propio, corregido:** el desglose "de dónde viene" de `/finanzas` leía `collected` en las
+  filas de método, cuando el campo del consolidado es `total_amount` — el panel salía siempre vacío.
+  Ahora usa `total_amount` y prefiere el `share_percent` que ya manda el backend.
+- **Pruebas:** 403 frontend (25 nuevas entre `list-income-consolidated.spec.ts` y
+  `list-expenses.spec.ts`), `build:ci` limpio salvo el aviso de presupuesto inicial ya existente
+  (sube ~4,5 kB por los datos del locale).
+
+---
+
+### 2026-08-12 — Finanzas en una vista, y control financiero revisado pestaña a pestaña
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Decisión de arquitectura:** nueva sección **5.22**.
+- **Qué se hizo:**
+  1. **`/finanzas`** reúne ingresos y egresos en tres pestañas, con **Resultado** como pestaña por
+     defecto: lo que queda, qué proporción de lo que entra se va en gastos, y los dos desgloses
+     enfrentados. Migración `accounts/0027_finance_center_menu` para la entrada de menú
+     `finance_center.read`; `income_consolidated.read` y `expenses.read` dejan de ser menú pero
+     **siguen protegiendo sus endpoints**. `financial_control.read` no se toca.
+  2. **Cache-aside** en `expense.ts`, `reports.ts` y `financial-control.ts`. Un egreso nuevo
+     invalida también `reports`: el resultado del periodo cambia. `reports` es solo lectura —lo
+     invalida quien mueve dinero, no él mismo—, y por eso `LEDGER_KEYS` de facturación ahora lo
+     incluye: el ingreso se calcula desde los pagos.
+  3. **Control financiero deja de pedirlo todo de golpe.** Tres agregaciones pesadas por carga
+     bajan a una: cada pestaña pide lo suyo cuando se abre, y *Actualizar* refresca solo lo que se
+     está mirando. Es el mismo problema que produjo el 429 de inventario, antes de que produjera
+     otro.
+- **Lo que más cambia el uso, por pestaña:**
+  - **Filtros según la pestaña.** Salían los cinco a la vez —hotel, dos fechas, año y mes— con dos
+    botones de aplicar, cuando el rango es del tablero y del escenario, y el año/mes solo de los
+    estados. Ahora se muestra lo que la pestaña usa, más **atajos de periodo** (este mes, mes
+    pasado, últimos 30 días, este año): teclear dos fechas para ver el mes en curso no tenía sentido.
+  - **Escenarios: deslizadores y escenarios típicos.** Eran cuatro cajas de números partiendo de
+    cero. Un simulador se explora, no se teclea. Los escenarios mueven **varias palancas a la vez**
+    porque en la realidad van juntas —subir la tarifa cuesta ocupación—, y el escenario se lee en
+    una frase (*"Si la tarifa sube 10%, la ocupación baja 5%..."*) en vez de en cuatro controles.
+  - **Estados: exportar a CSV.** Un estado financiero termina en una hoja de cálculo o en manos del
+    contador; copiarlo fila por fila era el único camino. Se genera en el navegador con lo que ya
+    está en pantalla —pedir un endpoint sería hacer al servidor repetir un cálculo que ya hizo—,
+    con `;` y BOM, que es lo que Excel en español abre sin preguntar. Y la cabecera ahora dice
+    contra qué compara: el mismo mes del año anterior.
+  - **Tablero: el punto de equilibrio dice qué falta, en pesos.** Mostraba un avance en porcentaje
+    y el estado crudo del backend (`WARNING`, `CRITICAL`). Un porcentaje no le dice a nadie qué
+    hacer; *"faltan $2.500.000 por facturar para cubrir los costos del periodo"* sí, y se deriva de
+    lo que la respuesta ya trae.
+  - **Umbrales: los del punto de equilibrio, que decidían el semáforo y no eran editables.** El
+    formulario prometía "configuración de alertas" y no exponía los dos números que ponen el tablero
+    en amarillo o en rojo. El backend ya los validaba.
+  - Pestañas en pastilla como el resto de vistas consolidadas, `?tab=` en la URL y GSAP por
+    `MotionService`.
+- **Pruebas:** 378 frontend (41 nuevas entre `finance-page.spec.ts` y
+  `list-financial-control.spec.ts`), 259 backend, `build:ci` limpio salvo el aviso de presupuesto
+  inicial ya existente.
+- **Riesgos:** ninguno en datos —todo es lectura salvo la configuración, que ya existía—. El cambio
+  de menú es reversible: la migración tiene su `reverse`.
+
+---
+
+### 2026-08-12 — Trabajo periódico: reglas que generan limpiezas y órdenes solas
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Decisión de arquitectura:** amplía la sección **5.21**.
+- **Qué se hizo:** se puede programar trabajo que se repite —"la limpieza profunda de los lunes",
+  "la revisión de aires del día 1"— y el sistema lo genera solo.
+  1. **`RecurringWork`**: la regla. Guarda el ritmo y **`next_run_on` como estado**, que contesta
+     "cuándo vuelve a tocar" sin recalcular nada. Modelada como *regla que produce tareas*, no como
+     tarea que se repite — el porqué está en 5.21.
+  2. **`generate_recurring_work`**, comando diario como los de 5.12. **Idempotente por día**:
+     volver a correrlo no duplica nada porque `next_run_on` ya quedó por delante. Tiene `--dry-run`.
+  3. **`apps/rooms/recurrence.py`**, la aritmética de calendario aparte: es la única parte con
+     lógica de fechas y la única que se puede probar sin base de datos ni reloj.
+  4. **Cuarta pestaña "Programado"** en `/limpieza-mantenimiento`, con su propia métrica en el
+     resumen que avisa cuántas reglas generan trabajo hoy o mañana.
+- **El detalle de diseño que más importa:** el formulario **escribe la regla en castellano** antes
+  de guardarla —*"Cada 2 semanas, los viernes · en todas las habitaciones"*—. Comprobar eso leyendo
+  tres selectores sueltos es justo lo que hace que se programe mal, y el error no se descubre hasta
+  que el trabajo no aparece.
+- **Y en la lista**, cada regla dice **cuánto falta** (*"Genera mañana"*), no una fecha suelta que
+  hay que comparar con hoy. Se puede **pausar** sin borrar, que es lo que se necesita en temporada
+  baja.
+- **Los paneles de alta, rediseñados:** los dos traían ~260 líneas de CSS con una **paleta propia de
+  alias** (`--drawer-*` apuntando a `--gh-*`) y sus propios bloques de modo oscuro — justo lo que
+  5.15 existe para evitar. Y una cabecera con degradado de 130 px para un título, con el formulario
+  flotando en un panel de alto completo. Ahora: cabecera compacta con el tipo de trabajo como
+  etiqueta, alto natural, pie pegado para que *Guardar* no se pierda al hacer scroll, y solo tokens.
+  Además **se quitó el campo "Fecha de finalización"**, que salía deshabilitado explicando por qué
+  no servía: ahora aparece únicamente si la tarea nace ya completada.
+- **Archivos/áreas afectadas:** `backend/apps/rooms/{models,serializers,views,urls,recurrence,tests}.py`,
+  `backend/apps/rooms/management/commands/generate_recurring_work.py`,
+  `backend/apps/rooms/migrations/0013_recurringwork.py`,
+  `backend/accounts/management/commands/seed_rbac.py`,
+  `frontend/src/app/services/recurring-work.ts`,
+  `frontend/src/app/modules/operations/{recurring-work-model.ts,recurring-work/}`,
+  `frontend/src/app/modules/operations/operations-page/*`,
+  los dos `create-*` de limpieza y mantenimiento.
+- **No hace falta programar nada en el despliegue.** La materialización corre **al listar**
+  limpieza, mantenimiento o las reglas, acotada al hotel de quien consulta. El comando queda como
+  opción para quien tenga cron y quiera el trabajo listo antes de que nadie entre. Los dos caminos
+  conviven porque la operación es idempotente por día y cada regla se genera bajo
+  `select_for_update()` con revisión dentro de la transacción.
+- **Dónde se crea:** un botón **"Programar periódica"** en la cabecera, junto a *Nueva tarea* y
+  *Nueva orden*, con las dos opciones. Una pestaña llamada *Programado* dice dónde se **ve** lo
+  programado, no dónde se **crea**: quien busca "cada 6 meses revisar los aires" mira los botones de
+  arriba.
+- **Impacto:** **requiere `migrate` y `seed_rbac`** (dominio nuevo `recurring_work`: escritura para
+  admin y gerencia, lectura para recepción, que necesita saber qué trabajo va a caer).
+- **Verificación:** backend `manage.py test` completo en verde (**259** pruebas, 17 nuevas: ocho de
+  aritmética de calendario —incluido el recorte del 31 a febrero y el salto de ocurrencias
+  perdidas—, seis del comando y tres de que listar genere lo vencido sin cron, sin duplicar y sin
+  cruzar hoteles). Frontend `npm run lint`, `npm run test:ci` (**337** pruebas, 17 nuevas) y
+  `npm run build:ci` en verde.
+
+### 2026-08-12 — Se puede volver a generar trabajo desde limpieza y mantenimiento
+
+- **Autor:** Claude Code, reportado por rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix (regresión) / feat
+- **Síntoma:** desde `/limpieza-mantenimiento` no había forma de crear una tarea ni una orden.
+- **Causa:** regresión propia. Al embeber las listas se envolvió su `page-header` en
+  `*ngIf="!embedded"`, y con el encabezado se fue el botón **Nueva tarea** / **Nueva orden**.
+- **Qué se hizo:** el alta **sube al contenedor**, que es donde el usuario ya mira para actuar, en
+  vez de devolver dos encabezados a la pantalla. Los dos botones están disponibles **desde cualquier
+  pestaña**: si la lista que registra no está montada —vive tras el `*ngIf` de su pestaña—, se
+  cambia de pestaña y se abre el formulario en el ciclo siguiente. Los formularios de alta no se
+  tocaron: son los que ya existían.
+- **De paso, la cola deja de esconderse tras el histórico:** las dos listas abren filtradas a
+  **"Solo pendientes"**. Antes mostraban todo, así que la pestaña decía *Limpieza 0* mientras
+  debajo se veían seis tarjetas "Completada" — el contador iba de trabajo abierto y la lista de
+  todo. Ahora coinciden, y el histórico sigue a un clic en el filtro.
+- **Sobre asignar el trabajo a una persona:** se descartó a indicación de rastor65. El trabajo no
+  se asigna: aparecerá en las vistas propias de aseadora y técnico, que filtrarán por **tipo de
+  trabajo**, no por destinatario. Se revirtió el campo `assigned_to` que se había empezado a añadir
+  a `CleaningTask` y `MaintenanceOrder`, con su migración.
+- **El ciclo de estados ya existía y no se tocó:** el botón de la tarjeta avanza *Iniciar →
+  Completar*, que es lo que usará quien haga el trabajo.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/modules/operations/operations-page/*.{ts,html,css,spec.ts}`,
+  `frontend/src/app/modules/{cleaning-tasks/list-cleaning-tasks,maintenance-orders/list-maintenance-orders}/*.ts`.
+- **Impacto:** solo frontend. Sin cambios de API ni migraciones.
+- **Verificación:** `npm run lint`, `npm run test:ci` (**320** pruebas, 2 nuevas del alta desde el
+  contenedor) y `npm run build:ci` en verde; backend completo en verde (242).
 
 ### 2026-08-12 — Bug: unos pocos ajustes de stock seguidos dejaban la vista vacía (429)
 

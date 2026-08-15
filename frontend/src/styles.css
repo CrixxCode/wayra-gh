@@ -1,3 +1,10 @@
+/* Leaflet, global a proposito.
+   Sus paneles, teselas y marcadores nacen en tiempo de ejecucion, sin el atributo de
+   ambito que Angular pone a los elementos del template, asi que un estilo de componente
+   nunca los alcanza. Todas sus clases van prefijadas `.leaflet-`, de modo que vivir aqui
+   no colisiona con nada del sistema. */
+@import 'leaflet/dist/leaflet.css';
+
 /* Global styles */
 @import "tailwindcss";
 @import "primeicons/primeicons.css";
@@ -267,6 +274,52 @@
 
 .gh-filters-actions-single {
   justify-content: flex-end !important;
+}
+
+/**
+ * Segmentado **con etiqueta**, para cuando las dos vistas no son "lo mismo en tabla o en
+ * rejilla" sino dos preguntas distintas y el icono solo no basta para distinguirlas.
+ *
+ * Es un hermano de `.gh-view-toggle`, no un reemplazo: aquel es un cuadrado de 36 px de
+ * solo icono, y meterle texto lo desborda.
+ */
+.gh-seg {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 4px !important;
+  border: 1px solid var(--gh-border) !important;
+  border-radius: 12px !important;
+  background: var(--gh-surface-soft) !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+}
+
+.gh-seg button {
+  min-height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  color: var(--gh-text-muted) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  transition: color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease !important;
+}
+
+.gh-seg button:hover {
+  color: var(--gh-text-strong) !important;
+}
+
+.gh-seg button.active {
+  color: var(--gh-brand) !important;
+  background: var(--gh-surface) !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12) !important;
 }
 
 .gh-view-toggle {

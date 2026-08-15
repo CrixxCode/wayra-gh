@@ -1,8 +1,16 @@
 <div class="expense-overlay" (click)="closeDrawer()">
-  <aside class="expense-drawer" (click)="$event.stopPropagation()">
+  <aside
+    class="expense-drawer"
+    [style.--cat-tone]="categoryTone"
+    (click)="$event.stopPropagation()">
+    <!-- El encabezado empieza por la categoria, no por el id del registro: "EGRESO 4" no
+         le dice nada a nadie, y los identificadores no van en la interfaz. -->
     <header class="drawer-head">
       <div class="drawer-title-block">
-        <p class="drawer-type">Egreso {{ activeExpense?.id || expense?.id || '--' }}</p>
+        <p class="drawer-type">
+          <span class="cat-dot"></span>
+          {{ getCategoryLabel(activeExpense) }}
+        </p>
         <h2>{{ activeExpense?.concept || expense?.concept || 'Sin concepto' }}</h2>
         <span
           class="status-chip"
@@ -30,73 +38,44 @@
     </section>
 
     <div class="drawer-body" *ngIf="!loading && activeExpense">
+      <!-- El monto es de lo que trata la pantalla: manda el tamaño. -->
       <section class="hero-card">
-        <div>
-          <span>Monto</span>
-          <strong>{{ getAmountLabel(activeExpense) }}</strong>
-        </div>
-        <div>
-          <span>Fecha egreso</span>
-          <strong>{{ formatDate(activeExpense.expense_date) }}</strong>
-        </div>
+        <span class="hero-label">Salio</span>
+        <strong class="hero-amount">{{ getAmountLabel(activeExpense) }}</strong>
+        <p class="hero-when">
+          <i class="fa-regular fa-calendar"></i>
+          {{ formatDate(activeExpense.expense_date) }}
+        </p>
       </section>
 
-      <section>
+      <section class="detail-block">
         <h3>Resumen</h3>
         <div class="info-list">
-          <div>
-            <span>Categoria</span>
-            <strong>{{ getCategoryLabel(activeExpense) }}</strong>
-          </div>
-          <div>
-            <span>Tipo de egreso</span>
-            <strong>{{ getExpenseTypeLabel(activeExpense) }}</strong>
-          </div>
-          <div>
-            <span>Comportamiento</span>
-            <strong>{{ getCostBehaviorLabel(activeExpense) }}</strong>
-          </div>
-          <div>
-            <span>Metodo de pago</span>
-            <strong>{{ getMethodLabel(activeExpense) }}</strong>
-          </div>
-          <div>
-            <span>Proveedor</span>
-            <strong>{{ getSupplierLabel(activeExpense) }}</strong>
-          </div>
-          <div>
-            <span>Referencia</span>
-            <strong>{{ getReferenceLabel(activeExpense) }}</strong>
-          </div>
-          <div>
-            <span>Hotel</span>
-            <strong>{{ activeExpense.hotel_name || 'Sin hotel asociado' }}</strong>
-          </div>
-          <div>
-            <span>Estado</span>
-            <strong>{{ statusLabel }}</strong>
+          <div *ngFor="let row of summaryRows">
+            <span>{{ row.label }}</span>
+            <strong>{{ row.value }}</strong>
           </div>
         </div>
       </section>
 
-      <section>
+      <!-- La descripcion solo aparece si la hay: un bloque entero para decir "Sin
+           descripcion" ocupa lo mismo que uno con contenido. -->
+      <section class="detail-block" *ngIf="hasDescription">
         <h3>Descripcion</h3>
-        <p class="description">{{ getDescriptionLabel(activeExpense) }}</p>
+        <p class="description">{{ activeExpense.description }}</p>
       </section>
 
-      <section>
+      <section class="detail-block">
         <h3>Trazabilidad</h3>
-        <div class="info-list">
-          <div>
-            <span>Creado</span>
-            <strong>{{ formatDateTime(activeExpense.created_at) }}</strong>
-          </div>
-          <div>
-            <span>Ultima actualizacion</span>
-            <strong>{{ formatDateTime(activeExpense.updated_at) }}</strong>
-          </div>
-        </div>
+        <p class="trace-line">
+          Registrado el <b>{{ formatDateTime(activeExpense.created_at) }}</b>.
+        </p>
+        <p class="trace-line" *ngIf="wasEdited">
+          Editado por ultima vez el <b>{{ formatDateTime(activeExpense.updated_at) }}</b>.
+        </p>
       </section>
+
+      <p class="missing-note" *ngIf="missingLabel">{{ missingLabel }}</p>
     </div>
 
     <footer class="drawer-footer">

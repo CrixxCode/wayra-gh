@@ -5,6 +5,7 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.http import HttpResponse
 from django.utils import timezone
+import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
@@ -518,6 +519,31 @@ class InvoiceChargeViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets
         return super().get_permissions()
 
 
+class PaymentFilterSet(django_filters.FilterSet):
+    """Filtro por rango de fechas para los cobros.
+
+    `payment_date` es un `DateTimeField`, asi que se filtra por `date__gte`/`date__lte` y
+    no por el instante: un `payment_date__lte=2026-08-12` recortaria el dia a su primer
+    segundo y dejaria fuera todo lo cobrado esa jornada.
+
+    Es el mismo criterio con el que el consolidado de ingresos agrupa por dia
+    (`apps/reports/services.py`), y tiene que serlo: el detalle de un dia debe cuadrar
+    con la fila de ese dia. Si uno agrupara por instante UTC y el otro por fecha local,
+    los cobros de la noche caerian en dias distintos segun donde se miren.
+    """
+
+    payment_date_after = django_filters.DateFilter(
+        field_name="payment_date", lookup_expr="date__gte"
+    )
+    payment_date_before = django_filters.DateFilter(
+        field_name="payment_date", lookup_expr="date__lte"
+    )
+
+    class Meta:
+        model = Payment
+        fields = ["invoice", "payment_method", "is_active"]
+
+
 class PaymentViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
     queryset = (
         Payment.objects.select_related(
@@ -534,7 +560,7 @@ class PaymentViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.Model
     required_scopes = ["payments.read"]
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["invoice", "payment_method", "is_active"]
+    filterset_class = PaymentFilterSet
     search_fields = [
         "invoice__invoice_number",
         "payment_method__name",

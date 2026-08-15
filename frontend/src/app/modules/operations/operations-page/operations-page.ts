@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
 
@@ -10,9 +10,12 @@ import { CleaningTaskI } from '../../cleaning-tasks/cleaning-task-model';
 import { ListCleaningTasks } from '../../cleaning-tasks/list-cleaning-tasks/list-cleaning-tasks';
 import { MaintenanceOrderI } from '../../maintenance-orders/maintenance-order-model';
 import { ListMaintenanceOrders } from '../../maintenance-orders/list-maintenance-orders/list-maintenance-orders';
+import { RecurringWork } from '../recurring-work/recurring-work';
+import { RecurringWorkService } from '../../../services/recurring-work';
+import { RecurringWorkI } from '../recurring-work-model';
 import { RoomWorkload } from '../room-workload/room-workload';
 
-export type OperationsTab = 'cleaning' | 'maintenance' | 'rooms';
+export type OperationsTab = 'cleaning' | 'maintenance' | 'rooms' | 'scheduled';
 
 type TabDefinition = {
   key: OperationsTab;
@@ -61,7 +64,7 @@ const PENDING_CODES = ['PENDIENTE', 'PENDING', 'ABIERTA', 'ABIERTO', 'NUEVA', 'N
 @Component({
   selector: 'app-operations-page',
   standalone: true,
-  imports: [CommonModule, ListCleaningTasks, ListMaintenanceOrders, RoomWorkload],
+  imports: [CommonModule, ListCleaningTasks, ListMaintenanceOrders, RoomWorkload, RecurringWork],
   templateUrl: './operations-page.html',
   styleUrls: ['./operations-page.css']
 })
@@ -76,6 +79,7 @@ export class OperationsPage implements OnInit, OnDestroy {
 
   tasks: CleaningTaskI[] = [];
   orders: MaintenanceOrderI[] = [];
+  rules: RecurringWorkI[] = [];
 
   /** Habitación que se sigue: desde el tablero se salta a su trabajo concreto. */
   focus: OperationsFocus | null = null;
@@ -98,8 +102,25 @@ export class OperationsPage implements OnInit, OnDestroy {
       label: 'Mantenimiento',
       icon: 'fa-solid fa-screwdriver-wrench',
       hint: 'Averias reportadas y su reparacion'
+    },
+    {
+      key: 'scheduled',
+      label: 'Programado',
+      icon: 'fa-regular fa-calendar-check',
+      hint: 'Trabajo que se genera solo cada cierto tiempo'
     }
   ];
+
+  /**
+   * Las listas hijas traen su propio formulario de alta; el contenedor solo lo abre.
+   *
+   * Al embeberlas se oculto su encabezado, y con el se fue el boton de "Nueva tarea":
+   * la vista quedo sin forma de generar trabajo. En vez de devolver dos encabezados a
+   * la pantalla, el alta sube aqui, que es donde el usuario ya mira para actuar.
+   */
+  @ViewChild(ListCleaningTasks) private cleaningList?: ListCleaningTasks;
+  @ViewChild(ListMaintenanceOrders) private maintenanceList?: ListMaintenanceOrders;
+  @ViewChild(RecurringWork) private scheduleList?: RecurringWork;
 
   private revealFrame: number | null = null;
   private revealed = false;
@@ -107,6 +128,7 @@ export class OperationsPage implements OnInit, OnDestroy {
   constructor(
     private cleaningService: CleaningTasksService,
     private maintenanceService: MaintenanceOrdersService,
+    private recurringService: RecurringWorkService,
     private motion: MotionService,
     private hostRef: ElementRef<HTMLElement>,
     private zone: NgZone,
@@ -138,12 +160,16 @@ export class OperationsPage implements OnInit, OnDestroy {
         .pipe(catchError(() => of([] as CleaningTaskI[]))),
       orders: this.maintenanceService
         .listMaintenanceOrders({ include_inactive: true, forceRefresh })
-        .pipe(catchError(() => of([] as MaintenanceOrderI[])))
-    }).subscribe(({ tasks, orders }) => {
+        .pipe(catchError(() => of([] as MaintenanceOrderI[]))),
+      rules: this.recurringService
+        .listRecurringWork({ forceRefresh })
+        .pipe(catchError(() => of([] as RecurringWorkI[])))
+    }).subscribe(({ tasks, orders, rules }) => {
       this.loading = false;
       this.refreshing = false;
       this.tasks = tasks;
       this.orders = orders;
+      this.rules = rules;
 
       if (!this.revealed) {
         this.revealed = true;
@@ -170,6 +196,7 @@ export class OperationsPage implements OnInit, OnDestroy {
   tabCount(tab: OperationsTab): number {
     if (tab === 'cleaning') return this.openTasks.length;
     if (tab === 'maintenance') return this.openOrders.length;
+    if (tab === 'scheduled') return this.activeRules.length;
     return this.roomsWithWork.length;
   }
 
@@ -297,6 +324,23 @@ export class OperationsPage implements OnInit, OnDestroy {
       .length;
   }
 
+  get activeRules(): RecurringWorkI[] {
+    return this.rules.filter((rule) => rule.is_active);
+  }
+
+  /** Reglas que generan hoy o maniana: es lo que va a caer encima del equipo. */
+  get imminentRules(): number {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return this.activeRules.filter((rule) => {
+      const target = new Date(`${rule.next_run_on}T00:00:00`);
+      if (Number.isNaN(target.getTime())) return false;
+      const days = Math.round((target.getTime() - today.getTime()) / 86400000);
+      return days <= 1;
+    }).length;
+  }
+
   get metrics(): OperationsMetric[] {
     const overdue = this.overdueCount;
     const both = this.roomsBlockedByBoth;
@@ -337,6 +381,17 @@ export class OperationsPage implements OnInit, OnDestroy {
         icon: 'fa-solid fa-circle-check',
         tone: 'success',
         tab: 'maintenance'
+      },
+      {
+        key: 'scheduled',
+        label: 'Programaciones activas',
+        value: String(this.activeRules.length),
+        note: this.imminentRules
+          ? `${this.imminentRules} genera(n) trabajo hoy o maniana`
+          : 'Nada por generar en el corto plazo',
+        icon: 'fa-regular fa-calendar-check',
+        tone: 'brand',
+        tab: 'scheduled'
       }
     ];
   }
@@ -347,6 +402,55 @@ export class OperationsPage implements OnInit, OnDestroy {
 
   trackByMetric(_: number, metric: OperationsMetric): string {
     return metric.key;
+  }
+
+  /**
+   * Genera trabajo nuevo desde cualquier pestaña.
+   *
+   * Si la lista que lo registra no esta montada, primero se cambia de pestaña y se
+   * abre en el siguiente ciclo: el `*ngIf` de la pestaña la crea recien entonces.
+   */
+  /**
+   * Programar trabajo que se repite.
+   *
+   * Va junto a las altas de una sola vez porque es la misma intencion --generar
+   * trabajo-- y porque una pestaña llamada "Programado" no dice que ahi se **crea**:
+   * quien busca "cada 6 meses revisar los aires" mira los botones de arriba.
+   */
+  /** Menu de las dos opciones de programacion. */
+  showScheduleMenu = false;
+
+  toggleScheduleMenu(): void {
+    this.showScheduleMenu = !this.showScheduleMenu;
+  }
+
+  scheduleWork(kind: 'cleaning' | 'maintenance'): void {
+    this.showScheduleMenu = false;
+    const open = () =>
+      this.scheduleList?.openCreate(kind === 'cleaning' ? 'CLEANING' : 'MAINTENANCE');
+
+    if (this.activeTab === 'scheduled') {
+      open();
+      return;
+    }
+
+    this.selectTab('scheduled');
+    setTimeout(open);
+  }
+
+  createWork(kind: 'cleaning' | 'maintenance'): void {
+    const open = () => {
+      if (kind === 'cleaning') this.cleaningList?.openCreateDrawer();
+      else this.maintenanceList?.openCreateDrawer();
+    };
+
+    if (this.activeTab === kind) {
+      open();
+      return;
+    }
+
+    this.selectTab(kind);
+    setTimeout(open);
   }
 
   onWorkChanged(): void {
@@ -381,7 +485,12 @@ export class OperationsPage implements OnInit, OnDestroy {
   // ------------------------------------------------------------------ helpers
 
   private isTab(value: string): value is OperationsTab {
-    return value === 'cleaning' || value === 'maintenance' || value === 'rooms';
+    return (
+      value === 'cleaning' ||
+      value === 'maintenance' ||
+      value === 'rooms' ||
+      value === 'scheduled'
+    );
   }
 
   private isDone(status: unknown): boolean {

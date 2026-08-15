@@ -1,0 +1,168 @@
+<div class="audit-page">
+  <header class="page-header">
+    <div>
+      <h1>Auditoria</h1>
+      <p>
+        Toda escritura del sistema queda aqui: quien la hizo, cuando, desde donde y que
+        cambio exactamente. El rastro no se edita ni se borra.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <button
+        type="button"
+        class="gh-btn gh-btn-light"
+        (click)="exportCsv()"
+        [disabled]="!entries.length">
+        <i class="fa-solid fa-file-csv"></i>
+        Exportar CSV
+      </button>
+
+      <button type="button" class="gh-btn gh-btn-dark" (click)="load(true)" [disabled]="loading">
+        <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
+        Actualizar
+      </button>
+    </div>
+  </header>
+
+  <section class="gh-filters-card">
+    <div class="gh-filters-grid audit-filters-grid">
+      <label class="search-field gh-search-wrap">
+        <span>Buscar</span>
+        <div class="gh-search-control">
+          <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+          <input
+            class="gh-search-input"
+            type="text"
+            [(ngModel)]="search"
+            (input)="onSearchInput()"
+            placeholder="Buscar por usuario, entidad, registro o ruta..." />
+        </div>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Accion</span>
+        <select class="gh-filter-select" [(ngModel)]="actionFilter" (change)="applyFilters()">
+          <option *ngFor="let option of actionOptions" [value]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+
+      <!-- Solo las entidades y usuarios que de verdad aparecen: ofrecer la lista
+           completa llenaria el desplegable de opciones que no devuelven nada. -->
+      <label class="gh-filter-field">
+        <span>Entidad</span>
+        <select class="gh-filter-select" [(ngModel)]="entityFilter" (change)="applyFilters()">
+          <option value="">Toda entidad</option>
+          <option *ngFor="let entity of entityOptions" [value]="entity">{{ entity }}</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Usuario</span>
+        <select class="gh-filter-select" [(ngModel)]="userFilter" (change)="applyFilters()">
+          <option value="">Todo usuario</option>
+          <option *ngFor="let user of userOptions" [value]="user">{{ user }}</option>
+        </select>
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Desde</span>
+        <input class="gh-filter-input" type="date" [(ngModel)]="fromDate" (change)="applyFilters()" />
+      </label>
+
+      <label class="gh-filter-field">
+        <span>Hasta</span>
+        <input class="gh-filter-input" type="date" [(ngModel)]="toDate" (change)="applyFilters()" />
+      </label>
+    </div>
+
+    <div class="gh-filters-actions" *ngIf="hasFilters">
+      <button type="button" class="link-btn" (click)="clearFilters()">
+        <i class="fa-solid fa-xmark"></i>
+        Quitar filtros
+      </button>
+    </div>
+  </section>
+
+  <section class="state-message" *ngIf="loading || errorMessage || (!entries.length && !loading)">
+    <p *ngIf="loading">Cargando rastro de auditoria...</p>
+    <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p *ngIf="!loading && !errorMessage && !entries.length">
+      No hay movimientos registrados con estos filtros.
+    </p>
+  </section>
+
+  <section class="audit-list" *ngIf="entries.length" [class.is-dim]="refreshing">
+    <article
+      class="audit-row"
+      *ngFor="let entry of entries; trackBy: trackByEntry"
+      [ngClass]="'is-' + entry.action.toLowerCase()"
+      [class.is-open]="isExpanded(entry)">
+      <button type="button" class="row-head" (click)="toggleDetail(entry)">
+        <span class="row-icon"><i [class]="actionIcon(entry)"></i></span>
+
+        <span class="row-what">
+          <strong>
+            {{ entry.action_label }} de {{ entry.entity }}
+          </strong>
+          <small>{{ entry.object_label || ('registro ' + entry.object_id) }}</small>
+        </span>
+
+        <span class="row-who">
+          <b [class.is-system]="isSystem(entry)">{{ actorLabel(entry) }}</b>
+          <small>{{ formatMoment(entry.occurred_at) }}</small>
+        </span>
+
+        <span class="row-more">
+          <span class="change-count" *ngIf="changeCount(entry) as count">
+            {{ count }} campo(s)
+          </span>
+          <i class="fa-solid" [class.fa-chevron-down]="!isExpanded(entry)" [class.fa-chevron-up]="isExpanded(entry)"></i>
+        </span>
+      </button>
+
+      <div class="row-detail" *ngIf="isExpanded(entry)">
+        <!-- El "de cuanto a cuanto" es lo que se pregunta en una auditoria. -->
+        <div class="detail-changes" *ngIf="changeRows(entry).length; else noChanges">
+          <table>
+            <thead>
+              <tr>
+                <th>Campo</th>
+                <th>Antes</th>
+                <th>Despues</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of changeRows(entry); trackBy: trackByChange">
+                <td class="field">{{ row.field }}</td>
+                <td class="before">{{ row.before || '--' }}</td>
+                <td class="after">{{ row.after || '--' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #noChanges>
+          <p class="detail-empty">
+            Se registro el cambio pero no fue posible capturar el detalle campo a campo.
+          </p>
+        </ng-template>
+
+        <!-- El origen: en una auditoria de verdad, desde donde se hizo importa. -->
+        <dl class="detail-origin">
+          <div>
+            <dt>Direccion IP</dt>
+            <dd>{{ entry.ip_address || 'Sin registro' }}</dd>
+          </div>
+          <div>
+            <dt>Peticion</dt>
+            <dd>{{ entry.request_method }} {{ entry.request_path || 'proceso interno' }}</dd>
+          </div>
+          <div class="is-wide" *ngIf="entry.user_agent">
+            <dt>Cliente</dt>
+            <dd class="agent">{{ entry.user_agent }}</dd>
+          </div>
+        </dl>
+      </div>
+    </article>
+  </section>
+</div>

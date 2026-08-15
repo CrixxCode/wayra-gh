@@ -120,21 +120,12 @@
                 <h3>Ingresos vs Utilidad</h3>
                 <p>Evolucion mensual del periodo</p>
               </div>
-              <div class="legend">
-                <span><i class="dot dot-blue"></i>Ingresos</span>
-                <span><i class="dot dot-green"></i>Utilidad</span>
-              </div>
             </header>
 
-            <div class="line-chart" *ngIf="getExecutiveIncomeSeries().length > 0; else executiveChartEmpty">
-              <svg viewBox="0 0 680 220" preserveAspectRatio="none">
-                <path class="area-fill blue" [attr.d]="getAreaPath(getExecutiveIncomeSeries())"></path>
-                <path class="line-stroke blue" [attr.d]="getLinePath(getExecutiveIncomeSeries())"></path>
-                <path class="line-stroke green" [attr.d]="getLinePath(getExecutiveProfitSeries())"></path>
-              </svg>
-              <div class="x-labels">
-                <span *ngFor="let label of getExecutiveChartLabels(); trackBy: trackByIndex">{{ label }}</span>
-              </div>
+            <!-- La leyenda de Chart.js sustituye a la de puntos dibujada a mano, y ademas
+                 es obligatoria: dos series nunca se distinguen solo por color. -->
+            <div class="chart-canvas" *ngIf="hasIncomeProfitChart; else executiveChartEmpty">
+              <p-chart type="line" [data]="incomeProfitData" [options]="incomeProfitOptions"></p-chart>
             </div>
             <ng-template #executiveChartEmpty>
               <p class="empty-inline">Sin datos de grafica para este periodo.</p>
@@ -149,21 +140,19 @@
               </div>
             </header>
 
-            <div
-              class="donut"
-              [style.background]="getDonutGradient(executiveReport?.payment_methods || [])"
-              *ngIf="(executiveReport?.payment_methods || []).length > 0"></div>
+            <!-- Barras y no un anillo: comparar longitudes es mas facil que comparar
+                 arcos, y el nombre va en el eje en vez de en seis colores por descifrar. -->
+            <div class="chart-canvas is-short" *ngIf="hasPaymentMethods">
+              <p-chart type="bar" [data]="paymentMethodsData" [options]="paymentMethodsOptions"></p-chart>
+            </div>
 
             <div class="legend-list">
               <button
                 type="button"
                 class="legend-row"
-                *ngFor="let row of executiveReport?.payment_methods || []; let idx = index; trackBy: trackByIndex"
+                *ngFor="let row of executiveReport?.payment_methods || []; trackBy: trackByIndex"
                 (click)="openPaymentMethodDetail(row)">
-                <span class="left">
-                  <i class="dot" [style.background-color]="getPaletteColor(idx)"></i>
-                  {{ row.method }}
-                </span>
+                <span class="left">{{ row.method }}</span>
                 <span class="right">
                   {{ formatPercent(row.pct) }} - {{ formatCompactCurrency(row.amount) }}
                 </span>
@@ -181,15 +170,8 @@
               </div>
             </header>
 
-            <div class="bars-vertical" *ngIf="(executiveReport?.weekly_occupancy || []).length > 0; else weeklyEmpty">
-              <div
-                class="bar-col"
-                *ngFor="let row of executiveReport?.weekly_occupancy || []; trackBy: trackByIndex">
-                <div
-                  class="bar-fill dark"
-                  [style.height]="getBarHeight(row.occupied_rooms, getMaxValue(getWeeklyOccupancyRoomsSeries()))"></div>
-                <span>{{ row.week }}</span>
-              </div>
+            <div class="chart-canvas" *ngIf="hasWeeklyOccupancy; else weeklyEmpty">
+              <p-chart type="bar" [data]="weeklyOccupancyData" [options]="weeklyOccupancyOptions"></p-chart>
             </div>
             <ng-template #weeklyEmpty>
               <p class="empty-inline">Sin ocupacion semanal registrada.</p>
@@ -243,20 +225,8 @@
               </div>
             </header>
 
-            <div class="bars-group" *ngIf="(revenueReport?.monthly_income_vs_expenses || []).length > 0; else revenueBarsEmpty">
-              <div
-                class="group-col"
-                *ngFor="let row of revenueReport?.monthly_income_vs_expenses || []; trackBy: trackByIndex">
-                <div class="pair">
-                  <div
-                    class="bar-fill blue"
-                    [style.height]="getBarHeight(row.income, getMaxValue(getRevenueCombinedSeries()))"></div>
-                  <div
-                    class="bar-fill red"
-                    [style.height]="getBarHeight(row.expenses, getMaxValue(getRevenueCombinedSeries()))"></div>
-                </div>
-                <span>{{ row.month }}</span>
-              </div>
+            <div class="chart-canvas" *ngIf="hasIncomeVsExpenses; else revenueBarsEmpty">
+              <p-chart type="bar" [data]="incomeVsExpensesData" [options]="incomeVsExpensesOptions"></p-chart>
             </div>
             <ng-template #revenueBarsEmpty>
               <p class="empty-inline">No hay datos de ingresos y gastos.</p>
@@ -271,14 +241,8 @@
               </div>
             </header>
 
-            <div class="line-chart" *ngIf="getRevenueNetProfitSeries().length > 0; else revenueLineEmpty">
-              <svg viewBox="0 0 680 220" preserveAspectRatio="none">
-                <path class="area-fill gold" [attr.d]="getAreaPath(getRevenueNetProfitSeries())"></path>
-                <path class="line-stroke gold" [attr.d]="getLinePath(getRevenueNetProfitSeries())"></path>
-              </svg>
-              <div class="x-labels">
-                <span *ngFor="let label of getRevenueChartLabels(); trackBy: trackByIndex">{{ label }}</span>
-              </div>
+            <div class="chart-canvas" *ngIf="hasNetProfit; else revenueLineEmpty">
+              <p-chart type="line" [data]="netProfitData" [options]="netProfitOptions"></p-chart>
             </div>
             <ng-template #revenueLineEmpty>
               <p class="empty-inline">Sin datos de utilidad neta mensual.</p>
@@ -330,21 +294,17 @@
               </div>
             </header>
 
-            <div
-              class="donut"
-              [style.background]="getDonutGradient(revenueReport?.guest_origin || [])"
-              *ngIf="(revenueReport?.guest_origin || []).length > 0"></div>
+            <div class="chart-canvas is-short" *ngIf="hasGuestOrigin">
+              <p-chart type="bar" [data]="guestOriginData" [options]="guestOriginOptions"></p-chart>
+            </div>
 
             <div class="legend-list">
               <button
                 type="button"
                 class="legend-row"
-                *ngFor="let row of revenueReport?.guest_origin || []; let idx = index; trackBy: trackByIndex"
+                *ngFor="let row of revenueReport?.guest_origin || []; trackBy: trackByIndex"
                 (click)="openGuestOriginDetail(row)">
-                <span class="left">
-                  <i class="dot" [style.background-color]="getPaletteColor(idx)"></i>
-                  {{ row.country }}
-                </span>
+                <span class="left">{{ row.country }}</span>
                 <span class="right">{{ formatPercent(row.pct) }}</span>
               </button>
             </div>
@@ -362,14 +322,10 @@
               </div>
             </header>
 
-            <div class="line-chart" *ngIf="getOccupancyRateSeries().length > 0; else occupancyLineEmpty">
-              <svg viewBox="0 0 680 220" preserveAspectRatio="none">
-                <path class="area-fill gold" [attr.d]="getAreaPath(getOccupancyRateSeries())"></path>
-                <path class="line-stroke gold" [attr.d]="getLinePath(getOccupancyRateSeries())"></path>
-              </svg>
-              <div class="x-labels">
-                <span *ngFor="let label of getOccupancyRateLabels(); trackBy: trackByIndex">{{ label }}</span>
-              </div>
+            <!-- El eje va de 0 a 100 y no al maximo de la serie: si no, un mes flojo
+                 llenaria la grafica y pareceria un lleno total. -->
+            <div class="chart-canvas" *ngIf="hasOccupancyRate; else occupancyLineEmpty">
+              <p-chart type="line" [data]="occupancyRateData" [options]="occupancyRateOptions"></p-chart>
             </div>
             <ng-template #occupancyLineEmpty>
               <p class="empty-inline">No hay historico mensual de ocupacion.</p>
@@ -418,15 +374,8 @@
               </div>
             </header>
 
-            <div class="bars-vertical" *ngIf="(occupancyReport?.occupied_rooms_by_month || []).length > 0; else occupiedEmpty">
-              <div
-                class="bar-col"
-                *ngFor="let row of occupancyReport?.occupied_rooms_by_month || []; trackBy: trackByIndex">
-                <div
-                  class="bar-fill dark"
-                  [style.height]="getBarHeight(row.rooms, getMaxValue(getOccupiedRoomsSeries()))"></div>
-                <span>{{ row.month }}</span>
-              </div>
+            <div class="chart-canvas" *ngIf="hasOccupiedRooms; else occupiedEmpty">
+              <p-chart type="bar" [data]="occupiedRoomsData" [options]="occupiedRoomsOptions"></p-chart>
             </div>
             <ng-template #occupiedEmpty>
               <p class="empty-inline">Sin historico de habitaciones ocupadas.</p>
@@ -480,21 +429,8 @@
               </div>
             </header>
 
-            <div class="bars-horizontal" *ngIf="(servicesReport?.income_by_category || []).length > 0; else servicesIncomeEmpty">
-              <button
-                type="button"
-                class="h-row"
-                *ngFor="let row of servicesReport?.income_by_category || []; let idx = index; trackBy: trackByIndex"
-                (click)="openServiceCategoryDetail({ category: row.category, income: row.amount, transactions: 0, average_ticket: 0, share_pct: 0, trend_pct: null })">
-                <span class="label">{{ row.category }}</span>
-                <div class="track">
-                  <div
-                    class="fill"
-                    [style.width]="getBarWidth(row.amount, getMaxValue(getServicesIncomeSeries()))"
-                    [style.background-color]="getPaletteColor(idx)"></div>
-                </div>
-                <span class="value">{{ formatCompactCurrency(row.amount) }}</span>
-              </button>
+            <div class="chart-canvas" *ngIf="hasServicesIncome; else servicesIncomeEmpty">
+              <p-chart type="bar" [data]="servicesIncomeData" [options]="servicesIncomeOptions"></p-chart>
             </div>
             <ng-template #servicesIncomeEmpty>
               <p class="empty-inline">No hay ingresos por categoria.</p>
@@ -509,16 +445,8 @@
               </div>
             </header>
 
-            <div class="bars-vertical" *ngIf="(servicesReport?.transactions_by_category || []).length > 0; else servicesTxEmpty">
-              <div
-                class="bar-col"
-                *ngFor="let row of servicesReport?.transactions_by_category || []; let idx = index; trackBy: trackByIndex">
-                <div
-                  class="bar-fill"
-                  [style.height]="getBarHeight(row.transactions, getMaxValue(getServicesTransactionsSeries()))"
-                  [style.background-color]="getPaletteColor(idx)"></div>
-                <span>{{ row.category }}</span>
-              </div>
+            <div class="chart-canvas" *ngIf="hasServicesTransactions; else servicesTxEmpty">
+              <p-chart type="bar" [data]="servicesTransactionsData" [options]="servicesTransactionsOptions"></p-chart>
             </div>
             <ng-template #servicesTxEmpty>
               <p class="empty-inline">Sin transacciones por categoria.</p>

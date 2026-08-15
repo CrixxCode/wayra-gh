@@ -50,6 +50,23 @@ class HotelSettings(models.Model):
     # Código postal
     postal_code = models.CharField(max_length=20, blank=True, null=True)
 
+    # Punto exacto en el mapa.
+    #
+    # La dirección escrita no basta para ubicar un hotel: "carrera 14a # 27b 28" puede
+    # geocodificarse a media cuadra de distancia, y en un pueblo pequeño a varias. Por eso
+    # el usuario puede corregir el punto a mano en el mapa, y lo que manda es lo que quedó
+    # guardado aquí.
+    #
+    # `Decimal` y no `Float`: la latitud/longitud es un dato que se compara y se muestra,
+    # y el binario flotante arrastra error de redondeo al guardarse y releerse. Seis
+    # decimales dan ~11 cm, de sobra para señalar una puerta.
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, blank=True, null=True
+    )
+    longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, blank=True, null=True
+    )
+
     # Teléfonos
     primary_phone = models.CharField(max_length=30, blank=True, null=True)
     secondary_phone = models.CharField(max_length=30, blank=True, null=True)

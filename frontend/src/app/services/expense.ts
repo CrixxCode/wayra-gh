@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, tap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
+import { CACHE_TTL, ResourceCache } from './resource-cache';
 import {
   CostBehavior,
   ExpenseCreatePayloadI,
@@ -23,8 +24,28 @@ export class ExpenseService {
 
   constructor(
     private http: HttpClient,
-    private auth: AuthService
+    private auth: AuthService,
+    private cache: ResourceCache
   ) {}
+
+  // --------------------------------------------------------------------- cache
+  // Cache-aside con TTL operativo: el gasto se registra a lo largo del dia, y la
+  // vista de finanzas lo cruza con los ingresos para calcular el resultado.
+  //
+  // Un egreso nuevo invalida tambien los informes: el resultado del periodo cambia.
+  private static readonly CACHE_KEY = 'expenses';
+
+  private cacheKey(filters?: Record<string, unknown>): string {
+    const entries = Object.entries(filters || {})
+      .filter(([, value]) => value !== undefined && value !== null && value !== '')
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`);
+    return entries.length ? `${ExpenseService.CACHE_KEY}:${entries.join('&')}` : ExpenseService.CACHE_KEY;
+  }
+
+  private invalidateFinance(): void {
+    this.cache.invalidateAll([ExpenseService.CACHE_KEY, 'reports']);
+  }
 
   listExpenses(filters?: {
     search?: string;
@@ -32,6 +53,8 @@ export class ExpenseService {
     is_active?: boolean;
     include_inactive?: boolean;
     include_deleted?: boolean;
+    /** Salta el cache y lo repuebla: es lo que usa el boton de actualizar. */
+    forceRefresh?: boolean;
   }): Observable<ExpenseI[]> {
     let params = new HttpParams();
 
@@ -55,12 +78,18 @@ export class ExpenseService {
       params = params.set('include_deleted', String(filters.include_deleted));
     }
 
-    return this.http
-      .get<ExpenseI[] | DRFPaginated<ExpenseI>>(this.expensesUrl, {
-        withCredentials: true,
-        params
-      })
-      .pipe(map((res) => this.unwrapArray<ExpenseI>(res)));
+    return this.cache.get(
+      this.cacheKey(filters as Record<string, unknown>),
+      () =>
+        this.http
+          .get<ExpenseI[] | DRFPaginated<ExpenseI>>(this.expensesUrl, {
+            withCredentials: true,
+            params
+          })
+          .pipe(map((res) => this.unwrapArray<ExpenseI>(res))),
+      CACHE_TTL.OPERATIONAL,
+      filters?.forceRefresh
+    );
   }
 
   getExpenseById(id: number): Observable<ExpenseI> {
@@ -72,7 +101,7 @@ export class ExpenseService {
       this.expensesUrl,
       this.normalizeCreatePayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateFinance()));
   }
 
   updateExpense(id: number, payload: Partial<ExpenseCreatePayloadI>): Observable<ExpenseI> {
@@ -80,15 +109,22 @@ export class ExpenseService {
       `${this.expensesUrl}${id}/`,
       this.normalizePatchPayload(payload),
       this.auth.buildCsrfRequestOptions()
-    );
+    ).pipe(tap(() => this.invalidateFinance()));
   }
 
   deleteExpense(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.expensesUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    return this.http.delete<void>(
+      `${this.expensesUrl}${id}/`,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateFinance()));
   }
 
   restoreExpense(id: number): Observable<ExpenseI> {
-    return this.http.post<ExpenseI>(`${this.expensesUrl}${id}/restore/`, {}, this.auth.buildCsrfRequestOptions());
+    return this.http.post<ExpenseI>(
+      `${this.expensesUrl}${id}/restore/`,
+      {},
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateFinance()));
   }
 
   private unwrapArray<T>(res: unknown): T[] {

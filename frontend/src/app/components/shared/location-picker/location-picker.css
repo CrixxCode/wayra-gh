@@ -1,0 +1,233 @@
+/* El CSS de Leaflet **no** puede vivir aqui: va en `styles.css`.
+   Angular encapsula los estilos de componente marcandolos con un atributo de ambito, y
+   solo los elementos del template lo llevan. Leaflet crea sus paneles y teselas en
+   tiempo de ejecucion, sin ese atributo, asi que las reglas encapsuladas no los
+   alcanzaban: los paneles quedaban en `position: static` y las teselas fluian por el
+   documento en vez de colocarse. De ahi el mosaico partido. */
+
+:host {
+  display: block;
+}
+
+.picker {
+  border: 1px solid var(--gh-border);
+  border-radius: 14px;
+  background: var(--gh-surface);
+  overflow: hidden;
+}
+
+.picker-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--gh-border-soft);
+}
+
+.picker-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.picker-icon {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--gh-status-orange-bg);
+  color: var(--gh-status-orange-text);
+  font-size: 14px;
+}
+
+.picker-title h3 {
+  margin: 0;
+  color: var(--gh-text-strong);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.picker-title p {
+  margin: 3px 0 0;
+  color: var(--gh-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.picker-btn {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 13px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+.picker-btn:hover:not(:disabled) {
+  border-color: var(--gh-brand);
+  background: var(--gh-surface-soft);
+}
+
+.picker-btn.is-primary {
+  border-color: transparent;
+  background: var(--gh-brand);
+  color: var(--gh-on-brand);
+}
+
+.picker-btn.is-accent {
+  border-color: #bcd4f7;
+  background: var(--gh-status-info-bg);
+  color: var(--gh-status-info-text);
+}
+
+.picker-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* El pin, dibujado con CSS.
+   `::ng-deep` porque Leaflet inserta el marcador fuera del arbol del componente, asi que
+   el encapsulado de Angular no llega a el. */
+::ng-deep .hotel-pin-wrapper {
+  background: transparent;
+  border: 0;
+}
+
+::ng-deep .hotel-pin {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid #ffffff;
+  /* La gota clasica: circulo con una esquina en punta hacia abajo. */
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 13px;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.35);
+  cursor: grab;
+}
+
+::ng-deep .hotel-pin i {
+  /* Contrarresta el giro del contenedor para que el icono quede derecho. */
+  transform: rotate(45deg);
+}
+
+::ng-deep .leaflet-marker-draggable .hotel-pin:active {
+  cursor: grabbing;
+}
+
+.map-frame {
+  position: relative;
+}
+
+.map-host {
+  height: 320px;
+  width: 100%;
+  background: var(--gh-surface-soft);
+}
+
+.map-loading {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-muted);
+  font-size: 13px;
+}
+
+/* La pista se queda sobre el mapa pero no se come los clics: fijar el punto es
+   justamente lo que el usuario intenta hacer al pulsar ahi. */
+.map-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 500;
+}
+
+.picker-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--gh-border-soft);
+  background: var(--gh-surface-soft);
+}
+
+.coords {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gh-text-strong);
+  font-size: 13px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.coords.is-empty {
+  color: var(--gh-text-muted);
+  font-weight: 500;
+}
+
+.picker-message {
+  margin: 0;
+  color: var(--gh-text-muted);
+  font-size: 12px;
+}
+
+.picker-message.is-error {
+  color: var(--gh-status-danger-text);
+}
+
+.is-spinning {
+  animation: picker-spin 0.9s linear infinite;
+}
+
+@keyframes picker-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning {
+    animation: none;
+  }
+}

@@ -1,4 +1,5 @@
 <div class="income-page">
+  <ng-container *ngIf="!embedded">
   <header class="page-header">
     <div>
       <h1>Consolidado de Ingresos</h1>
@@ -12,7 +13,9 @@
       </button>
     </div>
   </header>
+  </ng-container>
 
+  <ng-container *ngIf="!embedded">
   <section class="stats-grid">
     <article class="stat-card">
       <div class="stat-head">
@@ -50,6 +53,7 @@
       <div class="stat-note">ticket promedio: {{ averageTicketLabel }}</div>
     </article>
   </section>
+  </ng-container>
 
   <section class="gh-filters-card income-controls">
     <div class="gh-filters-grid income-filters-grid">
@@ -61,13 +65,14 @@
             class="gh-search-input"
             type="text"
             [(ngModel)]="search"
-            (input)="applyFilters()"
+            (input)="onSearchInput()"
             [disabled]="!hotelSettingsId"
             placeholder="Buscar por factura, huesped, metodo o referencia..." />
         </div>
       </label>
 
-      <label class="gh-filter-field">
+      <!-- Empotrado, el periodo lo manda el contenedor. -->
+      <label class="gh-filter-field" *ngIf="!embedded">
         <span>Periodo</span>
         <select class="gh-filter-select" [(ngModel)]="periodFilter" (change)="applyFilters()" [disabled]="!hotelSettingsId">
           <option *ngFor="let option of periodOptions" [ngValue]="option.value">{{ option.label }}</option>
@@ -90,114 +95,221 @@
     </div>
 
     <div class="gh-filters-actions">
-      <div class="gh-view-toggle">
+      <div class="gh-seg">
         <button
           type="button"
           [class.active]="viewMode === 'daily'"
           (click)="setViewMode('daily')"
-          title="Consolidado diario">
-          <i class="fa-solid fa-table"></i>
+          title="Por dia">
+          <i class="fa-solid fa-calendar-day"></i>
+          <span>Por dia</span>
         </button>
         <button
           type="button"
           [class.active]="viewMode === 'methods'"
           (click)="setViewMode('methods')"
-          title="Consolidado por metodos">
-          <i class="fa-solid fa-chart-pie"></i>
+          title="Por metodo de pago">
+          <i class="fa-solid fa-credit-card"></i>
+          <span>Por metodo</span>
         </button>
       </div>
 
       <div class="gh-action-group">
+        <button
+          type="button"
+          class="gh-btn gh-btn-light"
+          (click)="exportCsv()"
+          [disabled]="!hasResults">
+          <i class="fa-solid fa-file-csv"></i>
+          Exportar
+        </button>
         <button type="button" class="gh-btn gh-btn-light" (click)="refreshIncomeData()" [disabled]="loading || !hotelSettingsId">
-          <i class="fa-solid fa-rotate-right"></i>
+          <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
           Actualizar
         </button>
       </div>
     </div>
   </section>
 
-  <section class="state-message" *ngIf="loading || errorMessage || infoMessage || !hasResults">
+  <section class="state-message" *ngIf="loading || errorMessage || (!hasResults && !loading)">
     <p *ngIf="loading">Cargando consolidado de ingresos...</p>
     <p class="error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
-    <p class="info" *ngIf="!loading && !errorMessage && infoMessage">{{ infoMessage }}</p>
-    <p *ngIf="!loading && !errorMessage && !infoMessage && !hasResults">
+    <p *ngIf="!loading && !errorMessage && !hasResults">
       No hay ingresos para los filtros seleccionados.
     </p>
   </section>
 
-  <section class="table-card" *ngIf="renderReady && !loading && !errorMessage && dailyRows.length > 0 && viewMode === 'daily'">
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Transacciones</th>
-            <th>Activas</th>
-            <th>Inactivas</th>
-            <th>Total ingresos</th>
-            <th>Ticket promedio</th>
-            <th>Metodo principal</th>
-            <th>Huesped principal</th>
-          </tr>
-        </thead>
+  <!-- La lectura del periodo, antes de cualquier fila: cuanto entro, a que ritmo y por
+       donde. La tabla obligaba a sumar ocho columnas a ojo para saber esto. -->
+  <section class="income-readout" *ngIf="renderReady && hasResults && !errorMessage" [class.is-dim]="refreshing">
+    <div class="readout-main">
+      <span>Entro en el periodo</span>
+      <strong>{{ formatMoney(periodTotal) }}</strong>
+      <small>{{ dailyRows.length }} dia(s) con movimiento &middot; {{ formatMoney(dailyAverage) }} al dia de media</small>
+    </div>
 
-        <tbody>
-          <tr *ngFor="let row of dailyRows; trackBy: trackByDailyRow">
-            <td>
-              <p class="table-main">{{ row.dateLabel }}</p>
-              <small>{{ row.dateKey }}</small>
-            </td>
-            <td>{{ formatTransactions(row.transactions) }}</td>
-            <td>{{ formatTransactions(row.activeTransactions) }}</td>
-            <td>{{ formatTransactions(row.inactiveTransactions) }}</td>
-            <td>
-              <p class="table-main">{{ row.totalAmount | currency: 'COP':'symbol':'1.0-0':'es-CO' }}</p>
-            </td>
-            <td>{{ row.averageTicket | currency: 'COP':'symbol':'1.0-0':'es-CO' }}</td>
-            <td>{{ row.topMethod }}</td>
-            <td>{{ row.topGuest }}</td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="readout-side" *ngIf="bestDay">
+      <span>Mejor dia</span>
+      <strong>{{ bestDay.dateLabel }}</strong>
+      <small>{{ formatMoney(bestDay.totalAmount) }} en {{ formatTransactions(bestDay.transactions) }} cobro(s)</small>
+    </div>
+
+    <div class="readout-side" *ngIf="topMethodRow">
+      <span>Sobre todo por</span>
+      <strong>{{ topMethodRow.methodLabel }}</strong>
+      <small>{{ formatShare(topMethodRow.sharePercent) }} de lo cobrado</small>
     </div>
   </section>
 
-  <section class="method-grid" *ngIf="renderReady && !loading && !errorMessage && methodRows.length > 0 && viewMode === 'methods'">
+  <!-- Cada dia es una barra: el dia mas alto marca el 100% y el resto se compara con el.
+       Comparar ocho columnas de cifras a ojo era el trabajo que hacia el usuario. -->
+  <section
+    class="day-list"
+    *ngIf="renderReady && !errorMessage && dailyRows.length > 0 && viewMode === 'daily'"
+    [class.is-dim]="refreshing">
     <article
-      class="method-card"
-      *ngFor="let row of methodRows; trackBy: trackByMethodRow; let index = index"
-      [ngStyle]="{ 'background-color': getMethodCardTone(index).bg }">
-      <header class="method-head">
-        <div>
-          <span class="method-code">MET-{{ index + 1 }}</span>
-          <small>{{ row.methodLabel }}</small>
-        </div>
+      class="day-row"
+      *ngFor="let row of dailyRows; trackBy: trackByDailyRow"
+      [class.is-best]="isBestDay(row)"
+      [class.is-clickable]="row.dateKey !== 'SIN_FECHA'"
+      [attr.role]="row.dateKey !== 'SIN_FECHA' ? 'button' : null"
+      [attr.tabindex]="row.dateKey !== 'SIN_FECHA' ? 0 : null"
+      (click)="openDayDetail(row)"
+      (keydown.enter)="openDayDetail(row)"
+      (keydown.space)="openDayDetail(row)">
+      <div class="day-when">
+        <strong>{{ row.dateLabel }}</strong>
+        <small>{{ weekdayLabel(row.dateKey) }}</small>
+      </div>
 
-        <span class="share-chip" [ngStyle]="{ color: getMethodCardTone(index).accent }">
-          {{ formatShare(row.sharePercent) }}
+      <div class="day-bar-wrap">
+        <div class="day-bar">
+          <i [style.width.%]="dailyShare(row)"></i>
+        </div>
+        <p class="day-meta">
+          <span>{{ formatTransactions(row.transactions) }} cobro(s)</span>
+          <span>Ticket {{ formatMoney(row.averageTicket) }}</span>
+          <span>{{ row.topMethod }}</span>
+          <span class="is-soft" *ngIf="row.inactiveTransactions > 0">
+            {{ formatTransactions(row.inactiveTransactions) }} anulado(s)
+          </span>
+        </p>
+      </div>
+
+      <div class="day-amount">
+        <strong>{{ formatMoney(row.totalAmount) }}</strong>
+        <small>{{ row.topGuest }}</small>
+        <span class="day-open" *ngIf="row.dateKey !== 'SIN_FECHA'">
+          Ver los cobros <i class="fa-solid fa-chevron-right"></i>
         </span>
-      </header>
+      </div>
+    </article>
+  </section>
 
-      <div class="method-body">
-        <div class="concept-block">
-          <h3>{{ row.methodLabel }}</h3>
-          <p>Total ingresos del metodo en el periodo seleccionado.</p>
-        </div>
-
-        <div class="meta-row">
-          <span>Transacciones: {{ formatTransactions(row.transactions) }}</span>
-          <span>Activas: {{ formatTransactions(row.activeTransactions) }}</span>
-          <span>Inactivas: {{ formatTransactions(row.inactiveTransactions) }}</span>
-          <span>Ticket promedio: {{ row.averageTicket | currency: 'COP':'symbol':'1.0-0':'es-CO' }}</span>
+  <!-- Los metodos son un reparto, no tarjetas sueltas: puestos en fila se comparan. -->
+  <section
+    class="method-list"
+    *ngIf="renderReady && !errorMessage && methodRows.length > 0 && viewMode === 'methods'"
+    [class.is-dim]="refreshing">
+    <article
+      class="method-row"
+      *ngFor="let row of methodRows; trackBy: trackByMethodRow; let index = index"
+      [style.--met-tone]="getMethodCardTone(index).accent">
+      <div class="method-name">
+        <span class="method-dot"></span>
+        <div>
+          <strong>{{ row.methodLabel }}</strong>
+          <small>{{ formatTransactions(row.transactions) }} cobro(s) &middot; ticket {{ formatMoney(row.averageTicket) }}</small>
         </div>
       </div>
 
-      <footer class="method-foot">
-        <div>
-          <small>Total ingresos</small>
-          <strong>{{ row.totalAmount | currency: 'COP':'symbol':'1.0-0':'es-CO' }}</strong>
+      <div class="method-bar-wrap">
+        <div class="method-bar">
+          <i [style.width.%]="row.sharePercent"></i>
         </div>
-      </footer>
+        <small>{{ formatShare(row.sharePercent) }} de lo cobrado</small>
+      </div>
+
+      <div class="method-amount">
+        <strong>{{ formatMoney(row.totalAmount) }}</strong>
+        <small *ngIf="row.inactiveTransactions > 0">
+          {{ formatTransactions(row.inactiveTransactions) }} anulado(s)
+        </small>
+      </div>
     </article>
   </section>
+
+  <!-- Detalle del dia: de donde salio cada peso de esa fila. -->
+  <div class="gh-modal-overlay" *ngIf="dayDetail" (click)="closeDayDetail()">
+    <div
+      class="gh-modal day-modal"
+      role="dialog"
+      aria-modal="true"
+      (click)="$event.stopPropagation()">
+      <header class="gh-modal-head">
+        <div>
+          <h2>Cobros del {{ dayDetail.dateLabel }}</h2>
+          <p>{{ weekdayLabel(dayDetail.dateKey) }}</p>
+        </div>
+
+        <button type="button" class="gh-modal-close" (click)="closeDayDetail()" aria-label="Cerrar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </header>
+
+      <div class="gh-modal-body">
+        <section class="day-modal-sum">
+          <div>
+            <span>Entro ese dia</span>
+            <strong>{{ formatMoney(dayDetailTotal) }}</strong>
+          </div>
+          <div>
+            <span>Cobros</span>
+            <strong>{{ formatTransactions(dayPayments.length) }}</strong>
+          </div>
+          <div *ngIf="dayDetailVoided > 0">
+            <span>Anulados</span>
+            <strong class="is-off">{{ formatTransactions(dayDetailVoided) }}</strong>
+          </div>
+        </section>
+
+        <p class="day-modal-note" *ngIf="!loadingDayDetail && !dayDetailError && dayPayments.length && !dayDetailMatchesRow">
+          El total de arriba no coincide con la fila porque la lista esta filtrada por
+          metodo o por busqueda, y este detalle trae todos los cobros del dia.
+        </p>
+
+        <p class="day-modal-state" *ngIf="loadingDayDetail">Cargando los cobros del dia...</p>
+        <p class="day-modal-state is-error" *ngIf="!loadingDayDetail && dayDetailError">
+          {{ dayDetailError }}
+        </p>
+        <p class="day-modal-state" *ngIf="!loadingDayDetail && !dayDetailError && !dayPayments.length">
+          No hay cobros registrados en este dia.
+        </p>
+
+        <ul class="day-modal-list" *ngIf="!loadingDayDetail && dayPayments.length">
+          <li
+            *ngFor="let payment of dayPayments; trackBy: trackByPayment"
+            [class.is-off]="payment.is_active === false">
+            <div class="pay-main">
+              <strong>{{ payment.invoice_number || 'Factura sin numero' }}</strong>
+              <small>
+                {{ payment.payment_method_name || 'Sin metodo' }}
+                <ng-container *ngIf="paymentTime(payment)"> &middot; {{ paymentTime(payment) }}</ng-container>
+                <ng-container *ngIf="payment.reference"> &middot; ref. {{ payment.reference }}</ng-container>
+              </small>
+              <small class="pay-who" *ngIf="payment.created_by_username">
+                Lo registro {{ payment.created_by_username }}
+              </small>
+              <small class="pay-notes" *ngIf="payment.notes">{{ payment.notes }}</small>
+            </div>
+
+            <div class="pay-amount">
+              <strong>{{ paymentAmount(payment) }}</strong>
+              <small *ngIf="payment.is_active === false">Anulado</small>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
 </div>

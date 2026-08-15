@@ -577,13 +577,17 @@ def _collect_declared_scopes():
                 # al menos, su `required_scopes` de clase.
                 continue
 
+        # `HasResourcePermission` solo agrega `<scope>_deleted` si la vista sabe resolver
+        # `include_deleted` --lo que aporta `LogicalDeleteViewSetMixin`--. Darlo por hecho
+        # para toda lectura exigia sembrar permisos que no existen: la auditoria, por
+        # ejemplo, no tiene borrado logico que consultar.
+        supports_deleted = callable(getattr(view_class, "_should_include_deleted", None))
+
         for scope in declared:
             if not isinstance(scope, str) or not scope:
                 continue
             scopes.add(scope)
-            # `HasResourcePermission` agrega `<scope>_deleted` en las lecturas con
-            # ?include_deleted=true, aunque la vista no lo declare.
-            if scope.endswith(".read"):
+            if supports_deleted and scope.endswith(".read"):
                 scopes.add(f"{scope}_deleted")
 
     def walk(patterns):
@@ -621,9 +625,9 @@ class SeedRbacCoverageTests(TestCase):
         "/catalogo-comercial",
         # Igual facturas, pagos y reembolsos.
         "/facturacion",
-        "/consolidado-ingresos",
+        # Ingresos y egresos viven en una sola ruta; control financiero sigue aparte.
+        "/finanzas",
         "/control-financiero",
-        "/egresos",
         # Igual items, dotacion por habitacion y movimientos.
         "/inventario",
         # Igual limpieza y mantenimiento.

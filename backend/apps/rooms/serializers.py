@@ -9,8 +9,17 @@ from apps.reservations.services import (
     INACTIVE_RESERVATION_STATUS_CODES,
     is_reservation_in_house,
 )
-from .models import Rate, Amenity, Room, MaintenanceOrder, CleaningTask, RoomType
+from .models import (
+    Rate,
+    Amenity,
+    Room,
+    MaintenanceOrder,
+    CleaningTask,
+    RecurringWork,
+    RoomType,
+)
 from .operations import EMPTY_SIGNALS, build_room_operations_map
+from .recurrence import first_run_on
 
 AMENITY_ICON_CATALOG = {
     "fa-solid fa-bed",
@@ -832,3 +841,121 @@ class RoomPanelSerializer(serializers.ModelSerializer):
             },
         }
 
+
+
+class RecurringWorkSerializer(TenantSerializerMixin, serializers.ModelSerializer):
+    """Regla de trabajo periodico.
+
+    `next_run_on` es de solo lectura: lo calcula el servidor al crear y lo adelanta el
+    comando al generar. Dejarlo escribir permitiria adelantar o repetir trabajo saltandose
+    la periodicidad, que es justo lo que la regla existe para garantizar.
+    """
+
+    tenant_field_name = "hotel_settings"
+
+    hotel_settings = serializers.PrimaryKeyRelatedField(
+        queryset=HotelSettings.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    room_number = serializers.CharField(source="room.number", read_only=True)
+    task_type = MasterDataCodeField(
+        group=MasterData.Group.CLEANING_TASK_TYPE,
+        allow_null=True,
+        required=False,
+    )
+    priority = MasterDataCodeField(
+        group=MasterData.Group.MAINTENANCE_PRIORITY,
+        allow_null=True,
+        required=False,
+    )
+    task_type_label = serializers.CharField(source="task_type.name", read_only=True)
+    priority_label = serializers.CharField(source="priority.name", read_only=True)
+
+    class Meta:
+        model = RecurringWork
+        fields = (
+            "id",
+            "hotel_settings",
+            "room",
+            "room_number",
+            "kind",
+            "name",
+            "task_type",
+            "task_type_label",
+            "priority",
+            "priority_label",
+            "notes",
+            "frequency",
+            "interval",
+            "weekday",
+            "day_of_month",
+            "starts_on",
+            "ends_on",
+            "next_run_on",
+            "last_generated_on",
+            "generated_count",
+            "is_active",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "next_run_on",
+            "last_generated_on",
+            "generated_count",
+            "created_at",
+            "updated_at",
+        )
+
+    def resolve_target_tenant(self, attrs):
+        tenant = super().resolve_target_tenant(attrs)
+        if tenant is not None:
+            return tenant
+
+        room = attrs.get("room", getattr(self.instance, "room", None))
+        floor = getattr(room, "floor", None)
+        return getattr(floor, "hotel_settings", None)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        instance = RecurringWork(
+            **{
+                field: attrs.get(field, getattr(self.instance, field, None))
+                for field in (
+                    "kind",
+                    "frequency",
+                    "interval",
+                    "weekday",
+                    "day_of_month",
+                    "starts_on",
+                    "ends_on",
+                )
+            }
+        )
+        instance.task_type = attrs.get("task_type", getattr(self.instance, "task_type", None))
+        instance.full_clean(exclude=[f.name for f in RecurringWork._meta.fields if f.name not in (
+            "kind", "frequency", "interval", "weekday", "day_of_month", "starts_on", "ends_on"
+        )])
+
+        return attrs
+
+    def create(self, validated_data):
+        rule = RecurringWork(**validated_data)
+        # La primera fecha la calcula el servidor: una regla semanal que arranca un
+        # miercoles pero corre los lunes toca por primera vez el lunes siguiente.
+        rule.next_run_on = first_run_on(rule)
+        rule.save()
+        return rule
+
+    def update(self, instance, validated_data):
+        rule = super().update(instance, validated_data)
+
+        # Si cambio la periodicidad, la proxima fecha que habia deja de tener sentido.
+        recalculated = {"frequency", "interval", "weekday", "day_of_month", "starts_on"}
+        if recalculated & set(validated_data.keys()):
+            rule.next_run_on = first_run_on(rule)
+            rule.save(update_fields=["next_run_on", "updated_at"])
+
+        return rule

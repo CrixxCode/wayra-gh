@@ -28,6 +28,12 @@ import {
   loadHotelCountries,
 } from '../../../shared/hotel-location-options';
 import { HotelFloor, HotelSettings as HotelSettingsModel } from './hotel-setting-model';
+import {
+  LocationPicker,
+  LocationValue,
+  ResolvedAddress
+} from '../../shared/location-picker/location-picker';
+import { SitePreview } from '../../shared/site-preview/site-preview';
 
 type SettingsTab = 'general' | 'contact' | 'structure' | 'operation' | 'policies' | 'payments';
 type SettingsForm = {
@@ -44,6 +50,8 @@ type SettingsForm = {
   city: string;
   state: string;
   country: string;
+  latitude: number | null;
+  longitude: number | null;
   primary_phone: string;
   secondary_phone: string;
   general_email: string;
@@ -82,7 +90,7 @@ type FinancialConfigForm = {
 @Component({
   selector: 'app-hotel-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LocationPicker, SitePreview],
   templateUrl: './hotel-settings.html',
   styleUrl: './hotel-settings.css',
 })
@@ -925,6 +933,90 @@ export class HotelSettings implements OnInit {
     );
   }
 
+  /**
+   * El mapa dedujo la direccion desde la ubicacion del dispositivo.
+   *
+   * Pais, departamento y ciudad son desplegables con catalogo propio, asi que no se
+   * asignan a ciegas: solo se acepta lo que exista en la lista, y en cascada --el
+   * departamento depende del pais, y la ciudad del departamento--. Lo que el
+   * geocodificador nombre de otra forma se queda como estaba, para que el usuario lo
+   * elija; pisarlo con un valor que el desplegable no reconoce dejaria el campo en
+   * blanco, que es peor que dejarlo como estaba.
+   */
+  async onAddressResolved(resolved: ResolvedAddress): Promise<void> {
+    if (resolved.address) this.form.address = resolved.address;
+
+    const country = this.matchOption(
+      resolved.country,
+      this.locationCountries.map((item) => item.name)
+    );
+    if (country && country !== this.form.country) {
+      this.form.country = country;
+      await this.onCountryChange();
+    }
+
+    const state = this.matchOption(
+      resolved.state,
+      this.locationDepartments.map((item) => item.name)
+    );
+    if (state && state !== this.form.state) {
+      this.form.state = state;
+      await this.onStateChange();
+    }
+
+    const city = this.matchOption(resolved.city, this.locationCities);
+    if (city) this.form.city = city;
+  }
+
+  /** El valor del catalogo que corresponde, ignorando mayusculas y acentos. */
+  private matchOption(value: string, options: string[]): string | null {
+    const target = this.normalizeForMatch(value);
+    if (!target) return null;
+    return options.find((option) => this.normalizeForMatch(option) === target) || null;
+  }
+
+  private normalizeForMatch(value: string): string {
+    return String(value || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      // Quita los diacriticos: "Bogota" y "Bogotá" son el mismo sitio.
+      .replace(/[̀-ͯ]/g, '');
+  }
+
+  /**
+   * Guarda la direccion completa en vez de lo tecleado a medias.
+   *
+   * Casi nadie escribe `https://`, y una URL sin esquema guardada tal cual se resuelve
+   * como ruta relativa alla donde se use --un enlace a `hotelwayra.com` acabaria
+   * apuntando a `.../hotelwayra.com` dentro de nuestro propio dominio--.
+   */
+  onWebsiteNormalized(url: string): void {
+    this.form.website = url;
+  }
+
+  get hasHotelCoordinates(): boolean {
+    return this.form.latitude !== null && this.form.longitude !== null;
+  }
+
+  get hotelCoordinatesLabel(): string {
+    if (!this.hasHotelCoordinates) return '';
+    return `${Number(this.form.latitude).toFixed(6)}, ${Number(this.form.longitude).toFixed(6)}`;
+  }
+
+  /** El mapa devolvio un punto: se guarda con el resto de la configuracion. */
+  onLocationChange(location: LocationValue): void {
+    this.form.latitude = location.latitude;
+    this.form.longitude = location.longitude;
+  }
+
+  /** Una coordenada valida, o `null`. Cadena vacia y basura caen a `null`. */
+  private toCoordinate(value: string | number | null | undefined): number | null {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
   private applySettings(settings: HotelSettingsModel | null): void {
     if (!settings) {
       this.settingsId = null;
@@ -950,6 +1042,10 @@ export class HotelSettings implements OnInit {
       tax_rate: Number(settings.tax_rate ?? 0),
       check_in_time: this.normalizeTime(settings.check_in_time, '14:00'),
       check_out_time: this.normalizeTime(settings.check_out_time, '12:00'),
+      // DRF serializa los `Decimal` como texto: sin convertirlos, el mapa recibiria
+      // "11.544400" donde espera un numero y no sabria centrarse.
+      latitude: this.toCoordinate(settings.latitude),
+      longitude: this.toCoordinate(settings.longitude),
     };
     this.syncLocationOptions();
 
@@ -1487,6 +1583,10 @@ export class HotelSettings implements OnInit {
       city: this.emptyAsUndefined(this.form.city),
       state: this.emptyAsUndefined(this.form.state),
       country: this.emptyAsUndefined(this.form.country),
+      // `null` explicito y no `undefined`: borrar la ubicacion tiene que llegar al
+      // backend como "quitala", no como "no la toques".
+      latitude: this.form.latitude,
+      longitude: this.form.longitude,
       primary_phone: this.emptyAsUndefined(this.form.primary_phone),
       secondary_phone: this.emptyAsUndefined(this.form.secondary_phone),
       general_email: this.emptyAsUndefined(this.form.general_email),
@@ -1761,6 +1861,8 @@ export class HotelSettings implements OnInit {
       city: '',
       state: '',
       country: '',
+      latitude: null,
+      longitude: null,
       primary_phone: '',
       secondary_phone: '',
       general_email: '',

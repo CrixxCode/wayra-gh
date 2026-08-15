@@ -28,6 +28,9 @@ export interface HotelSettings {
     city?: string;
     state?: string;
     country?: string;
+    /** Punto exacto en el mapa. El backend los manda como texto decimal. */
+    latitude?: string | number | null;
+    longitude?: string | number | null;
 
     // Contacto
     primary_phone?: string;

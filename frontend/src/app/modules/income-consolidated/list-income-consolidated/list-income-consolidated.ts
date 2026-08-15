@@ -1,7 +1,22 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  EventEmitter,
+  HostListener,
+  Input,
+  NgZone,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  Output,
+  SimpleChanges
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { catchError, forkJoin, of } from 'rxjs';
+import { Subject, catchError, debounceTime, forkJoin, of, takeUntil } from 'rxjs';
+import { MotionService } from '../../../services/motion';
 import {
   IncomeConsolidatedDailyRow,
   IncomeConsolidatedMethodRow,
@@ -13,6 +28,8 @@ import { ReportsService } from '../../../services/reports';
 import { AuthService, MeResponse } from '../../../services/auth/auth';
 import { HotelSettingsService } from '../../../services/hotel-settings';
 import { HotelContextService } from '../../../services/hotel-context';
+import { BillingService } from '../../../services/billing';
+import { PaymentI } from '../../billing/billing-model';
 
 type IncomeActivityFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 type IncomePeriodFilter = 'ALL' | 'TODAY' | 'LAST_7_DAYS' | 'THIS_MONTH' | 'THIS_YEAR';
@@ -49,8 +66,33 @@ type MethodIncomeRow = {
   styleUrls: ['./list-income-consolidated.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ListIncomeConsolidated implements OnInit {
+export class ListIncomeConsolidated implements OnInit, OnChanges, OnDestroy {
+  /** Dentro del contenedor de finanzas: sin encabezado ni metricas propias. */
+  @Input() embedded = false;
+
+  /**
+   * Rango que impone el contenedor (dias sueltos `YYYY-MM-DD`, vacios = todo).
+   *
+   * Manda sobre el selector de periodo propio: las tres pestañas de finanzas tienen que
+   * mirar lo mismo o sus cifras no se pueden comparar.
+   */
+  @Input() rangeFrom = '';
+  @Input() rangeTo = '';
+
+  /** Un cambio aqui mueve el resultado que ensena el contenedor. */
+  @Output() changed = new EventEmitter<void>();
+
+  /** Primera carga: la vista aun no tiene nada que ensenar. */
   loading = false;
+
+  /**
+   * Recargas posteriores: hay datos en pantalla y se atenuan mientras llegan los nuevos.
+   *
+   * Antes toda consulta blanqueaba la vista y la reconstruia, asi que teclear en el
+   * buscador la hacia parpadear entera.
+   */
+  refreshing = false;
+
   errorMessage = '';
   infoMessage = '';
 
@@ -87,16 +129,152 @@ export class ListIncomeConsolidated implements OnInit {
     { value: 'ALL', label: 'Todo el historico' },
   ];
 
+  /**
+   * El buscador escribe aqui, no en la API.
+   *
+   * Antes cada tecla disparaba una consulta al consolidado --una agregacion sobre todos
+   * los pagos del periodo--. Escribir "Juan" eran cuatro. De ahi la lentitud.
+   */
+  private readonly searchInput = new Subject<void>();
+  private readonly destroyed = new Subject<void>();
+  private revealFrame: number | null = null;
+
   constructor(
     private reportsService: ReportsService,
     private authService: AuthService,
     private hotelSettingsService: HotelSettingsService,
     private hotelContextService: HotelContextService,
+    private billingService: BillingService,
+    private motion: MotionService,
+    private hostRef: ElementRef<HTMLElement>,
+    private zone: NgZone,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
+    this.searchInput
+      .pipe(debounceTime(350), takeUntil(this.destroyed))
+      .subscribe(() => this.fetchIncomeConsolidated());
+
     this.resolveHotelSettingsAndLoad();
+  }
+
+  /** El contenedor cambio de periodo: volver a consultar con el rango nuevo. */
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['rangeFrom'] && !changes['rangeTo']) return;
+    if (!this.hotelSettingsId) return;
+    this.fetchIncomeConsolidated();
+  }
+
+  ngOnDestroy(): void {
+    this.destroyed.next();
+    this.destroyed.complete();
+    if (this.revealFrame !== null) cancelAnimationFrame(this.revealFrame);
+    this.motion.killWithin(this.hostRef.nativeElement);
+  }
+
+  // ----------------------------------------------------------- detalle del dia
+  //
+  // La fila dice cuanto entro ese dia; el modal dice **de donde salio cada peso**. Es la
+  // pregunta que sigue siempre a la anterior --"entraron 200.000, si, pero de quien"-- y
+  // hasta ahora obligaba a irse a la pantalla de pagos y filtrar a mano.
+
+  /** El dia abierto, o `null` si no hay modal. */
+  dayDetail: DailyIncomeRow | null = null;
+  dayPayments: PaymentI[] = [];
+  loadingDayDetail = false;
+  dayDetailError = '';
+
+  openDayDetail(row: DailyIncomeRow): void {
+    // Un dia sin fecha es el cajon de lo que llego sin fecha: no hay detalle que pedir.
+    if (!row.dateKey || row.dateKey === 'SIN_FECHA') return;
+
+    this.dayDetail = row;
+    this.dayPayments = [];
+    this.dayDetailError = '';
+    this.loadingDayDetail = true;
+    this.cdr.markForCheck();
+
+    this.billingService
+      .listPayments({
+        payment_date_after: row.dateKey,
+        payment_date_before: row.dateKey,
+        include_inactive: true,
+        ordering: '-payment_date'
+      })
+      .pipe(
+        catchError(() => {
+          this.loadingDayDetail = false;
+          this.dayDetailError = 'No fue posible cargar el detalle de este dia.';
+          this.cdr.markForCheck();
+          return of(null);
+        })
+      )
+      .subscribe((payments) => {
+        if (!payments) return;
+        this.dayPayments = payments;
+        this.loadingDayDetail = false;
+        this.cdr.markForCheck();
+      });
+  }
+
+  closeDayDetail(): void {
+    this.dayDetail = null;
+    this.dayPayments = [];
+    this.dayDetailError = '';
+    this.cdr.markForCheck();
+  }
+
+  /** Lo cobrado del dia segun el detalle: solo lo vigente, como en el consolidado. */
+  get dayDetailTotal(): number {
+    return this.dayPayments
+      .filter((payment) => payment.is_active !== false)
+      .reduce((sum, payment) => sum + this.toNumber(payment.amount), 0);
+  }
+
+  get dayDetailVoided(): number {
+    return this.dayPayments.filter((payment) => payment.is_active === false).length;
+  }
+
+  /**
+   * El detalle puede no cuadrar con la fila.
+   *
+   * Pasa cuando el consolidado esta filtrado por metodo o por busqueda y el detalle no:
+   * decirlo es mejor que dejar dos cifras distintas sin explicacion.
+   */
+  get dayDetailMatchesRow(): boolean {
+    if (!this.dayDetail) return true;
+    // Sin cobros no hay nada que comparar: avisar de un descuadre aqui seria ruido
+    // encima del "no hay cobros" que ya se esta ensenando.
+    if (!this.dayPayments.length) return true;
+    return Math.abs(this.dayDetailTotal - this.dayDetail.totalAmount) < 1;
+  }
+
+  /** Escape cierra, como en cualquier modal del sistema. */
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.dayDetail) this.closeDayDetail();
+  }
+
+  paymentTime(payment: PaymentI): string {
+    const raw = String(payment.payment_date || '');
+    if (!raw) return '';
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  paymentAmount(payment: PaymentI): string {
+    return this.formatCurrency(this.toNumber(payment.amount));
+  }
+
+  trackByPayment(_: number, payment: PaymentI): number {
+    return payment.id;
+  }
+
+  /** Lo que llama el buscador: espera a que el usuario termine de escribir. */
+  onSearchInput(): void {
+    this.searchInput.next();
   }
 
   get methodOptions(): Array<{ value: string; label: string }> {
@@ -108,6 +286,62 @@ export class ListIncomeConsolidated implements OnInit {
 
   get hasResults(): boolean {
     return this.dailyRows.length > 0 || this.methodRows.length > 0;
+  }
+
+  // ------------------------------------------------------------------- lectura
+  //
+  // Una tabla de ocho columnas obliga a comparar numeros a ojo. Lo que se quiere saber
+  // mirando esto es "que dia entro mas" y "por donde entra la plata", y eso son barras,
+  // no cifras alineadas.
+
+  /** El dia mas alto marca el 100%: las barras se comparan entre si, no contra una meta. */
+  get maxDailyAmount(): number {
+    return this.dailyRows.reduce((max, row) => Math.max(max, row.totalAmount), 0);
+  }
+
+  dailyShare(row: DailyIncomeRow): number {
+    const max = this.maxDailyAmount;
+    if (max <= 0) return 0;
+    return Math.max((row.totalAmount / max) * 100, 2);
+  }
+
+  /** El dia que mas entro, para poder senalarlo. */
+  get bestDay(): DailyIncomeRow | null {
+    if (!this.dailyRows.length) return null;
+    return this.dailyRows.reduce((best, row) => (row.totalAmount > best.totalAmount ? row : best));
+  }
+
+  isBestDay(row: DailyIncomeRow): boolean {
+    return this.bestDay !== null && row.dateKey === this.bestDay.dateKey && row.totalAmount > 0;
+  }
+
+  get periodTotal(): number {
+    return this.dailyRows.reduce((sum, row) => sum + row.totalAmount, 0);
+  }
+
+  /** Lo que entra al dia, de media, contando solo los dias con movimiento. */
+  get dailyAverage(): number {
+    const active = this.dailyRows.filter((row) => row.totalAmount > 0);
+    if (!active.length) return 0;
+    return this.periodTotal / active.length;
+  }
+
+  /** El metodo por el que mas entra: el dato que resume el reparto entero. */
+  get topMethodRow(): MethodIncomeRow | null {
+    if (!this.methodRows.length) return null;
+    return this.methodRows.reduce((top, row) => (row.totalAmount > top.totalAmount ? row : top));
+  }
+
+  formatMoney(value: number): string {
+    return this.formatCurrency(value);
+  }
+
+  /** Solo la parte del dia: la fecha completa ya esta en la fila. */
+  weekdayLabel(dateKey: string): string {
+    if (!dateKey || dateKey === 'SIN_FECHA') return '';
+    const parsed = new Date(`${dateKey}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toLocaleDateString('es-CO', { weekday: 'long' });
   }
 
   loadIncomeData(): void {
@@ -166,6 +400,7 @@ export class ListIncomeConsolidated implements OnInit {
   private fetchIncomeConsolidated(): void {
     if (!this.hotelSettingsId || this.hotelSettingsId <= 0) {
       this.loading = false;
+      this.refreshing = false;
       this.renderReady = false;
       this.errorMessage =
         'No se pudo determinar el hotel activo para consultar el consolidado de ingresos.';
@@ -173,8 +408,10 @@ export class ListIncomeConsolidated implements OnInit {
       return;
     }
 
-    this.loading = true;
-    this.renderReady = false;
+    // Si ya hay algo en pantalla se atenua; solo la primera carga la deja en blanco.
+    if (this.renderReady && this.hasResults) this.refreshing = true;
+    else this.loading = true;
+
     this.errorMessage = '';
     this.infoMessage = '';
 
@@ -186,13 +423,25 @@ export class ListIncomeConsolidated implements OnInit {
       search: String(this.search || '').trim(),
     };
 
+    // El backend quiere las dos puntas juntas o ninguna; con rango impuesto el `period`
+    // pasa a ser irrelevante, pero se manda igual porque el endpoint lo exige valido.
+    if (this.rangeFrom && this.rangeTo) {
+      params.start_date = this.rangeFrom;
+      params.end_date = this.rangeTo;
+    } else if (this.embedded) {
+      // Empotrado sin rango es "todo el historico", no "vuelve a tu mes".
+      params.period = 'ALL';
+    }
+
     this.reportsService
       .getIncomeConsolidatedReport(params)
       .pipe(
         catchError(() => {
           this.loading = false;
-          this.renderReady = false;
-          this.errorMessage = 'No fue posible cargar el consolidado de ingresos.';
+          this.refreshing = false;
+          this.errorMessage = this.hasResults
+            ? 'No fue posible actualizar: se muestra la ultima version cargada.'
+            : 'No fue posible cargar el consolidado de ingresos.';
           this.cdr.markForCheck();
           return of(null);
         })
@@ -410,20 +659,31 @@ export class ListIncomeConsolidated implements OnInit {
     return Number.isNaN(parsed) ? 0 : parsed;
   }
 
+  /**
+   * Antes esto encadenaba dos `requestAnimationFrame` antes de mostrar nada: dos cuadros
+   * de espera que se sumaban a cada consulta sin comprar nada. Se pinta al llegar.
+   */
   private revealContentReady(): void {
-    const schedule = (cb: () => void): void => {
-      if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(() => cb());
-        return;
-      }
-      setTimeout(cb, 0);
-    };
+    this.loading = false;
+    this.refreshing = false;
+    this.renderReady = true;
+    this.cdr.markForCheck();
+    this.scheduleReveal();
+  }
 
-    schedule(() => {
-      schedule(() => {
-        this.loading = false;
-        this.renderReady = true;
-        this.cdr.markForCheck();
+  private scheduleReveal(): void {
+    if (this.motion.prefersReducedMotion) return;
+    if (this.revealFrame !== null) cancelAnimationFrame(this.revealFrame);
+
+    this.zone.runOutsideAngular(() => {
+      this.revealFrame = requestAnimationFrame(() => {
+        this.revealFrame = null;
+        const host = this.hostRef.nativeElement;
+        this.motion.reveal(host.querySelectorAll('.day-row, .method-row'), {
+          stagger: 0.03,
+          y: 10,
+          duration: 0.26
+        });
       });
     });
   }

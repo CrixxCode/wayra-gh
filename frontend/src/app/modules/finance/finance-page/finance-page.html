@@ -1,0 +1,174 @@
+<div class="fin-page">
+  <header class="fin-header">
+    <div class="fin-title">
+      <h1>Finanzas</h1>
+      <p>
+        Lo que entra, lo que sale y lo que queda. Ingresos y egresos eran dos pantallas, y
+        la resta entre ambas --el resultado-- no estaba en ninguna.
+      </p>
+    </div>
+
+    <div class="fin-header-actions">
+      <button type="button" class="fin-new" (click)="createExpense()">
+        <i class="fa-solid fa-plus"></i>
+        Nuevo egreso
+      </button>
+
+      <button
+        type="button"
+        class="fin-refresh"
+        (click)="loadSummary(true, true)"
+        [disabled]="loading || refreshing"
+        title="Actualizar">
+        <i class="fa-solid fa-rotate-right" [class.is-spinning]="loading || refreshing"></i>
+        Actualizar
+      </button>
+    </div>
+  </header>
+
+  <section class="fin-metrics" aria-label="Resumen financiero">
+    <button
+      type="button"
+      class="fin-metric"
+      *ngFor="let metric of metrics; trackBy: trackByMetric"
+      [ngClass]="'tone-' + metric.tone"
+      (click)="selectTab(metric.tab)">
+      <span class="metric-icon"><i [class]="metric.icon"></i></span>
+      <span class="metric-body">
+        <span class="metric-label">{{ metric.label }}</span>
+        <strong class="metric-value">{{ metric.value }}</strong>
+        <small class="metric-note">{{ metric.note }}</small>
+      </span>
+    </button>
+  </section>
+
+  <!-- Un solo periodo para las tres pestañas: antes el encabezado sumaba todo el
+       historico mientras las listas arrancaban en el mes en curso. -->
+  <section class="fin-period">
+    <label class="period-field">
+      <span>Periodo</span>
+      <select [(ngModel)]="period" (change)="onPeriodChange()">
+        <option *ngFor="let option of periodOptions" [ngValue]="option.value">{{ option.label }}</option>
+      </select>
+    </label>
+
+    <ng-container *ngIf="period === 'CUSTOM'">
+      <label class="period-field">
+        <span>Desde</span>
+        <input type="date" [(ngModel)]="customFrom" (change)="onPeriodChange()" />
+      </label>
+
+      <label class="period-field">
+        <span>Hasta</span>
+        <input type="date" [(ngModel)]="customTo" (change)="onPeriodChange()" />
+      </label>
+    </ng-container>
+
+    <p class="period-note">
+      Las tres pestañas miran <b>{{ periodLabel }}</b>.
+    </p>
+  </section>
+
+  <nav class="fin-tabs" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      class="fin-tab"
+      *ngFor="let tab of tabs; trackBy: trackByTab"
+      [class.is-active]="activeTab === tab.key"
+      [attr.aria-selected]="activeTab === tab.key"
+      [title]="tab.hint"
+      (click)="selectTab(tab.key)">
+      <i [class]="tab.icon"></i>
+      <span class="tab-label">{{ tab.label }}</span>
+      <span class="tab-count" *ngIf="tabCount(tab.key)">{{ tabCount(tab.key) }}</span>
+    </button>
+  </nav>
+
+  <section class="fin-panel">
+    <!-- Resultado: la resta que no estaba en ninguna de las dos vistas. -->
+    <div class="result-page" *ngIf="activeTab === 'result'">
+      <section class="result-hero" [class.is-loss]="!isProfitable">
+        <div class="result-main">
+          <span>{{ isProfitable ? 'Queda' : 'Falta' }}</span>
+          <strong>{{ formatCurrency(result) }}</strong>
+          <small>
+            {{ isProfitable ? 'despues de cubrir los gastos' : 'para cubrir los gastos del periodo' }}
+          </small>
+        </div>
+
+        <!-- La barra dice de un vistazo cuanto de lo que entra se va en gastos. -->
+        <div class="result-bar-wrap">
+          <div class="result-bar">
+            <i [style.width.%]="expenseRatio"></i>
+          </div>
+          <p class="result-legend">
+            <span><b>{{ formatCurrency(totalIncome) }}</b> entro</span>
+            <span class="is-out"><b>{{ formatCurrency(totalExpenses) }}</b> salio</span>
+            <span class="is-soft">{{ expenseRatio.toFixed(0) }}% de lo que entra se gasta</span>
+          </p>
+        </div>
+      </section>
+
+      <div class="result-columns">
+        <section class="result-panel">
+          <h3><i class="fa-solid fa-arrow-trend-up"></i> De donde viene</h3>
+
+          <p class="result-empty" *ngIf="!incomeByMethod.length">
+            Todavia no hay cobros registrados en el periodo.
+          </p>
+
+          <ul class="split-list" *ngIf="incomeByMethod.length">
+            <li *ngFor="let row of incomeByMethod; trackBy: trackByBreakdown">
+              <div class="split-top">
+                <span>{{ row.label }}</span>
+                <strong>{{ formatCurrency(row.amount) }}</strong>
+              </div>
+              <div class="split-bar is-in">
+                <i [style.width.%]="row.share"></i>
+              </div>
+              <small>{{ row.share.toFixed(0) }}% de los ingresos</small>
+            </li>
+          </ul>
+        </section>
+
+        <section class="result-panel">
+          <h3><i class="fa-solid fa-arrow-trend-down"></i> En que se va</h3>
+
+          <p class="result-empty" *ngIf="!expenseBreakdown.length">
+            No hay egresos registrados. Cuando los haya, aqui se vera en que pesan.
+          </p>
+
+          <ul class="split-list" *ngIf="expenseBreakdown.length">
+            <li *ngFor="let row of expenseBreakdown; trackBy: trackByBreakdown">
+              <div class="split-top">
+                <span>{{ row.label }}</span>
+                <strong>{{ formatCurrency(row.amount) }}</strong>
+              </div>
+              <div class="split-bar is-out">
+                <i [style.width.%]="row.share"></i>
+              </div>
+              <small>{{ row.share.toFixed(0) }}% del gasto</small>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </div>
+
+    <app-list-income-consolidated
+      *ngIf="activeTab === 'income'"
+      [embedded]="true"
+      [rangeFrom]="range.from"
+      [rangeTo]="range.to"
+      (changed)="onFinanceChanged()">
+    </app-list-income-consolidated>
+
+    <app-list-expenses
+      *ngIf="activeTab === 'expenses'"
+      [embedded]="true"
+      [rangeFrom]="range.from"
+      [rangeTo]="range.to"
+      (changed)="onFinanceChanged()">
+    </app-list-expenses>
+  </section>
+</div>

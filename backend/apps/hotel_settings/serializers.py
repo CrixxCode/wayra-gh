@@ -97,6 +97,8 @@ class HotelSettingsSerializer(serializers.ModelSerializer):
             "state",
             "country",
             "postal_code",
+            "latitude",
+            "longitude",
             "primary_phone",
             "secondary_phone",
             "general_email",

@@ -299,3 +299,91 @@
     display: none;
   }
 }
+
+.ops-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+/* Generar trabajo es la accion de la pantalla: va en la cabecera, no dentro de una
+   pestaña. Limpieza y mantenimiento se distinguen por color porque son dos equipos. */
+.ops-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 15px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 11px;
+  background: var(--gh-surface);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ops-new.is-cleaning {
+  color: var(--gh-status-info-text);
+}
+
+.ops-new.is-maintenance {
+  color: var(--gh-status-orange-text);
+}
+
+.ops-new:hover {
+  border-color: currentColor;
+}
+
+/* Lo periodico se busca en los botones de arriba, no en una pestaña llamada
+   "Programado": quien quiere "cada 6 meses revisar los aires" mira aqui. */
+.ops-schedule {
+  position: relative;
+}
+
+.ops-new.is-schedule {
+  color: var(--gh-status-violet-text);
+}
+
+.ops-new .is-caret {
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+
+.ops-schedule-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 250px;
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  border: 1px solid var(--gh-border);
+  border-radius: 12px;
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-strong);
+}
+
+.ops-schedule-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--gh-text);
+  font-size: 0.83rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ops-schedule-menu button:hover {
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-strong);
+}
+
+.ops-schedule-menu i {
+  color: var(--gh-text-soft);
+}

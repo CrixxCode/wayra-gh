@@ -1,14 +1,24 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import { ChartData, ChartOptions } from 'chart.js';
+import { ChartModule } from 'primeng/chart';
+import { Component, ElementRef, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
 import { HotelSettingsService } from '../../../services/hotel-settings';
+import { MotionService } from '../../../services/motion';
 import { FinancialControlConfigPayload, FinancialControlService } from '../../../services/financial-control';
 
 type CardTone = 'blue' | 'green' | 'amber' | 'red' | 'gray';
 type TrafficTone = 'green' | 'yellow' | 'red' | 'gray';
 type FinancialTab = 'dashboard' | 'what_if' | 'statements' | 'config';
+
+/** Atajos de periodo: nadie quiere teclear dos fechas para ver el mes en curso. */
+type PeriodPreset = 'this_month' | 'last_month' | 'last_30' | 'this_year';
+
+/** Escenarios tipicos, para no partir siempre de cuatro ceros. */
+type ScenarioPreset = 'raise_rate' | 'high_season' | 'low_season' | 'cost_shock';
 
 type HotelConfigOption = {
   id: number;
@@ -59,10 +69,18 @@ type FinancialControlConfigForm = {
   operationalRefundWindowDays: number | null;
 };
 
+/**
+ * `hint` explica el indicador en cristiano.
+ *
+ * Esta pantalla esta llena de jerga --RevPAR, CPHO, ICA, FONTUR-- que el hotelero no
+ * tiene por que saberse. Sin una linea que la traduzca, la mitad del tablero es ruido
+ * bonito: se ve, no se entiende, y no se usa.
+ */
 type SummaryCard = {
   label: string;
   valueLabel: string;
   note: string;
+  hint?: string;
   icon: string;
   tone: CardTone;
 };
@@ -71,6 +89,7 @@ type MetricCard = {
   label: string;
   valueLabel: string;
   note: string;
+  hint?: string;
   icon: string;
   tone: CardTone;
 };
@@ -109,6 +128,16 @@ type WhatIfVm = {
   baseCards: MetricCard[];
   projectedCards: MetricCard[];
   deltaCards: MetricCard[];
+  /**
+   * Las cifras crudas de la utilidad, para el titular.
+   *
+   * Tres columnas de cuatro tarjetas obligan a buscar "utilidad" en dos sitios y restar
+   * mentalmente. Lo unico que se quiere saber de un escenario es si se gana o se pierde
+   * plata con el, y cuanta.
+   */
+  baseNetProfit: number;
+  projectedNetProfit: number;
+  hasResult: boolean;
 };
 
 type StatementRowVm = {
@@ -141,11 +170,11 @@ type StatementsVm = {
 @Component({
   selector: 'app-list-financial-control',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ChartModule],
   templateUrl: './list-financial-control.html',
   styleUrls: ['./list-financial-control.css'],
 })
-export class ListFinancialControl implements OnInit {
+export class ListFinancialControl implements OnInit, OnDestroy {
   loadingConfigs = false;
   loadingDashboard = false;
   loadingWhatIf = false;
@@ -178,6 +207,33 @@ export class ListFinancialControl implements OnInit {
   targetOccupancyPctInput = '';
   operatingCostChangePct = 0;
 
+  // ------------------------------------------------------------------ graficos
+  //
+  // Una barra se compara de un vistazo; una columna de cifras hay que leerla entera.
+  // Los datos se recalculan al llegar cada respuesta, no en un getter: Chart.js
+  // redibuja en cada cambio de referencia y un getter le daria un objeto nuevo en cada
+  // ciclo de deteccion.
+  compositionData: ChartData<'bar'> = { labels: [], datasets: [] };
+  compositionOptions: ChartOptions<'bar'> = {};
+
+  benchmarkData: ChartData<'bar'> = { labels: [], datasets: [] };
+  benchmarkOptions: ChartOptions<'bar'> = {};
+
+  taxData: ChartData<'bar'> = { labels: [], datasets: [] };
+  taxOptions: ChartOptions<'bar'> = {};
+
+  revparData: ChartData<'line'> = { labels: [], datasets: [] };
+  revparOptions: ChartOptions<'line'> = {};
+
+  /** Paleta validada contra el fondo real de la tarjeta. Ver AGENTS.md. */
+  private readonly viz = {
+    series: '#2a78d6',
+    seriesSoft: 'rgba(42, 120, 214, 0.1)',
+    negative: '#e34948',
+    tick: '#64748b',
+    grid: '#e8edf6',
+  };
+
   dashboardVm: DashboardVm = this.emptyDashboardVm();
   whatIfVm: WhatIfVm = this.emptyWhatIfVm();
   statementsVm: StatementsVm = this.emptyStatementsVm();
@@ -196,11 +252,70 @@ export class ListFinancialControl implements OnInit {
     { value: 11, label: 'Noviembre' },
     { value: 12, label: 'Diciembre' },
   ];
-  readonly tabs: Array<{ key: FinancialTab; label: string; icon: string }> = [
-    { key: 'dashboard', label: 'Dashboard', icon: 'fa-solid fa-chart-line' },
-    { key: 'what_if', label: 'What-if', icon: 'fa-solid fa-flask' },
-    { key: 'statements', label: 'Estados Financieros', icon: 'fa-solid fa-file-invoice' },
-    { key: 'config', label: 'Configuracion de Alertas', icon: 'fa-solid fa-sliders' },
+  readonly tabs: Array<{ key: FinancialTab; label: string; icon: string; hint: string }> = [
+    {
+      key: 'dashboard',
+      label: 'Tablero',
+      icon: 'fa-solid fa-chart-line',
+      hint: 'Como va el hotel en el periodo: punto de equilibrio, alertas y tendencia',
+    },
+    {
+      key: 'what_if',
+      label: 'Escenarios',
+      icon: 'fa-solid fa-flask',
+      hint: 'Que pasaria si subo la tarifa o cambia la ocupacion',
+    },
+    {
+      key: 'statements',
+      label: 'Estados',
+      icon: 'fa-solid fa-file-invoice',
+      hint: 'Estado de resultados e indicadores del mes',
+    },
+    {
+      key: 'config',
+      label: 'Umbrales',
+      icon: 'fa-solid fa-sliders',
+      hint: 'Impuestos y limites que disparan las alertas',
+    },
+  ];
+
+  readonly scenarioPresets: Array<{
+    key: ScenarioPreset;
+    label: string;
+    icon: string;
+    hint: string;
+  }> = [
+    {
+      key: 'raise_rate',
+      label: 'Subir tarifa 10%',
+      icon: 'fa-solid fa-arrow-up',
+      hint: 'Sube el precio un 10% y asume que se pierde algo de ocupacion',
+    },
+    {
+      key: 'high_season',
+      label: 'Temporada alta',
+      icon: 'fa-solid fa-sun',
+      hint: 'Mas ocupacion y mejor tarifa, con los costos que eso arrastra',
+    },
+    {
+      key: 'low_season',
+      label: 'Temporada baja',
+      icon: 'fa-solid fa-cloud-rain',
+      hint: 'Cae la ocupacion: cuanto aguanta el hotel',
+    },
+    {
+      key: 'cost_shock',
+      label: 'Costos +15%',
+      icon: 'fa-solid fa-fire',
+      hint: 'Suben nomina y servicios sin poder subir la tarifa',
+    },
+  ];
+
+  readonly periodPresets: Array<{ key: PeriodPreset; label: string }> = [
+    { key: 'this_month', label: 'Este mes' },
+    { key: 'last_month', label: 'Mes pasado' },
+    { key: 'last_30', label: 'Ultimos 30 dias' },
+    { key: 'this_year', label: 'Este ano' },
   ];
 
   private readonly currencyFormatter = new Intl.NumberFormat('es-CO', {
@@ -216,9 +331,25 @@ export class ListFinancialControl implements OnInit {
     maximumFractionDigits: 0,
   });
 
+  /**
+   * Que pestañas ya trajeron sus datos.
+   *
+   * Antes la pantalla pedia el tablero, el escenario y los estados **de golpe** en cada
+   * carga y en cada cambio de hotel: tres consultas pesadas para mirar una sola. Ahora
+   * cada pestaña pide lo suyo la primera vez que se abre.
+   */
+  private readonly loadedTabs = new Set<FinancialTab>();
+
+  private revealFrame: number | null = null;
+
   constructor(
     private financialControlService: FinancialControlService,
-    private hotelSettingsService: HotelSettingsService
+    private hotelSettingsService: HotelSettingsService,
+    private motion: MotionService,
+    private hostRef: ElementRef<HTMLElement>,
+    private zone: NgZone,
+    private route: ActivatedRoute,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
@@ -227,7 +358,16 @@ export class ListFinancialControl implements OnInit {
     this.endDate = this.toIsoDate(now);
     this.statementYear = now.getFullYear();
     this.statementMonth = now.getMonth() + 1;
+
+    const requested = String(this.route.snapshot.queryParamMap.get('tab') || '');
+    if (this.isTab(requested)) this.activeTab = requested;
+
     this.loadConfigsAndBootstrap();
+  }
+
+  ngOnDestroy(): void {
+    if (this.revealFrame !== null) cancelAnimationFrame(this.revealFrame);
+    this.motion.killWithin(this.hostRef.nativeElement);
   }
 
   get isRefreshing(): boolean {
@@ -246,6 +386,112 @@ export class ListFinancialControl implements OnInit {
     if (status === 'WARNING') return 'yellow';
     if (status === 'CRITICAL') return 'red';
     return 'gray';
+  }
+
+  /** El estado llega del backend en ingles y en mayusculas; nadie lee eso. */
+  get breakEvenStatusLabel(): string {
+    const status = String(this.dashboardVm.breakEven.status || '').toUpperCase();
+    if (status === 'OPTIMAL') return 'En equilibrio';
+    if (status === 'WARNING') return 'Ajustado';
+    if (status === 'CRITICAL') return 'En riesgo';
+    return 'Sin datos';
+  }
+
+  /**
+   * Lo que falta para cubrir el punto de equilibrio, en pesos.
+   *
+   * "87%" no le dice a nadie que hacer; "faltan $4.200.000 por facturar" si. Se deriva
+   * del avance y del ingreso de equilibrio, que ya vienen en la respuesta.
+   */
+  get breakEvenSentence(): string {
+    const target = Number(this.dashboardVm.breakEven.breakEvenRevenue);
+    const progress = Number(this.dashboardVm.breakEven.progressPct);
+
+    if (!Number.isFinite(target) || target <= 0 || !Number.isFinite(progress)) {
+      return 'Sin costos cargados no hay punto de equilibrio que calcular.';
+    }
+
+    if (progress >= 100) {
+      const surplus = target * (progress / 100 - 1);
+      return `Los costos del periodo estan cubiertos, con ${this.currencyFormatter.format(surplus)} por encima.`;
+    }
+
+    const missing = target * (1 - progress / 100);
+    return `Faltan ${this.currencyFormatter.format(missing)} por facturar para cubrir los costos del periodo.`;
+  }
+
+  // ---------------------------------------------------------------- veredicto
+  //
+  // El tablero abria con trece tarjetas del mismo peso y el semaforo --que es LA
+  // respuesta-- enterrado en la mitad. Quien abre esta pantalla viene a preguntar una
+  // sola cosa: **como va el hotel**. Eso va arriba, en una frase, y el resto es el
+  // detalle que la sustenta.
+
+  get verdictTone(): TrafficTone {
+    return this.dashboardVm.traffic.tone;
+  }
+
+  /** El titular: como va el hotel, en dos palabras. */
+  get verdictTitle(): string {
+    const tone = this.verdictTone;
+    if (tone === 'green') return 'El periodo va bien';
+    if (tone === 'yellow') return 'El periodo va ajustado';
+    if (tone === 'red') return 'El periodo va en rojo';
+    return 'Sin datos suficientes';
+  }
+
+  /**
+   * El porque, en una linea.
+   *
+   * Prefiere lo que falta para el equilibrio --que es accionable-- sobre la etiqueta del
+   * semaforo, que solo repite el color con otras palabras.
+   */
+  get verdictSubtitle(): string {
+    if (this.verdictTone === 'gray') {
+      return 'Carga costos y gastos del periodo para que el tablero pueda decir algo.';
+    }
+    return this.breakEvenSentence;
+  }
+
+  /** Las razones del semaforo son la letra pequeña del veredicto. */
+  get verdictReasons(): string[] {
+    return this.dashboardVm.traffic.reasons;
+  }
+
+  get hasDashboardData(): boolean {
+    return this.dashboardVm.summaryCards.length > 0;
+  }
+
+  // ------------------------------------------------------------ tendencia RevPAR
+  //
+  // Doce filas de tabla no dejan ver una tendencia; doce barras, si.
+
+  get revparMax(): number {
+    return this.dashboardVm.revparTrend.reduce((max, row) => Math.max(max, row.revpar), 0);
+  }
+
+  revparShare(row: TrendRow): number {
+    const max = this.revparMax;
+    if (max <= 0) return 0;
+    // Un minimo visible: una barra de cero altura parece un fallo de carga.
+    return Math.max((row.revpar / max) * 100, 2);
+  }
+
+  /** El mes mas alto de la serie, para poder senalarlo. */
+  isBestMonth(row: TrendRow): boolean {
+    return row.revpar > 0 && row.revpar === this.revparMax;
+  }
+
+  /** `2026-08` no se lee; `ago 26` si. */
+  monthLabel(month: string): string {
+    const raw = String(month || '').trim();
+    const match = /^(\d{4})-(\d{2})/.exec(raw);
+    if (!match) return raw || '-';
+
+    const names = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const index = Number(match[2]) - 1;
+    if (index < 0 || index > 11) return raw;
+    return `${names[index]} ${match[1].slice(2)}`;
   }
 
   get selectedConfigRecord(): FinancialControlConfigRecord | null {
@@ -287,18 +533,250 @@ export class ListFinancialControl implements OnInit {
 
   selectTab(tab: FinancialTab): void {
     this.activeTab = tab;
+
+    // La pestaña vive en la URL: recargar o compartir el enlace cae donde estabas.
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab },
+      replaceUrl: true,
+    });
+
     if (tab === 'config') {
       this.configValidationError = '';
       this.configSaveMessage = '';
       this.syncConfigFormWithSelection();
     }
+
+    this.loadActiveTab();
+    this.scheduleReveal();
   }
 
   onHotelFilterChange(): void {
     this.configValidationError = '';
     this.configSaveMessage = '';
     this.syncConfigFormWithSelection();
-    this.refreshAll();
+    // Cambiar de hotel invalida lo cargado: los datos eran de otro hotel.
+    this.loadedTabs.clear();
+    this.loadActiveTab();
+  }
+
+  /** Atajos de periodo: un clic en vez de dos calendarios. */
+  applyPreset(preset: PeriodPreset): void {
+    const now = new Date();
+    let start: Date;
+    let end = now;
+
+    if (preset === 'this_month') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (preset === 'last_month') {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      end = new Date(now.getFullYear(), now.getMonth(), 0);
+    } else if (preset === 'last_30') {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
+    } else {
+      start = new Date(now.getFullYear(), 0, 1);
+    }
+
+    this.startDate = this.toIsoDate(start);
+    this.endDate = this.toIsoDate(end);
+
+    // El mes de los estados sigue al periodo: son la misma pregunta vista de dos formas.
+    this.statementYear = end.getFullYear();
+    this.statementMonth = end.getMonth() + 1;
+
+    this.applyPeriodFilters();
+  }
+
+  isPresetActive(preset: PeriodPreset): boolean {
+    const now = new Date();
+    const same = (start: Date, end: Date) =>
+      this.startDate === this.toIsoDate(start) && this.endDate === this.toIsoDate(end);
+
+    if (preset === 'this_month') return same(new Date(now.getFullYear(), now.getMonth(), 1), now);
+    if (preset === 'last_month') {
+      return same(
+        new Date(now.getFullYear(), now.getMonth() - 1, 1),
+        new Date(now.getFullYear(), now.getMonth(), 0)
+      );
+    }
+    if (preset === 'last_30') {
+      return same(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29), now);
+    }
+    return same(new Date(now.getFullYear(), 0, 1), now);
+  }
+
+  // ------------------------------------------------------------------ exportar
+
+  get canExportStatements(): boolean {
+    return (
+      !this.loadingStatements &&
+      (this.statementsVm.balanceRows.length > 0 || this.statementsVm.incomeRows.length > 0)
+    );
+  }
+
+  /**
+   * Descarga los dos estados en un CSV.
+   *
+   * Se genera en el navegador con lo que ya esta en pantalla: no hay endpoint de
+   * exportacion y pedir uno solo para esto seria pedirle al servidor que repita un
+   * calculo que ya hizo.
+   *
+   * Separador `;` y BOM: es lo que Excel en español abre sin preguntar nada.
+   */
+  exportStatements(): void {
+    if (!this.canExportStatements) return;
+
+    const rows: string[][] = [['Estado', 'Seccion', 'Cuenta', 'Actual', 'Anterior', 'Delta', 'Var %']];
+
+    const push = (statement: string, list: StatementRowVm[]) => {
+      for (const row of list) {
+        rows.push([
+          statement,
+          row.section || '',
+          row.account || '',
+          String(row.current ?? ''),
+          String(row.previous ?? ''),
+          String(row.delta ?? ''),
+          row.deltaPct === null || row.deltaPct === undefined ? '' : String(row.deltaPct),
+        ]);
+      }
+    };
+
+    push('Situacion financiera', this.statementsVm.balanceRows);
+    push('Situacion financiera', this.statementsVm.balanceTotals);
+    push('Resultados integrales', this.statementsVm.incomeRows);
+
+    const csv = rows
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+      .join('\r\n');
+
+    const hotel = (this.selectedConfigRecord?.hotelName || 'hotel').replace(/[^\w-]+/g, '-');
+    const period = `${this.statementYear}-${String(this.statementMonth).padStart(2, '0')}`;
+
+    const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `estados-financieros-${hotel}-${period}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ------------------------------------------------------- resultado del escenario
+  //
+  // El simulador devolvia tres columnas de cuatro tarjetas: base, proyectado y delta.
+  // Para saber lo unico que importa --si con este escenario se gana o se pierde plata--
+  // habia que buscar "utilidad" en dos columnas y restar de cabeza.
+
+  /** Cuanta utilidad gana o pierde el hotel con el escenario. */
+  get scenarioProfitDelta(): number {
+    return this.whatIfVm.projectedNetProfit - this.whatIfVm.baseNetProfit;
+  }
+
+  get scenarioImproves(): boolean {
+    return this.scenarioProfitDelta >= 0;
+  }
+
+  /** El titular: que le pasa a la utilidad si esto ocurre. */
+  get scenarioHeadline(): string {
+    if (!this.whatIfVm.hasResult) return 'Simula un escenario para ver que le pasa a la utilidad.';
+
+    const delta = this.scenarioProfitDelta;
+    if (Math.abs(delta) < 1) return 'La utilidad se queda practicamente igual.';
+
+    const amount = this.currencyFormatter.format(Math.abs(delta));
+    return delta > 0 ? `La utilidad sube ${amount}` : `La utilidad baja ${amount}`;
+  }
+
+  /** De cuanto a cuanto, que es lo que da sentido a la diferencia. */
+  get scenarioFromTo(): string {
+    if (!this.whatIfVm.hasResult) return '';
+    const from = this.currencyFormatter.format(this.whatIfVm.baseNetProfit);
+    const to = this.currencyFormatter.format(this.whatIfVm.projectedNetProfit);
+    return `De ${from} a ${to}`;
+  }
+
+  /**
+   * Un escenario que deja la utilidad en negativo es una advertencia, no un resultado.
+   *
+   * Puede subir respecto a la base y aun asi dar perdida: las dos cosas son ciertas y la
+   * segunda importa mas.
+   */
+  get scenarioEndsInLoss(): boolean {
+    return this.whatIfVm.hasResult && this.whatIfVm.projectedNetProfit < 0;
+  }
+
+  // ----------------------------------------------------------------- escenarios
+
+  /**
+   * Escenarios tipicos.
+   *
+   * Cada uno mueve varias palancas a la vez porque en la realidad van juntas: subir la
+   * tarifa cuesta ocupacion, y la temporada alta trae mas costos con mas huespedes.
+   */
+  applyScenarioPreset(preset: ScenarioPreset): void {
+    if (preset === 'raise_rate') {
+      this.rateChangePct = 10;
+      this.occupancyChangePct = -5;
+      this.operatingCostChangePct = 0;
+    } else if (preset === 'high_season') {
+      this.rateChangePct = 15;
+      this.occupancyChangePct = 20;
+      this.operatingCostChangePct = 8;
+    } else if (preset === 'low_season') {
+      this.rateChangePct = -10;
+      this.occupancyChangePct = -25;
+      this.operatingCostChangePct = -5;
+    } else {
+      this.rateChangePct = 0;
+      this.occupancyChangePct = 0;
+      this.operatingCostChangePct = 15;
+    }
+
+    this.targetOccupancyPctInput = '';
+    this.runWhatIf();
+  }
+
+  resetScenario(): void {
+    this.rateChangePct = 0;
+    this.occupancyChangePct = 0;
+    this.operatingCostChangePct = 0;
+    this.targetOccupancyPctInput = '';
+    this.runWhatIf();
+  }
+
+  signedPct(value: number | string): string {
+    const parsed = Number(value) || 0;
+    return `${parsed > 0 ? '+' : ''}${parsed}%`;
+  }
+
+  /** El escenario dicho en una frase, para no leer cuatro deslizadores por separado. */
+  get scenarioSentence(): string {
+    const parts: string[] = [];
+    const describe = (value: number | string, up: string, down: string) => {
+      const parsed = Number(value) || 0;
+      if (!parsed) return;
+      parts.push(`${parsed > 0 ? up : down} ${Math.abs(parsed)}%`);
+    };
+
+    describe(this.rateChangePct, 'la tarifa sube', 'la tarifa baja');
+    describe(this.occupancyChangePct, 'la ocupacion sube', 'la ocupacion baja');
+    describe(this.operatingCostChangePct, 'los costos suben', 'los costos bajan');
+
+    const target = this.parseOptionalNumber(this.targetOccupancyPctInput);
+    if (target !== null) parts.push(`la ocupacion queda en ${target}%`);
+
+    if (!parts.length) return 'Escenario sin cambios: es el periodo tal como fue.';
+    return `Si ${parts.join(', ')}...`;
+  }
+
+  /** Los filtros que la pestaña activa realmente usa. */
+  get showsDateRange(): boolean {
+    return this.activeTab === 'dashboard' || this.activeTab === 'what_if';
+  }
+
+  get showsStatementPeriod(): boolean {
+    return this.activeTab === 'statements';
   }
 
   restoreConfigForm(): void {
@@ -335,6 +813,9 @@ export class ListFinancialControl implements OnInit {
     request$.subscribe({
       next: (payload) => {
         this.savingConfig = false;
+        // Los umbrales alimentan el semaforo y los impuestos el estado de resultados:
+        // lo ya cargado quedo viejo.
+        this.loadedTabs.clear();
         const parsed = this.parseConfigRecord(payload);
         if (parsed) {
           this.upsertConfigRecord(parsed);
@@ -358,36 +839,65 @@ export class ListFinancialControl implements OnInit {
     });
   }
 
+  /**
+   * Cambiar el periodo invalida lo que dependia de el, no lo recarga todo.
+   *
+   * Los estados financieros no miran `startDate`/`endDate` sino ano y mes, asi que un
+   * cambio de rango no tiene por que volver a pedirlos.
+   */
   applyPeriodFilters(): void {
     if (!this.validateDateRange()) return;
     if (!this.ensureHotelSelection('dashboard')) return;
-    this.loadDashboard();
-    this.runWhatIf();
+
+    this.loadedTabs.delete('dashboard');
+    this.loadedTabs.delete('what_if');
+    this.loadActiveTab();
   }
 
   applyStatementsFilters(): void {
     if (!this.validateStatementPeriod()) return;
     if (!this.ensureHotelSelection('statements')) return;
+
+    this.loadedTabs.delete('statements');
     this.loadStatements();
   }
 
+  /** El boton de actualizar: trae datos frescos **de lo que se esta mirando**. */
   refreshAll(): void {
     if (!this.ensureHotelSelection('all')) return;
 
-    const validDateRange = this.validateDateRange();
-    const validStatementPeriod = this.validateStatementPeriod();
-
-    if (validDateRange) {
-      this.loadDashboard();
-      this.runWhatIf();
-    }
-
-    if (validStatementPeriod) {
-      this.loadStatements();
-    }
+    this.loadedTabs.delete(this.activeTab);
+    this.loadActiveTab(true);
   }
 
-  runWhatIf(): void {
+  /**
+   * Carga lo que la pestaña activa necesita, y solo si aun no lo tiene.
+   *
+   * `force` salta tanto esta marca como el cache del servicio: es el boton de actualizar.
+   */
+  private loadActiveTab(force = false): void {
+    if (this.loadingConfigs) return;
+    if (!this.selectedHotelSettingsId) return;
+    if (!force && this.loadedTabs.has(this.activeTab)) return;
+
+    if (this.activeTab === 'dashboard') {
+      if (this.validateDateRange()) this.loadDashboard(force);
+      return;
+    }
+
+    if (this.activeTab === 'what_if') {
+      if (this.validateDateRange()) this.runWhatIf(force);
+      return;
+    }
+
+    if (this.activeTab === 'statements') {
+      if (this.validateStatementPeriod()) this.loadStatements(force);
+    }
+
+    // `config` no consulta nada: los umbrales llegaron con la lista de configuraciones.
+  }
+
+  runWhatIf(forceRefresh = false): void {
     if (!this.validateDateRange()) return;
     if (!this.ensureHotelSelection('what_if')) return;
 
@@ -402,11 +912,14 @@ export class ListFinancialControl implements OnInit {
         occupancy_change_pct: this.occupancyChangePct,
         target_occupancy_pct: targetOccupancyPct ?? undefined,
         operating_cost_change_pct: this.operatingCostChangePct,
+        forceRefresh,
       })
       .subscribe({
         next: (payload) => {
           this.whatIfVm = this.buildWhatIfVm(payload);
           this.loadingWhatIf = false;
+          this.loadedTabs.add('what_if');
+          this.scheduleReveal();
         },
         error: (error) => {
           this.loadingWhatIf = false;
@@ -451,6 +964,9 @@ export class ListFinancialControl implements OnInit {
     request$.subscribe({
       next: (payload) => {
         this.savingConfig = false;
+        // Los umbrales alimentan el semaforo y los impuestos el estado de resultados:
+        // lo ya cargado quedo viejo.
+        this.loadedTabs.clear();
         const parsed = this.parseConfigRecord(payload);
         if (parsed) {
           this.upsertConfigRecord(parsed);
@@ -528,20 +1044,56 @@ export class ListFinancialControl implements OnInit {
       }
 
       this.loadingConfigs = false;
-      this.refreshAll();
+      this.loadActiveTab();
+      this.scheduleReveal();
     });
   }
 
-  private loadDashboard(): void {
+  // ---------------------------------------------------------------- animacion
+
+  private scheduleReveal(): void {
+    if (this.motion.prefersReducedMotion) return;
+    if (this.revealFrame !== null) cancelAnimationFrame(this.revealFrame);
+
+    this.zone.runOutsideAngular(() => {
+      this.revealFrame = requestAnimationFrame(() => {
+        this.revealFrame = null;
+        const host = this.hostRef.nativeElement;
+
+        this.motion.reveal(host.querySelectorAll('.tab-btn'), {
+          stagger: 0.04,
+          y: 10,
+          duration: 0.26,
+        });
+        this.motion.reveal(host.querySelectorAll('.stat-card'), { stagger: 0.045, y: 14 });
+        this.motion.reveal(host.querySelectorAll('.insight-card, .module-card'), {
+          stagger: 0.05,
+          y: 12,
+          delay: 0.06,
+        });
+      });
+    });
+  }
+
+  private isTab(value: string): value is FinancialTab {
+    return value === 'dashboard' || value === 'what_if' || value === 'statements' || value === 'config';
+  }
+
+  private loadDashboard(forceRefresh = false): void {
     if (!this.ensureHotelSelection('dashboard')) return;
 
     this.loadingDashboard = true;
     this.dashboardError = '';
 
-    this.financialControlService.getDashboard(this.buildDateRangeParams()).subscribe({
+    this.financialControlService
+      .getDashboard({ ...this.buildDateRangeParams(), forceRefresh })
+      .subscribe({
       next: (payload) => {
         this.dashboardVm = this.buildDashboardVm(payload);
+        this.buildDashboardCharts();
         this.loadingDashboard = false;
+        this.loadedTabs.add('dashboard');
+        this.scheduleReveal();
       },
       error: (error) => {
         this.loadingDashboard = false;
@@ -551,16 +1103,20 @@ export class ListFinancialControl implements OnInit {
     });
   }
 
-  private loadStatements(): void {
+  private loadStatements(forceRefresh = false): void {
     if (!this.ensureHotelSelection('statements')) return;
 
     this.loadingStatements = true;
     this.statementsError = '';
 
-    this.financialControlService.getStatements(this.buildStatementParams()).subscribe({
+    this.financialControlService
+      .getStatements({ ...this.buildStatementParams(), forceRefresh })
+      .subscribe({
       next: (payload) => {
         this.statementsVm = this.buildStatementsVm(payload);
         this.loadingStatements = false;
+        this.loadedTabs.add('statements');
+        this.scheduleReveal();
       },
       error: (error) => {
         this.loadingStatements = false;
@@ -573,26 +1129,24 @@ export class ListFinancialControl implements OnInit {
     });
   }
 
-  private buildDateRangeParams(): Record<string, unknown> {
-    const params: Record<string, unknown> = {
+  private buildDateRangeParams(): {
+    hotel_settings?: number;
+    start_date: string;
+    end_date: string;
+  } {
+    return {
       start_date: this.startDate,
       end_date: this.endDate,
+      ...(this.selectedHotelSettingsId ? { hotel_settings: this.selectedHotelSettingsId } : {}),
     };
-    if (this.selectedHotelSettingsId) {
-      params['hotel_settings'] = this.selectedHotelSettingsId;
-    }
-    return params;
   }
 
-  private buildStatementParams(): Record<string, unknown> {
-    const params: Record<string, unknown> = {
+  private buildStatementParams(): { hotel_settings?: number; year: number; month: number } {
+    return {
       year: this.statementYear,
       month: this.statementMonth,
+      ...(this.selectedHotelSettingsId ? { hotel_settings: this.selectedHotelSettingsId } : {}),
     };
-    if (this.selectedHotelSettingsId) {
-      params['hotel_settings'] = this.selectedHotelSettingsId;
-    }
-    return params;
   }
 
   private validateDateRange(): boolean {
@@ -669,6 +1223,7 @@ export class ListFinancialControl implements OnInit {
           label: 'Ingresos',
           valueLabel: this.formatCurrency(revenue),
           note: 'Ingresos netos del periodo',
+          hint: 'Todo lo que el hotel facturo en el periodo, sin impuestos.',
           icon: 'fa-solid fa-sack-dollar',
           tone: 'blue',
         },
@@ -676,6 +1231,7 @@ export class ListFinancialControl implements OnInit {
           label: 'Costos',
           valueLabel: this.formatCurrency(costs),
           note: 'Costos de prestacion de servicios',
+          hint: 'Lo que cuesta prestar el servicio: ropa de cama, aseo, amenidades.',
           icon: 'fa-solid fa-industry',
           tone: 'amber',
         },
@@ -683,6 +1239,7 @@ export class ListFinancialControl implements OnInit {
           label: 'Gastos',
           valueLabel: this.formatCurrency(expenses),
           note: 'Gastos operativos registrados',
+          hint: 'Lo que cuesta tener el hotel abierto: nomina, servicios, administracion.',
           icon: 'fa-solid fa-file-invoice-dollar',
           tone: 'red',
         },
@@ -690,6 +1247,7 @@ export class ListFinancialControl implements OnInit {
           label: 'Utilidad neta',
           valueLabel: this.formatCurrency(netProfit),
           note: `Ocupacion ${this.formatPercent(occupancyRatePct, 1)}`,
+          hint: 'Lo que queda despues de costos y gastos. Es la cifra que decide todo.',
           icon: 'fa-solid fa-chart-line',
           tone: netProfit >= 0 ? 'green' : 'red',
         },
@@ -699,6 +1257,7 @@ export class ListFinancialControl implements OnInit {
           label: 'Var. ingresos',
           valueLabel: this.formatPercentNullable(benchmarkRevenuePct, 2),
           note: 'Vs. mismo periodo ano anterior',
+          hint: 'Cuanto mas --o menos-- se facturo que el mismo periodo del ano pasado.',
           icon: 'fa-solid fa-arrow-trend-up',
           tone: this.resolveToneFromNullableNumber(benchmarkRevenuePct),
         },
@@ -713,6 +1272,7 @@ export class ListFinancialControl implements OnInit {
           label: 'Var. ocupacion',
           valueLabel: this.formatSignedNumber(benchmarkOccupancyPts, 2) + ' pts',
           note: 'Puntos porcentuales',
+          hint: 'Diferencia en puntos de ocupacion, no en porcentaje de cambio.',
           icon: 'fa-solid fa-bed',
           tone: benchmarkOccupancyPts >= 0 ? 'green' : 'red',
         },
@@ -720,6 +1280,7 @@ export class ListFinancialControl implements OnInit {
           label: 'Var. RevPAR',
           valueLabel: this.formatPercentNullable(benchmarkRevparPct, 2),
           note: 'Ingreso por habitacion disponible',
+          hint: 'RevPAR: cuanto rinde cada habitacion del hotel, este llena o vacia.',
           icon: 'fa-solid fa-chart-area',
           tone: this.resolveToneFromNullableNumber(benchmarkRevparPct),
         },
@@ -734,6 +1295,7 @@ export class ListFinancialControl implements OnInit {
               this.getNumber(payload, ['tax_optimization', 'provisions_and_compliance', 'income_tax', 'rate_pct']),
               2
             ),
+          hint: 'Provision de renta sobre la utilidad del periodo.',
           icon: 'fa-solid fa-receipt',
           tone: 'red',
         },
@@ -746,6 +1308,7 @@ export class ListFinancialControl implements OnInit {
               this.getNumber(payload, ['tax_optimization', 'provisions_and_compliance', 'ica', 'rate_per_thousand']),
               4
             ),
+          hint: 'ICA: impuesto municipal sobre lo facturado, por cada mil pesos.',
           icon: 'fa-solid fa-city',
           tone: 'amber',
         },
@@ -758,6 +1321,7 @@ export class ListFinancialControl implements OnInit {
               this.getNumber(payload, ['tax_optimization', 'provisions_and_compliance', 'fontur', 'rate_per_thousand']),
               4
             ),
+          hint: 'FONTUR: contribucion parafiscal de turismo, por cada mil pesos.',
           icon: 'fa-solid fa-plane-up',
           tone: 'blue',
         },
@@ -765,6 +1329,7 @@ export class ListFinancialControl implements OnInit {
           label: 'Total provisiones',
           valueLabel: this.formatCurrency(this.getNumber(payload, ['tax_optimization', 'provisions_and_compliance', 'total_provisions'])),
           note: 'Renta + ICA + FONTUR',
+          hint: 'Lo que conviene tener apartado para no quedar corto al pagar.',
           icon: 'fa-solid fa-layer-group',
           tone: 'red',
         },
@@ -805,6 +1370,9 @@ export class ListFinancialControl implements OnInit {
 
     return {
       periodLabel: startDate && endDate ? `${startDate} a ${endDate}` : 'Periodo sin definir',
+      baseNetProfit: this.getNumber(payload, ['base', 'net_profit']),
+      projectedNetProfit: this.getNumber(payload, ['projected', 'net_profit']),
+      hasResult: true,
       baseCards: [
         {
           label: 'Ingresos base',
@@ -1071,12 +1639,26 @@ export class ListFinancialControl implements OnInit {
       breakEvenWarningPct: existing.breakEvenWarningPct,
       breakEvenOptimalPct: existing.breakEvenOptimalPct,
       operationalHighOccupancyThresholdPct: existing.operationalHighOccupancyThresholdPct,
-      operationalLowAvailabilityThresholdRooms: existing.operationalLowAvailabilityThresholdRooms,
+      // Estos cuatro exigen ser mayores que cero al guardar, y la lectura convierte los
+      // ausentes en 0. Sin esto, un hotel al que le falte cualquiera de ellos **no podia
+      // guardar nada** desde esta pestaña: el formulario cargaba un 0 que el propio
+      // guardado rechazaba, y el error hablaba de un campo que el usuario ni toco.
+      operationalLowAvailabilityThresholdRooms: this.blankIfNotPositive(
+        existing.operationalLowAvailabilityThresholdRooms
+      ),
       operationalRevenueDropThresholdPct: existing.operationalRevenueDropThresholdPct,
-      operationalHighRefundsThresholdCount: existing.operationalHighRefundsThresholdCount,
-      operationalRevenueWindowDays: existing.operationalRevenueWindowDays,
-      operationalRefundWindowDays: existing.operationalRefundWindowDays,
+      operationalHighRefundsThresholdCount: this.blankIfNotPositive(
+        existing.operationalHighRefundsThresholdCount
+      ),
+      operationalRevenueWindowDays: this.blankIfNotPositive(existing.operationalRevenueWindowDays),
+      operationalRefundWindowDays: this.blankIfNotPositive(existing.operationalRefundWindowDays),
     };
+  }
+
+  /** Para los umbrales donde 0 no es un valor legal, 0 significa "sin configurar". */
+  private blankIfNotPositive(value: number | null | undefined): number | null {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }
 
   private buildConfigPayload(hotelSettingsId: number): {
@@ -1333,6 +1915,9 @@ export class ListFinancialControl implements OnInit {
       baseCards: [],
       projectedCards: [],
       deltaCards: [],
+      baseNetProfit: 0,
+      projectedNetProfit: 0,
+      hasResult: false,
     };
   }
 
@@ -1456,6 +2041,25 @@ export class ListFinancialControl implements OnInit {
     return `${this.formatSignedNumber(value, 2)}%`;
   }
 
+  /**
+   * La direccion de una variacion, para poder barrer una columna sin leer las cifras.
+   *
+   * En un estado financiero "hacia arriba" no siempre es bueno --que suban los gastos no
+   * lo es--, asi que esto dice **direccion**, no juicio. El color lo pone quien sabe de
+   * que fila se trata.
+   */
+  deltaDirection(value: number | null): 'up' | 'down' | 'flat' {
+    if (value === null || !Number.isFinite(value) || Math.abs(value) < 0.005) return 'flat';
+    return value > 0 ? 'up' : 'down';
+  }
+
+  deltaIcon(value: number | null): string {
+    const direction = this.deltaDirection(value);
+    if (direction === 'up') return 'fa-solid fa-arrow-up';
+    if (direction === 'down') return 'fa-solid fa-arrow-down';
+    return 'fa-solid fa-minus';
+  }
+
   formatIndicatorValue(value: number | null): string {
     if (value === null) return 'N/A';
     return this.amountFormatter.format(value);
@@ -1561,5 +2165,305 @@ export class ListFinancialControl implements OnInit {
       return value.toLowerCase() === 'true';
     }
     return Boolean(value);
+  }
+
+  // ------------------------------------------------------------------ graficos
+
+  /**
+   * Rehace los cuatro graficos con lo que acaba de llegar.
+   *
+   * Se llama una vez por respuesta. Devolver estos objetos desde un getter haria que
+   * Chart.js redibujara en cada ciclo de deteccion de cambios.
+   */
+  private buildDashboardCharts(): void {
+    this.buildCompositionChart();
+    this.buildBenchmarkChart();
+    this.buildTaxChart();
+    this.buildRevparChart();
+  }
+
+  /**
+   * A donde va el dinero del periodo.
+   *
+   * Barras y no un anillo de composicion: la utilidad puede ser **negativa**, y una
+   * composicion con una parte negativa no significa nada. Con barras desde cero, una
+   * utilidad en rojo se lee sola.
+   */
+  private buildCompositionChart(): void {
+    const value = (label: string) =>
+      this.parseMoneyLabel(
+        this.dashboardVm.summaryCards.find((card) => card.label === label)?.valueLabel
+      );
+
+    const profit = value('Utilidad neta');
+
+    this.compositionData = {
+      labels: ['Ingresos', 'Costos', 'Gastos', 'Utilidad'],
+      datasets: [
+        {
+          data: [value('Ingresos'), value('Costos'), value('Gastos'), profit],
+          // Una sola serie: el color no distingue nada y el eje ya nombra cada barra.
+          // La utilidad negativa si cambia de color, porque ahi el signo es el dato.
+          backgroundColor: [
+            this.viz.series,
+            this.viz.series,
+            this.viz.series,
+            profit >= 0 ? this.viz.series : this.viz.negative,
+          ],
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 46,
+        },
+      ],
+    };
+
+    this.compositionOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => this.formatCurrency(this.toNumber(context.parsed.y)),
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+          border: { display: false },
+        },
+        y: {
+          grid: { color: this.viz.grid },
+          border: { display: false },
+          ticks: {
+            color: this.viz.tick,
+            font: { size: 11 },
+            callback: (raw) => this.formatCompactCurrency(this.toNumber(raw)),
+          },
+        },
+      },
+    };
+  }
+
+  /**
+   * Comparativo interanual: barras divergentes desde cero.
+   *
+   * Solo van los **porcentajes**. La variacion de ocupacion viene en *puntos*, que es
+   * otra unidad: meterla en el mismo eje seria comparar peras con manzanas, asi que se
+   * queda como cifra al lado.
+   */
+  private buildBenchmarkChart(): void {
+    const rows = this.dashboardVm.benchmarkCards
+      .filter((card) => card.label !== 'Var. ocupacion')
+      .map((card) => ({
+        label: card.label.replace('Var. ', ''),
+        value: this.parsePercentLabel(card.valueLabel),
+      }));
+
+    this.benchmarkData = {
+      labels: rows.map((row) => row.label),
+      datasets: [
+        {
+          data: rows.map((row) => row.value),
+          backgroundColor: rows.map((row) =>
+            row.value >= 0 ? this.viz.series : this.viz.negative
+          ),
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 30,
+        },
+      ],
+    };
+
+    this.benchmarkOptions = {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => `${this.formatSignedNumber(this.toNumber(context.parsed.x), 2)}%`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: this.viz.grid },
+          border: { display: false },
+          ticks: {
+            color: this.viz.tick,
+            font: { size: 11 },
+            callback: (raw) => `${this.toNumber(raw)}%`,
+          },
+        },
+        y: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+        },
+      },
+    };
+  }
+
+  /** Las tres provisiones, que son comparables entre si. */
+  private buildTaxChart(): void {
+    const rows = this.dashboardVm.taxCards
+      .filter((card) => ['Impuesto de renta', 'ICA', 'FONTUR'].includes(card.label))
+      .map((card) => ({ label: card.label, value: this.parseMoneyLabel(card.valueLabel) }));
+
+    this.taxData = {
+      labels: rows.map((row) => row.label),
+      datasets: [
+        {
+          data: rows.map((row) => row.value),
+          backgroundColor: this.viz.series,
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 30,
+        },
+      ],
+    };
+
+    this.taxOptions = {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => this.formatCurrency(this.toNumber(context.parsed.x)),
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: this.viz.grid },
+          border: { display: false },
+          ticks: {
+            color: this.viz.tick,
+            font: { size: 11 },
+            callback: (raw) => this.formatCompactCurrency(this.toNumber(raw)),
+          },
+        },
+        y: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+        },
+      },
+    };
+  }
+
+  /** Doce meses de RevPAR: una tendencia se lee en una linea. */
+  private buildRevparChart(): void {
+    const trend = this.dashboardVm.revparTrend;
+
+    this.revparData = {
+      labels: trend.map((row) => this.monthLabel(row.month)),
+      datasets: [
+        {
+          data: trend.map((row) => row.revpar),
+          borderColor: this.viz.series,
+          backgroundColor: this.viz.seriesSoft,
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          pointBackgroundColor: this.viz.series,
+          fill: true,
+          tension: 0.3,
+        },
+      ],
+    };
+
+    this.revparOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          // El cursor no tiene que caer justo sobre el punto para leer el mes.
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            label: (context) => this.formatCurrency(this.toNumber(context.parsed.y)),
+          },
+        },
+      },
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: this.viz.tick, font: { size: 11 } },
+        },
+        y: {
+          grid: { color: this.viz.grid },
+          border: { display: false },
+          ticks: {
+            color: this.viz.tick,
+            font: { size: 11 },
+            callback: (raw) => this.formatCompactCurrency(this.toNumber(raw)),
+          },
+        },
+      },
+    };
+  }
+
+  get hasRevparTrend(): boolean {
+    return this.dashboardVm.revparTrend.length > 0;
+  }
+
+  get hasBenchmark(): boolean {
+    return this.dashboardVm.benchmarkCards.length > 0;
+  }
+
+  /** La variacion de ocupacion, que va en puntos y no cabe en el eje de porcentajes. */
+  get occupancyVariationLabel(): string {
+    return (
+      this.dashboardVm.benchmarkCards.find((card) => card.label === 'Var. ocupacion')
+        ?.valueLabel || 'N/A'
+    );
+  }
+
+  /**
+   * Las cifras ya vienen formateadas en las tarjetas; el grafico necesita el numero.
+   *
+   * Se limpia todo lo que no sea digito, signo o separador decimal. El formato es
+   * es-CO, asi que el punto es de miles y la coma es decimal.
+   */
+  private parseMoneyLabel(label: string | undefined): number {
+    if (!label) return 0;
+    const cleaned = String(label)
+      .replace(/[^0-9,\-]/g, '')
+      .replace(',', '.');
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private parsePercentLabel(label: string | undefined): number {
+    if (!label || label.includes('N/A')) return 0;
+    const cleaned = String(label)
+      .replace('%', '')
+      .replace(/[^0-9,.\-]/g, '')
+      .replace(',', '.');
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private toNumber(value: unknown): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  /** `$ 1,2 M` en un eje: la cifra exacta la da el tooltip. */
+  private formatCompactCurrency(value: number): string {
+    const abs = Math.abs(value);
+    if (abs >= 1_000_000) return `$ ${(value / 1_000_000).toFixed(1)} M`;
+    if (abs >= 1_000) return `$ ${Math.round(value / 1_000)} k`;
+    return `$ ${Math.round(value)}`;
   }
 }

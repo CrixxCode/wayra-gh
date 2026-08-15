@@ -1,0 +1,320 @@
+:host {
+  display: block;
+}
+
+.audit-page {
+  min-height: 100%;
+  padding: 24px;
+  color: var(--gh-text-strong);
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.page-header p {
+  max-width: 660px;
+  margin: 8px 0 0;
+  color: var(--gh-text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.audit-filters-grid {
+  grid-template-columns: minmax(220px, 1.8fr) repeat(auto-fit, minmax(140px, 1fr)) !important;
+}
+
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--gh-brand);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.state-message {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px dashed var(--gh-border-strong);
+  border-radius: 14px;
+  background: var(--gh-surface);
+}
+
+.state-message p {
+  margin: 0;
+  color: var(--gh-text);
+  font-size: 14px;
+}
+
+.state-message .error {
+  color: var(--gh-status-danger-text);
+}
+
+/* ------------------------------------------------------------------ el rastro */
+
+.audit-list {
+  margin-top: 14px;
+  display: grid;
+  gap: 6px;
+  transition: opacity 0.18s ease;
+}
+
+/* Mientras llega una recarga se atenua, no se blanquea. */
+.is-dim {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.audit-row {
+  --row-tone: var(--gh-status-info-text);
+  border: 1px solid var(--gh-border);
+  border-left: 4px solid var(--row-tone);
+  border-radius: 12px;
+  background: var(--gh-surface);
+  overflow: hidden;
+  transition: box-shadow 0.18s ease;
+}
+
+/* La accion se distingue por icono y por texto, no solo por color. */
+.audit-row.is-create {
+  --row-tone: var(--gh-status-success-text);
+}
+
+.audit-row.is-update {
+  --row-tone: var(--gh-status-info-text);
+}
+
+.audit-row.is-delete {
+  --row-tone: var(--gh-status-danger-text);
+}
+
+.audit-row:hover,
+.audit-row.is-open {
+  box-shadow: var(--gh-shadow-soft);
+}
+
+.row-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.6fr) minmax(150px, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 13px 16px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row-icon {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--row-tone) 12%, transparent);
+  color: var(--row-tone);
+  font-size: 12px;
+}
+
+.row-what {
+  min-width: 0;
+}
+
+.row-what strong {
+  display: block;
+  color: var(--gh-text-strong);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.row-what small,
+.row-who small {
+  display: block;
+  margin-top: 2px;
+  color: var(--gh-text-muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-who b {
+  display: block;
+  color: var(--gh-text-strong);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+/* Una accion sin autor no es un hueco: la hizo el sistema, y se dice. */
+.row-who b.is-system {
+  color: var(--gh-text-muted);
+  font-style: italic;
+}
+
+.row-more {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--gh-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.change-count {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--gh-surface-soft);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------- el detalle */
+
+.row-detail {
+  padding: 4px 16px 16px;
+  border-top: 1px solid var(--gh-border-soft);
+}
+
+.detail-changes {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+
+.detail-changes table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 460px;
+}
+
+.detail-changes th {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--gh-border);
+  color: var(--gh-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.detail-changes td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--gh-border-soft);
+  font-size: 13px;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.detail-changes .field {
+  color: var(--gh-text-strong);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.detail-changes .before {
+  color: var(--gh-status-danger-text);
+  text-decoration: line-through;
+}
+
+.detail-changes .after {
+  color: var(--gh-status-success-text);
+  font-weight: 600;
+}
+
+.detail-empty {
+  margin: 12px 0 0;
+  color: var(--gh-text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.detail-origin {
+  margin: 14px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gh-border-soft);
+}
+
+.detail-origin .is-wide {
+  grid-column: 1 / -1;
+}
+
+.detail-origin dt {
+  color: var(--gh-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.detail-origin dd {
+  margin: 3px 0 0;
+  color: var(--gh-text-strong);
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.detail-origin dd.agent {
+  color: var(--gh-text-muted);
+  font-size: 12px;
+}
+
+.is-spinning {
+  animation: audit-spin 0.9s linear infinite;
+}
+
+@keyframes audit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning {
+    animation: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .audit-page {
+    padding: 16px;
+  }
+
+  .row-head {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .row-who,
+  .row-more {
+    grid-column: 2;
+  }
+}

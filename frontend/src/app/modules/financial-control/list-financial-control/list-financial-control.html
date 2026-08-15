@@ -17,11 +17,28 @@
 
     <div class="header-actions">
       <button type="button" class="gh-btn gh-btn-dark" (click)="refreshAll()" [disabled]="isRefreshing">
-        <i class="fa-solid fa-rotate-right"></i>
-        Actualizar todo
+        <i class="fa-solid fa-rotate-right" [class.is-spinning]="isRefreshing"></i>
+        Actualizar
       </button>
     </div>
   </header>
+
+  <!-- Las pestañas van antes de los filtros: primero se elige que mirar, y los filtros
+       se ajustan a eso. Un rango de fechas no significa nada en la pestaña de umbrales. -->
+  <section class="tabs-nav" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      class="tab-btn"
+      *ngFor="let tab of tabs; trackBy: trackByTab"
+      [class.active]="activeTab === tab.key"
+      [attr.aria-selected]="activeTab === tab.key"
+      [title]="tab.hint"
+      (click)="selectTab(tab.key)">
+      <i [class]="tab.icon"></i>
+      <span>{{ tab.label }}</span>
+    </button>
+  </section>
 
   <section class="gh-filters-card">
     <div class="gh-filters-grid financial-filters-grid">
@@ -35,38 +52,64 @@
         </select>
       </label>
 
-      <label class="gh-filter-field">
-        <span>Fecha inicial</span>
-        <input class="gh-filter-input" type="date" [(ngModel)]="startDate" />
-      </label>
+      <ng-container *ngIf="showsDateRange">
+        <label class="gh-filter-field">
+          <span>Desde</span>
+          <input class="gh-filter-input" type="date" [(ngModel)]="startDate" />
+        </label>
 
-      <label class="gh-filter-field">
-        <span>Fecha final</span>
-        <input class="gh-filter-input" type="date" [(ngModel)]="endDate" />
-      </label>
+        <label class="gh-filter-field">
+          <span>Hasta</span>
+          <input class="gh-filter-input" type="date" [(ngModel)]="endDate" />
+        </label>
+      </ng-container>
 
-      <label class="gh-filter-field">
-        <span>Ano</span>
-        <input class="gh-filter-input" type="number" min="1900" max="2999" [(ngModel)]="statementYear" />
-      </label>
+      <ng-container *ngIf="showsStatementPeriod">
+        <label class="gh-filter-field">
+          <span>Ano</span>
+          <input class="gh-filter-input" type="number" min="1900" max="2999" [(ngModel)]="statementYear" />
+        </label>
 
-      <label class="gh-filter-field">
-        <span>Mes</span>
-        <select class="gh-filter-select" [(ngModel)]="statementMonth">
-          <option *ngFor="let month of monthOptions" [ngValue]="month.value">{{ month.label }}</option>
-        </select>
-      </label>
+        <label class="gh-filter-field">
+          <span>Mes</span>
+          <select class="gh-filter-select" [(ngModel)]="statementMonth">
+            <option *ngFor="let month of monthOptions" [ngValue]="month.value">{{ month.label }}</option>
+          </select>
+        </label>
+      </ng-container>
     </div>
 
-    <div class="gh-filters-actions">
+    <!-- Atajos: el 90% de las consultas son "este mes" o "el mes pasado". -->
+    <div class="period-presets" *ngIf="showsDateRange">
+      <button
+        type="button"
+        class="preset-chip"
+        *ngFor="let preset of periodPresets"
+        [class.active]="isPresetActive(preset.key)"
+        (click)="applyPreset(preset.key)">
+        {{ preset.label }}
+      </button>
+    </div>
+
+    <div class="gh-filters-actions" *ngIf="showsDateRange || showsStatementPeriod">
       <div class="gh-action-group">
-        <button type="button" class="gh-btn gh-btn-dark" (click)="applyPeriodFilters()" [disabled]="isRefreshing">
-          <i class="fa-solid fa-chart-line"></i>
+        <button
+          type="button"
+          class="gh-btn gh-btn-dark"
+          *ngIf="showsDateRange"
+          (click)="applyPeriodFilters()"
+          [disabled]="isRefreshing">
+          <i class="fa-solid fa-magnifying-glass-chart"></i>
           Aplicar periodo
         </button>
-        <button type="button" class="gh-btn gh-btn-light" (click)="applyStatementsFilters()" [disabled]="loadingStatements">
+        <button
+          type="button"
+          class="gh-btn gh-btn-dark"
+          *ngIf="showsStatementPeriod"
+          (click)="applyStatementsFilters()"
+          [disabled]="loadingStatements">
           <i class="fa-solid fa-table-list"></i>
-          Consultar estados
+          Consultar mes
         </button>
       </div>
     </div>
@@ -78,278 +121,381 @@
     </div>
   </section>
 
-  <section class="tabs-nav">
-    <button
-      type="button"
-      class="tab-btn"
-      *ngFor="let tab of tabs; trackBy: trackByTab"
-      [class.active]="activeTab === tab.key"
-      (click)="selectTab(tab.key)">
-      <i [class]="tab.icon"></i>
-      <span>{{ tab.label }}</span>
-    </button>
-  </section>
-
   <section class="module-card config-section" *ngIf="activeTab === 'config'">
-    <div class="section-head">
-      <div>
-        <h2>Configuracion de alertas operacionales</h2>
-        <p>Define umbrales para ocupacion, disponibilidad, ingresos y reembolsos.</p>
-      </div>
-    </div>
-
     <section class="state-message" *ngIf="!selectedHotelSettingsId">
-      <p class="info">Selecciona un hotel en los filtros para configurar los umbrales de alertas operacionales.</p>
+      <p class="info">Selecciona un hotel en los filtros para configurar sus umbrales y tarifas.</p>
     </section>
 
-    <div class="config-form" *ngIf="selectedHotelSettingsId">
-      <div class="form-group-section">
-        <h3>Umbrales de ocupacion y disponibilidad</h3>
-        
-        <label class="gh-filter-field">
-          <span>Umbral ocupacion alta (%)</span>
-          <input 
-            type="number" 
-            step="0.01" 
-            min="0" 
-            max="100"
-            class="gh-filter-input" 
-            [(ngModel)]="configForm.operationalHighOccupancyThresholdPct"
-            placeholder="Ej: 85" />
-          <small>Por defecto: 85%. Genera alerta cuando ocupacion supera este valor.</small>
-        </label>
+    <div class="settings" *ngIf="selectedHotelSettingsId">
+      <header class="settings-intro">
+        <h2>Umbrales y tarifas</h2>
+        <p>
+          Estos numeros deciden cuando el tablero avisa y con que se calculan las provisiones.
+          Son de <b>{{ selectedConfigRecord?.hotelName || 'este hotel' }}</b>: lo que para uno es
+          ocupacion alta, para otro es un martes normal.
+        </p>
+      </header>
 
-        <label class="gh-filter-field">
-          <span>Habitaciones disponibles minimo</span>
-          <input 
-            type="number" 
-            step="1" 
-            min="1"
-            class="gh-filter-input" 
-            [(ngModel)]="configForm.operationalLowAvailabilityThresholdRooms"
-            placeholder="Ej: 3" />
-          <small>Por defecto: 3. Genera alerta cuando hay menos de este numero de habitaciones disponibles.</small>
-        </label>
-      </div>
+      <!-- Cada seccion explica a la izquierda y pide a la derecha. Asi el texto de ayuda
+           no se cuela entre campo y campo convirtiendo el formulario en un muro de letra
+           pequeña. -->
+      <section class="settings-group">
+        <div class="group-intro">
+          <h3><i class="fa-solid fa-traffic-light"></i> Semaforo del tablero</h3>
+          <p>Cuanto del punto de equilibrio hay que cubrir para que el tablero deje de avisar.</p>
+        </div>
 
-      <div class="form-group-section">
-        <h3>Umbrales de ingresos</h3>
-        
-        <label class="gh-filter-field">
-          <span>Caida ingresos (%)</span>
-          <input 
-            type="number" 
-            step="0.01" 
-            min="0" 
-            max="100"
-            class="gh-filter-input" 
-            [(ngModel)]="configForm.operationalRevenueDropThresholdPct"
-            placeholder="Ej: 20" />
-          <small>Por defecto: 20%. Genera alerta cuando los ingresos caen por este porcentaje.</small>
-        </label>
+        <div class="group-fields">
+          <label class="field">
+            <span class="field-label">Advertencia</span>
+            <span class="field-input">
+              <input type="number" step="0.01" min="0" max="200"
+                [(ngModel)]="configForm.breakEvenWarningPct" placeholder="80" />
+              <i class="field-unit">%</i>
+            </span>
+            <small>Por debajo de este avance, el semaforo pasa a amarillo.</small>
+          </label>
 
-        <label class="gh-filter-field">
-          <span>Ventana de dias para ingresos</span>
-          <input 
-            type="number" 
-            step="1" 
-            min="1"
-            class="gh-filter-input" 
-            [(ngModel)]="configForm.operationalRevenueWindowDays"
-            placeholder="Ej: 7" />
-          <small>Por defecto: 7 dias. Periodo para evaluar cambios en ingresos.</small>
-        </label>
-      </div>
+          <label class="field">
+            <span class="field-label">Optimo</span>
+            <span class="field-input">
+              <input type="number" step="0.01" min="0" max="200"
+                [(ngModel)]="configForm.breakEvenOptimalPct" placeholder="100" />
+              <i class="field-unit">%</i>
+            </span>
+            <small>A partir de aqui el periodo se considera sano y se pone verde.</small>
+          </label>
+        </div>
+      </section>
 
-      <div class="form-group-section">
-        <h3>Umbrales de reembolsos</h3>
-        
-        <label class="gh-filter-field">
-          <span>Reembolsos altos (cantidad)</span>
-          <input 
-            type="number" 
-            step="1" 
-            min="1"
-            class="gh-filter-input" 
-            [(ngModel)]="configForm.operationalHighRefundsThresholdCount"
-            placeholder="Ej: 5" />
-          <small>Por defecto: 5. Genera alerta cuando la cantidad de reembolsos supera este numero.</small>
-        </label>
+      <section class="settings-group">
+        <div class="group-intro">
+          <h3><i class="fa-solid fa-bell"></i> Alertas de operacion</h3>
+          <p>Cuando avisar por ocupacion, disponibilidad, caida de ingresos o reembolsos.</p>
+        </div>
 
-        <label class="gh-filter-field">
-          <span>Ventana de dias para reembolsos</span>
-          <input 
-            type="number" 
-            step="1" 
-            min="1"
-            class="gh-filter-input" 
-            [(ngModel)]="configForm.operationalRefundWindowDays"
-            placeholder="Ej: 7" />
-          <small>Por defecto: 7 dias. Periodo para evaluar reembolsos.</small>
-        </label>
-      </div>
+        <div class="group-fields">
+          <label class="field">
+            <span class="field-label">Ocupacion alta</span>
+            <span class="field-input">
+              <input type="number" step="0.01" min="0" max="100"
+                [(ngModel)]="configForm.operationalHighOccupancyThresholdPct" placeholder="85" />
+              <i class="field-unit">%</i>
+            </span>
+            <small>Avisa al superar este nivel.</small>
+          </label>
 
-      <div class="config-actions">
-        <button 
-          type="button" 
-          class="gh-btn gh-btn-dark" 
-          (click)="saveConfiguration()"
-          [disabled]="savingConfig">
-          <i class="fa-solid fa-floppy-disk"></i>
-          Guardar configuracion
-        </button>
-      </div>
+          <label class="field">
+            <span class="field-label">Habitaciones libres minimas</span>
+            <span class="field-input">
+              <input type="number" step="1" min="1"
+                [(ngModel)]="configForm.operationalLowAvailabilityThresholdRooms" placeholder="3" />
+              <i class="field-unit">hab.</i>
+            </span>
+            <small>Avisa al quedar menos de estas.</small>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Caida de ingresos</span>
+            <span class="field-input">
+              <input type="number" step="0.01" min="0" max="100"
+                [(ngModel)]="configForm.operationalRevenueDropThresholdPct" placeholder="20" />
+              <i class="field-unit">%</i>
+            </span>
+            <small>Avisa si los ingresos caen mas que esto.</small>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Ventana de ingresos</span>
+            <span class="field-input">
+              <input type="number" step="1" min="1"
+                [(ngModel)]="configForm.operationalRevenueWindowDays" placeholder="7" />
+              <i class="field-unit">dias</i>
+            </span>
+            <small>Sobre cuantos dias se mide esa caida.</small>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Reembolsos altos</span>
+            <span class="field-input">
+              <input type="number" step="1" min="1"
+                [(ngModel)]="configForm.operationalHighRefundsThresholdCount" placeholder="5" />
+              <i class="field-unit">n.</i>
+            </span>
+            <small>Avisa al pasar de esta cantidad.</small>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Ventana de reembolsos</span>
+            <span class="field-input">
+              <input type="number" step="1" min="1"
+                [(ngModel)]="configForm.operationalRefundWindowDays" placeholder="7" />
+              <i class="field-unit">dias</i>
+            </span>
+            <small>Sobre cuantos dias se cuentan.</small>
+          </label>
+        </div>
+      </section>
+
+      <!-- Las tarifas se guardaban en la configuracion pero no habia donde tocarlas: el
+           tablero calculaba provisiones con valores que nadie podia revisar. -->
+      <section class="settings-group">
+        <div class="group-intro">
+          <h3><i class="fa-solid fa-receipt"></i> Impuestos y tarifas</h3>
+          <p>Con esto se calcula lo que hay que apartar, en la pestaña Tablero.</p>
+        </div>
+
+        <div class="group-fields">
+          <label class="field is-wide">
+            <span class="field-label">Distrito</span>
+            <span class="field-input">
+              <input type="text" [(ngModel)]="configForm.districtName" placeholder="Riohacha" />
+            </span>
+            <small>Municipio donde tributa el hotel.</small>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Impuesto de renta</span>
+            <span class="field-input">
+              <input type="number" step="0.01" min="0" max="100"
+                [(ngModel)]="configForm.standardIncomeTaxRate" placeholder="35" />
+              <i class="field-unit">%</i>
+            </span>
+            <small>Tarifa general.</small>
+          </label>
+
+          <label class="field">
+            <span class="field-label">ICA</span>
+            <span class="field-input">
+              <input type="number" step="0.0001" min="0"
+                [(ngModel)]="configForm.icaRatePerThousand" placeholder="7" />
+              <i class="field-unit">x mil</i>
+            </span>
+            <small>Impuesto municipal por cada mil facturados.</small>
+          </label>
+
+          <label class="field">
+            <span class="field-label">FONTUR</span>
+            <span class="field-input">
+              <input type="number" step="0.0001" min="0"
+                [(ngModel)]="configForm.fonturRatePerThousand" placeholder="2.5" />
+              <i class="field-unit">x mil</i>
+            </span>
+            <small>Parafiscal de turismo por cada mil.</small>
+          </label>
+
+          <!-- Los interruptores van al final y a todo lo ancho: abren campos debajo, y
+               si estuvieran intercalados el formulario saltaria al pulsarlos. -->
+          <div class="switch-row is-wide">
+            <label class="switch">
+              <input type="checkbox" [(ngModel)]="configForm.tourismLawEnabled" />
+              <span class="switch-track"><i></i></span>
+              <span class="switch-copy">
+                <b>Acogido a la ley de turismo</b>
+                <small>Usa la tarifa preferencial de renta en vez de la general.</small>
+              </span>
+            </label>
+
+            <label class="field is-inline" *ngIf="configForm.tourismLawEnabled">
+              <span class="field-label">Tarifa preferencial</span>
+              <span class="field-input">
+                <input type="number" step="0.01" min="0" max="100"
+                  [(ngModel)]="configForm.tourismLawPreferentialRate" placeholder="9" />
+                <i class="field-unit">%</i>
+              </span>
+            </label>
+          </div>
+
+          <div class="switch-row is-wide">
+            <label class="switch">
+              <input type="checkbox" [(ngModel)]="configForm.hasIvaExemption" />
+              <span class="switch-track"><i></i></span>
+              <span class="switch-copy">
+                <b>Tiene exencion de IVA</b>
+                <small>El tablero estima el ahorro que representa.</small>
+              </span>
+            </label>
+
+            <label class="field is-inline" *ngIf="!configForm.hasIvaExemption">
+              <span class="field-label">IVA</span>
+              <span class="field-input">
+                <input type="number" step="0.01" min="0" max="100"
+                  [(ngModel)]="configForm.ivaRate" placeholder="19" />
+                <i class="field-unit">%</i>
+              </span>
+            </label>
+          </div>
+        </div>
+      </section>
 
       <div class="inline-messages">
         <p class="error" *ngIf="configValidationError">{{ configValidationError }}</p>
         <p class="info" *ngIf="configSaveMessage && !configValidationError">{{ configSaveMessage }}</p>
       </div>
+
+      <!-- La barra se queda pegada abajo: con el formulario largo, el boton de guardar
+           quedaba fuera de pantalla mientras se editaba. -->
+      <footer class="settings-bar">
+        <p class="bar-note">Los cambios afectan al tablero y a las provisiones del periodo.</p>
+
+        <div class="bar-actions">
+          <button type="button" class="gh-btn gh-btn-light" (click)="restoreConfigForm()" [disabled]="savingConfig">
+            <i class="fa-solid fa-rotate-left"></i>
+            Descartar cambios
+          </button>
+
+          <button type="button" class="gh-btn gh-btn-dark" (click)="saveConfiguration()" [disabled]="savingConfig">
+            <i class="fa-solid fa-floppy-disk" [class.is-spinning]="savingConfig"></i>
+            {{ savingConfig ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+      </footer>
     </div>
   </section>
 
   <section class="module-card" *ngIf="activeTab === 'dashboard'">
-    <div class="section-head">
-      <div>
-        <h2>Tablero financiero</h2>
-        <p>Periodo analizado: {{ dashboardVm.periodLabel || (startDate + ' a ' + endDate) }}</p>
-      </div>
-    </div>
-
     <section class="state-message" *ngIf="loadingDashboard || dashboardError">
       <p *ngIf="loadingDashboard">Cargando tablero financiero...</p>
       <p class="error" *ngIf="!loadingDashboard && dashboardError">{{ dashboardError }}</p>
     </section>
 
     <ng-container *ngIf="!loadingDashboard && !dashboardError">
-      <section class="state-message" *ngIf="dashboardVm.summaryCards.length === 0">
+      <section class="state-message" *ngIf="!hasDashboardData">
         <p class="info">No hay datos disponibles para el periodo seleccionado.</p>
       </section>
 
-      <ng-container *ngIf="dashboardVm.summaryCards.length > 0">
-        <section class="stats-grid">
-          <article class="stat-card" *ngFor="let card of dashboardVm.summaryCards; trackBy: trackBySummaryCard">
-            <div class="stat-head">
-              <span>{{ card.label }}</span>
-              <span class="stat-icon" [ngClass]="card.tone"><i [class]="card.icon"></i></span>
+      <ng-container *ngIf="hasDashboardData">
+        <!-- El veredicto primero: quien abre esto pregunta "como va el hotel". -->
+        <section class="verdict" [ngClass]="'tone-' + verdictTone">
+          <div class="verdict-main">
+            <span class="verdict-eyebrow">{{ dashboardVm.periodLabel }}</span>
+            <h2>{{ verdictTitle }}</h2>
+            <p>{{ verdictSubtitle }}</p>
+          </div>
+
+          <div class="verdict-gauge">
+            <div class="gauge-track">
+              <i [style.width.%]="breakEvenProgressWidth" [ngClass]="'tone-' + breakEvenStatusTone"></i>
+              <!-- La marca del 100% es la meta: sin ella la barra no dice contra que. -->
+              <b class="gauge-goal"></b>
             </div>
-            <div class="stat-value">{{ card.valueLabel }}</div>
-            <div class="stat-note">{{ card.note }}</div>
+            <p class="gauge-legend">
+              <span><b>{{ formatIndicatorValue(dashboardVm.breakEven.progressPct) }}%</b> del punto de equilibrio</span>
+              <span class="is-soft">{{ breakEvenStatusLabel }}</span>
+            </p>
+          </div>
+        </section>
+
+        <ul class="verdict-reasons" *ngIf="verdictReasons.length > 0">
+          <li *ngFor="let reason of verdictReasons">
+            <i class="fa-solid fa-circle-info"></i>
+            {{ reason }}
+          </li>
+        </ul>
+
+        <div class="chart-grid">
+          <!-- Barras y no un anillo: la utilidad puede ser negativa, y una composicion
+               con una parte negativa no significa nada. -->
+          <article class="chart-card is-wide">
+            <header class="chart-head">
+              <h3>A donde va el dinero del periodo</h3>
+              <small>Pasa el cursor sobre una barra para ver la cifra exacta</small>
+            </header>
+
+            <div class="chart-canvas">
+              <p-chart type="bar" [data]="compositionData" [options]="compositionOptions"></p-chart>
+            </div>
+
+            <!-- Las cifras exactas, para no depender del cursor. -->
+            <dl class="chart-figures">
+              <div *ngFor="let card of dashboardVm.summaryCards; trackBy: trackBySummaryCard" [title]="card.hint || card.note">
+                <dt>{{ card.label }}</dt>
+                <dd [ngClass]="card.tone">{{ card.valueLabel }}</dd>
+              </div>
+            </dl>
           </article>
-        </section>
 
-        <section class="dashboard-grid">
-          <article class="insight-card">
-            <div class="card-head">
-              <h3>Semaforo financiero</h3>
-              <span class="tone-badge" [ngClass]="'tone-' + dashboardVm.traffic.tone">{{ dashboardVm.traffic.label || 'Sin clasificacion' }}</span>
-            </div>
+          <article class="chart-card">
+            <header class="chart-head">
+              <h3>Que cuesta llenar una habitacion</h3>
+              <small>De aqui sale el punto de equilibrio de arriba</small>
+            </header>
 
-            <div class="card-body">
-              <p class="muted" *ngIf="dashboardVm.traffic.reasons.length === 0">Sin observaciones para el periodo.</p>
-              <ul class="reason-list" *ngIf="dashboardVm.traffic.reasons.length > 0">
-                <li *ngFor="let reason of dashboardVm.traffic.reasons">{{ reason }}</li>
-              </ul>
-            </div>
+            <dl class="chart-figures is-stacked">
+              <div>
+                <dt>Ingreso de equilibrio</dt>
+                <dd>{{ formatCurrencyNullable(dashboardVm.breakEven.breakEvenRevenue) }}</dd>
+                <span>Lo minimo que hay que facturar para no perder</span>
+              </div>
+              <div>
+                <dt>Costos fijos</dt>
+                <dd>{{ formatCurrencyLabel(dashboardVm.breakEven.fixedCosts) }}</dd>
+                <span>Se pagan aunque no entre nadie</span>
+              </div>
+              <div>
+                <dt>Costos variables</dt>
+                <dd>{{ formatCurrencyLabel(dashboardVm.breakEven.variableCosts) }}</dd>
+                <span>Suben con cada huesped</span>
+              </div>
+              <div>
+                <dt>Costo por habitacion ocupada</dt>
+                <dd>{{ formatCurrencyLabel(dashboardVm.breakEven.cpho) }}</dd>
+                <span>Por debajo de esto, vender da perdida</span>
+              </div>
+            </dl>
           </article>
 
-          <article class="insight-card">
-            <div class="card-head">
-              <h3>Punto de equilibrio</h3>
-              <span class="tone-badge" [ngClass]="'tone-' + breakEvenStatusTone">{{ dashboardVm.breakEven.status || '-' }}</span>
+          <!-- Solo los porcentajes. La ocupacion viene en *puntos*, otra unidad: meterla
+               en el mismo eje seria comparar peras con manzanas. -->
+          <article class="chart-card" *ngIf="hasBenchmark">
+            <header class="chart-head">
+              <h3>Contra el ano pasado</h3>
+              <small>Mismo periodo del ano anterior</small>
+            </header>
+
+            <div class="chart-canvas is-short">
+              <p-chart type="bar" [data]="benchmarkData" [options]="benchmarkOptions"></p-chart>
             </div>
 
-            <div class="card-body">
-              <div class="progress-label">
-                <span>Progreso</span>
-                <b>{{ formatIndicatorValue(dashboardVm.breakEven.progressPct) }}%</b>
-              </div>
-              <div class="progress-track">
-                <div class="progress-fill" [style.width.%]="breakEvenProgressWidth" [ngClass]="'tone-' + breakEvenStatusTone"></div>
-              </div>
+            <p class="chart-aside">
+              Ocupacion: <b>{{ occupancyVariationLabel }}</b>
+              <span>se mide en puntos, no en porcentaje de cambio</span>
+            </p>
+          </article>
 
-                <div class="key-values">
-                <div>
-                  <small>Ingreso equilibrio</small>
-                  <strong>{{ formatCurrencyNullable(dashboardVm.breakEven.breakEvenRevenue) }}</strong>
-                </div>
-                <div>
-                  <small>Costos fijos</small>
-                  <strong>{{ formatCurrencyLabel(dashboardVm.breakEven.fixedCosts) }}</strong>
-                </div>
-                <div>
-                  <small>Costos variables</small>
-                  <strong>{{ formatCurrencyLabel(dashboardVm.breakEven.variableCosts) }}</strong>
-                </div>
-                <div>
-                  <small>Costo por hab. ocupada</small>
-                  <strong>{{ formatCurrencyLabel(dashboardVm.breakEven.cpho) }}</strong>
-                </div>
+          <article class="chart-card">
+            <header class="chart-head">
+              <h3>Lo que hay que apartar para impuestos</h3>
+              <small>Segun las tarifas de la pestaña Umbrales</small>
+            </header>
+
+            <div class="chart-canvas is-short">
+              <p-chart type="bar" [data]="taxData" [options]="taxOptions"></p-chart>
+            </div>
+
+            <dl class="chart-figures">
+              <div *ngFor="let card of dashboardVm.taxCards; trackBy: trackByMetricCard"
+                   [title]="card.hint || card.note">
+                <ng-container *ngIf="card.label === 'Total provisiones' || card.label === 'Ahorro IVA estimado'">
+                  <dt>{{ card.label }}</dt>
+                  <dd>{{ card.valueLabel }}</dd>
+                </ng-container>
               </div>
+            </dl>
+          </article>
+
+          <!-- Una tendencia de doce meses se lee en una linea, no en doce filas. -->
+          <article class="chart-card is-wide" *ngIf="hasRevparTrend">
+            <header class="chart-head">
+              <h3>Cuanto rinde cada habitacion, mes a mes</h3>
+              <small>RevPAR: ingreso de habitaciones dividido entre todas las que hay, esten llenas o vacias</small>
+            </header>
+
+            <div class="chart-canvas">
+              <p-chart type="line" [data]="revparData" [options]="revparOptions"></p-chart>
             </div>
           </article>
-        </section>
-
-        <section class="metric-block">
-          <div class="block-head">
-            <h3>Benchmarking</h3>
-            <small>Comparativo contra el mismo periodo del ano anterior</small>
-          </div>
-          <div class="metric-grid">
-            <article class="metric-card" *ngFor="let card of dashboardVm.benchmarkCards; trackBy: trackByMetricCard">
-              <div class="metric-head">
-                <span>{{ card.label }}</span>
-                <i [class]="card.icon" [ngClass]="card.tone"></i>
-              </div>
-              <div class="metric-value">{{ card.valueLabel }}</div>
-              <div class="metric-note">{{ card.note }}</div>
-            </article>
-          </div>
-        </section>
-
-        <section class="metric-block">
-          <div class="block-head">
-            <h3>Provisiones e impuestos</h3>
-            <small>Monitoreo tributario del periodo</small>
-          </div>
-          <div class="metric-grid">
-            <article class="metric-card" *ngFor="let card of dashboardVm.taxCards; trackBy: trackByMetricCard">
-              <div class="metric-head">
-                <span>{{ card.label }}</span>
-                <i [class]="card.icon" [ngClass]="card.tone"></i>
-              </div>
-              <div class="metric-value">{{ card.valueLabel }}</div>
-              <div class="metric-note">{{ card.note }}</div>
-            </article>
-          </div>
-        </section>
-
-        <section class="table-card" *ngIf="dashboardVm.revparTrend.length > 0">
-          <div class="table-head">
-            <h3>Trend RevPAR (12 meses)</h3>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Mes</th>
-                  <th>RevPAR</th>
-                  <th>Ingreso habitaciones</th>
-                  <th>Habitaciones (inventario)</th>
-                  <th>Noches habitacion disponibles</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let row of dashboardVm.revparTrend; trackBy: trackByTrend">
-                  <td>{{ row.month }}</td>
-                  <td>{{ formatCurrencyLabel(row.revpar) }}</td>
-                  <td>{{ formatCurrencyLabel(row.roomRevenue) }}</td>
-                  <td>{{ formatInteger(row.roomCount) }}</td>
-                  <td>{{ formatInteger(row.availableRoomNights) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
+        </div>
       </ng-container>
     </ng-container>
   </section>
@@ -357,34 +503,86 @@
   <section class="module-card" *ngIf="activeTab === 'what_if'">
     <div class="section-head">
       <div>
-        <h2>Simulador What-if</h2>
-        <p>Evalua escenarios de tarifa, ocupacion y costos operativos.</p>
+        <h2>Simulador de escenarios</h2>
+        <p>Mueve las palancas y mira que le pasa al resultado antes de tomar la decision.</p>
       </div>
     </div>
 
+    <!-- Escenarios tipicos: el punto de partida de casi toda simulacion real. -->
+    <div class="scenario-presets">
+      <button
+        type="button"
+        class="preset-chip"
+        *ngFor="let preset of scenarioPresets"
+        [title]="preset.hint"
+        (click)="applyScenarioPreset(preset.key)">
+        <i [class]="preset.icon"></i>
+        {{ preset.label }}
+      </button>
+      <button type="button" class="preset-chip is-reset" (click)="resetScenario()">
+        <i class="fa-solid fa-rotate-left"></i>
+        Sin cambios
+      </button>
+    </div>
+
+    <!-- Deslizadores en vez de cajas de numeros: un simulador se explora, no se teclea. -->
     <div class="scenario-controls">
-      <label class="gh-filter-field">
-        <span>Variacion tarifa (%)</span>
-        <input class="gh-filter-input" type="number" step="0.01" [(ngModel)]="rateChangePct" />
+      <label class="lever">
+        <span class="lever-head">
+          <span>Tarifa</span>
+          <b [class.is-up]="rateChangePct > 0" [class.is-down]="rateChangePct < 0">
+            {{ signedPct(rateChangePct) }}
+          </b>
+        </span>
+        <input type="range" min="-50" max="50" step="1" [(ngModel)]="rateChangePct" />
+        <small>Que pasa si subo o bajo el precio de la habitacion</small>
       </label>
-      <label class="gh-filter-field">
-        <span>Variacion ocupacion (%)</span>
-        <input class="gh-filter-input" type="number" step="0.01" [(ngModel)]="occupancyChangePct" />
+
+      <label class="lever">
+        <span class="lever-head">
+          <span>Ocupacion</span>
+          <b [class.is-up]="occupancyChangePct > 0" [class.is-down]="occupancyChangePct < 0">
+            {{ signedPct(occupancyChangePct) }}
+          </b>
+        </span>
+        <input type="range" min="-50" max="50" step="1" [(ngModel)]="occupancyChangePct" />
+        <small>Cuantas habitaciones mas --o menos-- se venden</small>
       </label>
-      <label class="gh-filter-field">
-        <span>Ocupacion objetivo (%)</span>
-        <input class="gh-filter-input" type="number" step="0.01" [(ngModel)]="targetOccupancyPctInput" placeholder="Opcional" />
+
+      <label class="lever">
+        <span class="lever-head">
+          <span>Costos operativos</span>
+          <b [class.is-up]="operatingCostChangePct > 0" [class.is-down]="operatingCostChangePct < 0">
+            {{ signedPct(operatingCostChangePct) }}
+          </b>
+        </span>
+        <input type="range" min="-50" max="50" step="1" [(ngModel)]="operatingCostChangePct" />
+        <small>Nomina, servicios, insumos</small>
       </label>
-      <label class="gh-filter-field">
-        <span>Variacion costos (%)</span>
-        <input class="gh-filter-input" type="number" step="0.01" [(ngModel)]="operatingCostChangePct" />
+
+      <label class="lever">
+        <span class="lever-head">
+          <span>Ocupacion objetivo</span>
+          <b class="is-soft">opcional</b>
+        </span>
+        <input
+          class="gh-filter-input"
+          type="number"
+          step="0.01"
+          min="0"
+          max="100"
+          [(ngModel)]="targetOccupancyPctInput"
+          placeholder="Ej. 75" />
+        <small>Fija un porcentaje en vez de una variacion</small>
       </label>
-      <div class="scenario-action">
-        <button type="button" class="gh-btn gh-btn-dark" (click)="runWhatIf()" [disabled]="loadingWhatIf">
-          <i class="fa-solid fa-flask"></i>
-          Simular escenario
-        </button>
-      </div>
+    </div>
+
+    <div class="scenario-action">
+      <p class="scenario-sentence">{{ scenarioSentence }}</p>
+      <button type="button" class="gh-btn gh-btn-dark" (click)="runWhatIf()" [disabled]="loadingWhatIf">
+        <i class="fa-solid fa-flask" [class.is-spinning]="loadingWhatIf"></i>
+        Simular escenario
+      </button>
     </div>
 
     <section class="state-message" *ngIf="loadingWhatIf || whatIfError">
@@ -395,6 +593,25 @@
     <ng-container *ngIf="!loadingWhatIf && !whatIfError">
       <section class="state-message" *ngIf="whatIfVm.baseCards.length === 0">
         <p class="info">Aun no hay simulacion disponible para mostrar.</p>
+      </section>
+
+      <!-- El resultado del escenario en una frase. Antes habia que buscar "utilidad" en
+           dos de las tres columnas y restar de cabeza. -->
+      <section
+        class="scenario-verdict"
+        *ngIf="whatIfVm.baseCards.length > 0"
+        [class.is-down]="!scenarioImproves"
+        [class.is-loss]="scenarioEndsInLoss">
+        <div class="verdict-main">
+          <span class="verdict-eyebrow">Si el escenario se cumple</span>
+          <h3>{{ scenarioHeadline }}</h3>
+          <p>{{ scenarioFromTo }}</p>
+        </div>
+
+        <p class="loss-warning" *ngIf="scenarioEndsInLoss">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          Aun asi el periodo cierra en perdida.
+        </p>
       </section>
 
       <section class="scenario-results" *ngIf="whatIfVm.baseCards.length > 0">
@@ -456,8 +673,23 @@
     <div class="section-head">
       <div>
         <h2>Estados financieros</h2>
-        <p>Actual: {{ statementsVm.periodCurrent || (statementYear + '-' + statementMonth) }} | Anterior: {{ statementsVm.periodPrevious || ((statementYear - 1) + '-' + statementMonth) }}</p>
+        <p>
+          Comparando <b>{{ statementsVm.periodCurrent || (statementYear + '-' + statementMonth) }}</b>
+          contra el mismo mes del ano anterior
+          (<b>{{ statementsVm.periodPrevious || ((statementYear - 1) + '-' + statementMonth) }}</b>).
+        </p>
       </div>
+
+      <!-- Un estado financiero termina casi siempre en una hoja de calculo o en manos
+           del contador: exportarlo evita copiarlo a mano fila por fila. -->
+      <button
+        type="button"
+        class="gh-btn gh-btn-light"
+        (click)="exportStatements()"
+        [disabled]="!canExportStatements">
+        <i class="fa-solid fa-file-csv"></i>
+        Exportar CSV
+      </button>
     </div>
 
     <section class="state-message" *ngIf="loadingStatements || statementsError">
@@ -478,8 +710,11 @@
               <i class="fa-solid fa-gauge-high" [ngClass]="indicator.delta !== null && indicator.delta >= 0 ? 'green' : 'red'"></i>
             </div>
             <div class="metric-value">{{ formatIndicatorValue(indicator.current) }}</div>
-            <div class="metric-note">Previo: {{ formatIndicatorValue(indicator.previous) }}</div>
-            <div class="metric-note">Var: {{ formatDeltaPctLabel(indicator.deltaPct) }}</div>
+            <p class="indicator-delta" [ngClass]="'dir-' + deltaDirection(indicator.deltaPct)">
+              <i [class]="deltaIcon(indicator.deltaPct)"></i>
+              {{ formatDeltaPctLabel(indicator.deltaPct) }}
+              <span>frente a {{ formatIndicatorValue(indicator.previous) }}</span>
+            </p>
             <div class="metric-note formula" *ngIf="indicator.formula">{{ indicator.formula }}</div>
           </article>
         </section>
@@ -506,7 +741,10 @@
                   <td>{{ row.account }}</td>
                   <td>{{ formatCurrencyLabel(row.current) }}</td>
                   <td>{{ formatCurrencyLabel(row.previous) }}</td>
-                  <td [ngClass]="{ positive: row.delta > 0, negative: row.delta < 0 }">{{ formatDeltaLabel(row.delta) }}</td>
+                  <td [ngClass]="{ positive: row.delta > 0, negative: row.delta < 0 }">
+                    <i class="delta-arrow" [class]="deltaIcon(row.delta)"></i>
+                    {{ formatDeltaLabel(row.delta) }}
+                  </td>
                   <td [ngClass]="{ positive: row.deltaPct !== null && row.deltaPct > 0, negative: row.deltaPct !== null && row.deltaPct < 0 }">
                     {{ formatDeltaPctLabel(row.deltaPct) }}
                   </td>
@@ -517,7 +755,10 @@
                   <td>{{ row.account }}</td>
                   <td>{{ formatCurrencyLabel(row.current) }}</td>
                   <td>{{ formatCurrencyLabel(row.previous) }}</td>
-                  <td [ngClass]="{ positive: row.delta > 0, negative: row.delta < 0 }">{{ formatDeltaLabel(row.delta) }}</td>
+                  <td [ngClass]="{ positive: row.delta > 0, negative: row.delta < 0 }">
+                    <i class="delta-arrow" [class]="deltaIcon(row.delta)"></i>
+                    {{ formatDeltaLabel(row.delta) }}
+                  </td>
                   <td [ngClass]="{ positive: row.deltaPct !== null && row.deltaPct > 0, negative: row.deltaPct !== null && row.deltaPct < 0 }">
                     {{ formatDeltaPctLabel(row.deltaPct) }}
                   </td>
@@ -547,7 +788,10 @@
                   <td>{{ row.account }}</td>
                   <td>{{ formatCurrencyLabel(row.current) }}</td>
                   <td>{{ formatCurrencyLabel(row.previous) }}</td>
-                  <td [ngClass]="{ positive: row.delta > 0, negative: row.delta < 0 }">{{ formatDeltaLabel(row.delta) }}</td>
+                  <td [ngClass]="{ positive: row.delta > 0, negative: row.delta < 0 }">
+                    <i class="delta-arrow" [class]="deltaIcon(row.delta)"></i>
+                    {{ formatDeltaLabel(row.delta) }}
+                  </td>
                   <td [ngClass]="{ positive: row.deltaPct !== null && row.deltaPct > 0, negative: row.deltaPct !== null && row.deltaPct < 0 }">
                     {{ formatDeltaPctLabel(row.deltaPct) }}
                   </td>

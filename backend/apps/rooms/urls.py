@@ -5,7 +5,8 @@ from .views import (
     AmenityViewSet,
     RoomViewSet,
     MaintenanceOrderViewSet,
-    CleaningTaskViewSet
+    CleaningTaskViewSet,
+    RecurringWorkViewSet,
 )
 
 router = DefaultRouter()
@@ -15,5 +16,6 @@ router.register(r"rates", RateViewSet, basename="rate")
 router.register(r"rooms", RoomViewSet, basename="room")
 router.register(r"maintenance-orders", MaintenanceOrderViewSet, basename="maintenance-order")
 router.register(r"cleaning-tasks", CleaningTaskViewSet, basename="cleaning-task")
+router.register(r"recurring-work", RecurringWorkViewSet, basename="recurring-work")
 
 urlpatterns = router.urls

@@ -58,6 +58,7 @@ DOMAINS = [
     ("amenities", "amenidades", "/api/amenities/", True),
     ("cleaning_tasks", "tareas de limpieza", "/api/cleaning-tasks/", True),
     ("maintenance_orders", "ordenes de mantenimiento", "/api/maintenance-orders/", True),
+    ("recurring_work", "trabajo periodico", "/api/recurring-work/", True),
     # reservas
     ("reservations", "reservas", "/api/reservations/", True),
     ("reservation_rooms", "habitaciones de reserva", "/api/reservation-rooms/", True),
@@ -126,7 +127,13 @@ GUEST_DATA_ROLE_SLUGS = ["admin", "manager", "staff"]
 
 NAV_RESOURCES = [
     ("dashboard.view", "Dashboard", "Panel de inicio del hotel.", ""),
-    ("activity-log.view", "Registro de actividad", "Bitacora de actividad del hotel.", ""),
+    ("activity-log.view", "Registro de actividad", "Reemplazado por audit.read.", ""),
+    (
+        "audit.read",
+        "Auditoria",
+        "Rastro de auditoria: quien hizo que, cuando y desde donde.",
+        "/api/audit/",
+    ),
     ("profile.read", "Mi perfil", "Perfil del usuario autenticado.", "/api/auth/me/"),
     (
         "auth.password.change",
@@ -172,6 +179,13 @@ NAV_RESOURCES = [
         "Limpieza y mantenimiento",
         "Tareas de limpieza y ordenes de mantenimiento en una sola pantalla. La API "
         "sigue protegida por cleaning_tasks.* y maintenance_orders.*.",
+        "",
+    ),
+    (
+        "finance_center.read",
+        "Ingresos y egresos",
+        "Consolidado de ingresos y egresos en una sola pantalla, con el resultado del "
+        "periodo. La API sigue protegida por reports.read y expenses.*.",
         "",
     ),
     # Panel SaaS. Solo sirven para pintar el menu: el administrador de plataforma es
@@ -226,15 +240,14 @@ MENU = [
     ),
     ("finance", "Finanzas", "fa-solid fa-money-bill-transfer", "", 8, None),
     (
-        "income_consolidated.read",
-        "Consolidado de ingresos",
+        "finance_center.read",
+        "Ingresos y egresos",
         "",
-        "/consolidado-ingresos",
+        "/finanzas",
         1,
         "finance",
     ),
-    ("expenses.read", "Egresos", "", "/egresos", 2, "finance"),
-    ("financial_control.read", "Control financiero", "", "/control-financiero", 3, "finance"),
+    ("financial_control.read", "Control financiero", "", "/control-financiero", 2, "finance"),
     (
         "inventory_center.read",
         "Inventario",
@@ -253,10 +266,10 @@ MENU = [
     ),
     ("reports.read", "Reportes", "fa-solid fa-clipboard-list", "/reportes", 11, None),
     (
-        "activity-log.view",
-        "Registro de actividad",
+        "audit.read",
+        "Auditoria",
         "fa-solid fa-clock-rotate-left",
-        "/actividad",
+        "/auditoria",
         12,
         None,
     ),
@@ -352,6 +365,7 @@ MANAGER_WRITE_DOMAINS = [
     "rates",
     "cleaning_tasks",
     "maintenance_orders",
+    "recurring_work",
     "reservations",
     "reservation_rooms",
     "reservation_guests",
@@ -394,6 +408,8 @@ STAFF_WRITE_DOMAINS = [
 ]
 
 STAFF_READ_DOMAINS = STAFF_WRITE_DOMAINS + [
+    # Recepcion ve la programacion para saber que trabajo va a caer, pero no la edita.
+    "recurring_work",
     "rooms",
     "room_type",
     "rates",
@@ -459,11 +475,12 @@ def _admin_keys():
     keys += [
         "income_consolidated.read",
         "payment-refunds.read",
-        "activity-log.view",
+        "audit.read",
         "commercial_catalog.read",
         "billing_center.read",
         "inventory_center.read",
         "operations_center.read",
+        "finance_center.read",
     ]
     keys += _menu_keys_for(DOMAIN_KEYS)
     return sorted(set(keys))
@@ -479,11 +496,12 @@ def _manager_keys():
     keys += [
         "income_consolidated.read",
         "payment-refunds.read",
-        "activity-log.view",
+        "audit.read",
         "commercial_catalog.read",
         "billing_center.read",
         "inventory_center.read",
         "operations_center.read",
+        "finance_center.read",
     ]
     keys += _menu_keys_for(allowed)
     return sorted(set(keys))
@@ -530,7 +548,7 @@ ROLES = {
     "platform_admin": {
         "name": "Administrador de plataforma",
         "description": "Menu del panel SaaS. Se asigna a los superusuarios sin hotel asignado.",
-        "keys": sorted(set(COMMON_KEYS + SAAS_MENU_KEYS + ["activity-log.view"])),
+        "keys": sorted(set(COMMON_KEYS + SAAS_MENU_KEYS + ["audit.read"])),
     },
 }
 

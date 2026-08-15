@@ -1910,12 +1910,24 @@ def _first_existing_attr_value(obj: Any, paths: list[str]) -> Any:
 
 
 def _coerce_to_date(value: Any) -> date | None:
+    """El dia en que paso algo, en el calendario **local** del hotel.
+
+    `.date()` sobre un datetime consciente da el dia en **UTC**, y con `America/Bogota`
+    (UTC-5) eso adelanta un dia todo lo que ocurre a partir de las 7 de la tarde: un
+    cobro de las 9 de la noche del 12 se contaba como del 13. En un hotel, cobrar de
+    noche es lo normal, asi que el consolidado diario venia corrido para esos pagos.
+
+    Ademas este mismo modulo ya filtra por `payment_date__date` --lookup que Django si
+    convierte a hora local--, con lo que agrupar en UTC y filtrar en local se
+    contradecian entre si.
+    """
     if value is None:
         return None
     if isinstance(value, date) and not isinstance(value, datetime):
         return value
     if isinstance(value, datetime):
-        return value.date()
+        # `localtime` exige un datetime consciente; los ingenuos ya vienen en local.
+        return timezone.localtime(value).date() if timezone.is_aware(value) else value.date()
     return None
 
 

@@ -144,6 +144,9 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "accounts.middleware.ForcePasswordChangeMiddleware",
+    # Despues de la autenticacion: necesita el usuario ya resuelto para poder decir
+    # quien hizo cada escritura.
+    "accounts.audit.AuditContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
