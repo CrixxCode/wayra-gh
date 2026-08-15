@@ -1,12 +1,17 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory, APITestCase, force_authenticate
 
 from accounts.models import Resource, Role, SoftDeleteMarker
+from apps.clients.models import Client
 from apps.hotel_settings.models import HotelFloor, HotelSettings, PaymentMethod, ReservationPolicy
 from apps.hotel_settings.views import PaymentMethodViewSet
 from apps.master_data.models import MasterData
+from apps.reservations.models import Reservation, ReservationRoom
 from apps.rooms.models import Room
 from apps.rooms.models import Rate, RoomType
 
@@ -15,10 +20,35 @@ User = get_user_model()
 
 class AlliedHotelDirectoryTests(APITestCase):
     def setUp(self):
+        self.document_type = MasterData.objects.update_or_create(
+            group=MasterData.Group.DOCUMENT_TYPE,
+            code="CC",
+            defaults={"name": "Cedula", "sort_order": 1, "is_active": True},
+        )[0]
+        self.client_type = MasterData.objects.update_or_create(
+            group=MasterData.Group.CLIENT_TYPE,
+            code="REGULAR",
+            defaults={"name": "Regular", "sort_order": 1, "is_active": True},
+        )[0]
+        self.client_status = MasterData.objects.update_or_create(
+            group=MasterData.Group.CLIENT_STATUS,
+            code="ACTIVO",
+            defaults={"name": "Activo", "sort_order": 1, "is_active": True},
+        )[0]
         self.room_status = MasterData.objects.update_or_create(
             group=MasterData.Group.ROOM_STATUS,
             code="DISPONIBLE",
             defaults={"name": "Disponible", "sort_order": 1, "is_active": True},
+        )[0]
+        self.reservation_status = MasterData.objects.update_or_create(
+            group=MasterData.Group.RESERVATION_STATUS,
+            code="PENDIENTE",
+            defaults={"name": "Pendiente", "sort_order": 1, "is_active": True},
+        )[0]
+        self.reservation_origin = MasterData.objects.update_or_create(
+            group=MasterData.Group.RESERVATION_ORIGIN,
+            code="WEB",
+            defaults={"name": "Web", "sort_order": 1, "is_active": True},
         )[0]
 
     def _hotel(self, name, *, active=True):
@@ -62,6 +92,18 @@ class AlliedHotelDirectoryTests(APITestCase):
         )
         return hotel
 
+    def _create_client(self, hotel):
+        return Client.objects.create(
+            hotel_settings=hotel,
+            document_type=self.document_type,
+            document_number=f"CC-{hotel.id}",
+            first_name="Cliente",
+            last_name="Prueba",
+            email=f"cliente-{hotel.id}@example.com",
+            client_type=self.client_type,
+            status=self.client_status,
+        )
+
     def test_public_directory_returns_only_active_wayra_hotels(self):
         active_hotel = self._hotel("Hotel Activo", active=True)
         inactive_hotel = self._hotel("Hotel Inactivo", active=False)
@@ -90,6 +132,60 @@ class AlliedHotelDirectoryTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual([rate["rateName"] for rate in response.data[0]["roomRates"]], ["Flexible"])
+
+    def test_public_directory_reports_available_rooms_for_search_dates(self):
+        self._hotel("Hotel Con Cupo", active=True)
+        check_in = timezone.localdate() + timedelta(days=7)
+        check_out = check_in + timedelta(days=2)
+
+        response = self.client.get(
+            "/api/allied-hotels/",
+            data={
+                "checkIn": check_in.isoformat(),
+                "checkOut": check_out.isoformat(),
+                "rooms": 1,
+                "guests": 2,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["availableRooms"], 1)
+        self.assertEqual(response.data[0]["roomRates"][0]["availableRooms"], 1)
+
+    def test_public_directory_hides_rates_without_rooms_for_search_dates(self):
+        hotel = self._hotel("Hotel Sin Cupo", active=True)
+        room = Room.objects.get(floor__hotel_settings=hotel)
+        rate = Rate.objects.get(hotel_settings=hotel)
+        check_in = timezone.localdate() + timedelta(days=7)
+        check_out = check_in + timedelta(days=2)
+        reservation = Reservation.objects.create(
+            hotel_settings=hotel,
+            client=self._create_client(hotel),
+            status=self.reservation_status,
+            origin=self.reservation_origin,
+            expected_check_in=check_in,
+            expected_check_out=check_out,
+        )
+        ReservationRoom.objects.create(
+            reservation=reservation,
+            room=room,
+            night_rate=rate.price,
+            adults=1,
+        )
+
+        response = self.client.get(
+            "/api/allied-hotels/",
+            data={
+                "checkIn": check_in.isoformat(),
+                "checkOut": check_out.isoformat(),
+                "rooms": 1,
+                "guests": 1,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
 
 
 class HotelSettingsTenantIsolationTests(APITestCase):

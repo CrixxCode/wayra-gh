@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.db.models import Case, IntegerField, Value, When
@@ -26,7 +28,7 @@ from .serializers import (
     HotelSettingsSerializer,
     ReservationPolicySerializer,
 )
-from .services import build_active_allied_hotels
+from .services import AlliedHotelAvailabilityCriteria, build_active_allied_hotels
 
 
 class AlliedHotelViewSet(viewsets.ViewSet):
@@ -34,8 +36,76 @@ class AlliedHotelViewSet(viewsets.ViewSet):
     permission_classes = [AllowAny]
 
     def list(self, request):
-        serializer = self.serializer_class(build_active_allied_hotels(), many=True)
+        availability = self._parse_availability(request)
+        serializer = self.serializer_class(
+            build_active_allied_hotels(availability=availability),
+            many=True,
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @staticmethod
+    def _parse_availability(request):
+        query_params = request.query_params
+        check_in_value = query_params.get("checkIn") or query_params.get("check_in")
+        check_out_value = query_params.get("checkOut") or query_params.get("check_out")
+
+        if not check_in_value and not check_out_value:
+            return None
+
+        if not check_in_value or not check_out_value:
+            raise ValidationError(
+                {
+                    "dates": (
+                        "Debes indicar checkIn y checkOut para consultar disponibilidad."
+                    )
+                }
+            )
+
+        try:
+            check_in = date.fromisoformat(check_in_value)
+            check_out = date.fromisoformat(check_out_value)
+        except ValueError:
+            raise ValidationError(
+                {"dates": "Las fechas deben tener formato YYYY-MM-DD."}
+            )
+
+        if check_out <= check_in:
+            raise ValidationError(
+                {"checkOut": "La fecha de salida debe ser posterior a la llegada."}
+            )
+
+        rooms = AlliedHotelViewSet._parse_positive_int(
+            query_params.get("rooms"),
+            "rooms",
+            default=1,
+        )
+        guests = AlliedHotelViewSet._parse_positive_int(
+            query_params.get("guests"),
+            "guests",
+            default=1,
+        )
+
+        return AlliedHotelAvailabilityCriteria(
+            check_in=check_in,
+            check_out=check_out,
+            rooms=rooms,
+            guests=guests,
+        )
+
+    @staticmethod
+    def _parse_positive_int(value, field_name: str, *, default: int) -> int:
+        if value in (None, ""):
+            return default
+
+        try:
+            parsed_value = int(value)
+        except (TypeError, ValueError):
+            raise ValidationError({field_name: "Debe ser un numero entero."})
+
+        if parsed_value < 1:
+            raise ValidationError({field_name: "Debe ser mayor o igual a 1."})
+
+        return parsed_value
 
 
 class HotelSettingsViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):

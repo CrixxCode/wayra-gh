@@ -12,6 +12,8 @@ from apps.billing.services import ensure_default_invoice_for_reservation
 from apps.hotel_settings.models import HotelFloor, HotelSettings, PaymentMethod, ReservationPolicy
 from apps.inventory.models import InventoryMovement, Item, RoomInventory
 from apps.master_data.models import MasterData
+from apps.notifications.models import Notification
+from apps.hotel_settings.services import build_allied_hotel_slug
 from apps.packages.models import Package
 from apps.reservations.models import (
     Reservation,
@@ -1585,3 +1587,170 @@ class ReservationApiFlowTestCase(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("errors", response.data)
         self.assertIn("amount", response.data["errors"])
+
+
+class WebReservationPublicApiTests(APITestCase):
+    def _md(self, group, code, name=None, sort_order=1):
+        return MasterData.objects.update_or_create(
+            group=group,
+            code=code,
+            defaults={
+                "name": name or code.title(),
+                "sort_order": sort_order,
+                "is_active": True,
+            },
+        )[0]
+
+    def setUp(self):
+        self.document_type = self._md(MasterData.Group.DOCUMENT_TYPE, "CC", "Cedula", 1)
+        self._md(MasterData.Group.CLIENT_TYPE, "REGULAR", "Regular", 1)
+        self._md(MasterData.Group.CLIENT_STATUS, "ACTIVO", "Activo", 1)
+        self.room_status_available = self._md(
+            MasterData.Group.ROOM_STATUS,
+            "DISPONIBLE",
+            "Disponible",
+            1,
+        )
+        self.room_status_reserved = self._md(
+            MasterData.Group.ROOM_STATUS,
+            "RESERVADA",
+            "Reservada",
+            2,
+        )
+        self._md(MasterData.Group.RESERVATION_STATUS, "PENDIENTE", "Pendiente", 1)
+        self._md(MasterData.Group.RESERVATION_ORIGIN, "WEB", "Web", 1)
+
+        self.hotel_settings = HotelSettings.objects.create(
+            hotel_name="Hotel Web",
+            city="Bogota",
+            country="Colombia",
+            reservations_email="reservas@hotelweb.test",
+        )
+        self.manager = User.objects.create_user(
+            username="manager-web",
+            email="manager-web@example.com",
+            password="test-pass",
+            hotel_settings=self.hotel_settings,
+        )
+        self.floor = HotelFloor.objects.create(
+            hotel_settings=self.hotel_settings,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=1,
+        )
+        self.room_type = RoomType.objects.create(
+            hotel_settings=self.hotel_settings,
+            code="STD",
+            name="Estandar",
+            capacity=2,
+            bed_count=1,
+            is_active=True,
+        )
+        self.rate = Rate.objects.create(
+            hotel_settings=self.hotel_settings,
+            room_type=self.room_type,
+            name="Flexible web",
+            price=180000,
+            is_active=True,
+        )
+        self.room = Room.objects.create(
+            number="101",
+            room_type=self.room_type,
+            rate=self.rate,
+            floor=self.floor,
+            status=self.room_status_available,
+        )
+        self.check_in = timezone.localdate() + timedelta(days=10)
+        self.check_out = self.check_in + timedelta(days=2)
+
+    def _payload(self):
+        return {
+            "hotelSlug": build_allied_hotel_slug(self.hotel_settings),
+            "roomRateId": f"rate-{self.rate.id}",
+            "checkIn": self.check_in.isoformat(),
+            "checkOut": self.check_out.isoformat(),
+            "rooms": 1,
+            "guests": 2,
+            "guestName": "Laura Gomez",
+            "guestEmail": "laura@example.com",
+            "guestPhone": "3001234567",
+            "guestDocumentType": "CC",
+            "guestDocumentNumber": "1234567890",
+            "guestCountry": "CO",
+            "notes": "Reserva desde la pagina publica.",
+            "sourceDetail": "Landing publica",
+            "sourceUrl": "https://wayra.example/reservar/solicitud",
+            "sourceReferrer": "https://wayra.example/",
+            "sourceMetadata": {"campaign": "verano"},
+        }
+
+    def test_public_user_can_create_web_reservation(self):
+        response = self.client.post(
+            "/api/web-reservations/",
+            data=self._payload(),
+            format="json",
+            HTTP_USER_AGENT="WayraWebTest/1.0",
+            REMOTE_ADDR="10.0.0.25",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        reservation = Reservation.objects.get(id=response.data["id"])
+
+        self.assertEqual(reservation.hotel_settings_id, self.hotel_settings.id)
+        self.assertEqual(reservation.origin.code, "WEB")
+        self.assertEqual(reservation.status.code, "PENDIENTE")
+        self.assertEqual(reservation.source_channel, "WEB")
+        self.assertEqual(reservation.source_detail, "Landing publica")
+        self.assertEqual(reservation.source_metadata["campaign"], "verano")
+        self.assertEqual(reservation.source_metadata["ip_address"], "10.0.0.25")
+        self.assertEqual(reservation.rooms_detail.count(), 1)
+        self.assertEqual(reservation.total_guests, 2)
+        self.assertEqual(reservation.guests.count(), 1)
+
+        client = reservation.client
+        self.assertEqual(client.email, "laura@example.com")
+        self.assertEqual(client.document_number, "1234567890")
+
+        notification = Notification.objects.filter(
+            user=self.manager,
+            related_object_id=str(reservation.id),
+        ).first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.title, "Nueva reserva desde la web")
+        self.assertEqual(notification.priority, Notification.Priority.HIGH)
+        self.assertEqual(notification.metadata["source_channel"], "WEB")
+
+    def test_public_web_reservation_requires_available_room(self):
+        first_response = self.client.post(
+            "/api/web-reservations/",
+            data=self._payload(),
+            format="json",
+        )
+        self.assertEqual(first_response.status_code, 201)
+
+        second_payload = self._payload()
+        second_payload["guestEmail"] = "otra@example.com"
+        second_payload["guestDocumentNumber"] = "998877"
+        second_response = self.client.post(
+            "/api/web-reservations/",
+            data=second_payload,
+            format="json",
+        )
+
+        self.assertEqual(second_response.status_code, 400)
+        self.assertEqual(Reservation.objects.count(), 1)
+
+    def test_public_web_reservation_rejects_past_check_in(self):
+        payload = self._payload()
+        payload["checkIn"] = (timezone.localdate() - timedelta(days=1)).isoformat()
+        payload["checkOut"] = timezone.localdate().isoformat()
+
+        response = self.client.post(
+            "/api/web-reservations/",
+            data=payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Reservation.objects.count(), 0)

@@ -483,6 +483,40 @@
   padding: 0.18rem;
 }
 
+:host ::ng-deep .wayra-date-range-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  padding: 0.7rem 0.2rem 0.15rem;
+}
+
+:host ::ng-deep .wayra-date-range-cancel,
+:host ::ng-deep .wayra-date-range-accept {
+  min-height: 38px;
+  padding: 0 0.95rem;
+  border-radius: 9px;
+  font-size: 0.83rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+:host ::ng-deep .wayra-date-range-cancel {
+  border: 1px solid var(--input);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+:host ::ng-deep .wayra-date-range-accept {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+:host ::ng-deep .wayra-date-range-accept:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
 .wayra-destination-panel {
   position: absolute;
   top: calc(100% - 0.1rem);
@@ -522,9 +556,23 @@
   background: var(--surface);
 }
 
+.wayra-destination-option:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.wayra-destination-location {
+  margin-bottom: 0.45rem;
+  border-bottom: 1px solid var(--border);
+}
+
 .wayra-destination-option > i {
   color: var(--muted);
   font-size: 1.1rem;
+}
+
+.wayra-destination-location > i {
+  color: var(--primary);
 }
 
 .wayra-destination-option > span {

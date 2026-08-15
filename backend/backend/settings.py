@@ -235,6 +235,7 @@ REST_FRAMEWORK = {
         "auth_login": "10/min",
         "password_reset": "5/min",
         "demo_request": "5/min",
+        "web_reservation": "5/min",
     },
     "EXCEPTION_HANDLER": "accounts.exceptions.exception_handler",
     "DEFAULT_FILTER_BACKENDS": [

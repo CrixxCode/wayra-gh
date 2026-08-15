@@ -8,7 +8,9 @@ from django.utils import timezone
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from accounts.pagination import OptionalPageNumberPagination
 from accounts.permissions import HasResourcePermission
@@ -32,7 +34,10 @@ from apps.reservations.serializers import (
     ReservationRoomSerializer,
     ReservationGuestSerializer,
     ReservationDepositSerializer,
+    WebReservationCreateSerializer,
+    WebReservationResponseSerializer,
 )
+from apps.reservations.public_booking import create_web_reservation
 from apps.reservations.services import (
     ROOM_STATUS_AVAILABLE,
     ROOM_STATUS_RESERVED,
@@ -69,6 +74,27 @@ class ReservationPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = "page_size"
     max_page_size = 100
+
+
+class WebReservationViewSet(viewsets.GenericViewSet):
+    serializer_class = WebReservationCreateSerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "web_reservation"
+    http_method_names = ["post", "options", "head"]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reservation = create_web_reservation(
+            data=serializer.validated_data,
+            request=request,
+        )
+        response_serializer = WebReservationResponseSerializer(
+            reservation,
+            context=self.get_serializer_context(),
+        )
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):

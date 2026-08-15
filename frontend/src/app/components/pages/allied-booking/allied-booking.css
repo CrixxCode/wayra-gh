@@ -457,8 +457,7 @@
 }
 
 .booking-hotel-card h2,
-.booking-form-header h2,
-.booking-confirmation h2 {
+.booking-form-header h2 {
   margin: 0;
   color: var(--foreground);
   font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
@@ -644,6 +643,40 @@
   padding: 0.16rem;
 }
 
+:host ::ng-deep .booking-date-range-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  padding: 0.7rem 0.2rem 0.15rem;
+}
+
+:host ::ng-deep .booking-date-range-cancel,
+:host ::ng-deep .booking-date-range-accept {
+  min-height: 38px;
+  padding: 0 0.95rem;
+  border-radius: 9px;
+  font-size: 0.83rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+:host ::ng-deep .booking-date-range-cancel {
+  border: 1px solid var(--input);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+:host ::ng-deep .booking-date-range-accept {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+:host ::ng-deep .booking-date-range-accept:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
 .booking-destination-panel {
   position: absolute;
   top: calc(100% - 0.05rem);
@@ -683,9 +716,23 @@
   background: var(--surface);
 }
 
+.booking-destination-option:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.booking-destination-location {
+  margin-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
 .booking-destination-option > i {
   color: var(--muted);
   font-size: 1.05rem;
+}
+
+.booking-destination-location > i {
+  color: var(--primary);
 }
 
 .booking-destination-option > span {
@@ -814,6 +861,13 @@
   background: var(--primary-hover);
 }
 
+.booking-primary:disabled,
+.booking-primary:disabled:hover {
+  transform: none;
+  opacity: 0.68;
+  cursor: not-allowed;
+}
+
 .booking-secondary {
   border: 1px solid var(--input);
   background: var(--background);
@@ -826,35 +880,75 @@
   background: var(--accent);
 }
 
-.booking-confirmation {
-  margin-top: 1.5rem;
-  padding: 1.25rem;
-  border: 1px solid rgba(44, 123, 229, 0.24);
-  border-radius: var(--radius);
-  background: var(--accent);
+.booking-confirmation-page {
+  max-width: 820px;
+  margin-right: auto;
+  margin-left: auto;
+  display: grid;
+  gap: 1.35rem;
+  padding: clamp(1.4rem, 4vw, 2rem);
+  border: 1px solid rgba(44, 123, 229, 0.18);
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
   outline: none;
 }
 
-.booking-confirmation > div {
-  width: 44px;
-  height: 44px;
+.booking-confirmation-icon {
+  width: 58px;
+  height: 58px;
   display: inline-grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--primary);
   color: var(--primary-foreground);
+  font-size: 1.35rem;
+  box-shadow: 0 16px 32px rgba(44, 123, 229, 0.22);
 }
 
-.booking-confirmation h2 {
-  margin-top: 1rem;
-  font-size: 1.25rem;
+.booking-confirmation-copy {
+  display: grid;
+  gap: 0.65rem;
 }
 
-.booking-confirmation p {
-  margin: 0.6rem 0 0;
+.booking-confirmation-copy .booking-kicker {
+  margin: 0;
+}
+
+.booking-confirmation-copy h2 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: clamp(2rem, 4vw, 3.1rem);
+  line-height: 1.05;
+}
+
+.booking-confirmation-copy p {
+  max-width: 620px;
+  margin: 0;
   color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.7;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.booking-confirmation-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 0.4rem;
+}
+
+.booking-confirmation-details span {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(44, 123, 229, 0.18);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--primary);
+  font-size: 0.86rem;
+  font-weight: 850;
 }
 
 .booking-page :focus-visible {

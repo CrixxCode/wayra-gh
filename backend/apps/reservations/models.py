@@ -60,6 +60,12 @@ class Reservation(models.Model):
 
     notes = models.TextField(blank=True, null=True)
 
+    source_channel = models.CharField(max_length=40, blank=True, default="", db_index=True)
+    source_detail = models.CharField(max_length=160, blank=True, default="")
+    source_url = models.URLField(max_length=500, blank=True, default="")
+    source_referrer = models.URLField(max_length=500, blank=True, default="")
+    source_metadata = models.JSONField(blank=True, default=dict)
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

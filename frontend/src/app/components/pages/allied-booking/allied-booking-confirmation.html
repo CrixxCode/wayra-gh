@@ -1,0 +1,130 @@
+<div class="booking-page">
+
+  <header class="booking-header">
+    <div class="booking-container booking-header-inner">
+
+      <a
+        class="booking-brand"
+        routerLink="/">
+
+        <img
+          src="/logo.png"
+          alt="Wayra" />
+
+        <span>
+          Wayra
+        </span>
+
+      </a>
+
+      <nav aria-label="Navegacion publica">
+        <a routerLink="/hoteles-aliados">
+          Hoteles aliados
+        </a>
+
+        <a routerLink="/login">
+          Iniciar sesion
+        </a>
+      </nav>
+
+    </div>
+  </header>
+
+
+  <main>
+
+    <section class="booking-hero">
+      <div class="booking-container">
+
+        <a
+          class="booking-view-back"
+          routerLink="/reservar">
+
+          <i class="pi pi-arrow-left"></i>
+          Nueva busqueda
+
+        </a>
+
+        <p class="booking-kicker">
+          Confirmacion
+        </p>
+
+        <h1>
+          Reserva registrada
+        </h1>
+
+        <p class="booking-lead">
+          Te enviaremos un correo con los datos de tu reserva y los proximos
+          pasos cuando el hotel revise tu solicitud.
+        </p>
+
+      </div>
+    </section>
+
+
+    <section class="booking-section">
+      <div class="booking-container">
+
+        <section
+          class="booking-confirmation-page"
+          tabindex="-1"
+          aria-live="polite">
+
+          <div class="booking-confirmation-icon">
+            <i class="pi pi-check"></i>
+          </div>
+
+          <div class="booking-confirmation-copy">
+            <p class="booking-kicker">
+              Solicitud enviada al hotel
+            </p>
+
+            <h2>
+              Reserva registrada
+            </h2>
+
+            <p>
+              Te enviaremos un correo con los datos de tu reserva y los
+              proximos pasos cuando el hotel revise tu solicitud.
+            </p>
+
+            <div
+              *ngIf="hasStayDates"
+              class="booking-confirmation-details">
+
+              <span>
+                <i class="pi pi-calendar"></i>
+                {{ checkIn }} al {{ checkOut }}
+              </span>
+
+            </div>
+          </div>
+
+          <div class="booking-confirmation-actions">
+            <a
+              class="booking-primary"
+              routerLink="/reservar">
+
+              Buscar otro alojamiento
+
+              <i class="pi pi-search text-xs"></i>
+
+            </a>
+
+            <a
+              class="booking-secondary"
+              routerLink="/hoteles-aliados">
+
+              Ver hoteles aliados
+
+            </a>
+          </div>
+
+        </section>
+
+      </div>
+    </section>
+
+  </main>
+
+</div>

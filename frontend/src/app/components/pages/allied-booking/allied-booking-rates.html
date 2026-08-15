@@ -1,0 +1,305 @@
+<div class="booking-page">
+
+  <header class="booking-header">
+    <div class="booking-container booking-header-inner">
+
+      <a
+        class="booking-brand"
+        routerLink="/">
+
+        <img
+          src="/logo.png"
+          alt="Wayra" />
+
+        <span>
+          Wayra
+        </span>
+
+      </a>
+
+      <nav aria-label="Navegacion publica">
+        <a routerLink="/hoteles-aliados">
+          Hoteles aliados
+        </a>
+
+        <a routerLink="/login">
+          Iniciar sesion
+        </a>
+      </nav>
+
+    </div>
+  </header>
+
+
+  <main>
+
+    <section class="booking-hero">
+      <div class="booking-container">
+
+        <a
+          class="booking-view-back"
+          routerLink="/reservar"
+          [queryParams]="queryParams">
+
+          <i class="pi pi-arrow-left"></i>
+          Volver
+
+        </a>
+
+        <p class="booking-kicker">
+          Paso 2 de 3
+        </p>
+
+        <h1>
+          Elige habitacion y tarifa
+        </h1>
+
+        <p class="booking-lead">
+          Compara las tarifas disponibles del hotel seleccionado antes de
+          completar tus datos de reserva.
+        </p>
+
+      </div>
+    </section>
+
+
+    <section class="booking-section">
+      <div class="booking-container">
+
+        <section
+          class="booking-rates"
+          aria-live="polite">
+
+          <div class="booking-results-header">
+            <div>
+              <p class="booking-kicker">
+                Habitacion y tarifa
+              </p>
+
+              <h2>
+                {{
+                  selectedHotel
+                    ? 'Opciones en ' + selectedHotel.name
+                    : 'Hotel no encontrado'
+                }}
+              </h2>
+            </div>
+
+            <span *ngIf="selectedHotel && criteriaReady">
+              {{ availableRoomRates.length }} tarifa(s)
+            </span>
+          </div>
+
+
+          <div
+            *ngIf="loadingHotels"
+            class="booking-empty">
+
+            <i class="pi pi-calendar"></i>
+
+            <h3>
+              Cargando tarifas
+            </h3>
+
+            <p>
+              Estamos consultando las opciones activas del hotel seleccionado.
+            </p>
+
+          </div>
+
+
+          <div
+            *ngIf="!loadingHotels && hotelsLoadError"
+            class="booking-empty">
+
+            <i class="pi pi-search"></i>
+
+            <h3>
+              No fue posible cargar hoteles
+            </h3>
+
+            <p>
+              {{ hotelsLoadError }}
+            </p>
+
+          </div>
+
+
+          <div
+            *ngIf="!loadingHotels && !hotelsLoadError && !selectedHotel"
+            class="booking-empty">
+
+            <i class="pi pi-search"></i>
+
+            <h3>
+              Hotel no disponible
+            </h3>
+
+            <p>
+              El hotel seleccionado no esta activo dentro de los aliados Wayra.
+            </p>
+
+            <a
+              routerLink="/reservar"
+              class="booking-primary">
+
+              Buscar otro hotel
+
+            </a>
+
+          </div>
+
+
+          <div
+            *ngIf="
+              !loadingHotels &&
+              !hotelsLoadError &&
+              selectedHotel &&
+              !criteriaReady
+            "
+            class="booking-empty">
+
+            <i class="pi pi-calendar"></i>
+
+            <h3>
+              Completa la busqueda
+            </h3>
+
+            <p>
+              Necesitas destino, fechas, habitaciones y huespedes para ver
+              tarifas disponibles.
+            </p>
+
+            <a
+              routerLink="/reservar"
+              [queryParams]="queryParams"
+              class="booking-primary">
+
+              Editar busqueda
+
+            </a>
+
+          </div>
+
+
+          <div
+            *ngIf="
+              !loadingHotels &&
+              !hotelsLoadError &&
+              selectedHotel &&
+              criteriaReady &&
+              availableRoomRates.length === 0
+            "
+            class="booking-empty">
+
+            <i class="pi pi-search"></i>
+
+            <h3>
+              No hay tarifas disponibles
+            </h3>
+
+            <p>
+              Ajusta fechas, habitaciones o huespedes para consultar otras
+              opciones.
+            </p>
+
+            <a
+              routerLink="/reservar"
+              [queryParams]="queryParams"
+              class="booking-primary">
+
+              Cambiar busqueda
+
+            </a>
+
+          </div>
+
+
+          <div
+            *ngIf="
+              !loadingHotels &&
+              !hotelsLoadError &&
+              selectedHotel &&
+              criteriaReady &&
+              availableRoomRates.length > 0
+            "
+            class="booking-rate-grid">
+
+            <article
+              *ngFor="
+                let rate of availableRoomRates;
+                trackBy: trackByIndex
+              "
+              class="booking-rate-card">
+
+              <div>
+                <span class="booking-badge">
+                  {{ rate.rateName }}
+                </span>
+
+                <h3>
+                  {{ rate.roomType }}
+                </h3>
+
+                <p>
+                  {{ rate.description }}
+                </p>
+
+                <ul>
+                  <li>
+                    <i class="pi pi-users"></i>
+                    Hasta {{ rate.maxGuests }} huesped(es) por habitacion
+                  </li>
+
+                  <li>
+                    <i class="pi pi-building"></i>
+                    {{ getAvailableRoomRateCount(rate) }}
+                    disponible(s)
+                  </li>
+
+                  <li>
+                    <i class="pi pi-calendar"></i>
+                    {{ nights }}
+                    {{ nights === 1 ? 'noche' : 'noches' }}
+                  </li>
+                </ul>
+              </div>
+
+
+              <div class="booking-rate-price">
+                <strong>
+                  {{ formatCurrency(rate.nightlyRate) }}
+                </strong>
+
+                <small>
+                  Por noche
+                </small>
+
+                <small>
+                  Total estimado:
+                  {{ formatCurrency(getRateEstimatedTotal(rate)) }}
+                </small>
+
+                <button
+                  type="button"
+                  class="booking-primary"
+                  (click)="selectRoomRate(rate)">
+
+                  Elegir tarifa
+
+                  <i class="pi pi-arrow-right text-xs"></i>
+
+                </button>
+              </div>
+
+            </article>
+          </div>
+
+        </section>
+
+      </div>
+    </section>
+
+  </main>
+
+</div>

@@ -1,0 +1,391 @@
+<div class="booking-page">
+
+  <header class="booking-header">
+    <div class="booking-container booking-header-inner">
+
+      <a
+        class="booking-brand"
+        routerLink="/">
+
+        <img
+          src="/logo.png"
+          alt="Wayra" />
+
+        <span>
+          Wayra
+        </span>
+
+      </a>
+
+      <nav aria-label="Navegacion publica">
+        <a routerLink="/hoteles-aliados">
+          Hoteles aliados
+        </a>
+
+        <a routerLink="/login">
+          Iniciar sesion
+        </a>
+      </nav>
+
+    </div>
+  </header>
+
+
+  <main>
+
+    <section class="booking-hero">
+      <div class="booking-container">
+
+        <a
+          *ngIf="selectedHotel"
+          class="booking-view-back"
+          [routerLink]="['/reservar/tarifas', selectedHotel.slug]"
+          [queryParams]="queryParams">
+
+          <i class="pi pi-arrow-left"></i>
+          Volver
+
+        </a>
+
+        <a
+          *ngIf="!selectedHotel"
+          class="booking-view-back"
+          routerLink="/reservar"
+          [queryParams]="queryParams">
+
+          <i class="pi pi-arrow-left"></i>
+          Volver
+
+        </a>
+
+        <p class="booking-kicker">
+          Paso 3 de 3
+        </p>
+
+        <h1>
+          Completa tu solicitud de reserva
+        </h1>
+
+        <p class="booking-lead">
+          Confirma la opcion elegida y registra la reserva directamente con el
+          hotel aliado.
+        </p>
+
+      </div>
+    </section>
+
+
+    <section class="booking-section">
+      <div class="booking-container">
+
+        <div
+          *ngIf="loadingHotels"
+          class="booking-results">
+
+          <div class="booking-empty">
+            <i class="pi pi-calendar"></i>
+
+            <h3>
+              Cargando solicitud
+            </h3>
+
+            <p>
+              Estamos consultando el hotel y la tarifa seleccionados.
+            </p>
+          </div>
+
+        </div>
+
+
+        <div
+          *ngIf="!loadingHotels && hotelsLoadError"
+          class="booking-results">
+
+          <div class="booking-empty">
+            <i class="pi pi-search"></i>
+
+            <h3>
+              No fue posible cargar hoteles
+            </h3>
+
+            <p>
+              {{ hotelsLoadError }}
+            </p>
+          </div>
+
+        </div>
+
+
+        <div
+          *ngIf="
+            !loadingHotels &&
+            !hotelsLoadError &&
+            !canShowRequestForm
+          "
+          class="booking-results">
+
+          <div class="booking-empty">
+            <i class="pi pi-search"></i>
+
+            <h3>
+              Solicitud incompleta
+            </h3>
+
+            <p>
+              El hotel, la tarifa o los criterios de busqueda ya no estan
+              disponibles para preparar la reserva.
+            </p>
+
+            <a
+              routerLink="/reservar"
+              [queryParams]="queryParams"
+              class="booking-primary">
+
+              Reiniciar busqueda
+
+            </a>
+          </div>
+
+        </div>
+
+
+        <section
+          *ngIf="canShowRequestForm && selectedHotel && selectedRoomRate"
+          id="booking-request"
+          class="booking-layout">
+
+          <aside class="booking-hotel-card">
+
+            <span class="booking-badge">
+              <i class="pi pi-sparkles"></i>
+              Aliado seleccionado
+            </span>
+
+            <h2>
+              {{ selectedHotel.name }}
+            </h2>
+
+            <p class="booking-location">
+              <i class="pi pi-map-marker"></i>
+              {{ selectedHotel.city }} - {{ selectedHotel.type }}
+            </p>
+
+            <ul>
+              <li
+                *ngFor="
+                  let highlight of selectedHotel.highlights;
+                  trackBy: trackByIndex
+                ">
+
+                <i class="pi pi-check"></i>
+                {{ highlight }}
+
+              </li>
+            </ul>
+
+            <div class="booking-hotel-meta">
+              <span>
+                {{ selectedRoomRate.roomType }}
+              </span>
+
+              <span>
+                {{ selectedRoomRate.rateName }}
+                -
+                {{ formatCurrency(selectedRoomRate.nightlyRate) }}
+                por noche
+              </span>
+
+              <span>
+                {{ selectedHotel.contact }}
+              </span>
+            </div>
+
+          </aside>
+
+
+          <form
+            class="booking-form"
+            [formGroup]="requestForm"
+            (ngSubmit)="submitBooking()">
+
+            <div class="booking-form-header">
+              <p class="booking-kicker">
+                Solicitud de reserva
+              </p>
+
+              <h2>
+                Datos del huesped
+              </h2>
+            </div>
+
+
+            <div class="booking-grid">
+
+              <label class="booking-field booking-field-wide">
+                <span>Nombre completo</span>
+
+                <input
+                  type="text"
+                  formControlName="guestName"
+                  autocomplete="name" />
+
+                <small *ngIf="isInvalid('guestName')">
+                  Ingresa el nombre de contacto.
+                </small>
+              </label>
+
+
+              <label class="booking-field">
+                <span>Correo</span>
+
+                <input
+                  type="email"
+                  formControlName="guestEmail"
+                  autocomplete="email" />
+
+                <small *ngIf="isInvalid('guestEmail')">
+                  Ingresa un correo valido.
+                </small>
+              </label>
+
+
+              <label class="booking-field">
+                <span>Telefono</span>
+
+                <input
+                  type="tel"
+                  formControlName="guestPhone"
+                  autocomplete="tel" />
+
+                <small *ngIf="isInvalid('guestPhone')">
+                  Ingresa un telefono de contacto.
+                </small>
+              </label>
+
+              <label class="booking-field">
+                <span>Tipo de documento</span>
+
+                <select formControlName="guestDocumentType">
+                  <option value="CC">
+                    Cedula de ciudadania
+                  </option>
+
+                  <option value="CE">
+                    Cedula de extranjeria
+                  </option>
+
+                  <option value="DNI">
+                    Documento nacional
+                  </option>
+
+                  <option value="PASAPORTE">
+                    Pasaporte
+                  </option>
+                </select>
+
+                <small *ngIf="isInvalid('guestDocumentType')">
+                  Selecciona el tipo de documento.
+                </small>
+              </label>
+
+
+              <label class="booking-field">
+                <span>Numero de documento</span>
+
+                <input
+                  type="text"
+                  formControlName="guestDocumentNumber"
+                  autocomplete="off" />
+
+                <small *ngIf="isInvalid('guestDocumentNumber')">
+                  Ingresa el numero de documento.
+                </small>
+              </label>
+
+
+              <label class="booking-field booking-field-wide">
+                <span>Comentarios</span>
+
+                <textarea
+                  rows="4"
+                  formControlName="notes"
+                  placeholder="Preferencias de habitacion, hora estimada de llegada o solicitudes especiales.">
+                </textarea>
+              </label>
+
+            </div>
+
+
+            <div class="booking-summary">
+              <span>
+                {{ nights || 0 }}
+                {{ nights === 1 ? 'noche' : 'noches' }}
+              </span>
+
+              <span>
+                {{ criteria.rooms }}
+                {{
+                  criteria.rooms === 1
+                    ? 'habitacion'
+                    : 'habitaciones'
+                }}
+              </span>
+
+              <span>
+                {{ criteria.guests }}
+                {{
+                  criteria.guests === 1
+                    ? 'huesped'
+                    : 'huespedes'
+                }}
+              </span>
+
+              <span>
+                {{ formatCurrency(getRateEstimatedTotal()) }}
+                estimado
+              </span>
+            </div>
+
+            <div
+              *ngIf="submitError"
+              class="booking-inline-warning"
+              role="alert">
+
+              {{ submitError }}
+
+            </div>
+
+
+            <div class="booking-actions">
+              <a
+                [routerLink]="['/reservar/tarifas', selectedHotel.slug]"
+                [queryParams]="queryParams"
+                class="booking-secondary">
+
+                Cambiar tarifa
+
+              </a>
+
+              <button
+                type="submit"
+                class="booking-primary"
+                [disabled]="saving">
+
+                {{ saving ? 'Registrando...' : 'Registrar reserva' }}
+
+                <i class="pi pi-arrow-right text-xs"></i>
+
+              </button>
+            </div>
+
+
+          </form>
+
+        </section>
+
+      </div>
+    </section>
+
+  </main>
+
+</div>

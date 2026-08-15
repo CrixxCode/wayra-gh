@@ -449,6 +449,34 @@
                 </p>
 
                 <button
+                  type="button"
+                  class="wayra-destination-option wayra-destination-location"
+                  [disabled]="bookingLocatingDestination || alliedHotelsLoading"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="useCurrentBookingLocation()">
+
+                  <i
+                    [ngClass]="
+                      bookingLocatingDestination
+                        ? 'pi pi-spin pi-spinner'
+                        : 'pi pi-compass'
+                    ">
+                  </i>
+
+                  <span>
+                    <strong>
+                      {{
+                        bookingLocatingDestination
+                          ? 'Buscando ubicacion...'
+                          : 'Mi ubicacion'
+                      }}
+                    </strong>
+                    <small>Usar ciudad o pais actual</small>
+                  </span>
+
+                </button>
+
+                <button
                   *ngFor="
                     let destination of filteredBookingDestinationOptions;
                     trackBy: trackByBookingDestination
@@ -475,6 +503,14 @@
 
                 </span>
 
+                <span
+                  *ngIf="bookingLocationError"
+                  class="wayra-destination-empty">
+
+                  {{ bookingLocationError }}
+
+                </span>
+
               </div>
 
               <small *ngIf="isBookingSearchInvalid('destination')">
@@ -493,7 +529,8 @@
               </span>
 
               <p-datepicker
-                formControlName="dateRange"
+                #bookingDateRangePicker
+                [formControl]="bookingDatePickerControl"
                 selectionMode="range"
                 rangeSeparator=" - "
                 dateFormat="dd/mm/yy"
@@ -504,8 +541,32 @@
                 [minDate]="bookingMinDate"
                 [numberOfMonths]="1"
                 [readonlyInput]="true"
-                [showButtonBar]="true"
-                [showClear]="true">
+                [hideOnDateTimeSelect]="false"
+                (onShow)="openBookingDateRangePicker()"
+                (onClose)="closeBookingDateRangePicker()">
+
+                <ng-template pTemplate="footer">
+                  <div class="wayra-date-range-actions">
+                    <button
+                      type="button"
+                      class="wayra-date-range-cancel"
+                      (click)="cancelBookingDateRange()">
+
+                      Cancelar
+
+                    </button>
+
+                    <button
+                      type="button"
+                      class="wayra-date-range-accept"
+                      [disabled]="!canConfirmBookingDateRange"
+                      (click)="confirmBookingDateRange()">
+
+                      Aceptar
+
+                    </button>
+                  </div>
+                </ng-template>
               </p-datepicker>
 
               <small *ngIf="isBookingSearchInvalid('dateRange')">

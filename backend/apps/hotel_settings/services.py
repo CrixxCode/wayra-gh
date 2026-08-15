@@ -1,13 +1,27 @@
 import re
+from dataclasses import dataclass
+from datetime import date
 
 from django.utils.text import slugify
 
-from apps.rooms.models import Rate
+from apps.reservations.services import ROOM_STATUS_AVAILABLE, find_overlapping_reservation_room
+from apps.rooms.models import Rate, Room
 
 from .models import HotelSettings
 
 
-def build_active_allied_hotels() -> list[dict]:
+@dataclass(frozen=True)
+class AlliedHotelAvailabilityCriteria:
+    check_in: date
+    check_out: date
+    rooms: int
+    guests: int
+
+
+def build_active_allied_hotels(
+    *,
+    availability: AlliedHotelAvailabilityCriteria | None = None,
+) -> list[dict]:
     hotels = (
         HotelSettings.objects.filter(is_active=True)
         .prefetch_related(
@@ -18,10 +32,20 @@ def build_active_allied_hotels() -> list[dict]:
         .order_by("hotel_name", "id")
     )
 
-    return [build_allied_hotel_payload(hotel) for hotel in hotels]
+    payloads = []
+    for hotel in hotels:
+        payload = build_allied_hotel_payload(hotel, availability=availability)
+        if availability and not payload["roomRates"]:
+            continue
+        payloads.append(payload)
+    return payloads
 
 
-def build_allied_hotel_payload(hotel: HotelSettings) -> dict:
+def build_allied_hotel_payload(
+    hotel: HotelSettings,
+    *,
+    availability: AlliedHotelAvailabilityCriteria | None = None,
+) -> dict:
     active_rates = sorted(
         (
             rate
@@ -30,12 +54,41 @@ def build_allied_hotel_payload(hotel: HotelSettings) -> dict:
         ),
         key=lambda rate: (rate.price, rate.name.lower(), rate.id),
     )
-    room_rates = [build_allied_room_rate_payload(rate) for rate in active_rates]
+    room_rates = []
+    available_rooms_by_type = {}
+    included_rooms_by_type = {}
+
+    for rate in active_rates:
+        available_rooms = None
+        if availability:
+            if not rate_applies_to_allied_dates(rate, availability):
+                continue
+
+            available_rooms = available_rooms_by_type.get(rate.room_type_id)
+            if available_rooms is None:
+                available_rooms = count_allied_available_rooms(rate, availability)
+                available_rooms_by_type[rate.room_type_id] = available_rooms
+
+            if available_rooms < availability.rooms:
+                continue
+
+            if availability.guests > availability.rooms * int(rate.room_type.capacity or 1):
+                continue
+
+            included_rooms_by_type[rate.room_type_id] = available_rooms
+
+        room_rates.append(
+            build_allied_room_rate_payload(rate, available_rooms=available_rooms)
+        )
+
     max_guests = max(
         [rate["maxGuests"] for rate in room_rates] + [int(hotel.max_guests_per_room or 1)]
     )
     nightly_rate_from = min([rate["nightlyRate"] for rate in room_rates], default=0)
     rooms = sum(int(floor.room_count or 0) for floor in hotel.floors.all())
+    available_rooms_total = (
+        sum(included_rooms_by_type.values()) if availability else None
+    )
 
     return {
         "slug": build_allied_hotel_slug(hotel),
@@ -47,6 +100,7 @@ def build_allied_hotel_payload(hotel: HotelSettings) -> dict:
         "description": hotel.description or "",
         "highlights": build_allied_hotel_highlights(hotel, rooms, max_guests),
         "rooms": rooms,
+        "availableRooms": available_rooms_total,
         "maxGuestsPerRoom": max_guests,
         "nightlyRateFrom": nightly_rate_from,
         "roomRates": room_rates,
@@ -54,7 +108,11 @@ def build_allied_hotel_payload(hotel: HotelSettings) -> dict:
     }
 
 
-def build_allied_room_rate_payload(rate: Rate) -> dict:
+def build_allied_room_rate_payload(
+    rate: Rate,
+    *,
+    available_rooms: int | None = None,
+) -> dict:
     room_type = rate.room_type
     return {
         "id": f"rate-{rate.id}",
@@ -63,7 +121,47 @@ def build_allied_room_rate_payload(rate: Rate) -> dict:
         "description": room_type.description or rate.name,
         "maxGuests": int(room_type.capacity or 1),
         "nightlyRate": int(rate.price or 0),
+        "availableRooms": available_rooms,
     }
+
+
+def rate_applies_to_allied_dates(
+    rate: Rate,
+    availability: AlliedHotelAvailabilityCriteria,
+) -> bool:
+    if rate.start_date and availability.check_in < rate.start_date:
+        return False
+    if rate.end_date and availability.check_out > rate.end_date:
+        return False
+    return True
+
+
+def count_allied_available_rooms(
+    rate: Rate,
+    availability: AlliedHotelAvailabilityCriteria,
+) -> int:
+    candidates = (
+        Room.objects.select_related("floor", "status", "room_type")
+        .filter(
+            floor__hotel_settings=rate.hotel_settings,
+            room_type=rate.room_type,
+            status__code=ROOM_STATUS_AVAILABLE,
+        )
+        .order_by("number", "id")
+    )
+
+    available_rooms = 0
+    for room in candidates:
+        conflict = find_overlapping_reservation_room(
+            room_id=room.id,
+            expected_check_in=availability.check_in,
+            expected_check_out=availability.check_out,
+        )
+        if conflict:
+            continue
+        available_rooms += 1
+
+    return available_rooms
 
 
 def build_allied_hotel_slug(hotel: HotelSettings) -> str:

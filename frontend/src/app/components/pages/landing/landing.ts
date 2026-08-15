@@ -5,11 +5,15 @@ import {
   HostListener,
   OnDestroy,
   OnInit,
+  ViewChild,
   inject,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { DatePickerModule } from 'primeng/datepicker';
+import {
+  DatePicker,
+  DatePickerModule,
+} from 'primeng/datepicker';
 import { catchError, finalize, of } from 'rxjs';
 
 import {
@@ -31,6 +35,7 @@ import {
 } from '../../../shared/hotel-location-options';
 
 import { AlliedHotel } from '../../../shared/allied-hotels';
+import { resolveCurrentLocationDestination } from '../../../shared/current-location-destination';
 import { AlliedHotelService } from '../../../services/allied-hotels';
 
 
@@ -129,6 +134,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   private readonly rolesService = inject(RolesService);
   private readonly router = inject(Router);
   private readonly alliedHotelService = inject(AlliedHotelService);
+  @ViewChild('bookingDateRangePicker') private bookingDateRangePicker?: DatePicker;
 
   private previousBodyOverflow = '';
   private revealObserver: IntersectionObserver | null = null;
@@ -296,6 +302,9 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
         ],
       ],
     });
+
+  readonly bookingDatePickerControl =
+    this.formBuilder.nonNullable.control([] as Date[]);
 
 
   // =========================================================
@@ -515,6 +524,8 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   alliedHotelsLoading = true;
 
   bookingDestinationPanelOpen = false;
+  bookingLocatingDestination = false;
+  bookingLocationError = '';
 
   get featuredAlliedHotels(): AlliedHotel[] {
     return this.alliedHotels.slice(0, 6);
@@ -588,6 +599,34 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
       );
   }
 
+  get bookingPendingDateRange(): Date[] {
+
+    const dateRange =
+      this.bookingDatePickerControl.value;
+
+    if (!Array.isArray(dateRange)) {
+      return [];
+    }
+
+    return dateRange
+      .filter(
+        (date): date is Date =>
+          date instanceof Date &&
+          !Number.isNaN(date.getTime())
+      );
+  }
+
+  get canConfirmBookingDateRange(): boolean {
+
+    const dateRange =
+      this.bookingPendingDateRange;
+
+    return (
+      dateRange.length === 2 &&
+      this.getBookingNights(dateRange) > 0
+    );
+  }
+
   get hasIncompleteBookingDateRange(): boolean {
 
     const selectedDates =
@@ -606,17 +645,10 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
       checkOut,
     ] = this.bookingSelectedDateRange;
 
-    if (!checkIn || !checkOut) {
-      return 0;
-    }
-
-    const diff =
-      checkOut.getTime() - checkIn.getTime();
-
-    return Math.max(
-      Math.ceil(diff / 86400000),
-      0
-    );
+    return this.getBookingNights([
+      checkIn,
+      checkOut,
+    ].filter((date): date is Date => Boolean(date)));
   }
 
   get hasBookingDateRangeError(): boolean {
@@ -1272,11 +1304,78 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     destination: BookingDestinationOption
   ): void {
 
+    this.bookingLocationError = '';
     this.bookingSearchForm.controls.destination.setValue(
       destination.city
     );
 
     this.bookingDestinationPanelOpen = false;
+  }
+
+  useCurrentBookingLocation(): void {
+    if (
+      this.bookingLocatingDestination ||
+      this.alliedHotelsLoading
+    ) {
+      return;
+    }
+
+    this.bookingLocatingDestination = true;
+    this.bookingLocationError = '';
+
+    resolveCurrentLocationDestination(this.alliedHotels)
+      .then((result) => {
+        this.bookingSearchForm.controls.destination.setValue(
+          result.destination
+        );
+        this.bookingSearchForm.controls.destination.markAsDirty();
+        this.bookingSearchForm.controls.destination.markAsTouched();
+        this.bookingDestinationPanelOpen = false;
+      })
+      .catch((error: unknown) => {
+        this.bookingLocationError =
+          this.extractBookingLocationError(error);
+      })
+      .finally(() => {
+        this.bookingLocatingDestination = false;
+      });
+  }
+
+  openBookingDateRangePicker(): void {
+    this.syncBookingDatePickerDraft();
+  }
+
+
+  cancelBookingDateRange(): void {
+    this.syncBookingDatePickerDraft();
+    this.bookingDateRangePicker?.hideOverlay();
+  }
+
+  closeBookingDateRangePicker(): void {
+    this.syncBookingDatePickerDraft();
+  }
+
+
+  confirmBookingDateRange(): void {
+
+    const dateRange =
+      this.bookingPendingDateRange;
+
+    this.bookingSearchForm.controls.dateRange.markAsTouched();
+    this.bookingDatePickerControl.markAsTouched();
+
+    if (
+      dateRange.length !== 2 ||
+      this.getBookingNights(dateRange) <= 0
+    ) {
+      return;
+    }
+
+    this.bookingSearchForm.controls.dateRange.setValue(
+      this.cloneBookingDateRange(dateRange)
+    );
+    this.bookingSearchForm.controls.dateRange.markAsDirty();
+    this.bookingDateRangePicker?.hideOverlay();
   }
 
 
@@ -1490,6 +1589,17 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     return `${destination.city}-${destination.country}-${index}`;
   }
 
+  private extractBookingLocationError(error: unknown): string {
+    if (
+      error instanceof Error &&
+      error.message.trim()
+    ) {
+      return error.message;
+    }
+
+    return 'No pudimos usar tu ubicacion.';
+  }
+
 
   // =========================================================
   // SCROLL BODY
@@ -1621,6 +1731,47 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
       `${date.getDate()}`.padStart(2, '0');
 
     return `${year}-${month}-${day}`;
+  }
+
+  private getBookingNights(dateRange: Date[]): number {
+
+    const [
+      checkIn,
+      checkOut,
+    ] = dateRange;
+
+    if (!checkIn || !checkOut) {
+      return 0;
+    }
+
+    const diff =
+      checkOut.getTime() - checkIn.getTime();
+
+    return Math.max(
+      Math.ceil(diff / 86400000),
+      0
+    );
+  }
+
+
+  private syncBookingDatePickerDraft(): void {
+
+    this.bookingDatePickerControl.setValue(
+      this.cloneBookingDateRange(
+        this.bookingSelectedDateRange
+      ),
+      {
+        emitEvent: false,
+      }
+    );
+  }
+
+
+  private cloneBookingDateRange(dateRange: Date[]): Date[] {
+
+    return dateRange.map(
+      (date) => new Date(date.getTime())
+    );
   }
 
 

@@ -862,6 +862,11 @@ class ReservationListSerializer(ReservationBusinessRulesMixin, serializers.Model
             "promo_code",
             "total_discount",
             "notes",
+            "source_channel",
+            "source_detail",
+            "source_url",
+            "source_referrer",
+            "source_metadata",
             "policies",
             "total_rooms",
             "total_guests",
@@ -976,6 +981,11 @@ class ReservationDetailSerializer(ReservationBusinessRulesMixin, serializers.Mod
             "promo_code",
             "total_discount",
             "notes",
+            "source_channel",
+            "source_detail",
+            "source_url",
+            "source_referrer",
+            "source_metadata",
             "policies",
             "total_rooms",
             "total_guests",
@@ -1096,6 +1106,11 @@ class ReservationWriteSerializer(TenantSerializerMixin, serializers.ModelSeriali
             "real_check_out",
             "promo_code",
             "notes",
+            "source_channel",
+            "source_detail",
+            "source_url",
+            "source_referrer",
+            "source_metadata",
             "created_by",
             "created_at",
         ]
@@ -1107,6 +1122,11 @@ class ReservationWriteSerializer(TenantSerializerMixin, serializers.ModelSeriali
             "real_check_out",
             "package_name",
             "package_price",
+            "source_channel",
+            "source_detail",
+            "source_url",
+            "source_referrer",
+            "source_metadata",
         )
 
     def get_fields(self):
@@ -1498,3 +1518,141 @@ class ReservationInventoryCheckLineSerializer(serializers.ModelSerializer):
                 })
 
         return attrs
+
+
+class WebReservationCreateSerializer(serializers.Serializer):
+    hotel_slug = serializers.CharField(max_length=180)
+    room_rate_id = serializers.CharField(max_length=80)
+    expected_check_in = serializers.DateField()
+    expected_check_out = serializers.DateField()
+    rooms = serializers.IntegerField(min_value=1, max_value=4)
+    guests = serializers.IntegerField(min_value=1, max_value=8)
+
+    guest_name = serializers.CharField(max_length=240, min_length=3)
+    guest_email = serializers.EmailField(max_length=120)
+    guest_phone = serializers.CharField(max_length=40, min_length=7)
+    guest_document_type = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+        default="CC",
+    )
+    guest_document_number = serializers.CharField(max_length=40)
+    guest_country = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+    notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    source_detail = serializers.CharField(
+        max_length=160,
+        required=False,
+        allow_blank=True,
+        default="Booking publico Wayra",
+    )
+    source_url = serializers.URLField(
+        max_length=500,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    source_referrer = serializers.URLField(
+        max_length=500,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    source_metadata = serializers.JSONField(required=False, default=dict)
+
+    ALIASES = {
+        "hotelSlug": "hotel_slug",
+        "roomRateId": "room_rate_id",
+        "checkIn": "expected_check_in",
+        "checkOut": "expected_check_out",
+        "guestName": "guest_name",
+        "guestEmail": "guest_email",
+        "guestPhone": "guest_phone",
+        "guestDocumentType": "guest_document_type",
+        "guestDocumentNumber": "guest_document_number",
+        "guestCountry": "guest_country",
+        "sourceDetail": "source_detail",
+        "sourceUrl": "source_url",
+        "sourceReferrer": "source_referrer",
+        "sourceMetadata": "source_metadata",
+    }
+
+    def to_internal_value(self, data):
+        mutable_data = data.copy() if hasattr(data, "copy") else dict(data)
+        for source_key, target_key in self.ALIASES.items():
+            if source_key in mutable_data and target_key not in mutable_data:
+                mutable_data[target_key] = mutable_data[source_key]
+        return super().to_internal_value(mutable_data)
+
+    def validate_guest_document_number(self, value):
+        value = str(value or "").strip()
+        if not value:
+            raise serializers.ValidationError("El numero de documento es obligatorio.")
+        return value
+
+    def validate_guest_phone(self, value):
+        from apps.clients.serializers import normalize_phone
+
+        return normalize_phone(value)
+
+    def validate_source_metadata(self, value):
+        if value in (None, ""):
+            return {}
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("source_metadata debe ser un objeto JSON.")
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if attrs["expected_check_in"] < timezone.localdate():
+            raise serializers.ValidationError(
+                {"expected_check_in": "La llegada no puede ser una fecha pasada."}
+            )
+        if attrs["expected_check_out"] <= attrs["expected_check_in"]:
+            raise serializers.ValidationError(
+                {"expected_check_out": "La salida debe ser posterior al check-in."}
+            )
+        if attrs["guests"] < attrs["rooms"]:
+            raise serializers.ValidationError(
+                {"guests": "Debe haber al menos un huesped por habitacion."}
+            )
+        return attrs
+
+
+class WebReservationResponseSerializer(serializers.ModelSerializer):
+    client_full_name = serializers.CharField(source="client.full_name", read_only=True)
+    hotel_name = serializers.CharField(source="hotel_settings.hotel_name", read_only=True)
+    status_code = serializers.CharField(source="status.code", read_only=True)
+    origin_code = serializers.CharField(source="origin.code", read_only=True)
+    rooms = ReservationRoomSerializer(source="rooms_detail", many=True, read_only=True)
+
+    class Meta:
+        model = Reservation
+        fields = [
+            "id",
+            "hotel_settings",
+            "hotel_name",
+            "client",
+            "client_full_name",
+            "status_code",
+            "origin_code",
+            "expected_check_in",
+            "expected_check_out",
+            "total_rooms",
+            "total_guests",
+            "total_nights",
+            "source_channel",
+            "source_detail",
+            "source_url",
+            "source_referrer",
+            "source_metadata",
+            "rooms",
+            "created_at",
+        ]
+        read_only_fields = fields

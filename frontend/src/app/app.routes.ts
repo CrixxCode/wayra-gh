@@ -57,6 +57,18 @@ const loadAlliedHotelsComponent = () =>
   import('./components/pages/allied-hotels/allied-hotels').then((m) => m.AlliedHotelsPage);
 const loadAlliedBookingComponent = () =>
   import('./components/pages/allied-booking/allied-booking').then((m) => m.AlliedBookingPage);
+const loadAlliedBookingRatesComponent = () =>
+  import('./components/pages/allied-booking/allied-booking-rates').then(
+    (m) => m.AlliedBookingRatesPage
+  );
+const loadAlliedBookingRequestComponent = () =>
+  import('./components/pages/allied-booking/allied-booking-request').then(
+    (m) => m.AlliedBookingRequestPage
+  );
+const loadAlliedBookingConfirmationComponent = () =>
+  import('./components/pages/allied-booking/allied-booking-confirmation').then(
+    (m) => m.AlliedBookingConfirmationPage
+  );
 const loadOnlineCheckInComponent = () =>
   import('./components/pages/online-check-in/online-check-in').then((m) => m.OnlineCheckInPage);
 
@@ -95,6 +107,21 @@ export const routes: Routes = [
         path: 'reservar',
         loadComponent: loadAlliedBookingComponent,
         title: 'Reservar Hotel Aliado',
+    },
+    {
+        path: 'reservar/tarifas/:hotelSlug',
+        loadComponent: loadAlliedBookingRatesComponent,
+        title: 'Elegir Tarifa',
+    },
+    {
+        path: 'reservar/solicitud/:hotelSlug/:rateId',
+        loadComponent: loadAlliedBookingRequestComponent,
+        title: 'Solicitud de Reserva',
+    },
+    {
+        path: 'reservar/confirmacion/:reservationId',
+        loadComponent: loadAlliedBookingConfirmationComponent,
+        title: 'Reserva Registrada',
     },
     {
         path: 'booking',

@@ -7,9 +7,11 @@ from apps.reservations.views import (
     ReservationRoomViewSet,
     ReservationGuestViewSet,
     ReservationDepositViewSet,
+    WebReservationViewSet,
 )
 
 router = DefaultRouter()
+router.register(r"web-reservations", WebReservationViewSet, basename="web-reservations")
 router.register(r"reservations", ReservationViewSet, basename="reservations")
 router.register(r"reservation-rooms", ReservationRoomViewSet, basename="reservation-rooms")
 router.register(r"reservation-guests", ReservationGuestViewSet, basename="reservation-guests")

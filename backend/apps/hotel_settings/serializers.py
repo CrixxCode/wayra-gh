@@ -174,6 +174,7 @@ class AlliedRoomRateSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True)
     maxGuests = serializers.IntegerField()
     nightlyRate = serializers.IntegerField()
+    availableRooms = serializers.IntegerField(allow_null=True)
 
 
 class AlliedHotelSerializer(serializers.Serializer):
@@ -186,6 +187,7 @@ class AlliedHotelSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True)
     highlights = serializers.ListField(child=serializers.CharField())
     rooms = serializers.IntegerField()
+    availableRooms = serializers.IntegerField(allow_null=True)
     maxGuestsPerRoom = serializers.IntegerField()
     nightlyRateFrom = serializers.IntegerField()
     roomRates = AlliedRoomRateSerializer(many=True)

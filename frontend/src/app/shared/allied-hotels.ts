@@ -8,6 +8,7 @@ export interface AlliedHotel {
   description: string;
   highlights: string[];
   rooms: number;
+  availableRooms?: number | null;
   maxGuestsPerRoom: number;
   nightlyRateFrom: number;
   roomRates: AlliedRoomRate[];
@@ -21,6 +22,7 @@ export interface AlliedRoomRate {
   description: string;
   maxGuests: number;
   nightlyRate: number;
+  availableRooms?: number | null;
 }
 
 export const ALLIED_HOTELS: AlliedHotel[] = [

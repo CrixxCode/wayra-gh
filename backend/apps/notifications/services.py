@@ -328,19 +328,31 @@ def notify_reservation_created(reservation) -> list[Notification]:
         return []
     hotel_settings = getattr(reservation, "hotel_settings", None)
     client_name = getattr(getattr(reservation, "client", None), "full_name", None) or "Cliente"
+    source_channel = str(getattr(reservation, "source_channel", "") or "").strip().upper()
+    source_detail = str(getattr(reservation, "source_detail", "") or "").strip()
+    is_web_reservation = source_channel == "WEB"
+    title = "Nueva reserva desde la web" if is_web_reservation else "Nueva reserva registrada"
+    source_text = f" Origen: {source_detail}." if is_web_reservation and source_detail else ""
     message = (
         f"Se registro la reserva #{reservation.id} para {client_name}. "
         f"Check-in: {getattr(reservation, 'expected_check_in', '--')}, "
         f"check-out: {getattr(reservation, 'expected_check_out', '--')}."
+        f"{source_text}"
     )
     return notify_hotel_managers(
         hotel_settings=hotel_settings,
-        title="Nueva reserva registrada",
+        title=title,
         message=message,
         notification_type=Notification.NotificationType.RESERVATION,
-        priority=Notification.Priority.MEDIUM,
+        priority=Notification.Priority.HIGH if is_web_reservation else Notification.Priority.MEDIUM,
         action_url="/reservas",
         related_object=reservation,
+        metadata={
+            "source_channel": source_channel,
+            "source_detail": source_detail,
+            "source_url": getattr(reservation, "source_url", "") or "",
+            "source_referrer": getattr(reservation, "source_referrer", "") or "",
+        },
     )
 
 

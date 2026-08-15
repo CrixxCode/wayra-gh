@@ -954,6 +954,149 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-15 - Opcion Mi ubicacion en buscador publico
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se agrego la opcion `Mi ubicacion` al selector de destino en `/reservar` y en
+  el buscador del landing. La opcion usa la geolocalizacion del navegador, resuelve ciudad/pais y
+  selecciona el destino aliado que coincida con la ubicacion actual.
+- **Por que:** el huesped debe poder consultar rapidamente alojamientos disponibles cerca de donde
+  se encuentra sin escribir manualmente ciudad o pais.
+- **Archivos/areas afectadas:** `frontend/src/app/shared/current-location-destination.ts`,
+  `frontend/src/app/components/pages/allied-booking/`,
+  `frontend/src/app/components/pages/landing/`.
+- **Impacto:** cambio frontend publico sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC. La opcion depende del permiso de ubicacion del navegador y de reverse geocoding publico para
+  resolver ciudad/pais.
+
+---
+
+### 2026-08-15 - Disponibilidad real en resultados de reserva publica
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Que se hizo:** `/api/allied-hotels/` ahora acepta `checkIn`, `checkOut`, `rooms` y `guests` para
+  calcular disponibilidad real por tarifa. El endpoint excluye tarifas sin habitaciones libres para
+  las fechas indicadas y oculta hoteles sin tarifas disponibles. El flujo publico de reserva usa esa
+  consulta en la busqueda, la vista de tarifas y la solicitud.
+- **Por que:** los resultados no debian mostrar alojamientos o tarifas que luego fallaban al
+  registrar la reserva por falta de habitaciones disponibles.
+- **Archivos/areas afectadas:**
+  `backend/apps/hotel_settings/services.py`, `backend/apps/hotel_settings/views.py`,
+  `backend/apps/hotel_settings/serializers.py`, `backend/apps/hotel_settings/tests.py`,
+  `frontend/src/app/services/allied-hotels.ts`, `frontend/src/app/shared/allied-hotels.ts`,
+  `frontend/src/app/components/pages/allied-booking/`.
+- **Impacto:** cambio compatible del endpoint publico; sin migraciones ni recursos RBAC nuevos.
+
+---
+
+### 2026-08-15 — Rediseño de confirmacion de reserva publica
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** la vista `/reservar/confirmacion/:reservationId` se rediseño como una pagina de
+  cierre con icono destacado, mensaje principal y acciones alineadas. Se elimino el texto que
+  repetia el numero de reserva y el hotel dentro del cuerpo.
+- **Por que:** la confirmacion anterior se veia como una alerta embebida y repetia informacion que
+  ensuciaba la vista publica.
+- **Archivos/areas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-confirmation.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-confirmation.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`.
+- **Impacto:** cambio frontend publico sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+---
+
+### 2026-08-15 — Confirmacion de reserva publica en vista separada
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se agrego la ruta publica `/reservar/confirmacion/:reservationId` para mostrar
+  la confirmacion de una reserva web registrada. El formulario de solicitud ahora navega a esa vista
+  despues de recibir la respuesta del backend, en vez de mostrar la confirmacion dentro del mismo
+  formulario.
+- **Por que:** la confirmacion de reserva debia sentirse como un cierre de flujo independiente y
+  dejar claro que el hotel fue notificado y que el huesped recibira un correo con los datos y
+  proximos pasos.
+- **Archivos/areas afectadas:** `frontend/src/app/app.routes.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-confirmation.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-confirmation.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`.
+- **Impacto:** cambio frontend publico sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+---
+
+### 2026-08-15 — Confirmacion manual del calendario publico
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** los calendarios de fechas en `/reservar` y en la landing ahora usan un rango
+  temporal y botones `Cancelar` / `Aceptar` dentro del panel. Las fechas solo pasan al formulario de
+  busqueda cuando el usuario confirma el rango completo.
+- **Por que:** el usuario necesitaba seleccionar llegada y salida y confirmar explicitamente antes
+  de que esas fechas quedaran escogidas para buscar alojamiento.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/allied-booking/allied-booking.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`,
+  `frontend/src/app/components/pages/landing/landing.ts`,
+  `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`.
+- **Impacto:** cambio frontend publico sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+---
+
+### 2026-08-15 — Reservas web registradas en backend
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Que se hizo:** se agrego el endpoint publico `POST /api/web-reservations/` y el servicio
+  `create_web_reservation()` para convertir una solicitud del sitio web en una reserva real del
+  hotel. El flujo crea o actualiza el cliente del hotel, valida tarifa y disponibilidad, asigna
+  habitaciones, registra el huesped principal y marca la reserva con origen `WEB`.
+- **Por que:** las reservas hechas desde la web debian quedar dentro de la operacion del hotel y no
+  como un correo o solicitud externa sin trazabilidad.
+- **Archivos/areas afectadas:** `backend/apps/reservations/`,
+  `backend/apps/notifications/services.py`, `backend/backend/settings.py`,
+  `frontend/src/app/services/web-reservation.ts`,
+  `frontend/src/app/components/pages/allied-booking/`.
+- **Impacto:** agrega la migracion `reservations.0011_reservation_web_source`, nuevos campos de
+  trazabilidad en `Reservation` (`source_channel`, `source_detail`, `source_url`,
+  `source_referrer`, `source_metadata`), el throttle `web_reservation` y el endpoint publico
+  `POST /api/web-reservations/`. Requiere catalogos activos `RESERVATION_ORIGIN:WEB`,
+  `RESERVATION_STATUS:PENDIENTE`, `DOCUMENT_TYPE`, `CLIENT_TYPE:REGULAR`, `CLIENT_STATUS:ACTIVO`
+  y habitaciones disponibles para la tarifa seleccionada. No agrega recursos RBAC porque el endpoint
+  es publico y usa `AllowAny`.
+
+---
+
+### 2026-08-15 — Booking publico separado por vistas
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** el flujo publico de `/reservar` quedo dividido en tres rutas: busqueda y
+  seleccion de hotel, seleccion de tarifa en `/reservar/tarifas/:hotelSlug`, y solicitud del huesped
+  en `/reservar/solicitud/:hotelSlug/:rateId`. Los criterios de busqueda viajan por query params
+  para poder avanzar, volver o recargar sin perder fechas, habitaciones ni huespedes.
+- **Por que:** seleccionar hotel, elegir tarifa y preparar la reserva en una sola vista hacia la
+  pantalla demasiado larga y mezclaba decisiones distintas del huesped.
+- **Archivos/areas afectadas:** `frontend/src/app/app.routes.ts`,
+  `frontend/src/app/components/pages/allied-booking/`.
+- **Impacto:** cambio frontend publico sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
 ### 2026-08-14 — Hoteles aliados sin opacidad inicial
 
 - **Autor:** Codex, a solicitud de rastor65
