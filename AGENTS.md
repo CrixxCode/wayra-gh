@@ -1073,6 +1073,18 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-15 - Merge de migraciones de configuracion del hotel
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Que se hizo:** se agrego una migracion merge `0009` en `hotel_settings` para unir las dos hojas
+  `0008_hotelsettings_is_active` y `0008_hotelsettings_latitude_hotelsettings_longitude`.
+- **Por que:** `makemigrations` fallaba con migraciones conflictivas porque ambos cambios partian de
+  `0007_payment_method_type_and_account`.
+- **Archivos/areas afectadas:** `backend/apps/hotel_settings/migrations/`.
+- **Impacto:** no modifica tablas por si misma; permite continuar con `makemigrations` y `migrate`.
+
 ### 2026-08-15 - Opcion Mi ubicacion en buscador publico
 
 - **Autor:** Codex, a solicitud de rastor65
