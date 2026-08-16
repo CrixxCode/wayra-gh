@@ -37,3 +37,6 @@ frontend/*.err
 Thumbs.db
 .vscode/
 .idea/
+
+# Local tooling artifacts
+.impeccable/

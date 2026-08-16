@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-08-15
+**Última actualización:** 2026-08-16
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -1070,6 +1070,274 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > originales eran breves, por lo que el campo "Por qué" de esas entradas es una reconstrucción
 > razonada, no una cita textual del autor. A partir de la creación de esta bitácora, cada entrada
 > debe escribirse en el momento del cambio.
+
+---
+
+### 2026-08-16 - Distill Impeccable de la landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se ejecuto `impeccable distill landing` sobre la landing publica. El tramo medio
+  quedo reducido a una narrativa central de producto, tres momentos de turno y un bloque de prueba
+  operativa; se retiraron secciones redundantes de beneficios/funcionalidades y se simplificaron
+  labels, CTAs y microcopy del wizard de demo.
+- **Por que:** la ultima critica marco que la landing aun repetia la misma promesa en demasiados
+  bloques y necesitaba una lectura mas sobria, directa y centrada en operacion hotelera.
+- **Impacto:** solo afecta la landing publica y la solicitud de demo en el frontend. No cambia APIs,
+  modelos, migraciones ni recursos RBAC.
+- **Pruebas:** `npm run lint`, `npm run build`, `impeccable detect` en modo degradado sin hallazgos,
+  `git diff --check` y capturas headless de escritorio/movil con Edge.
+
+### 2026-08-16 - Critica Impeccable tras demo compacta
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** docs
+- **Que se hizo:** se ejecuto `impeccable critique landing` despues de compactar el formulario de
+  demo, fusionar "Producto en accion" con "Como funciona" y ajustar contraste. La evaluacion dual
+  quedo guardada en
+  `.impeccable/critique/2026-08-16T08-15-53Z__tend-src-app-components-pages-landing-landing-html.md`
+  con puntuacion 23/32. El detector CLI no reporto hallazgos, pero corrio en modo degradado por
+  dependencias de parseo ausentes; no hubo overlay runtime porque el subagente no tuvo navegador
+  controlable.
+- **Por que:** hacia falta medir el estado posterior a los P1 aplicados y definir el siguiente foco:
+  promesa principal mas especifica, prueba de credibilidad sin testimonios y menor repeticion en el
+  tramo medio.
+- **Archivos/areas afectadas:** `.impeccable/critique/`, `AGENTS.md`.
+- **Impacto:** documentacion y artefactos de revision sin migraciones, variables nuevas, cambios de
+  API ni recursos RBAC.
+
+---
+
+### 2026-08-16 - Demo compacta y contraste de landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** el primer paso de la solicitud de demo quedo reducido a cuatro datos visibles
+  (nombre de contacto, cargo, correo y telefono). El usuario sugerido y los comentarios pasaron al
+  cierre como campos opcionales, mientras nombre, apellido y usuario requeridos por el backend se
+  derivan automaticamente para conservar el payload existente. Tambien se compacto "Producto en
+  accion" con el flujo de "Como funciona" y se oscurecieron tokens/clases de color con contraste
+  bajo.
+- **Por que:** tras la critica Impeccable, el usuario eligio reducir la friccion inicial del
+  formulario, corregir contraste runtime y compactar el tramo medio de la landing para evitar
+  repeticion entre producto y funcionamiento.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/`, `AGENTS.md`.
+- **Impacto:** cambios de frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC; la API de solicitudes de demo recibe los mismos campos que antes.
+
+---
+
+### 2026-08-16 - Critica Impeccable tras jornada operativa y demo reordenada
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** docs
+- **Que se hizo:** se ejecuto `impeccable critique landing` despues de reordenar el wizard de demo
+  y reemplazar los tabs por la jornada operativa. La evaluacion dual quedo guardada en
+  `.impeccable/critique/2026-08-16T07-55-23Z__tend-src-app-components-pages-landing-landing-html.md`
+  con puntuacion 28/36. El detector CLI no reporto hallazgos, pero corrio en modo degradado; la
+  inyeccion runtime en Chrome headless reporto principalmente contraste bajo y una transicion de
+  layout.
+- **Por que:** hacia falta medir si los dos P1 anteriores mejoraron y actualizar el backlog de
+  decisiones con los nuevos riesgos prioritarios: friccion residual en el primer paso del formulario
+  y contraste runtime.
+- **Archivos/areas afectadas:** `.impeccable/critique/`, `AGENTS.md`.
+- **Impacto:** documentacion y artefactos de revision sin migraciones, variables nuevas, cambios de
+  API ni recursos RBAC.
+
+---
+
+### 2026-08-16 - Demo con menos friccion y jornada operativa en landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se reordeno el wizard de demo para empezar por el contacto y dejar hotel,
+  ubicacion y horarios como contexto posterior de personalizacion. Tambien se reemplazo la seccion
+  de funcionalidades con tabs por un recorrido visible de jornada operativa que conecta reservas,
+  habitaciones, huespedes, operacion, finanzas y reportes en una misma linea de trabajo.
+- **Por que:** en la critica Impeccable el usuario priorizo los dos P1: reducir la confianza que
+  exige el formulario al inicio y transformar el tramo medio para que deje de sentirse como catalogo
+  repetido de modulos. La direccion visual elegida fue mas premium e identificable para hoteleria.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/`, `AGENTS.md`.
+- **Impacto:** cambios de frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC; el payload de solicitud de demo se mantiene igual.
+
+---
+
+### 2026-08-16 - Critica dual Impeccable posterior al ajuste de confianza
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** docs
+- **Que se hizo:** se ejecuto `impeccable critique landing` con evaluacion dual: un subagente para
+  revision de diseno y otro para evidencia deterministica/browser. El snapshot quedo guardado en
+  `.impeccable/critique/2026-08-16T07-23-45Z__tend-src-app-components-pages-landing-landing-html.md`
+  con puntuacion 27/36. El detector CLI no reporto hallazgos, pero corrio en modo degradado; la
+  inyeccion runtime en Chrome headless reporto principalmente hallazgos de contraste bajo.
+- **Por que:** tras corregir el bloque `Base operativa segura`, hacia falta medir de nuevo la
+  landing y definir el siguiente foco de mejora con evidencia separada de criterio visual y
+  detector.
+- **Archivos/areas afectadas:** `.impeccable/critique/`, `AGENTS.md`.
+- **Impacto:** documentacion y artefactos de revision sin migraciones, variables nuevas, cambios de
+  API ni recursos RBAC.
+
+---
+
+### 2026-08-16 - Checklist compacto en bloque de operacion y confianza
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Que se hizo:** se ajusto el bloque `Base operativa segura` dentro de la seccion `Operacion y
+  confianza`: la lista de confianza dejo de renderizarse como tarjetas en grid y paso a un
+  checklist vertical compacto con separador de columna en desktop.
+- **Por que:** en la version fusionada las tarjetas internas partian el texto y competian
+  visualmente dentro del panel, produciendo una tarjeta dentro de tarjeta y peor lectura.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/`, `AGENTS.md`.
+- **Impacto:** cambios de frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+---
+
+### 2026-08-16 - Destilado de secciones repetidas en landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se fusionaron las secciones separadas de beneficios, resultados y confianza en
+  un solo bloque `Operacion y confianza`, manteniendo los mensajes de turno, reportes y trazabilidad
+  en una composicion mas corta. Tambien se renombraron los CTAs de demo a `Preparar demo
+  personalizada` y el encabezado del modal a `Prepara tu demo de Wayra`.
+- **Por que:** la critica final de Impeccable senalo que la landing ya era clara, pero demasiado
+  larga para la persuasion adicional que agregaban las secciones intermedias. El usuario eligio
+  compactar secciones y mantener el formulario completo enmarcandolo como preparacion de demo.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/`, `AGENTS.md`.
+- **Impacto:** cambios de frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+---
+
+### 2026-08-16 - Critica final Impeccable de la landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** docs
+- **Que se hizo:** se ejecuto una nueva `impeccable critique landing` tras corregir el menu movil y
+  pulir el copy operativo. La evaluacion dual quedo archivada en `.impeccable/critique/` con
+  puntuacion 28/36, detector sin hallazgos en modo degradado y prioridades restantes centradas en
+  reducir longitud/repeticion de secciones y aclarar la expectativa del formulario de demo.
+- **Por que:** hacia falta cerrar la ronda de mejora con una medicion posterior a los fixes para
+  confirmar que el problema de mobile ya no era el principal riesgo y dejar backlog claro para una
+  futura simplificacion.
+- **Archivos/areas afectadas:** `.impeccable/critique/`, `AGENTS.md`.
+- **Impacto:** documentacion sin migraciones, variables nuevas, cambios de API ni recursos RBAC.
+
+---
+
+### 2026-08-16 - Contraste del menu movil en landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Que se hizo:** se reemplazo la dependencia del menu movil en utilidades genericas de fondo por
+  clases propias `wayra-mobile-panel` y `wayra-mobile-link`, con fondo, borde, sombra, color y
+  estados de foco/hover definidos desde los tokens de la landing.
+- **Por que:** en movil el panel del menu se veia transparente y las opciones se confundian con el
+  fondo de la landing. El menu necesitaba una superficie opaca y contraste propio para mantener la
+  navegacion legible.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/`, `AGENTS.md`.
+- **Impacto:** cambios de frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+---
+
+### 2026-08-16 - Copy operativo y accesos de huespedes en landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se aplicaron las decisiones posteriores a la segunda critica Impeccable: el copy
+  de la landing se hizo mas concreto con escenas de recepcion, limpieza, caja y gerencia; el
+  formulario de demo conserva sus cuatro pasos, pero ahora explica por que se solicita cada grupo
+  de datos; y los accesos publicos `Hoteles aliados` y `Check-in online` se agruparon bajo
+  `Accesos para huespedes` para bajar su peso frente al CTA de demo.
+- **Por que:** el siguiente riesgo de conversion no era la mezcla de audiencias sino la falta de
+  especificidad operativa y la percepcion de friccion del formulario. Mantener el formulario
+  completo requeria justificar su utilidad antes de que el usuario lo complete.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/`, `AGENTS.md`.
+- **Impacto:** cambios de frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+---
+
+### 2026-08-16 - Segunda critica Impeccable de la landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** docs
+- **Que se hizo:** se ejecuto nuevamente `impeccable critique landing` sobre la landing ya enfocada
+  en operacion hotelera. La evaluacion dual dejo un nuevo snapshot en `.impeccable/critique/` con
+  puntuacion 22/32, dos hallazgos P1 y prioridades centradas en responsive movil, friccion del
+  formulario de demo y especificidad del copy operativo.
+- **Por que:** despues del primer pulido era necesario verificar si la separacion de audiencias
+  habia mejorado y detectar los siguientes riesgos antes de continuar con otro ajuste visual.
+- **Archivos/areas afectadas:** `.impeccable/critique/`, `AGENTS.md`.
+- **Impacto:** documentacion sin migraciones, variables nuevas, cambios de API ni recursos RBAC.
+
+---
+
+### 2026-08-16 - Landing enfocada en operacion hotelera
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se pulio la landing publica con enfoque principal en personal de hotel: se
+  retiraron el buscador de alojamiento, el bloque de check-in para huespedes y el directorio de
+  hoteles aliados de la pagina principal; esos flujos quedan como accesos publicos desde el header.
+  Tambien se limpio el TypeScript/CSS asociado y se ajusto el copy para explicar la operacion
+  centralizada desde reservas hasta pagos, limpieza, inventario y reportes.
+- **Por que:** la critica Impeccable detecto que la landing mezclaba dos audiencias con la misma
+  jerarquia visual. Separar el mensaje B2B del acceso publico para huespedes deja mas claro que
+  Wayra es una plataforma operativa para hoteles, sin ocultar las rutas de reserva y check-in
+  online.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/`, `AGENTS.md`.
+- **Impacto:** cambios de frontend sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC.
+
+---
+
+### 2026-08-16 - Critica Impeccable de la landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** docs
+- **Qué se hizo:** se ejecutó `impeccable critique landing` con evaluación dual: revisión de diseño
+  y detector técnico. Se archivó el reporte en `.impeccable/critique/` con una puntuación de
+  22/32 y prioridades para un futuro pulido de la landing.
+- **Por qué:** antes de rediseñar o pulir la landing, hacía falta identificar los problemas de
+  jerarquía, audiencias, copy y estructura sin inventar pruebas comerciales no confirmadas.
+- **Archivos/áreas afectadas:** `.impeccable/critique/`, `AGENTS.md`.
+- **Impacto:** documentación sin migraciones, variables nuevas, cambios de API ni recursos RBAC.
+
+---
+
+### 2026-08-16 - Contexto de producto para Impeccable
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** docs
+- **Qué se hizo:** se agregó `PRODUCT.md` con el contexto durable del producto para la skill
+  Impeccable: plataforma web, usuarios principales, propósito, posicionamiento, capacidades,
+  restricciones de marketing y evidencia disponible. También se registró `code-first` como flujo
+  por defecto de nuevas superficies en `.impeccable/config.json`.
+- **Por qué:** la skill necesitaba una fuente de verdad de producto antes de mejorar la landing sin
+  inventar testimonios, clientes, precios ni promesas no confirmadas.
+- **Archivos/áreas afectadas:** `PRODUCT.md`, `.impeccable/config.json`, `AGENTS.md`.
+- **Impacto:** documentación sin migraciones, variables nuevas, cambios de API ni recursos RBAC.
 
 ---
 

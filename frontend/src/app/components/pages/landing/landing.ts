@@ -5,15 +5,10 @@ import {
   HostListener,
   OnDestroy,
   OnInit,
-  ViewChild,
   inject,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
-import {
-  DatePicker,
-  DatePickerModule,
-} from 'primeng/datepicker';
+import { RouterLink } from '@angular/router';
 import { catchError, finalize, of } from 'rxjs';
 
 import {
@@ -38,45 +33,23 @@ import {
   loadHotelCountries,
 } from '../../../shared/hotel-location-options';
 
-import { AlliedHotel } from '../../../shared/allied-hotels';
-import { resolveCurrentLocationDestination } from '../../../shared/current-location-destination';
-import { AlliedHotelService } from '../../../services/allied-hotels';
-
 
 interface NavLink {
   label: string;
   sectionId: string;
 }
 
-interface OperationStep {
-  number: string;
-  title: string;
-  description: string;
-}
-
-interface FeatureItem {
+interface TurnMoment {
   title: string;
   description: string;
   icon: string;
+  evidence: string[];
+  outcome: string;
 }
 
-interface FeatureGroup {
-  title: string;
+interface ProofItem {
+  label: string;
   description: string;
-  icon: string;
-  capabilities: string[];
-}
-
-interface BenefitItem {
-  title: string;
-  description: string;
-  icon: string;
-}
-
-interface ResultItem {
-  title: string;
-  description: string;
-  icon: string;
 }
 
 interface AudienceItem {
@@ -102,29 +75,11 @@ type DemoFormSection =
   | 'operation'
   | 'requester';
 
-type LandingBookingControlName =
-  | 'destination'
-  | 'dateRange'
-  | 'rooms'
-  | 'guests';
-
-interface BookingDestinationMatch {
-  country: string;
-  city: string;
-}
-
-interface BookingDestinationOption {
-  city: string;
-  country: string;
-}
-
-
 @Component({
   selector: 'app-landing',
   standalone: true,
   imports: [
     CommonModule,
-    DatePickerModule,
     ReactiveFormsModule,
     RouterLink,
   ],
@@ -137,9 +92,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   private readonly demoRequestService = inject(DemoRequestService);
   private readonly authService = inject(AuthService);
   private readonly rolesService = inject(RolesService);
-  private readonly router = inject(Router);
-  private readonly alliedHotelService = inject(AlliedHotelService);
-  @ViewChild('bookingDateRangePicker') private bookingDateRangePicker?: DatePicker;
 
   private previousBodyOverflow = '';
   private revealObserver: IntersectionObserver | null = null;
@@ -155,7 +107,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     'Hotel',
     'Hostal',
     'Apartahotel',
-    'Alojamiento turistico',
+    'Alojamiento turístico',
     'Otro',
   ];
 
@@ -231,22 +183,25 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
     requester: this.formBuilder.group({
 
-      firstName: [
-        '',
-        Validators.required,
-      ],
-
-      lastName: [
-        '',
-        Validators.required,
-      ],
-
-      username: [
+      contactName: [
         '',
         [
           Validators.required,
           Validators.minLength(3),
         ],
+      ],
+
+      firstName: [
+        '',
+      ],
+
+      lastName: [
+        '',
+      ],
+
+      username: [
+        '',
+        Validators.minLength(3),
       ],
 
       email: [
@@ -274,64 +229,14 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     }),
   });
 
-  readonly bookingMinDate =
-    this.getTodayDate();
-
-  readonly bookingSearchForm =
-    this.formBuilder.nonNullable.group({
-      destination: [
-        '',
-        Validators.required,
-      ],
-
-      dateRange: [
-        [] as Date[],
-        Validators.required,
-      ],
-
-      rooms: [
-        1,
-        [
-          Validators.required,
-          Validators.min(1),
-          Validators.max(4),
-        ],
-      ],
-
-      guests: [
-        1,
-        [
-          Validators.required,
-          Validators.min(1),
-          Validators.max(8),
-        ],
-      ],
-    });
-
-  readonly bookingDatePickerControl =
-    this.formBuilder.nonNullable.control([] as Date[]);
-
-
   // =========================================================
   // NAVEGACIÓN
   // =========================================================
 
   readonly navLinks: NavLink[] = [
     {
-      label: 'Buscar alojamiento',
-      sectionId: 'buscar-alojamiento',
-    },
-    {
-      label: 'Hoteles aliados',
-      sectionId: 'hoteles-aliados',
-    },
-    {
       label: 'Producto',
       sectionId: 'producto',
-    },
-    {
-      label: 'Funcionalidades',
-      sectionId: 'funcionalidades',
     },
     {
       label: 'Cómo funciona',
@@ -349,188 +254,87 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
 
   // =========================================================
-  // FLUJO OPERATIVO
+  // TURNO OPERATIVO
   // =========================================================
 
-  readonly operationSteps: OperationStep[] = [
+  readonly turnMoments: TurnMoment[] = [
     {
-      number: '01',
-      title: 'Configura tu hotel',
+      title: 'Antes del check-in',
       description:
-        'Define habitaciones, tarifas, horarios y datos base para operar con orden.',
-    },
-    {
-      number: '02',
-      title: 'Centraliza tu gestión',
-      description:
-        'Reúne reservas, huéspedes, pagos, servicios y tareas en un mismo entorno.',
-    },
-    {
-      number: '03',
-      title: 'Controla tu operación',
-      description:
-        'Consulta actividad, reportes y alertas para detectar lo que necesita atención.',
-    },
-  ];
-
-
-  // =========================================================
-  // FUNCIONALIDADES
-  // =========================================================
-
-  readonly features: FeatureItem[] = [
-    {
-      title: 'Gestión de reservas',
-      description:
-        'Registra, modifica y da seguimiento a reservas con estado y trazabilidad.',
-      icon: 'pi pi-calendar',
-    },
-    {
-      title: 'Clientes y huéspedes',
-      description:
-        'Centraliza los datos de clientes y huéspedes para facilitar la gestión de cada estadía.',
-      icon: 'pi pi-id-card',
-    },
-    {
-      title: 'Pagos y facturación',
-      description:
-        'Administra pagos, saldos, facturas y notas de crédito de forma organizada.',
-      icon: 'pi pi-wallet',
-    },
-    {
-      title: 'Servicios y promociones',
-      description:
-        'Gestiona servicios adicionales, paquetes y promociones asociados a la operación.',
-      icon: 'pi pi-megaphone',
-    },
-    {
-      title: 'Inventario',
-      description:
-        'Controla entradas, salidas y movimientos de los artículos utilizados por el alojamiento.',
-      icon: 'pi pi-box',
-    },
-    {
-      title: 'Control financiero',
-      description:
-        'Mantén organizada la información relacionada con ingresos, egresos y actividad financiera.',
-      icon: 'pi pi-chart-bar',
-    },
-    {
-      title: 'Reportes administrativos',
-      description:
-        'Consulta información consolidada sobre ocupación, ingresos y actividad del hotel.',
-      icon: 'pi pi-chart-line',
-    },
-    {
-      title: 'Roles y permisos',
-      description:
-        'Controla el acceso a la plataforma según las responsabilidades de cada usuario.',
-      icon: 'pi pi-shield',
-    },
-  ];
-
-  readonly featuredFeature = this.features[0];
-  readonly secondaryFeatures = this.features.slice(1);
-
-  readonly featureGroups: FeatureGroup[] = [
-    {
-      title: 'Reservas',
-      description:
-        'Organiza fechas, habitaciones, huéspedes, abonos y estados de cada reserva desde un flujo operativo claro.',
-      icon: 'pi pi-calendar',
-      capabilities: [
-        'Reservas por habitación',
-        'Check-in y check-out',
-        'Abonos y depósitos',
-        'Historial de actividad',
+        'Recepción confirma la reserva con habitación, huésped, abono y horario en el mismo registro.',
+      icon: 'pi pi-calendar-clock',
+      evidence: [
+        'Reserva',
+        'Huéspedes',
+        'Abonos',
       ],
+      outcome:
+        'El turno sabe quién llega y qué falta revisar.',
     },
     {
-      title: 'Habitaciones',
+      title: 'Durante la estadía',
       description:
-        'Administra habitaciones, tipos, tarifas, amenidades, limpieza y mantenimiento sin salir del contexto operativo.',
+        'Habitaciones, limpieza, servicios e inventario quedan conectados a la estadía correcta.',
       icon: 'pi pi-building',
-      capabilities: [
-        'Tipos de habitación',
-        'Tarifas por hotel',
-        'Limpieza y mantenimiento',
-        'Inventario por habitación',
+      evidence: [
+        'Habitación',
+        'Limpieza',
+        'Servicios',
       ],
+      outcome:
+        'El equipo ve qué está listo, ocupado o pendiente.',
     },
     {
-      title: 'Huéspedes',
+      title: 'Al cierre de caja',
       description:
-        'Centraliza datos de clientes y huéspedes para que recepción y administración trabajen con la misma información.',
-      icon: 'pi pi-users',
-      capabilities: [
-        'Clientes',
-        'Huéspedes por reserva',
-        'Datos de contacto',
-        'Trazabilidad del registro',
-      ],
-    },
-    {
-      title: 'Operación',
-      description:
-        'Conecta servicios, paquetes, promociones, inventario, limpieza y mantenimiento con la gestión diaria del alojamiento.',
-      icon: 'pi pi-sitemap',
-      capabilities: [
-        'Servicios y consumos',
-        'Paquetes y promociones',
-        'Inventario',
-        'Tareas operativas',
-      ],
-    },
-    {
-      title: 'Finanzas',
-      description:
-        'Mantén pagos, facturas, reembolsos, notas crédito, egresos y consolidado financiero en un entorno ordenado.',
+        'Pagos, cargos, reportes y actividad quedan disponibles para revisar el día sin cruzar hojas sueltas.',
       icon: 'pi pi-wallet',
-      capabilities: [
-        'Facturación',
-        'Pagos y reembolsos',
-        'Egresos',
-        'Control financiero',
+      evidence: [
+        'Pagos',
+        'Reportes',
+        'Actividad',
       ],
-    },
-    {
-      title: 'Reportes',
-      description:
-        'Consulta información operativa y financiera para entender el estado del hotel y revisar la actividad del sistema.',
-      icon: 'pi pi-chart-line',
-      capabilities: [
-        'Reportes operativos',
-        'Reportes financieros',
-        'Registro de actividad',
-        'Alertas internas',
-      ],
+      outcome:
+        'Gerencia revisa saldos y operación desde una sola fuente.',
     },
   ];
 
-  readonly productModules = [
-    'Reservas',
-    'Habitaciones',
-    'Huéspedes',
-    'Servicios',
-    'Pagos',
-    'Operación diaria',
+
+  // =========================================================
+  // PRUEBA DE PRODUCTO
+  // =========================================================
+
+  readonly proofItems: ProofItem[] = [
+    {
+      label: 'Reserva',
+      description:
+        'Fechas, habitación, huéspedes, abonos y estado del check-in.',
+    },
+    {
+      label: 'Habitación',
+      description:
+        'Disponibilidad, limpieza, mantenimiento e inventario asociado.',
+    },
+    {
+      label: 'Caja',
+      description:
+        'Cargos, pagos, reembolsos, saldos y cierre de la estadía.',
+    },
+    {
+      label: 'Gerencia',
+      description:
+        'Ocupación, ingresos, egresos, reportes y registro de actividad.',
+    },
   ];
 
   readonly trustItems = [
     'Acceso por usuarios y roles',
-    'Centralización de información',
+    'Trazabilidad por reserva',
     'Registro de actividad',
     'Gestión desde navegador',
     'Configuración del hotel',
   ];
 
-  alliedHotels: AlliedHotel[] = [];
-  alliedHotelsTotal = 0;
-  alliedHotelsLoading = true;
-
-  bookingDestinationPanelOpen = false;
-  bookingLocatingDestination = false;
-  bookingLocationError = '';
   landingSessionAuthenticated =
     this.authService.getCachedSessionState();
 
@@ -552,209 +356,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
       : 'pi pi-sign-in';
   }
 
-  get featuredAlliedHotels(): AlliedHotel[] {
-    return this.alliedHotels.slice(0, 6);
-  }
-
-  get bookingDestinationOptions(): BookingDestinationOption[] {
-
-    const optionsByKey =
-      new Map<string, BookingDestinationOption>();
-
-    this.alliedHotels.forEach((hotel) => {
-      const key =
-        this.normalizeBookingText(
-          `${hotel.city}-${hotel.country}`
-        );
-
-      optionsByKey.set(
-        key,
-        {
-          city: hotel.city,
-          country: hotel.country,
-        }
-      );
-    });
-
-    return [
-      ...optionsByKey.values(),
-    ].sort(
-      (first, second) =>
-        first.city.localeCompare(second.city, 'es-CO')
-    );
-  }
-
-  get filteredBookingDestinationOptions(): BookingDestinationOption[] {
-
-    const query =
-      this.bookingSearchForm.controls.destination.value;
-
-    const normalizedQuery =
-      this.normalizeBookingText(query);
-
-    const options =
-      normalizedQuery
-        ? this.bookingDestinationOptions.filter(
-            (option) =>
-              this.matchesBookingDestination(
-                option.country,
-                option.city,
-                query
-              )
-          )
-        : this.bookingDestinationOptions;
-
-    return options.slice(0, 6);
-  }
-
-  get bookingSelectedDateRange(): Date[] {
-
-    const dateRange =
-      this.bookingSearchForm.controls.dateRange.value;
-
-    if (!Array.isArray(dateRange)) {
-      return [];
-    }
-
-    return dateRange
-      .filter(
-        (date): date is Date =>
-          date instanceof Date &&
-          !Number.isNaN(date.getTime())
-      );
-  }
-
-  get bookingPendingDateRange(): Date[] {
-
-    const dateRange =
-      this.bookingDatePickerControl.value;
-
-    if (!Array.isArray(dateRange)) {
-      return [];
-    }
-
-    return dateRange
-      .filter(
-        (date): date is Date =>
-          date instanceof Date &&
-          !Number.isNaN(date.getTime())
-      );
-  }
-
-  get canConfirmBookingDateRange(): boolean {
-
-    const dateRange =
-      this.bookingPendingDateRange;
-
-    return (
-      dateRange.length === 2 &&
-      this.getBookingNights(dateRange) > 0
-    );
-  }
-
-  get hasIncompleteBookingDateRange(): boolean {
-
-    const selectedDates =
-      this.bookingSelectedDateRange;
-
-    return (
-      selectedDates.length > 0 &&
-      selectedDates.length < 2
-    );
-  }
-
-  get bookingNights(): number {
-
-    const [
-      checkIn,
-      checkOut,
-    ] = this.bookingSelectedDateRange;
-
-    return this.getBookingNights([
-      checkIn,
-      checkOut,
-    ].filter((date): date is Date => Boolean(date)));
-  }
-
-  get hasBookingDateRangeError(): boolean {
-
-    return (
-      this.bookingSelectedDateRange.length === 2 &&
-      this.bookingNights <= 0
-    );
-  }
-
-
-  // =========================================================
-  // BENEFICIOS
-  // =========================================================
-
-  readonly benefits: BenefitItem[] = [
-    {
-      title: 'Centraliza tu información',
-      description:
-        'Reservas, habitaciones y huéspedes en un mismo lugar, accesible para todo el equipo.',
-      icon: 'pi pi-database',
-    },
-    {
-      title: 'Reduce tareas manuales',
-      description:
-        'Menos duplicidad de registros y menos pasos para completar la operación del día.',
-      icon: 'pi pi-check-circle',
-    },
-    {
-      title: 'Mantén el control',
-      description:
-        'Visibilidad del estado de la operación y de los movimientos registrados.',
-      icon: 'pi pi-eye',
-    },
-    {
-      title: 'Trabaja más organizado',
-      description:
-        'Procesos claros y consistentes para recepción, administración y dirección.',
-      icon: 'pi pi-sitemap',
-    },
-  ];
-
-
-  // =========================================================
-  // RESULTADOS
-  // =========================================================
-
-  readonly resultItems: ResultItem[] = [
-    {
-      title: 'Seguimiento operativo',
-      description:
-        'Revisa el estado general de la operación y detecta pendientes relevantes.',
-      icon: 'pi pi-eye',
-    },
-    {
-      title: 'Ocupación',
-      description:
-        'Consulta información de habitaciones ocupadas, libres, reservadas o en mantenimiento.',
-      icon: 'pi pi-building',
-    },
-    {
-      title: 'Pagos',
-      description:
-        'Mantén saldos, pagos, facturas y movimientos financieros relacionados.',
-      icon: 'pi pi-wallet',
-    },
-    {
-      title: 'Servicios',
-      description:
-        'Relaciona servicios, consumos, paquetes y promociones con la operación del hotel.',
-      icon: 'pi pi-shopping-bag',
-    },
-    {
-      title: 'Reportes',
-      description:
-        'Consulta información consolidada y registro de actividad para seguimiento administrativo.',
-      icon: 'pi pi-chart-line',
-    },
-  ];
-
-
   // =========================================================
   // PÚBLICO
   // =========================================================
@@ -763,25 +364,25 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     {
       title: 'Hoteles pequeños y medianos',
       detail:
-        'Centraliza la gestión del alojamiento sin depender de múltiples herramientas.',
+        'Ordena recepción, habitaciones, cobros y reportes sin depender de hojas sueltas.',
       icon: 'pi pi-building-columns',
     },
     {
       title: 'Hostales',
       detail:
-        'Organiza reservas, habitaciones y huéspedes dentro de un mismo flujo de trabajo.',
+        'Mantiene reservas, huéspedes y habitaciones visibles para turnos de recepción.',
       icon: 'pi pi-building',
     },
     {
       title: 'Apartahoteles',
       detail:
-        'Gestiona estadías, servicios y disponibilidad desde una plataforma centralizada.',
+        'Relaciona estadías, servicios, disponibilidad y saldos durante visitas más largas.',
       icon: 'pi pi-home',
     },
     {
       title: 'Alojamientos turísticos',
       detail:
-        'Digitaliza procesos administrativos y operativos con una herramienta orientada a la gestión hotelera.',
+        'Digitaliza la operación diaria sin mezclar reservas, pagos y tareas en canales distintos.',
       icon: 'pi pi-globe',
     },
   ];
@@ -795,7 +396,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     {
       question: '¿Para qué tipo de hoteles es Wayra?',
       answer:
-        'Wayra está pensado para hoteles pequeños y medianos, hostales, apartahoteles y alojamientos turísticos que necesitan centralizar su gestión diaria.',
+        'Wayra está pensado para hoteles pequeños y medianos, hostales, apartahoteles y alojamientos turísticos que necesitan ordenar recepción, habitaciones, cobros y reportes.',
     },
     {
       question: '¿Necesito instalar algo?',
@@ -805,17 +406,17 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     {
       question: '¿Qué puedo gestionar desde Wayra?',
       answer:
-        'Puedes gestionar reservas, habitaciones, huéspedes, clientes, servicios, pagos, facturas, inventario, tareas operativas y reportes.',
+        'Puedes gestionar reservas, habitaciones, huéspedes, clientes, servicios, pagos, facturas, inventario, limpieza, mantenimiento, egresos y reportes.',
     },
     {
       question: '¿Cómo funciona la solicitud de demo?',
       answer:
-        'Solicitas una demo con los datos de tu hotel y del primer usuario. El equipo de Wayra revisa la información y coordina el acceso.',
+        'Solicitas una demo con tus datos de contacto y el contexto del hotel. El equipo de Wayra revisa la información y coordina el acceso.',
     },
     {
       question: '¿Qué es el check-in online?',
       answer:
-        'Es una vista publica para que el huesped principal ingrese el codigo de su reserva y complete sus datos antes de llegar al hotel.',
+        'Es una vista pública para que el huésped principal ingrese el código de su reserva y complete sus datos antes de llegar al hotel.',
     },
     {
       question: '¿Puedo usar Wayra desde diferentes dispositivos?',
@@ -832,10 +433,8 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   mobileMenuOpen = false;
 
   openFaqIndex: number | null = null;
-  activeFeatureIndex = 0;
-
   demoModalOpen = false;
-  demoStep: DemoStep = 'hotel';
+  demoStep: DemoStep = 'requester';
 
   demoSubmitted = false;
   demoSubmitting = false;
@@ -863,10 +462,10 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     website: 'Sitio web',
     check_in_time: 'Horario de check-in',
     check_out_time: 'Horario de check-out',
-    requester_first_name: 'Nombre',
-    requester_last_name: 'Apellidos',
-    requester_username: 'Usuario de acceso',
-    requester_email: 'Correo de acceso',
+    requester_first_name: 'Nombre de contacto',
+    requester_last_name: 'Nombre de contacto',
+    requester_username: 'Usuario sugerido para la demo',
+    requester_email: 'Correo de contacto',
     requester_job_title: 'Cargo',
     requester_phone: 'Teléfono de contacto',
     message: 'Comentarios',
@@ -886,13 +485,14 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     check_in_time: 'operation',
     check_out_time: 'operation',
 
+    requester_contact_name: 'requester',
     requester_first_name: 'requester',
     requester_last_name: 'requester',
-    requester_username: 'requester',
+    requester_username: 'operation',
     requester_email: 'requester',
     requester_job_title: 'requester',
     requester_phone: 'requester',
-    message: 'requester',
+    message: 'operation',
   };
 
 
@@ -903,10 +503,10 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   get demoStepNumber(): number {
 
     const steps: Record<DemoStep, number> = {
-      hotel: 1,
-      location: 2,
-      operation: 3,
-      requester: 4,
+      requester: 1,
+      hotel: 2,
+      location: 3,
+      operation: 4,
     };
 
     return steps[this.demoStep];
@@ -916,10 +516,10 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   get demoStepLabel(): string {
 
     const labels: Record<DemoStep, string> = {
+      requester: 'Contacto',
       hotel: 'Hotel',
       location: 'Ubicación',
-      operation: 'Horarios',
-      requester: 'Primer usuario',
+      operation: 'Turno',
     };
 
     return labels[this.demoStep];
@@ -931,21 +531,12 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
 
-  get activeFeatureGroup(): FeatureGroup {
-    return (
-      this.featureGroups[this.activeFeatureIndex] ??
-      this.featureGroups[0]
-    );
-  }
-
-
   // =========================================================
   // LIFECYCLE
   // =========================================================
 
   ngOnInit(): void {
     this.refreshLandingSessionState();
-    this.loadAlliedHotels();
   }
 
   ngAfterViewInit(): void {
@@ -1102,11 +693,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
 
-  selectFeatureGroup(index: number): void {
-    this.activeFeatureIndex = index;
-  }
-
-
   // =========================================================
   // MODAL
   // =========================================================
@@ -1120,7 +706,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     this.demoModalOpen = true;
     this.demoSubmitted = false;
     this.demoSubmitError = '';
-    this.demoStep = 'hotel';
+    this.demoStep = 'requester';
 
     this.lockPageScroll();
 
@@ -1129,7 +715,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
     window.setTimeout(() => {
       document
-        .getElementById('demo-hotel-name')
+        .getElementById('demo-contact-name')
         ?.focus();
     });
   }
@@ -1138,7 +724,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   closeDemoModal(): void {
 
     this.demoModalOpen = false;
-    this.demoStep = 'hotel';
+    this.demoStep = 'requester';
 
     this.demoSubmitted = false;
     this.demoSubmitting = false;
@@ -1163,6 +749,17 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
   goToHotelStep(): void {
 
+    this.ensureDemoRequesterIdentity();
+
+    const requesterForm =
+      this.demoForm.controls.requester;
+
+    requesterForm.markAllAsTouched();
+
+    if (requesterForm.invalid) {
+      return;
+    }
+
     this.demoStep = 'hotel';
 
     window.setTimeout(() => {
@@ -1174,6 +771,18 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
 
   goToLocationStep(): boolean {
+
+    this.ensureDemoRequesterIdentity();
+
+    const requesterForm =
+      this.demoForm.controls.requester;
+
+    requesterForm.markAllAsTouched();
+
+    if (requesterForm.invalid) {
+      this.goToRequesterStep();
+      return false;
+    }
 
     const hotelForm =
       this.demoForm.controls.hotel;
@@ -1224,28 +833,11 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
 
   goToRequesterStep(): void {
-
-    if (!this.goToOperationStep()) {
-      return;
-    }
-
-    const operationForm =
-      this.demoForm.controls.operation;
-
-    operationForm.markAllAsTouched();
-
-    if (
-      operationForm.invalid ||
-      this.hasSameDemoOperationTimes()
-    ) {
-      return;
-    }
-
     this.demoStep = 'requester';
 
     window.setTimeout(() => {
       document
-        .getElementById('demo-first-name')
+        .getElementById('demo-contact-name')
         ?.focus();
     });
   }
@@ -1253,27 +845,30 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
   canOpenDemoStep(step: DemoStep): boolean {
 
-    if (step === 'hotel') {
+    if (step === 'requester') {
       return true;
     }
 
+    if (step === 'hotel') {
+      return this.demoForm.controls.requester.valid;
+    }
+
     if (step === 'location') {
-      return this.demoForm.controls.hotel.valid;
+      return (
+        this.demoForm.controls.requester.valid &&
+        this.demoForm.controls.hotel.valid
+      );
     }
 
     if (step === 'operation') {
       return (
+        this.demoForm.controls.requester.valid &&
         this.demoForm.controls.hotel.valid &&
         this.demoForm.controls.location.valid
       );
     }
 
-    return (
-      this.demoForm.controls.hotel.valid &&
-      this.demoForm.controls.location.valid &&
-      this.demoForm.controls.operation.valid &&
-      !this.hasSameDemoOperationTimes()
-    );
+    return false;
   }
 
 
@@ -1333,153 +928,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
 
   // =========================================================
-  // BUSQUEDA DE ALOJAMIENTO
-  // =========================================================
-
-  openBookingDestinationPanel(): void {
-    this.bookingDestinationPanelOpen = true;
-  }
-
-
-  closeBookingDestinationPanel(): void {
-    window.setTimeout(() => {
-      this.bookingDestinationPanelOpen = false;
-    }, 120);
-  }
-
-
-  selectBookingDestination(
-    destination: BookingDestinationOption
-  ): void {
-
-    this.bookingLocationError = '';
-    this.bookingSearchForm.controls.destination.setValue(
-      destination.city
-    );
-
-    this.bookingDestinationPanelOpen = false;
-  }
-
-  useCurrentBookingLocation(): void {
-    if (
-      this.bookingLocatingDestination ||
-      this.alliedHotelsLoading
-    ) {
-      return;
-    }
-
-    this.bookingLocatingDestination = true;
-    this.bookingLocationError = '';
-
-    resolveCurrentLocationDestination(this.alliedHotels)
-      .then((result) => {
-        this.bookingSearchForm.controls.destination.setValue(
-          result.destination
-        );
-        this.bookingSearchForm.controls.destination.markAsDirty();
-        this.bookingSearchForm.controls.destination.markAsTouched();
-        this.bookingDestinationPanelOpen = false;
-      })
-      .catch((error: unknown) => {
-        this.bookingLocationError =
-          this.extractBookingLocationError(error);
-      })
-      .finally(() => {
-        this.bookingLocatingDestination = false;
-      });
-  }
-
-  openBookingDateRangePicker(): void {
-    this.syncBookingDatePickerDraft();
-  }
-
-
-  cancelBookingDateRange(): void {
-    this.syncBookingDatePickerDraft();
-    this.bookingDateRangePicker?.hideOverlay();
-  }
-
-  closeBookingDateRangePicker(): void {
-    this.syncBookingDatePickerDraft();
-  }
-
-
-  confirmBookingDateRange(): void {
-
-    const dateRange =
-      this.bookingPendingDateRange;
-
-    this.bookingSearchForm.controls.dateRange.markAsTouched();
-    this.bookingDatePickerControl.markAsTouched();
-
-    if (
-      dateRange.length !== 2 ||
-      this.getBookingNights(dateRange) <= 0
-    ) {
-      return;
-    }
-
-    this.bookingSearchForm.controls.dateRange.setValue(
-      this.cloneBookingDateRange(dateRange)
-    );
-    this.bookingSearchForm.controls.dateRange.markAsDirty();
-    this.bookingDateRangePicker?.hideOverlay();
-  }
-
-
-  submitBookingSearch(): void {
-
-    this.bookingSearchForm.markAllAsTouched();
-
-    if (
-      this.bookingSearchForm.invalid ||
-      !this.hasBookingDestinationMatches() ||
-      this.hasIncompleteBookingDateRange ||
-      this.hasBookingDateRangeError
-    ) {
-      return;
-    }
-
-    const search =
-      this.bookingSearchForm.getRawValue();
-
-    const [
-      checkIn,
-      checkOut,
-    ] = this.bookingSelectedDateRange;
-
-    const destination =
-      search.destination.trim();
-
-    const destinationMatch =
-      this.resolveBookingDestination(destination);
-
-    this.router.navigate(
-      [
-        '/reservar',
-      ],
-      {
-        queryParams: {
-          destination,
-          country: destinationMatch?.country,
-          city: destinationMatch?.city,
-          checkIn:
-            checkIn
-              ? this.toBookingDateInputValue(checkIn)
-              : '',
-          checkOut:
-            checkOut
-              ? this.toBookingDateInputValue(checkOut)
-              : '',
-          rooms: search.rooms,
-          guests: search.guests,
-        },
-      }
-    );
-  }
-
-
-  // =========================================================
   // ENVÍO
   // =========================================================
 
@@ -1491,10 +939,17 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
     this.demoForm.markAllAsTouched();
 
+    this.ensureDemoRequesterIdentity();
+
     this.demoSubmitError = '';
 
+    if (this.demoForm.controls.requester.invalid) {
+      this.demoStep = 'requester';
+      return;
+    }
+
     if (this.demoForm.controls.hotel.invalid) {
-      this.goToHotelStep();
+      this.demoStep = 'hotel';
       return;
     }
 
@@ -1508,11 +963,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
       this.hasSameDemoOperationTimes()
     ) {
       this.demoStep = 'operation';
-      return;
-    }
-
-    if (this.demoForm.controls.requester.invalid) {
-      this.demoStep = 'requester';
       return;
     }
 
@@ -1581,71 +1031,8 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
 
-  isBookingSearchInvalid(
-    controlName: LandingBookingControlName
-  ): boolean {
-
-    const control =
-      this.bookingSearchForm.controls[controlName];
-
-    if (
-      controlName === 'destination' &&
-      (
-        control.dirty ||
-        control.touched
-      )
-    ) {
-      return (
-        control.invalid ||
-        !this.hasBookingDestinationMatches()
-      );
-    }
-
-    if (
-      controlName === 'dateRange' &&
-      (
-        control.dirty ||
-        control.touched
-      )
-    ) {
-      return (
-        this.bookingSelectedDateRange.length < 2 ||
-        this.hasBookingDateRangeError
-      );
-    }
-
-    return Boolean(
-      control.invalid &&
-      (
-        control.dirty ||
-        control.touched
-      )
-    );
-  }
-
-
   trackByIndex(index: number): number {
     return index;
-  }
-
-
-  trackByBookingDestination(
-    index: number,
-    destination: BookingDestinationOption
-  ): string {
-
-    return `${destination.city}-${destination.country}-${index}`;
-  }
-
-  private extractBookingLocationError(error: unknown): string {
-    if (
-      error instanceof Error &&
-      error.message.trim()
-    ) {
-      return error.message;
-    }
-
-    return 'No pudimos usar tu ubicacion.';
   }
 
 
@@ -1764,213 +1151,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
         ),
       behavior: 'auto',
     });
-  }
-
-
-  private toBookingDateInputValue(date: Date): string {
-
-    const year =
-      date.getFullYear();
-
-    const month =
-      `${date.getMonth() + 1}`.padStart(2, '0');
-
-    const day =
-      `${date.getDate()}`.padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
-  }
-
-  private getBookingNights(dateRange: Date[]): number {
-
-    const [
-      checkIn,
-      checkOut,
-    ] = dateRange;
-
-    if (!checkIn || !checkOut) {
-      return 0;
-    }
-
-    const diff =
-      checkOut.getTime() - checkIn.getTime();
-
-    return Math.max(
-      Math.ceil(diff / 86400000),
-      0
-    );
-  }
-
-
-  private syncBookingDatePickerDraft(): void {
-
-    this.bookingDatePickerControl.setValue(
-      this.cloneBookingDateRange(
-        this.bookingSelectedDateRange
-      ),
-      {
-        emitEvent: false,
-      }
-    );
-  }
-
-
-  private cloneBookingDateRange(dateRange: Date[]): Date[] {
-
-    return dateRange.map(
-      (date) => new Date(date.getTime())
-    );
-  }
-
-
-  private hasBookingDestinationMatches(): boolean {
-
-    const destination =
-      this.bookingSearchForm.controls.destination.value;
-
-    return this.alliedHotels.some(
-      (hotel) =>
-        this.matchesBookingDestination(
-          hotel.country,
-          hotel.city,
-          destination
-        )
-    );
-  }
-
-
-  private resolveBookingDestination(
-    destination: string
-  ): BookingDestinationMatch | null {
-
-    const normalizedDestination =
-      this.normalizeBookingText(destination);
-
-    if (!normalizedDestination) {
-      return null;
-    }
-
-    const exactCity =
-      this.alliedHotels.find(
-        (hotel) =>
-          this.normalizeBookingText(
-            `${hotel.city}, ${hotel.country}`
-          ) === normalizedDestination ||
-          this.normalizeBookingText(hotel.city) ===
-            normalizedDestination
-      );
-
-    if (exactCity) {
-      return {
-        country: exactCity.country,
-        city: exactCity.city,
-      };
-    }
-
-    const exactCountry =
-      this.alliedHotels.find(
-        (hotel) =>
-          this.normalizeBookingText(hotel.country) ===
-          normalizedDestination
-      );
-
-    if (exactCountry) {
-      return {
-        country: exactCountry.country,
-        city: '',
-      };
-    }
-
-    const partialMatch =
-      this.alliedHotels.find(
-        (hotel) =>
-          this.matchesBookingDestination(
-            hotel.country,
-            hotel.city,
-            destination
-          )
-      );
-
-    if (!partialMatch) {
-      return null;
-    }
-
-    return {
-      country: partialMatch.country,
-      city:
-        this.normalizeBookingText(partialMatch.city)
-          .includes(normalizedDestination)
-          ? partialMatch.city
-          : '',
-    };
-  }
-
-
-  private matchesBookingDestination(
-    country: string,
-    city: string,
-    destination: string
-  ): boolean {
-
-    const normalizedDestination =
-      this.normalizeBookingText(destination);
-
-    if (!normalizedDestination) {
-      return false;
-    }
-
-    return [
-      country,
-      city,
-      `${city}, ${country}`,
-    ].some(
-      (option) =>
-        this.normalizeBookingText(option)
-          .includes(normalizedDestination)
-    );
-  }
-
-
-  private normalizeBookingText(value: string): string {
-
-    return value
-      .trim()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-  }
-
-
-  private getTodayDate(): Date {
-
-    const today =
-      new Date();
-
-    today.setHours(0, 0, 0, 0);
-
-    return today;
-  }
-
-
-  private loadAlliedHotels(): void {
-    this.alliedHotelsLoading = true;
-
-    this.alliedHotelService
-      .listActiveAlliedHotels()
-      .pipe(
-        catchError(() => of([] as AlliedHotel[])),
-        finalize(() => {
-          this.alliedHotelsLoading = false;
-        })
-      )
-      .subscribe((hotels) => {
-        this.alliedHotels = hotels;
-        this.alliedHotelsTotal = hotels.length;
-
-        window.setTimeout(() => {
-          this.setupLandingAnimations();
-        });
-      });
   }
 
 
@@ -2269,6 +1449,8 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   private buildDemoRequestPayload():
     DemoRequestPayload {
 
+    this.ensureDemoRequesterIdentity();
+
     const hotel =
       this.demoForm.controls.hotel
         .getRawValue();
@@ -2374,5 +1556,87 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
           requester.message || ''
         ).trim(),
     };
+  }
+
+
+  private ensureDemoRequesterIdentity(): void {
+
+    const requesterForm =
+      this.demoForm.controls.requester;
+
+    const contactName =
+      String(
+        requesterForm.controls.contactName.value || ''
+      ).trim();
+
+    const nameParts =
+      contactName
+        .split(/\s+/)
+        .filter(Boolean);
+
+    const firstName =
+      nameParts[0] || 'Contacto';
+
+    const lastName =
+      nameParts.length > 1
+        ? nameParts.slice(1).join(' ')
+        : firstName;
+
+    const email =
+      String(
+        requesterForm.controls.email.value || ''
+      )
+        .trim()
+        .toLowerCase();
+
+    const hotelName =
+      String(
+        this.demoForm.controls.hotel.controls
+          .hotelName.value || ''
+      ).trim();
+
+    const username =
+      this.normalizeDemoUsername(
+        String(
+          requesterForm.controls.username.value || ''
+        ).trim() ||
+          email.split('@')[0] ||
+          contactName ||
+          hotelName ||
+          'demo'
+      );
+
+    requesterForm.patchValue(
+      {
+        firstName,
+        lastName,
+        username,
+      },
+      {
+        emitEvent: false,
+      }
+    );
+  }
+
+
+  private normalizeDemoUsername(
+    value: string
+  ): string {
+
+    const normalized =
+      value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '_')
+        .replace(/^[_-]+|[_-]+$/g, '')
+        .slice(0, 30);
+
+    if (normalized.length >= 3) {
+      return normalized;
+    }
+
+    return `${normalized || 'demo'}_demo`
+      .slice(0, 30);
   }
 }
