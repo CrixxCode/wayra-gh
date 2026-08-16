@@ -1073,6 +1073,38 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-15 - Botón único de sesión en el header público
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se retiró la etiqueta "Sesión iniciada" del header y del menú móvil de la
+  landing. Cuando hay sesión activa queda únicamente el botón "Ir al panel", con texto forzado a una
+  sola línea.
+- **Por qué:** el estado adicional en el header agregaba ruido visual; la acción correcta para un
+  usuario autenticado es entrar directamente al panel.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/`.
+- **Impacto:** cambio frontend sin migraciones, variables nuevas, cambios de API ni recursos RBAC.
+
+---
+
+### 2026-08-15 - Estado de sesión en el header de landing
+
+- **Autor:** Codex, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** `AuthService` ahora recuerda en `localStorage` si la sesión está autenticada y
+  refresca esa marca al iniciar sesión, cerrar sesión, consultar `/api/auth/me/` o validar sesión.
+  La landing lee ese estado cacheado, lo valida contra el backend al cargar y cambia el header
+  público de "Iniciar sesión" a "Ir al panel" cuando ya existe una sesión activa.
+- **Por qué:** el header público seguía invitando a iniciar sesión aunque el usuario ya estuviera
+  autenticado, lo que causaba confusión al volver a la landing.
+- **Archivos/areas afectadas:** `frontend/src/app/services/auth/auth.ts`,
+  `frontend/src/app/components/pages/landing/`.
+- **Impacto:** cambio frontend sin migraciones, variables nuevas, cambios de API ni recursos RBAC.
+
+---
+
 ### 2026-08-15 - Aviso emergente de configuracion inicial del hotel
 
 - **Autor:** Codex, a solicitud de rastor65

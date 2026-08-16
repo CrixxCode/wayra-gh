@@ -163,9 +163,11 @@
 }
 
 .wayra-header-login {
+  gap: 0.45rem;
   border: 1px solid var(--border);
   background: var(--secondary);
   color: var(--foreground);
+  white-space: nowrap;
 }
 
 .wayra-header-login:hover {

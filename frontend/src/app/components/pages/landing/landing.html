@@ -58,9 +58,13 @@
 
         <a
           class="wayra-header-login"
-          routerLink="/login">
+          [routerLink]="landingSessionActionRoute">
 
-          Iniciar sesión
+          <i
+            [class]="landingSessionActionIcon">
+          </i>
+
+          {{ landingSessionActionLabel }}
 
         </a>
 
@@ -142,11 +146,15 @@
         </a>
 
         <a
-          routerLink="/login"
-          class="rounded-lg px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+          [routerLink]="landingSessionActionRoute"
+          class="flex items-center gap-2 rounded-lg px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 whitespace-nowrap"
           (click)="closeMobileMenu()">
 
-          Iniciar sesión
+          <i
+            [class]="landingSessionActionIcon">
+          </i>
+
+          {{ landingSessionActionLabel }}
 
         </a>
 
@@ -1912,13 +1920,13 @@
 
           <a
             class="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold text-slate-400 transition hover:bg-white/10 hover:text-white"
-            routerLink="/login">
+            [routerLink]="landingSessionActionRoute">
 
             <i
-              class="pi pi-sign-in text-sky-400">
+              [class]="landingSessionActionIcon + ' text-sky-400'">
             </i>
 
-            Iniciar sesión
+            {{ landingSessionActionLabel }}
 
           </a>
 

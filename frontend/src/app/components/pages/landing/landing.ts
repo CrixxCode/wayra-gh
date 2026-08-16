@@ -20,6 +20,10 @@ import {
   DemoRequestPayload,
   DemoRequestService,
 } from '../../../services/demo-request';
+import {
+  AuthService,
+  MeResponse,
+} from '../../../services/auth/auth';
 
 import {
   JobTitle,
@@ -131,6 +135,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
   private readonly formBuilder = inject(FormBuilder);
   private readonly demoRequestService = inject(DemoRequestService);
+  private readonly authService = inject(AuthService);
   private readonly rolesService = inject(RolesService);
   private readonly router = inject(Router);
   private readonly alliedHotelService = inject(AlliedHotelService);
@@ -526,6 +531,26 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   bookingDestinationPanelOpen = false;
   bookingLocatingDestination = false;
   bookingLocationError = '';
+  landingSessionAuthenticated =
+    this.authService.getCachedSessionState();
+
+  get landingSessionActionRoute(): string {
+    return this.landingSessionAuthenticated
+      ? '/dashboard'
+      : '/login';
+  }
+
+  get landingSessionActionLabel(): string {
+    return this.landingSessionAuthenticated
+      ? 'Ir al panel'
+      : 'Iniciar sesión';
+  }
+
+  get landingSessionActionIcon(): string {
+    return this.landingSessionAuthenticated
+      ? 'pi pi-chart-line'
+      : 'pi pi-sign-in';
+  }
 
   get featuredAlliedHotels(): AlliedHotel[] {
     return this.alliedHotels.slice(0, 6);
@@ -919,6 +944,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   // =========================================================
 
   ngOnInit(): void {
+    this.refreshLandingSessionState();
     this.loadAlliedHotels();
   }
 
@@ -960,6 +986,28 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   // =========================================================
   // MENÚ
   // =========================================================
+
+  private refreshLandingSessionState(): void {
+
+    this.authService
+      .getUserInfo()
+      .pipe(
+        catchError(() => {
+          this.authService.rememberSessionState(false);
+          return of(null);
+        })
+      )
+      .subscribe((user: MeResponse | null) => {
+        const isAuthenticated =
+          Boolean(user?.username);
+
+        this.landingSessionAuthenticated =
+          isAuthenticated;
+
+        this.authService.rememberSessionState(isAuthenticated);
+      });
+  }
+
 
   toggleMobileMenu(): void {
     this.mobileMenuOpen = !this.mobileMenuOpen;

@@ -1,7 +1,7 @@
 // auth.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, switchMap, map, shareReplay } from 'rxjs';
+import { Observable, switchMap, map, shareReplay, tap } from 'rxjs';
 import { environment } from '../../../enviorements/environment';
 
 export interface MenuItem {
@@ -88,6 +88,7 @@ export const hasResourceScope = (user: MeResponse | null | undefined, scope: str
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly apiBase = environment.API_URI.replace(/\/$/, '');
+  private readonly sessionStateStorageKey = 'gh_session_state';
 
   private csrfUrl = `${this.apiBase}/api/auth/csrf/`;
   private loginUrl = `${this.apiBase}/api/auth/login/`;
@@ -114,7 +115,8 @@ export class AuthService {
           { username, password },
           this.buildCsrfRequestOptions()
         )
-      )
+      ),
+      tap(() => this.rememberSessionState(true))
     );
   }
 
@@ -123,22 +125,46 @@ export class AuthService {
     return this.getCsrfToken().pipe(
       switchMap(() =>
         this.http.post(this.logoutUrl, {}, this.buildCsrfRequestOptions())
-      )
+      ),
+      tap(() => this.rememberSessionState(false))
     );
   }
 
   /** Verifica si hay sesión */
   checkSession(): Observable<boolean> {
     return this.http.get<MeResponse>(this.meUrl, { withCredentials: true }).pipe(
-      map((res) => !!res?.username)
+      map((res) => !!res?.username),
+      tap((isAuthenticated) => this.rememberSessionState(isAuthenticated))
     );
   }
 
   /** Obtiene info del usuario autenticado (incluye menu si el backend lo devuelve) */
   getUserInfo(): Observable<MeResponse> {
     return this.http.get<MeResponse>(this.meUrl, { withCredentials: true }).pipe(
+      tap((res) => this.rememberSessionState(!!res?.username)),
       shareReplay(1)
     );
+  }
+
+  getCachedSessionState(): boolean {
+    try {
+      if (typeof localStorage === 'undefined') return false;
+      return localStorage.getItem(this.sessionStateStorageKey) === 'authenticated';
+    } catch {
+      return false;
+    }
+  }
+
+  rememberSessionState(isAuthenticated: boolean): void {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      localStorage.setItem(
+        this.sessionStateStorageKey,
+        isAuthenticated ? 'authenticated' : 'anonymous'
+      );
+    } catch {
+      // El estado visual de la landing no debe depender de que localStorage este disponible.
+    }
   }
 
   requestPasswordReset(email: string, baseUrl: string): Observable<any> {
