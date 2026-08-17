@@ -3,25 +3,6 @@
 }
 
 .online-checkin-page {
-  --background: #ffffff;
-  --foreground: #172033;
-  --card: #ffffff;
-  --primary: #2c7be5;
-  --primary-hover: #2369c5;
-  --primary-foreground: #ffffff;
-  --secondary: #f6f8fb;
-  --muted: #647087;
-  --border: #e2e7ef;
-  --input: #dce3ed;
-  --surface: #f8fafc;
-  --ink: #111827;
-  --ink-foreground: #ffffff;
-  --ink-muted: #8b95aa;
-  --ink-border: rgba(255, 255, 255, 0.14);
-  --accent: #edf5ff;
-  --danger: #dc2626;
-  --radius: 14px;
-  --shadow-card: 0 1px 2px rgba(17, 24, 39, 0.06), 0 18px 42px rgba(17, 24, 39, 0.07);
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
@@ -66,13 +47,14 @@
   color: var(--foreground);
   font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
   font-size: 1.2rem;
-  font-weight: 900;
+  font-weight: 800;
   text-decoration: none;
 }
 
 .online-brand img {
   width: auto;
   height: 2.5rem;
+  aspect-ratio: 1 / 1;
 }
 
 .online-header nav {
@@ -82,7 +64,7 @@
 }
 
 .online-header nav a {
-  min-height: 42px;
+  min-height: 44px;
   justify-content: center;
   padding: 0 1rem;
   border: 1px solid transparent;
@@ -133,7 +115,7 @@
 .online-view-back {
   position: absolute;
   top: -3.55rem;
-  left: -4.25rem;
+  left: 0;
   width: fit-content;
   min-height: 32px;
   display: flex;
@@ -146,7 +128,7 @@
   background: transparent;
   color: var(--ink-muted);
   font-size: 0.82rem;
-  font-weight: 850;
+  font-weight: 800;
   text-decoration: none;
   transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
@@ -161,7 +143,7 @@
   margin: 0;
   color: var(--primary);
   font-size: 0.74rem;
-  font-weight: 850;
+  font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -173,7 +155,7 @@
   font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
   font-size: 2.35rem;
   line-height: 1.08;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .online-lead {
@@ -233,7 +215,7 @@
   background: var(--accent);
   color: var(--primary);
   font-size: 0.92rem;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .online-card-header p,
@@ -241,7 +223,7 @@
   margin: 0;
   color: var(--primary);
   font-size: 0.76rem;
-  font-weight: 900;
+  font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -251,7 +233,7 @@
   color: var(--foreground);
   font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
   font-size: 1.25rem;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .online-code-card {
@@ -270,7 +252,7 @@
   gap: 0.45rem;
   color: var(--foreground);
   font-size: 0.84rem;
-  font-weight: 850;
+  font-weight: 800;
 }
 
 .online-field input,
@@ -315,11 +297,26 @@
   font-weight: 800;
 }
 
-.online-code-actions,
+/* Static help hints (id ends in "-hint") are not error state; keep them
+   neutral so they don't read as an alarm next to real validation errors. */
+.online-field small[id$="-hint"] {
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.online-code-actions {
+  display: grid;
+  gap: 0.5rem;
+}
+
 .online-actions {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.online-code-actions-spacer {
+  display: none;
 }
 
 .online-primary,
@@ -330,15 +327,17 @@
   padding: 0 1.1rem;
   border-radius: 10px;
   font-size: 0.9rem;
-  font-weight: 900;
+  font-weight: 800;
   text-decoration: none;
   cursor: pointer;
   transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
 
 .online-primary {
-  border: 1px solid var(--primary);
-  background: var(--primary);
+  /* --primary at white text only reaches ~4.14:1 (fails WCAG AA 4.5:1);
+     --primary-hover clears ~5.4:1 without touching the shared token. */
+  border: 1px solid var(--primary-hover);
+  background: var(--primary-hover);
   color: var(--primary-foreground);
 }
 
@@ -356,12 +355,22 @@
 .online-primary:hover {
   border-color: var(--primary-hover);
   background: var(--primary-hover);
+  filter: brightness(0.92);
 }
 
 .online-secondary:hover {
   border-color: rgba(44, 123, 229, 0.28);
   background: var(--accent);
   color: var(--primary-hover);
+}
+
+.online-primary:disabled,
+.online-primary:disabled:hover,
+.online-secondary:disabled,
+.online-secondary:disabled:hover {
+  transform: none;
+  opacity: 0.68;
+  cursor: not-allowed;
 }
 
 .online-reservation-chip {
@@ -377,16 +386,100 @@
   background: var(--accent);
   color: var(--primary);
   font-size: 0.85rem;
-  font-weight: 850;
+  font-weight: 800;
 }
 
 .online-reservation-chip strong {
   color: var(--foreground);
-  font-weight: 950;
+  font-weight: 800;
+}
+
+.online-guest-lines {
+  display: grid;
+  gap: 1.1rem;
+  margin-bottom: 1.5rem;
+}
+
+.online-guest-line {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.online-guest-line-title {
+  margin: 0 0 0.9rem;
+  color: var(--foreground);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.online-guest-line-title span {
+  margin-left: 0.35rem;
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.online-field-group {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.online-field-group + .online-field-group {
+  margin-top: 1.35rem;
+  padding-top: 1.35rem;
+  border-top: 1px solid var(--border);
+}
+
+.online-field-group-title {
+  margin: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.online-inline-action {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.online-inline-action:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}
+
+.online-inline-action i {
+  font-size: 0.75rem;
+}
+
+.online-guest-shared-fields {
+  margin-top: 1.75rem;
+  margin-bottom: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
 }
 
 .online-form-grid {
   display: grid;
+  align-items: start;
   gap: 1rem;
 }
 
@@ -394,7 +487,6 @@
   display: flex;
   align-items: flex-start;
   gap: 0.7rem;
-  margin-top: 1.25rem;
   color: var(--muted);
   font-size: 0.86rem;
   font-weight: 750;
@@ -466,7 +558,7 @@
   color: var(--foreground);
   font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
   font-size: 1.25rem;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .online-confirmation p {
@@ -489,19 +581,23 @@
 
   .online-code-card {
     grid-template-columns: minmax(0, 1fr) minmax(280px, 0.55fr);
-    align-items: end;
+    align-items: start;
   }
 
   .online-code-card .online-card-header {
     grid-column: 1 / -1;
   }
 
-  .online-form-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .online-code-actions-spacer {
+    display: block;
+    visibility: hidden;
+    color: var(--foreground);
+    font-size: 0.84rem;
+    font-weight: 800;
   }
 
-  .online-field-wide {
-    grid-column: 1 / -1;
+  .online-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .online-actions {

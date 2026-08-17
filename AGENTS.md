@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-08-16
+**Última actualización:** 2026-08-17
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -1070,6 +1070,2461 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > originales eran breves, por lo que el campo "Por qué" de esas entradas es una reconstrucción
 > razonada, no una cita textual del autor. A partir de la creación de esta bitácora, cada entrada
 > debe escribirse en el momento del cambio.
+
+---
+
+### 2026-08-17 — Check-in online publico pide los datos de todos los huespedes de la reserva
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** la primera version del backend de check-in online (entrada inmediatamente
+  siguiente en esta bitacora) solo pedia los datos del huesped titular, aunque la reserva fuera
+  para varias personas. El usuario pidio explicitamente que si la reserva es para N huespedes, el
+  formulario pida los datos de los N. Cambios:
+  - Nuevo endpoint publico `POST /api/online-check-in/lookup/` (mismo `ViewSet`, `@action`
+    `detail=False`): recibe codigo de reserva + documento del titular (mismo criterio de
+    verificacion que el envio), NO escribe nada, y devuelve `total_guests` (la propiedad ya
+    existente `Reservation.total_guests`, suma de adultos+niños de `rooms_detail`), elegibilidad
+    (`eligible`/`eligible_reason`, sin filtrar detalles de la reserva a quien no demuestre conocer
+    el documento) y los huespedes ya enviados antes (`existing_guests`, para precargar el
+    formulario en un reenvio). A diferencia del endpoint de envio, si el documento coincide pero la
+    reserva no es elegible (pendiente, cancelada, etc.) responde `200` con `eligible: false` en vez
+    de un error 400 — es una consulta, no una escritura, y ya se probo que quien pregunta conoce el
+    documento del titular.
+  - El endpoint de envio (`POST /api/online-check-in/`) cambio de un huesped plano a
+    `guests: [...]` (lista, `OnlineCheckInGuestSerializer` anidado, alias `firstName/lastName/
+    documentType/documentNumber/birthDate/nationality` igual que antes). Reglas nuevas en
+    `online_check_in.py`: el titular (mismo documento verificado) debe estar presente en algun
+    elemento de la lista (no necesariamente el primero); la cantidad de huespedes enviados debe
+    coincidir exactamente con `reservation.total_guests`; no se permite repetir el mismo documento
+    dentro del mismo envio. Los campos de contacto/logistica (email, telefono, hora de llegada,
+    contacto de emergencia, notas, consentimiento de datos) siguen siendo unicos para toda la
+    reserva, no por huesped — se replican en cada fila de `ReservationGuest` al guardar. El *upsert*
+    sigue siendo idempotente por huesped (mismo `reservation`+`document_type`+`document_number`),
+    ahora dentro de un bucle sobre la lista, todavia protegido con `select_for_update()` sobre la
+    reserva para requests simultaneos. La notificacion a recepcion (`notify_online_check_in_submitted`)
+    ahora resume cuantos huespedes completaron el check-in y solo se dispara si alguno de ellos era
+    su primer envio.
+  - Frontend: se agrego el paso de documento del titular al formulario del paso 1 (necesario para
+    la consulta de elegibilidad), y el paso 2 ahora renderiza un `FormArray` (`guestLines`) con un
+    bloque de identidad por huesped — cantidad fijada por `total_guests` de la respuesta del
+    backend, no editable por el usuario (a diferencia del `guest_lines` interno de
+    `create-reservation.ts`, que si permite agregar/quitar porque ahi el personal define cuantos
+    huespedes hay; aqui la cantidad ya la define la reserva). El primer bloque siempre es el titular
+    y se precarga con el documento ya escrito en el paso 1; si el huesped reenvia el formulario, los
+    demas bloques se precargan con los datos que ya habia mandado antes (via `existing_guests` del
+    lookup). Los campos compartidos (correo, telefono, hora de llegada, contacto de emergencia,
+    notas, consentimiento) se piden una sola vez, no por huesped.
+- **Por qué:** pedido explicito del usuario tras revisar la primera version ("necesito que si la
+  reserva es para dos huespedes, el front pida la informacion de esos dos huespedes"). El modelo
+  `ReservationGuest` ya soportaba multiples filas por reserva (es como se modelan los huespedes en
+  todo el resto del sistema); la limitacion era solo del contrato publico nuevo, que se corrigio
+  para reflejar el dominio real en vez de asumir una reserva de un solo huesped.
+- **Archivos/áreas afectadas:** `backend/apps/reservations/online_check_in.py`,
+  `backend/apps/reservations/serializers.py`, `backend/apps/reservations/views.py`,
+  `backend/apps/reservations/tests.py`, `backend/apps/notifications/services.py`,
+  `frontend/src/app/services/online-check-in.ts`,
+  `frontend/src/app/components/pages/online-check-in/online-check-in.ts`, `.html`, `.css`.
+- **Impacto:** sin migraciones nuevas (reutiliza las columnas de `ReservationGuest` agregadas en la
+  entrada anterior); sin variables de entorno nuevas; comparte el throttle `online_check_in`
+  existente entre `lookup` y el envio (no se agrego un scope nuevo). **Rompe el contrato del
+  endpoint de envio** definido horas antes en esta misma sesion (huesped plano → `guests: [...]`) —
+  aceptable porque ese contrato nunca llego a un commit ni a produccion. Validado con 16 tests en
+  verde en `OnlineCheckInPublicApiTests` (los 9 anteriores mas 7 nuevos: dos huespedes en una
+  reserva, cantidad de huespedes que no coincide, documento repetido en el mismo envio, y los 4
+  casos del endpoint de lookup) mas la suite completa de `apps.reservations` y `apps.notifications`
+  (69 tests) y `manage.py check`, todos en verde; `ng build` y `tsc --noEmit` limpios. Probado con
+  `curl` end-to-end (lookup + envio con 1 huesped rechazado por cantidad, envio con 2 huespedes
+  aceptado, lookup posterior mostrando el prefill) contra un backend propio y a traves del proxy
+  del dev server de Angular ya en ejecucion. No se verifico visualmente en navegador (mismo motivo
+  que la entrada anterior: sin `chromium-cli`/Playwright en este entorno).
+
+---
+
+### 2026-08-17 — Backend real para el check-in online publico (pre-check-in, sin tocar el flujo interno)
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** la vista publica `/check-in-online` (ver entrada del 2026-08-13) era 100%
+  frontend: no llamaba a ningun backend y el boton "Enviar check-in" solo mostraba un mensaje
+  local. Se implemento el flujo completo de extremo a extremo siguiendo el mismo patron ya usado
+  para `/reservar` (`WebReservationViewSet` + `public_booking.py` + `web-reservation.ts`):
+  - Nuevo endpoint publico `POST /api/online-check-in/` (`AllowAny`, sin RBAC, throttle
+    `online_check_in: 8/min`), registrado en `apps/reservations/urls.py` junto a
+    `web-reservations`.
+  - Nueva capa de negocio `apps/reservations/online_check_in.py` (mismo patron que
+    `public_booking.py`): resuelve el ID de reserva a partir del "codigo" publico reutilizando el
+    parseo de sufijo numerico ya usado para `hotel_slug` en `_resolve_hotel`, exige que el numero
+    de documento enviado coincida con el titular (`reservation.client.document_number`) como
+    segundo factor de identificacion (un ID de reserva consecutivo por si solo es adivinable), y
+    aplica reglas de elegibilidad reutilizando los helpers existentes de
+    `apps/reservations/services.py` (`is_reservation_status_*`, `real_check_in`,
+    `real_check_out`): solo procede si la reserva esta `CONFIRMADA`, no tiene check-in presencial
+    registrado, no fue cancelada/finalizada y su periodo no vencio.
+  - El envio hace *upsert* idempotente sobre `ReservationGuest` (mismo `reservation` +
+    `document_type` + `document_number`): reenviar el formulario (doble clic, retry tras timeout)
+    actualiza el mismo registro en vez de duplicarlo, protegido con
+    `select_for_update()` sobre la reserva para requests simultaneos.
+  - Migracion `0012_reservationguest_online_check_in_fields`: se agregaron a `ReservationGuest`
+    los campos que el formulario ya pedia y que no existian en el modelo (`email`, `phone`,
+    `arrival_time_window`, `notes`, `accepts_data_policy`, `online_check_in_submitted_at`),
+    expuestos tambien en `ReservationGuestSerializer` para que recepcion los vea en la ficha
+    interna de la reserva.
+  - `notify_online_check_in_submitted` (nueva, en `apps/notifications/services.py`, mismo patron
+    que `notify_reservation_created`) avisa una sola vez (en el primer envio, no en reenvios) a
+    los managers del hotel via `notify_hotel_managers`.
+  - Frontend: `frontend/src/app/services/online-check-in.ts` (mismo patron que
+    `web-reservation.ts`) conectado desde `online-check-in.ts`/`.html`: estado de
+    envio/error/confirmacion real, boton deshabilitado mientras envia, mensaje de error del
+    backend mostrado en el formulario, y confirmacion final con datos reales de la reserva
+    (nombre del hotel) en vez de un mensaje generico. Se corrigio ademas el valor de "Pasaporte"
+    de `'PASSPORT'` a `'PASAPORTE'` para que coincida con el codigo real sembrado en
+    `MasterData` (`DOCUMENT_TYPE`), igual que ya lo usa `/reservar`.
+- **Por qué:** la decision del 2026-08-13 fue deliberada y se mantiene intacta: el check-in
+  online de huespedes **sigue sin ejecutar** el endpoint interno `POST
+  /api/reservations/{id}/check-in/` ni sus reglas (RBAC, disponibilidad de habitacion, ventana de
+  check-in del hotel), que existen especificamente para forzar verificacion de identidad
+  presencial por parte de recepcion (ver entrada del 2026-08-10, "Fase 10: verificacion
+  obligatoria en check-in y check-out"). Lo que faltaba no era saltarse esa verificacion sino
+  darle a recepcion los datos que el huesped ya diligencio *antes* de llegar: por eso el nuevo
+  endpoint crea un **pre-check-in** (guarda los datos, no cambia `status` ni `real_check_in`) que
+  el personal sigue confirmando en persona, ahora con la ficha ya precargada.
+- **Archivos/áreas afectadas:** `backend/apps/reservations/online_check_in.py` (nuevo),
+  `backend/apps/reservations/migrations/0012_reservationguest_online_check_in_fields.py` (nuevo),
+  `backend/apps/reservations/models.py`, `serializers.py`, `views.py`, `urls.py`, `tests.py`,
+  `backend/apps/notifications/services.py`, `backend/backend/settings.py` (throttle rate),
+  `frontend/src/app/services/online-check-in.ts` (nuevo),
+  `frontend/src/app/components/pages/online-check-in/online-check-in.ts` y `.html`.
+- **Impacto:** requiere migracion (`0012_reservationguest_online_check_in_fields`, ya aplicada y
+  verificada contra la base de datos local); no agrega variables de entorno nuevas; no agrega
+  recursos RBAC (el endpoint es publico como `web-reservations`, mismo precedente, no aparece en
+  `RBAC_RESOURCES_LIST.md`); no cambia ningun contrato existente. Validado con 9 tests nuevos
+  (`OnlineCheckInPublicApiTests`: happy path, documento que no coincide, codigo inexistente,
+  reserva pendiente/cancelada/ya-con-check-in, reenvio idempotente con una sola notificacion,
+  consentimiento de datos obligatorio, ventana de llegada invalida) mas la suite completa de
+  `apps.reservations` (53 tests) y `apps.notifications` (9 tests), todos en verde; `manage.py
+  check` sin problemas; `ng build` y `tsc --noEmit` limpios. Se probo el flujo real end-to-end con
+  `curl` contra el backend (`manage.py runserver`, en un puerto propio) y a traves del proxy del
+  dev server de Angular ya en ejecucion (`/api` → Django), confirmando que el bundle servido
+  incluye el nuevo servicio y que el proxy persiste correctamente los datos en la base de datos de
+  desarrollo. No se verifico visualmente en navegador (sin `chromium-cli`/Playwright disponibles
+  en este entorno Windows) — pendiente de que el usuario confirme el flujo clic a clic.
+
+---
+
+### 2026-08-17 — Consistencia del pie de tarjeta sin precio en `/hoteles-aliados`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable polish /hoteles-aliados`, acotado a
+  consistencia visual final e integracion, tras el pase de `shape`→build, `$impeccable adapt` y
+  `$impeccable clarify` anteriores de esta misma sesion sobre esta misma ruta)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** revision de jerarquia, espaciado y consistencia tarjeta-a-tarjeta pedida por el
+  usuario (imagen presente/ausente, descripciones de distinto largo, precio ausente, cantidad de
+  highlights distinta). La mayoria verifico limpio ya sea por diseño deliberado ya confirmado en
+  pases anteriores o por precedente ya establecido en el codebase: el espaciado ajustado de 0.55rem
+  entre el nombre del hotel y la ubicacion replica exactamente el mismo patron ya usado en
+  `.booking-result-location` de `allied-booking.css` (agrupacion titulo+subtitulo, no una
+  inconsistencia); un `<ul>` de highlights vacio o una descripcion ausente no rompen el layout porque
+  ambos estan detras de `*ngIf` y no dejan espacio fantasma; y se verifico con un script que
+  compara cada selector de `allied-hotels.css` contra el HTML que **ninguna regla CSS quedo sin
+  uso** tras el rediseño de la tarjeta (la unica que sí quedo muerta, `.allied-badge`, ya se habia
+  eliminado en el pase de `shape`→build anterior) — no se borro nada mas porque no habia nada mas
+  que borrar, verificado, no asumido.
+  Se encontro y corrigio un problema real de consistencia: `.allied-card-footer` usaba
+  `justify-content: space-between` para separar el precio (izquierda) del boton "Reservar"
+  (derecha) — pero cuando `hotel.nightlyRateFrom` no es un valor real, el `*ngIf` del precio saca el
+  `<span>` del DOM por completo, dejando un solo hijo flex en el contenedor. Con un unico hijo,
+  `space-between` lo coloca al **inicio** de la fila en vez de al final — el boton "Reservar" saltaba
+  de estar alineado a la derecha (con precio) a estar alineado a la izquierda (sin precio),
+  exactamente la inconsistencia tarjeta-a-tarjeta que el usuario pidio revisar. Se cambio
+  `justify-content` del contenedor a `flex-end` y se agrego `margin-right: auto` a
+  `.allied-card-price` — con el margen automatico presente, el precio empuja el resto del espacio
+  disponible hacia la derecha (mismo resultado visual de antes cuando hay precio); sin el precio en
+  el DOM, `justify-content: flex-end` por si solo deja "Reservar" en el mismo lugar de siempre. Se
+  verifico que este cambio no afecta el apilado a `flex-direction: column` en movil (`@media
+  (max-width: 640px)`, sin tocar): `.allied-card-price` es un `<span>` sin borde ni fondo visibles,
+  asi que estirarse a ancho completo (comportamiento previo por `align-items: stretch`) o encogerse
+  al contenido (comportamiento nuevo por el margen automatico en el eje transversal) no produce
+  ninguna diferencia visual observable para texto plano alineado a la izquierda.
+- **Por qué:** hallazgo verificado explicitamente pedido por el usuario ("Check card-to-card
+  consistency when:... price is absent") — el mismo tipo de revision sistematica que ya se aplico a
+  los otros ejes de consistencia de esta misma tarjeta en pases anteriores de esta sesion.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.css`, `AGENTS.md`.
+- **Impacto:** Ninguno en la logica de filtrado, la memoizacion del pase de `optimize` anterior, el
+  routing, los datos reales de hotel, el significado del copy, las correcciones de accesibilidad, el
+  comportamiento responsivo del pase de `adapt` anterior (el `flex-wrap: wrap` del pie se preservo
+  sin cambios), el touch target de 44px del CTA, ni los estados de carga/error/reintento/vacio (sin
+  tocar, ni en comportamiento ni en estilo). No se tocaron tokens compartidos, modo oscuro ni ninguna
+  otra pagina publica. Verificado con el detector mecanico de Impeccable con `--scope layout` (0
+  hallazgos, en modo degradado por dependencias de parseo HTML no disponibles en este entorno) y
+  confirmando que el dev server sigue sirviendo la ruta con HTTP 200 tras el cambio. No se verifico
+  visualmente en navegador (la posicion real del boton "Reservar" en una tarjeta sin precio, en los
+  tres anchos de breakpoint) por no tener disponible una herramienta de automatizacion en esta
+  sesion.
+
+---
+
+### 2026-08-17 — Pluralizacion natural en `/hoteles-aliados`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable clarify /hoteles-aliados`, acotado a
+  consistencia de copy y claridad de contenido menor, tras `$impeccable critique`/`audit` de esta
+  misma sesion sobre esta misma ruta)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** revision completa del copy visible de la pagina (kicker, hero, estadisticas,
+  toolbar, estados de carga/error/vacio, tarjeta) contra el resto del flujo publico de reserva.
+  Casi todo ya estaba correcto y no se toco: el mensaje de error de carga
+  ("No fue posible cargar los hoteles aliados activos.") ya es identico byte a byte al usado en las
+  otras 3 paginas del flujo de reserva (verificado por `grep`); la convencion de escribir el copy
+  publico sin tildes ("informacion", "sesion", "estadia", etc.) ya es consistente en toda esta pagina
+  y en el resto del flujo — se confirmo que es un estilo deliberado y NO se agregaron tildes en
+  ningun punto, porque hacerlo habria roto esa consistencia en vez de mejorarla. El texto del CTA
+  "Reservar" tampoco se toco: el usuario lo protegio explicitamente ("Preserve... hotel-card CTA").
+  Se encontraron y corrigieron 3 instancias reales de pluralizacion mecanica o fija, las 3 en
+  `allied-hotels.html`:
+  - "{{ hotels.length }} alojamientos encontrados" (siempre plural, incluso con 1 resultado) →
+    `{{ hotels.length === 1 ? 'alojamiento encontrado' : 'alojamientos encontrados' }}`.
+  - "{{ totalRooms }} habitaciones registradas" (siempre plural) →
+    `{{ totalRooms === 1 ? 'habitacion registrada' : 'habitaciones registradas' }}`.
+  - "{{ filteredHotels.length }} alojamiento(s) encontrados" (el sufijo mecanico "(s)" que nombro el
+    usuario explicitamente) →
+    `{{ filteredHotels.length === 1 ? 'alojamiento encontrado' : 'alojamientos encontrados' }}`.
+  Las 3 correcciones replican exactamente el mismo patron ternario que ya usaba correctamente
+  `hotelTypeCount` una linea mas abajo en el mismo bloque de estadisticas, en vez de inventar un
+  patron nuevo.
+- **Por qué:** hallazgo menor de `$impeccable critique /hoteles-aliados` de esta misma sesion
+  (pluralizacion mecanica inconsistente con el patron correcto ya usado en el mismo bloque), mas dos
+  instancias adicionales del mismo problema (siempre-plural sin importar el conteo) que el critique
+  no habia señalado especificamente pero que el usuario pidio cubrir de forma general
+  ("Fix mechanical pluralization... based on the actual result count", no solo el ejemplo literal
+  citado).
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.html`, `AGENTS.md`.
+- **Impacto:** Ninguno en la estructura de la tarjeta, las imagenes, los precios, las descripciones,
+  los highlights, el routing, la logica de filtrado o la memoizacion del pase de `optimize` anterior,
+  el comportamiento responsivo, las correcciones de accesibilidad, el hero, el header o el layout de
+  la pagina — solo texto interpolado en 3 lineas. No se tocaron tokens compartidos, modo oscuro ni
+  ninguna otra pagina publica. Verificado con `npx tsc --noEmit` (sin errores, aunque no se toco
+  ningun `.ts`), el detector mecanico de Impeccable (0 hallazgos, en modo degradado por dependencias
+  de parseo HTML no disponibles en este entorno) y confirmando que el dev server sigue sirviendo la
+  ruta con HTTP 200 tras el cambio.
+
+---
+
+### 2026-08-17 — Memoizacion de `filteredHotels` en `/hoteles-aliados`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable optimize /hoteles-aliados`, acotado
+  a la implementacion del filtrado de la lista de hoteles, cerrando el ultimo hallazgo P2 abierto de
+  `$impeccable audit` de esta misma sesion sobre esta misma ruta)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** `filteredHotels` era un getter (`allied-hotels.ts`) que recalculaba `.filter()` +
+  `normalize()` (descomposicion Unicode NFD + regex) para cada hotel en cada ciclo de deteccion de
+  cambios, invocado desde dos bindings de plantilla distintos (`{{ filteredHotels.length }}` y
+  `*ngFor="let hotel of filteredHotels"`) — sin memoizar, sin relacion con si `search`/`typeFilter`
+  realmente habian cambiado. Se convirtio en una propiedad plana (`filteredHotels: AlliedHotel[] =
+  []`) recalculada una sola vez por cambio relevante, en vez de en cada CD:
+  - `search`/`typeFilter` pasaron de propiedades publicas planas a pares get/set sobre campos
+    privados (`_search`/`_typeFilter`); el setter llama a un nuevo metodo privado
+    `recomputeFilteredHotels()`. Como `[(ngModel)]` en Angular ya funciona de forma transparente con
+    accesores get/set, **la plantilla no necesito ningun cambio** — `[(ngModel)]="search"` sigue
+    exactamente igual, verificado que las tres referencias a `filteredHotels` en
+    `allied-hotels.html` (el conteo de resultados, el `*ngFor` de la grilla, y la condicion del
+    estado vacio) siguen funcionando sin modificacion porque Angular no distingue entre una propiedad
+    y un getter en las expresiones de plantilla.
+  - Se agrego una llamada a `recomputeFilteredHotels()` en el callback de `subscribe()` de
+    `loadHotels()`, justo despues de asignar `this.hotels`, cubriendo el tercer disparador pedido
+    (la coleccion de hoteles cambia).
+  - `clearFilters()` se reescribio para asignar directamente los campos privados
+    (`_search`/`_typeFilter`) y llamar `recomputeFilteredHotels()` una sola vez, en vez de pasar por
+    los setters publicos (lo que habria disparado dos recalculos redundantes por un solo click en
+    "Limpiar").
+  - La logica de filtrado en si —normalizacion, coincidencia de busqueda, coincidencia de tipo, orden
+    del resultado (via `Array.prototype.filter`, que preserva el orden original)— se copio sin
+    ningun cambio dentro de `recomputeFilteredHotels()`; ninguna semantica de filtrado se alteró.
+  - No se agrego debounce: cada pulsacion de tecla sigue re-filtrando de forma sincrona, exactamente
+    igual que antes — el cambio elimina trabajo redundante por ciclo de deteccion de cambios, no
+    introduce ningun retraso nuevo en la experiencia de busqueda.
+- **Por qué:** hallazgo P2 verificado en `$impeccable audit /hoteles-aliados` de esta misma sesion
+  ("Render performance: unnecessary re-renders, missing memoization" — el propio criterio del
+  checklist de auditoria de Impeccable), el ultimo item tecnico que quedaba abierto en esa ruta.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.ts`, `AGENTS.md`.
+- **Impacto:** Ninguno en la UX de busqueda, los filtros visibles, el estado de la URL, el orden de
+  resultados, las tarjetas, la logica de imagenes, los precios, los estilos responsivos, los estados
+  de error/reintento, el routing, la accesibilidad o el copy — `allied-hotels.html` no se toco en
+  absoluto. `trackByHotel` sigue exactamente igual. No se tocaron tokens compartidos, modo oscuro ni
+  ninguna otra pagina publica. Verificado con `npx tsc --noEmit` (sin errores), el detector mecanico
+  de Impeccable sobre el archivo `.ts` (0 hallazgos, ejecucion limpia sin modo degradado porque este
+  escaneo no involucra parseo de HTML/CSS) y confirmando que el dev server sigue sirviendo la ruta
+  con HTTP 200 tras el cambio. No se midio el impacto real en rendimiento (Chrome DevTools
+  Performance panel, Lighthouse) por no tener disponible una herramienta de navegador en esta sesion
+  — el cambio se verifico por lectura de codigo y compilacion, no por medicion antes/despues.
+
+---
+
+### 2026-08-17 — Verificacion responsive de la tarjeta de hotel en `/hoteles-aliados`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable adapt /hoteles-aliados`, acotado al
+  comportamiento responsivo de la tarjeta de hotel implementada en el pase de `shape`→build anterior
+  de esta misma sesion)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** auditoria por calculo desde el codigo fuente (sin navegador disponible en esta
+  sesion) de `.allied-card-media`, `.allied-location`, `.allied-card-footer` y el breakpoint de 3
+  columnas contra la lista de puntos que pidio el usuario. La mayoria verifico limpio por
+  construccion CSS: el bloque de medios usa `aspect-ratio` + `overflow: hidden` + `object-fit: cover`
+  en el `<img>`, una combinacion que nunca permite overflow sin importar las dimensiones reales de la
+  imagen; el fallback usa `place-items: center`, centrado independiente de la resolucion; y
+  `min-height: 320px` en `.allied-card` quedo verificado como un piso ya irrelevante (el contenido
+  real hoy suma ~540px en el ancho mas angosto de 3 columnas, muy por encima del piso, sin crear
+  espacio vacio). Se encontro y corrigio un problema real:
+  - **Aprieto del pie de tarjeta en el breakpoint de 3 columnas:** a 1080px, cada tarjeta tiene
+    ~292px de ancho de contenido disponible (calculado: contenedor 1048px, 3 columnas con gaps de
+    1.35rem, menos el padding de la tarjeta). Un precio mas largo que el de los datos de muestra
+    (p. ej. "Desde $1.250.000 por noche") mas el boton "Reservar" superan ese ancho. Sin
+    `flex-wrap` en `.allied-card-footer`, el comportamiento por defecto (`nowrap`) habria forzado el
+    texto del precio a envolver de forma apretada dentro de un elemento flex comprimido, en vez de
+    que el precio y el CTA bajen a su propia linea — exactamente el "squeezing" que el usuario pidio
+    evitar explicitamente. Se agrego `flex-wrap: wrap` a `.allied-card-footer`, que ya tenia
+    `justify-content: space-between`, asi que el envoltorio a una nueva linea ya cae de forma natural
+    cuando no cabe.
+  - Se agrego `overflow-wrap: anywhere` y `max-width: 100%` a `.allied-card-price` y a
+    `.allied-location` como proteccion defensiva explicita para el precio y las etiquetas de
+    ciudad/departamento/pais, replicando el mismo patron ya usado en `allied-booking.css` en un pase
+    de `adapt` anterior de esta misma sesion sobre otra ruta.
+- **Por qué:** verificacion explicita pedida por el usuario tras el pase de `shape`→build anterior
+  de esta misma sesion que agrego la imagen, el precio y el fallback de ubicacion a la tarjeta —
+  cubriendo especificamente el breakpoint de 3 columnas, que ese pase no habia verificado por
+  calculo.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.css`, `AGENTS.md`.
+- **Impacto:** Ninguno en la logica de imagen/fallback, los datos reales del hotel, el routing, los
+  filtros, los estados de error/reintento, las correcciones de accesibilidad del pase de `harden`, el
+  hero, el header, el tratamiento de sangrado de la imagen hasta el borde, el radio de la tarjeta, el
+  limite de 3 highlights ni el indicador "+N mas" — todos preservados sin cambios. No se tocaron
+  tokens compartidos, modo oscuro ni ninguna otra pagina publica. Verificado con el detector mecanico
+  de Impeccable con `--scope layout` (0 hallazgos, en modo degradado por dependencias de parseo HTML
+  no disponibles en este entorno) y confirmando que el dev server sigue sirviendo la ruta con HTTP
+  200 tras el cambio. **Limitacion de este pase:** toda la verificacion fue matematica sobre el CSS
+  fuente (anchos de contenedor, anchos de columna, estimaciones de texto), no una prueba visual en
+  navegador real ni en emulador de dispositivo — no hay herramienta de automatizacion de navegador
+  disponible en esta sesion.
+
+---
+
+### 2026-08-17 — Rediseño de la tarjeta de hotel en `/hoteles-aliados`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable shape` seguido de `$impeccable
+  overdrive`-style "Go, implementa el brief confirmado" — flujo shape→build acotado a la tarjeta de
+  hotel, tras `$impeccable critique`/`audit`/`harden` de esta misma sesion sobre esta misma ruta)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** implementacion exacta del brief de `shape` confirmado en esta misma sesion — solo
+  la tarjeta `.allied-card`, ningun otro elemento de la pagina:
+  - **Imagen/fallback:** nuevo bloque `.allied-card-media` (16:10, sangrado hasta el borde de la
+    tarjeta via margen negativo igual al padding, en vez de reestructurar el modelo de caja con un
+    div envolvente nuevo) al inicio de la tarjeta. Con `hotel.imageUrl` real muestra `<img
+    loading="lazy">` con manejador `(error)`; sin imagen o con una URL invalida (verificado con el
+    manejador de error, no solo con la ausencia del campo) muestra el mismo tratamiento de fallback
+    ya usado en `allied-booking.css` (`.booking-result-media-fallback`: fondo `--ink` con resplandor
+    radial `--primary`, icono en circulo, etiqueta del tipo) — reutilizado, no reinventado. El icono
+    por tipo reutiliza `getHotelTypeIcon()`, ya exportado desde `allied-booking-flow.ts`, importado
+    directamente en `allied-hotels.ts` en vez de duplicar el mapa de iconos.
+  - **Precio:** nuevo `<span class="allied-card-price">` en el pie, solo cuando
+    `hotel.nightlyRateFrom > 0`, con el texto "Desde {{ precio }} por noche" — reutiliza
+    `formatBookingCurrency()` (mismo formateador COP ya usado en todo el flujo de reserva) en vez de
+    inventar un formato de numero nuevo. El texto "{{ hotel.rooms }} habitaciones" que antes ocupaba
+    ese mismo espacio se retiro (no estaba en la jerarquia de 6 puntos que pidio el usuario).
+  - **Descripcion:** `hotel.description` ahora se renderiza cuando no esta vacia (antes su CSS
+    `.allied-description` existia pero ningun elemento del HTML la usaba), con
+    `-webkit-line-clamp: 2` para mantener la tarjeta escaneable.
+  - **Insignia "Aliado Wayra":** eliminada por completo (HTML y la regla CSS `.allied-badge`, que
+    quedo sin ningun uso tras el cambio) — el titulo y la URL de la pagina ya establecen una sola vez
+    que son hoteles aliados; repetirlo identico en cada tarjeta no agregaba informacion.
+  - **Ubicacion:** nuevo metodo `locationLabel(hotel)` en `allied-hotels.ts` extiende el fallback de
+    `hotel.city` a `hotel.department` y despues `hotel.country` antes de caer solo en `hotel.type`,
+    en vez de perder silenciosamente el contexto de ubicacion cuando falta la ciudad.
+  - Se agregaron los tokens locales `--primary-rgb` y `--white-rgb` al bloque raiz de
+    `allied-hotels.css` (mismos valores exactos que ya usa `allied-booking.css`) porque el patron de
+    fallback reutilizado los necesita para el degradado radial y el circulo del icono — adicion de
+    tokens de pagina, no una extraccion de tokens compartidos entre paginas (fuera de alcance,
+    explicitamente pedido no tocar).
+- **Por qué:** brief de `$impeccable shape` confirmado explicitamente por el usuario en esta misma
+  sesion ("Go. Implementa el brief confirmado del hotel-card exactamente como se describio"), que a
+  su vez resolvia hallazgos de `$impeccable critique` (P1: sin foto ni precio pese a existir en el
+  modelo de datos; P1: CSS muerta de `.allied-description`; minor: insignia redundante en cada
+  tarjeta; minor: perdida silenciosa de ubicacion sin `city`).
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.html`,
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.ts`,
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.css`, `AGENTS.md`.
+- **Impacto:** Ninguno en el hero, el header, los filtros, los estados de carga/error/reintento/
+  vacio, los breakpoints responsivos existentes, el comportamiento de "Reservar" (mismo
+  `routerLink`/`queryParams` de siempre), los tokens compartidos entre paginas, el modo oscuro, u
+  otras paginas publicas. Los 3 highlights maximos y el indicador "+N mas" del pase de `harden`
+  anterior se preservaron sin cambios; todos los `aria-hidden` y los touch targets de 44px de ese
+  mismo pase siguen intactos, y el nuevo `<img>`/icono de fallback recibieron el mismo tratamiento de
+  accesibilidad (`alt` real en la imagen, `aria-hidden="true"` en el icono decorativo). No se
+  agregaron calificaciones, reseñas, amenidades, descuentos ni disponibilidad — todo el contenido
+  nuevo viene de campos que ya existian en `AlliedHotel`. Verificado con `npx tsc --noEmit` (sin
+  errores) y el detector mecanico de Impeccable (0 hallazgos nuevos; el unico hallazgo reportado,
+  `codex-grid-background` sobre el overlay decorativo del hero, es preexistente y no fue tocado por
+  este cambio) y confirmando que el dev server sigue sirviendo la ruta con HTTP 200 tras el cambio.
+  No se verifico visualmente en navegador (el aspecto real del sangrado de la imagen, el fallback por
+  tipo de hotel, o el ajuste del precio en la fila del pie a 3 columnas) por no tener disponible una
+  herramienta de automatizacion en esta sesion.
+
+---
+
+### 2026-08-17 — Recuperacion de errores, contraste y touch targets en `/hoteles-aliados`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable harden /hoteles-aliados`, acotado a
+  recuperacion de errores, accesibilidad y comportamiento defensivo, tras `$impeccable critique` y
+  `$impeccable audit` de esta misma sesion sobre esta misma ruta)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** seis hallazgos verificados (1 P0 y 2 P1 de `critique`, 3 P1 de `audit`) sobre
+  `AlliedHotelsPage`, corregidos exactamente en el alcance pedido:
+  - **Error vs. vacio genuino:** el estado vacio (`allied-hotels.html`) pasa de
+    `*ngIf="!loading && filteredHotels.length === 0"` a
+    `*ngIf="!loading && !loadError && filteredHotels.length === 0"`, para que un fallo de API
+    (`hotels = []` en `catchError`) deje de mostrarse simultaneamente como "No hay hoteles con esos
+    filtros" con un boton "Ver todos" que no soluciona nada. El estado de error gana su propio boton
+    "Reintentar" que llama a un nuevo `retryLoadHotels()` publico en `allied-hotels.ts` (guardado por
+    `if (this.loading) return;`, replicando el mismo patron de `retryLoadHotels()`/
+    `retrySearchAvailability()` ya usado en `allied-booking-rates.ts` en una entrada anterior de esta
+    misma bitacora). `search`/`typeFilter` no se tocan en ningun punto de `loadHotels()`, asi que se
+    preservan automaticamente al reintentar — no hizo falta codigo adicional para ese requisito.
+  - **Contraste (3 fallos verificados en `$impeccable audit` de esta misma sesion):** se agrego el
+    token `--primary-text: #2369c5` (mismo valor exacto ya usado por `allied-booking.css`) al bloque
+    raiz de `allied-hotels.css`, y se aplico a `.allied-badge` y `.allied-nav-secondary` — ambos sobre
+    fondo claro `--accent`, subiendo de 3.77:1 a 4.90:1. **El kicker del hero fue una excepcion
+    deliberada al pedido explicito de "reusar --primary-text":** verificado por calculo antes de
+    tocar el CSS que `--primary-text` (#2369c5) es mas oscuro que `--primary` (#2c7be5), y sobre el
+    fondo oscuro del hero (`--ink`, #111827) eso habria empeorado el contraste de 4.28:1 a 3.29:1 —
+    el arreglo contrario al pedido. En su lugar se uso `var(--accent)` (#edf5ff, ya definido en este
+    mismo archivo, misma familia de azules) para `.allied-kicker`, que sobre `--ink` calcula 16.14:1.
+    No se cambio el color de marca global `--primary` en ningun punto.
+  - **Touch targets (3 fallos verificados en `audit`):** `.allied-nav a` paso de 42px a 44px;
+    `.allied-view-back` (enlace "Volver") paso de 32px a 44px; `.allied-card-footer a` (CTA
+    "Reservar") paso de 40px a 44px. El crecimiento de `.allied-view-back` habria hecho que su borde
+    inferior invadiera 8px el texto del kicker en movil (`top: -2.25rem` + `min-height: 44px` supera
+    el borde superior del contenedor) — se ajusto tambien `top: -2.25rem` a `top: -3rem` en el
+    `@media (max-width: 640px)` correspondiente para conservar exactamente el mismo margen de
+    separacion que tenia antes del cambio, verificado con la misma aritmetica usada para detectar el
+    problema.
+  - **Iconos decorativos:** `pi-arrow-left` (Volver), `pi-sparkles` (insignia), `pi-map-marker`
+    (ubicacion), `pi-check` (cada highlight) y `pi-search` (estado vacio) ganan `aria-hidden="true"`
+    — el texto adyacente ya comunica el significado en cada caso, mismo patron ya aplicado al icono
+    de check de `/reservar/confirmacion/:reservationId` en un pase anterior de esta misma sesion.
+  - **Highlights sin limite:** `*ngFor` de cada tarjeta paso de iterar `hotel.highlights` completo a
+    `hotel.highlights.slice(0, 3)`, con un `<li class="allied-card-more">` condicional
+    (`*ngIf="hotel.highlights.length > 3"`) mostrando "+N mas" cuando corresponde — la informacion no
+    se pierde, solo se resume. Es una limitacion puramente de plantilla; el modelo de datos y el
+    filtrado no cambiaron.
+- **Por qué:** hallazgos verificados de `$impeccable critique` y `$impeccable audit` de esta misma
+  sesion sobre esta misma ruta — la colision error/vacio (P0), tres fallos de contraste computados
+  contra los valores reales de los tokens, y tres touch targets por debajo del minimo de 44px ya
+  establecido de forma consistente en el resto del sitio publico.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.html`,
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.ts`,
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.css`, `AGENTS.md`.
+- **Impacto:** Ninguno en el comportamiento de filtrado, el routing, el layout de tarjetas, el layout
+  del hero o los breakpoints responsivos existentes — no se agregaron fotos ni precios, no se
+  rediseñaron las tarjetas, no se extrajeron tokens compartidos ni se toco el modo oscuro, y ninguna
+  otra pagina publica se modifico. El detector mecanico de Impeccable si reporto un hallazgo
+  (`codex-grid-background`, severidad advisory) sobre el overlay de rejilla decorativo del hero
+  (`allied-hotels.css:128`) — es codigo preexistente, no tocado por este cambio, y fuera del alcance
+  pedido ("preserve... hero layout"), asi que se deja documentado para un pase futuro en vez de
+  corregirse aqui. Verificado con `npx tsc --noEmit` (sin errores), el detector mecanico de
+  Impeccable (0 hallazgos nuevos propios de este cambio; el hallazgo de rejilla es preexistente) y
+  confirmando que el dev server sigue sirviendo la ruta con HTTP 200 tras el cambio. No se verifico
+  visualmente en navegador (el aspecto real del boton de reintento, el indicador "+N mas", o el
+  espaciado del enlace "Volver" en movil) por no tener disponible una herramienta de automatizacion
+  en esta sesion.
+
+---
+
+### 2026-08-17 — Escala tipografica y proteccion de chips en `/reservar/confirmacion/:reservationId`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable polish /reservar/confirmacion/:id`,
+  acotado a consistencia visual final e integracion del contenido de confirmacion, tras los pases de
+  `critique`/`audit`/`harden`/`clarify` anteriores de esta misma sesion sobre esta misma ruta)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** dos hallazgos verificados en `allied-booking.css`, ambos consecuencia directa de
+  cambios anteriores de esta sesion sobre esta misma ruta:
+  - `.booking-confirmation-copy h2` tenia `font-size: clamp(2rem, 4vw, 3.1rem)` — una escala
+    calibrada para el texto corto de 2 palabras que tenia antes del pase de `clarify` ("Reserva
+    registrada"). Con el nuevo `h2` de oracion completa ("El hotel revisara tu solicitud"), esa
+    escala casi de tamaño hero producia un peso visual que competia con el `h1` del hero y sonaba mas
+    "gritado" de lo que corresponde a un mensaje que es explicitamente secundario y pendiente, no la
+    confirmacion final. Se redujo a `clamp(1.5rem, 3vw, 2rem)` — en la misma familia de escala que
+    `.booking-hotel-card h2`/`.booking-form-header h2` (1.35–1.4rem) ya usada en este mismo archivo
+    para encabezados secundarios de tarjeta, sin tocar ningun color ni token.
+  - `.booking-confirmation-details span` (los chips de hotel/referencia/fechas agregados en el pase
+    de `harden` anterior de esta sesion) no tenia ninguna proteccion de ajuste de texto — a
+    diferencia de los chips equivalentes en `/reservar/solicitud/:slug/:rateId`
+    (`.booking-summary`/`.booking-context-summary`), que ya habian recibido `overflow-wrap: anywhere`
+    en el pase de `$impeccable adapt` de esta misma sesion. El riesgo es mas concreto aqui: un numero
+    de referencia como "RQ-2026-000482" es un solo token sin espacios, sin ningun punto natural de
+    corte, a diferencia de un nombre de hotel que normalmente si tiene espacios. Se agrego
+    `overflow-wrap: anywhere` y `max-width: 100%`, y se ajusto el padding de `0 0.85rem` a
+    `0.3rem 0.85rem` con `line-height: 1.3` (mismo ajuste ya aplicado a los chips del paso anterior)
+    para que un chip que efectivamente necesite envolver a 2 lineas no quede con el texto apretado
+    contra el borde superior/inferior de la pildora.
+- **Por qué:** ambos hallazgos son consecuencia directa de ediciones de esta misma sesion sobre esta
+  misma ruta (el `h2` mas largo del pase de `clarify`, los chips nuevos del pase de `harden`) — el
+  polish cierra el ciclo verificando que esos cambios se integran visualmente bien entre si, tal como
+  pidio el usuario explicitamente ("hierarchy between the hero, card, and chips"; "long hotel names
+  and long reservation IDs").
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguno en el significado del copy, la gestion de foco, el routing, el wiring de
+  accesibilidad, la estructura responsiva, las acciones, los estilos compartidos, los tokens, el modo
+  oscuro u otros pasos del flujo — `.booking-confirmation-copy h2` y `.booking-confirmation-details
+  span` son selectores exclusivos de esta pagina (verificado por `grep`, sin uso en las otras tres
+  paginas que comparten `allied-booking.css`). Verificado con `npx tsc --noEmit` (sin errores, aunque
+  no se toco ningun `.ts`), el detector mecanico de Impeccable con `--scope layout` (0 hallazgos, en
+  modo degradado por dependencias de parseo HTML no disponibles en este entorno) y confirmando que el
+  dev server sigue sirviendo la ruta con HTTP 200 tras el cambio. No se verifico visualmente en
+  navegador (el ajuste real de una referencia larga sin espacios, o el tamaño final del `h2` en
+  pantalla) por no tener disponible una herramienta de automatizacion en esta sesion.
+
+---
+
+### 2026-08-17 — Copy sin contradiccion y sin duplicado en `/reservar/confirmacion/:reservationId`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable clarify /reservar/confirmacion/:id`,
+  acotado a copy y jerarquia de mensajes de la pagina de confirmacion, tras `$impeccable critique`
+  de esta misma sesion sobre esta misma ruta)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** hallazgo P1 verificado de `$impeccable critique` de esta misma sesion (el `h1`
+  "Reserva registrada" contradecia, en la misma pantalla, el kicker de la tarjeta "Solicitud enviada
+  al hotel" — y reintroducia la misma confusion de "reserva ya en firme" que el pase de `clarify`
+  anterior sobre `/reservar/solicitud/:slug/:rateId` habia corregido un paso antes), resuelto
+  dandole a cada bloque un rol distinto en vez de solo cambiar sinonimos:
+  - **Hero** (`allied-booking-confirmation.html:48-59`): kicker "Confirmacion" → "Solicitud enviada";
+    `h1` "Reserva registrada" → "Tu solicitud fue enviada"; el lead deja de repetir la promesa de
+    correo (que ahora vive solo en la tarjeta) y en su lugar da el mensaje de agradecimiento y
+    confirma que el hotel aliado revisara la solicitud — la pieza de "anuncio de estado", una sola
+    vez.
+  - **Tarjeta** (`allied-booking-confirmation.html:80-93`): kicker "Solicitud enviada al hotel" →
+    "Proximos pasos"; `h2` "Reserva registrada" → "El hotel revisara tu solicitud" (cumple el
+    requisito explicito de dejar el siguiente paso explicito: el hotel revisa, despues llega la
+    confirmacion); el parrafo deja de ser una copia literal del lead del hero y pasa a introducir los
+    chips de detalle que ya estaban ahi ("Mientras tanto, estos son los datos de tu solicitud:") —
+    la pieza de "que sigue + contexto de los chips", con un proposito distinto al del hero en vez de
+    repetir la misma oracion dos veces.
+  - `app.routes.ts:126`: el `title` de la ruta (el titulo de pestaña del navegador) tambien decia
+    "Reserva Registrada" — la misma frase que se estaba corrigiendo en la pagina — asi que se
+    actualizo a "Solicitud Enviada" para no dejar la contradiccion viva en un lugar visible que el
+    resto del cambio no habria tocado.
+- **Por qué:** hallazgo P1 verificado de `$impeccable critique /reservar/confirmacion/:id` de esta
+  misma sesion, con requisitos explicitos del usuario (resolver la contradiccion, no repetir la
+  misma oracion, dejar explicito el siguiente paso) que esta entrada implementa uno a uno.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-confirmation.html`,
+  `frontend/src/app/app.routes.ts`, `AGENTS.md`.
+- **Impacto:** Ninguno en el layout, la gestion de foco (pase de `harden` anterior de esta misma
+  sesion, sin tocar), el routing, los chips de hotel/referencia/fechas (mismo `*ngIf`, mismo
+  contenido, solo el texto que los introduce cambio), las acciones del pie, el comportamiento
+  responsivo o los estilos compartidos — cambio acotado a 6 nodos de texto y un `title` de ruta.
+  Verificado con `npx tsc --noEmit` (sin errores), el detector mecanico de Impeccable (0 hallazgos,
+  en modo degradado por dependencias de parseo HTML no disponibles en este entorno) y confirmando
+  que el dev server sigue sirviendo la ruta con HTTP 200 tras el cambio. No se verifico visualmente
+  en navegador por no tener disponible una herramienta de automatizacion en esta sesion.
+
+---
+
+### 2026-08-17 — Wiring de datos y accesibilidad en `/reservar/confirmacion/:reservationId`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable harden /reservar/confirmacion/:id`,
+  acotado a wiring de datos y accesibilidad de la pagina de confirmacion, tras `$impeccable
+  critique` y `$impeccable audit` de esta misma sesion sobre esta misma ruta)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** tres hallazgos verificados (2 P0 de `critique`, 2 P1 de `audit`, uno compartido)
+  sobre `AlliedBookingConfirmationPage`, corregidos exactamente en el alcance pedido:
+  - El componente ya leia `checkIn`/`checkOut` desde `queryParamMap` pero nunca leia `hotel` (query
+    param que `allied-booking-request.ts` ya envia en su `router.navigate(['/reservar/confirmacion',
+    reservation.id], { queryParams: { hotel: reservation.hotel_name, ... } })`) ni el propio
+    `:reservationId` de la ruta (confirmado el nombre exacto del parametro en `app.routes.ts`:
+    `path: 'reservar/confirmacion/:reservationId'`, no `:id` a secas). Se agregaron
+    `readonly hotelName` (de `queryParamMap`) y `readonly reservationId` (de
+    `paramMap.get('reservationId')`) en `allied-booking-confirmation.ts`.
+  - En `allied-booking-confirmation.html`, el bloque `.booking-confirmation-details` (ya existente,
+    reutilizado sin inventar ningun patron nuevo) gana dos chips nuevos con el mismo estilo de pildora
+    que ya tenia el chip de fechas: nombre del hotel (icono `pi-building`, ya usado en
+    `allied-booking.html`/`allied-booking-rates.html` en este mismo flujo) y "Referencia
+    #{{ reservationId }}" (icono `pi-ticket`, ya usado en `online-check-in.html` — se evito
+    `pi-hashtag` por no tener evidencia de que exista en el set de iconos instalado). El `*ngIf` del
+    contenedor paso de `hasStayDates` a un nuevo getter `hasConfirmationDetails` (hotel O referencia
+    O fechas) para que el contenedor no desaparezca si faltan fechas pero si hay hotel/referencia.
+  - `tabindex="-1"` en la region de confirmacion (`allied-booking-confirmation.html`) estaba puesto
+    desde antes de esta sesion pero sin ningun `.focus()` que lo usara — confirmado por `audit` como
+    hallazgo P1. Se agrego una referencia de plantilla `#confirmationRegion`, un `@ViewChild` en el
+    componente (que ahora implementa `AfterViewInit`), y `ngAfterViewInit()` llama
+    `.nativeElement.focus()` sobre esa region — el patron estandar de gestion de foco tras una
+    navegacion de SPA. No se toco el orden de tabulacion de los enlaces existentes: al no estar en el
+    flujo de tabulacion (`tabindex="-1"`), Tab desde ahi cae naturalmente al primer enlace enfocable
+    del DOM, sin logica adicional.
+  - El icono de check (`pi-check` dentro de `.booking-confirmation-icon`) queda marcado
+    `aria-hidden="true"` en vez de tocar su color: `$impeccable audit` de esta misma sesion habia
+    calculado su contraste real (blanco sobre el circulo `--primary`) en 4.14:1, por debajo del
+    minimo de texto 4.5:1 — pero el encabezado adyacente ("Reserva registrada") ya comunica el exito
+    en palabras, asi que el icono es decorativo por definicion y la resolucion correcta es sacarlo
+    del arbol de accesibilidad, no perseguir un color distinto para el circulo primario (que ademas
+    el usuario pidio explicitamente no tocar).
+- **Por qué:** hallazgos verificados de `$impeccable critique` (2 P0: nombre de hotel y numero de
+  referencia nunca mostrados pese a estar disponibles) y `$impeccable audit` (2 P1: contraste
+  insuficiente del icono, `tabindex` sin usar) sobre esta misma ruta en esta misma sesion.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-confirmation.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-confirmation.html`, `AGENTS.md`.
+- **Impacto:** Ninguno en las fechas ya mostradas, las acciones del pie, el comportamiento
+  responsivo, los estilos compartidos del flujo, el routing, el copy de la pagina (deliberadamente
+  sin tocar, incluida la contradiccion "Reserva registrada"/"Solicitud enviada" que sigue pendiente),
+  ni los tokens o el modo oscuro. Cambio acotado a lectura de datos ya disponibles, dos chips nuevos
+  reutilizando el componente de pildora existente, gestion de foco, y un atributo `aria-hidden` en un
+  icono decorativo. Verificado con `npx tsc --noEmit` (sin errores), el detector mecanico de
+  Impeccable (0 hallazgos, en modo degradado por dependencias de parseo HTML no disponibles en este
+  entorno) y confirmando que el dev server sigue sirviendo la ruta con HTTP 200 tras el cambio. No se
+  verifico interactivamente en navegador (que el foco realmente se mueva a la region de confirmacion
+  al cargar, o que los chips nuevos envuelvan bien nombres de hotel largos) por no tener disponible
+  una herramienta de automatizacion en esta sesion.
+
+---
+
+### 2026-08-17 — Validacion de formato para telefono y numero de documento en `/reservar/solicitud/:slug/:rateId`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable harden /reservar/solicitud/:slug/:rateId`,
+  acotado esta vez a la validacion de `guestPhone` y `guestDocumentNumber` — el ultimo hallazgo P1
+  que quedaba abierto de `$impeccable audit` de esta misma sesion, deliberadamente fuera de alcance
+  en los cinco pases anteriores)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:**
+  - Se agregaron dos validadores puros nuevos en `allied-booking-flow.ts` (junto al resto de
+    funciones puras del archivo, mismo estilo): `phoneFormatValidator` acepta digitos opcionalmente
+    precedidos de `+` y separados por espacios, guiones o parentesis, y exige entre 7 y 15 digitos
+    reales tras descartar el formato (rango E.164, no asume un solo pais) — reemplaza
+    `Validators.minLength(7)`, que aceptaba cualquier caracter. `documentNumberFormatValidator` lee
+    el tipo de documento actual desde `control.parent?.get('guestDocumentType')` y aplica un patron
+    distinto por tipo: solo digitos (5 a 15) para CC/CE/DNI, alfanumerico (5 a 15) para PASAPORTE —
+    reemplaza `Validators.minLength(4)`, que tampoco distinguia tipos ni exigia formato real. Ningun
+    validador rechaza el campo vacio (`Validators.required` ya cubre ese caso por separado, el mismo
+    patron que ya usa `Validators.email` en este mismo formulario).
+  - En `allied-booking-request.ts`, `ngOnInit()` ahora suscribe `guestDocumentType.valueChanges` para
+    llamar `guestDocumentNumber.updateValueAndValidity()` cada vez que el usuario cambia el tipo de
+    documento — sin esto, cambiar de CC a Pasaporte (o viceversa) no habria revalidado un numero ya
+    escrito contra el patron del nuevo tipo.
+  - Los dos mensajes de error en `allied-booking-request.html` se actualizaron para reflejar el
+    nuevo criterio real ("Ingresa un telefono valido (7 a 15 digitos)." /
+    "Ingresa un numero de documento valido para el tipo seleccionado."), manteniendo exactamente el
+    mismo `id`, el mismo `*ngIf="isInvalid(...)"`, la misma clase `booking-hint-error` y el mismo
+    wiring `aria-invalid`/`aria-describedby`/`input-error` ya establecido en los pases de `harden` y
+    `polish` anteriores — no se toco ninguna otra parte del patron de accesibilidad.
+  - Verificado con casos de prueba manuales fuera de Angular (numeros colombianos con y sin
+    indicativo, formato con parentesis/guiones, texto con letras, cedulas numericas, pasaporte
+    alfanumerico, y los limites de 7/15 digitos y 5/15 caracteres) antes de dar el cambio por
+    correcto, no solo por compilar.
+- **Por qué:** hallazgo P1 verificado en dos auditorias de esta misma sesion
+  (`$impeccable audit`, antes y despues de los pases de `harden`/`clarify`/`layout`/`adapt`/
+  `polish`) — `minLength` nunca fue una validacion de formato real, y el usuario pidio explicitamente
+  no depender solo de esa; ademas pidio explicitamente NO aplicar "solo digitos" de forma global,
+  porque Pasaporte puede incluir letras.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-flow.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.html`, `AGENTS.md`.
+- **Impacto:** Ninguno en layout, comportamiento responsivo, copy del resto de la pagina, wiring de
+  accesibilidad existente (aria-invalid/aria-describedby/booking-hint-error/input-error, todos
+  preservados sin cambios estructurales), sticky del resumen, logica de creacion de la solicitud,
+  tokens, dark mode u otros pasos del flujo — cambio acotado a las reglas de validacion de 2 campos y
+  los 2 mensajes de error que las describen. Verificado con `npx tsc --noEmit` (sin errores), el
+  detector mecanico de Impeccable (0 hallazgos, en modo degradado por dependencias de parseo HTML no
+  disponibles en este entorno), pruebas manuales de los validadores contra casos representativos
+  (telefonos con/sin indicativo, formato con simbolos, cedulas numericas, pasaporte alfanumerico,
+  limites de longitud) y confirmando que el dev server sigue sirviendo la ruta con HTTP 200 tras el
+  cambio. No se verifico interactivamente en navegador (p. ej. que cambiar el tipo de documento
+  revalide en vivo un numero ya escrito) por no tener disponible una herramienta de automatizacion
+  en esta sesion.
+
+---
+
+### 2026-08-17 — Borde de error en campos invalidos de `/reservar/solicitud/:slug/:rateId`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable polish /reservar/solicitud/:slug/:rateId`,
+  acotado a consistencia visual final tras los pases de `critique`/`audit`/`harden`/`clarify`/
+  `layout`/`adapt` anteriores de esta misma sesion)
+- **Qué se hizo:** revision de la lista de puntos que pidio el usuario (espaciado del formulario,
+  chips de contexto, sticky de escritorio, grupo de confirmacion, mensaje de garantia, CTA
+  principal, estados de error de campo, bordes/sombras/divisores, estados hover/focus/active/
+  disabled, jerarquia tipografica, consistencia con los pasos anteriores del flujo) contra el
+  estado actual del codigo, ya refinado por los cinco pases previos de esta sesion. La mayoria de
+  los puntos ya estaban resueltos por esos pases (espaciado, chips, sticky, grupo de confirmacion,
+  copy del CTA, wiring de accesibilidad de errores) y no se tocaron de nuevo. Se encontro y corrigio
+  un solo hallazgo real, verificado por `grep` antes de tocar codigo: `allied-booking.html` (paso 1
+  del mismo flujo) ya le da a su campo invalido (`destination`) un borde rojo via
+  `[class.input-error]="isSearchInvalid('destination')"`, usando una clase ya definida en
+  `allied-booking.css` (`.input-error` con su propio estado `:focus`) — pero `allied-booking-request.html`
+  (este paso, el ultimo antes de enviar datos personales) nunca la usaba; sus campos invalidos solo
+  mostraban el texto de ayuda en rojo (agregado en el pase de `$impeccable harden` anterior de esta
+  sesion), sin ningun cambio en el borde del campo mismo. Se agrego
+  `[class.input-error]="isInvalid('<campo>')"` a los 5 controles con validadores
+  (`guestName`, `guestEmail`, `guestPhone`, `guestDocumentType`, `guestDocumentNumber`) replicando
+  exactamente el mismo patron ya probado en el paso 1, sin crear ninguna clase ni logica nueva. El
+  campo `notes` (sin validadores, nunca invalido) se dejo sin cambios a proposito.
+- **Por qué:** hallazgo de consistencia entre pasos del mismo flujo, exactamente el tipo de revision
+  que pidio el usuario ("consistency with the previous booking steps", "field error states",
+  "borders") — el paso con el dato mas sensible del flujo (documento de identidad, telefono, correo)
+  era el unico que no reforzaba visualmente sus errores con el borde rojo que el resto del flujo ya
+  usa.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.html`, `AGENTS.md`.
+- **Impacto:** Ninguno en layout, comportamiento responsivo, copy, validaciones, logica de reserva,
+  comportamiento sticky, contenido del resumen o tokens/paleta — no se toco ningun otro paso del
+  flujo (`allied-booking.html`/`allied-booking-rates.html`/`allied-booking-confirmation.html`
+  permanecen intactos). Cambio acotado a 5 bindings de clase que reutilizan una regla CSS que ya
+  existia sin modificarla. Verificado con `npx tsc --noEmit` (sin errores), el detector mecanico de
+  Impeccable (0 hallazgos, en modo degradado por dependencias de parseo HTML no disponibles en este
+  entorno) y confirmando que el dev server sigue sirviendo la ruta con HTTP 200 tras el cambio. No se
+  verifico visualmente en navegador por no tener disponible una herramienta de automatizacion en
+  esta sesion.
+
+---
+
+### 2026-08-17 — Verificacion responsive del resumen de contexto en `/reservar/solicitud/:slug/:rateId`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable adapt /reservar/solicitud/:slug/:rateId`,
+  acotado a movil y tablet para el chip de contexto, el formulario y el sticky de escritorio
+  introducidos en el pase de `$impeccable layout` anterior de esta misma sesion)
+- **Qué se hizo:** auditoria por calculo desde el codigo fuente (sin navegador disponible en esta
+  sesion) de `.booking-context-summary`, `.booking-confirm-group` y el sticky de
+  `.booking-hotel-card` contra la lista de puntos que pidio el usuario (320/375/390px, tablet
+  700-1039px, landscape corto, touch targets, solapamiento del sticky con el header). La mayoria
+  verifico limpio por matematica de layout: los chips ya envolvian texto largo correctamente (nunca
+  tuvieron `white-space: nowrap`), los campos del formulario mantienen ancho comodo en las tres
+  franjas (~256px en una columna a 320px, ~305px por campo a 700px en 2 columnas, ~280px por campo a
+  1040px con el sidebar sticky activo), los touch targets ya cumplian 44px+ en toda la pagina, y el
+  offset del sticky (`top: 6rem`) ya dejaba ~27px de separacion real contra el header sticky de
+  ~69px de alto — sin solapamiento. Se corrigieron dos problemas reales que si aparecieron:
+  - **Espaciado duplicado alrededor de `.booking-context-summary`:** tenia `margin-bottom: 1.25rem`
+    propio Y el `.booking-grid` que le sigue ya trae su propio `margin-top: 1.25rem` — la separacion
+    real hacia los campos quedaba en ~2.5rem (doble conteo) mientras que hacia arriba, contra el
+    borde inferior de `.booking-form-header`, quedaba en 0 (sin ningun margen). Se removio el
+    `margin-bottom` duplicado y se agrego `margin-top: 1rem` en su lugar, replicando el mismo patron
+    ya usado en este archivo (`padding-bottom` + borde antes, `margin-top` en el siguiente bloque
+    despues) en vez de inventar un valor nuevo.
+  - **Sin red de seguridad para una palabra suelta muy larga:** `.booking-summary span` y
+    `.booking-context-summary span` ya envolvian texto multi-palabra correctamente, pero no tenian
+    ninguna proteccion si un solo token sin espacios fuera excepcionalmente largo. Se agrego
+    `overflow-wrap: anywhere` y `max-width: 100%` a ambos selectores (compartidos via el mismo
+    selector combinado que ya existia) como endurecimiento defensivo, sin cambiar la apariencia en
+    el caso normal.
+  - Se agrego `scrollbar-gutter: stable` a `.booking-hotel-card` dentro del breakpoint de escritorio
+    (≥1040px) para que la aparicion de su propio scroll interno en viewports cortos no desplace el
+    contenido de la tarjeta ni cause un salto visual — mismo mecanismo de scroll acotado ya
+    verificado matematicamente seguro (`max-height: calc(100vh - 8rem)` deja ~2rem de aire abajo en
+    cualquier alto de viewport, con scroll propio si el contenido no cabe, nunca contenido
+    atrapado sin salida).
+- **Por qué:** verificacion explicita pedida por el usuario tras el pase de `$impeccable layout`
+  anterior de esta misma sesion, cubriendo especificamente los puntos que ese pase no habia
+  verificado por calculo (ancho de campo por breakpoint, wrapping de texto largo, offset del sticky
+  contra el header, touch targets) mas dos correcciones reales que la auditoria encontro.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguno en copy, validaciones, wiring de accesibilidad, mensaje solicitud-vs-
+  confirmacion, logica de reserva, tokens, tipografia o estructura del formulario — cambio acotado a
+  tres ajustes de CSS puramente responsive/defensivos. Verificado con el detector mecanico de
+  Impeccable con `--scope layout` (0 hallazgos, en modo degradado por dependencias de parseo HTML no
+  disponibles en este entorno) y confirmando que el dev server sigue sirviendo la ruta con HTTP 200
+  tras el cambio. **Limitacion importante de este pase:** toda la verificacion en los tres anchos
+  pedidos (320/375/390px), tablet 700-1039px, landscape corto y el comportamiento real del sticky en
+  viewports cortos fue matematica sobre el CSS fuente, no una prueba visual en navegador real ni en
+  emulador de dispositivo — no hay herramienta de automatizacion de navegador disponible en esta
+  sesion. Se recomienda una verificacion visual real antes de considerar este pase
+  definitivamente cerrado.
+
+---
+
+### 2026-08-17 — Relacion visual entre el resumen de hotel/tarifa y el formulario en `/reservar/solicitud/:slug/:rateId`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable layout /reservar/solicitud/:slug/:rateId`,
+  acotado a la relacion entre el resumen de hotel/tarifa y el formulario de datos del huesped)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** hallazgo P2 verificado de `$impeccable critique`/`audit` de esta misma sesion
+  ("el contexto de hotel/tarifa no es sticky y desaparece al llenar el formulario"), resuelto con un
+  tratamiento distinto por tamaño de viewport en vez de una sola solucion generica:
+  - **Escritorio (≥1040px, donde `.booking-layout` ya era de 2 columnas):** `.booking-hotel-card`
+    gana `position: sticky; top: 6rem; max-height: calc(100vh - 8rem); overflow-y: auto;` dentro del
+    breakpoint existente — queda visible mientras se llena el formulario, con altura acotada y
+    scroll propio si el contenido (highlights variables del hotel) fuera inusualmente largo, y sin
+    invadir el contenido debajo de `.booking-layout` porque el sticky queda contenido por su propia
+    fila de grid. No se toco el marcado ni el estilo de la tarjeta en si — la tarjeta sigue siendo
+    exactamente la misma, solo cambia su comportamiento de scroll.
+  - **Movil y tablet (<1040px, donde el layout ya era una sola columna apilada — se preservo esa
+    decision explicitamente sin forzar 2 columnas a tablet, que habria comprimido el formulario):**
+    en vez de un sticky grande (explicitamente pedido en contra), se agrego `.booking-context-summary`
+    — una fila compacta de chips (hotel, tipo de habitacion + tarifa, fechas, huespedes) al inicio
+    del formulario, justo debajo de "Datos del huesped" y antes de la grilla de campos, oculta en
+    escritorio via el mismo breakpoint de 1040px (donde el sticky ya cumple ese rol, evitando
+    contenido duplicado). Reutiliza exactamente el mismo estilo de pildora que ya usaba
+    `.booking-summary` (mismos tokens `--accent`/`--primary-text`/`--primary-border-soft`, mismo
+    radio 999px) via un selector combinado, en vez de inventar un lenguaje visual nuevo.
+  - Se agrego un getter `dateRangeLabel` en `allied-booking-request.ts` (usa
+    `Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short' })` sobre `criteria.dateRange`,
+    ya cargado por el componente) porque las fechas eran el unico dato de la lista que pidio el
+    usuario recordar ("hotel, habitacion/tarifa, fechas, huespedes, total estimado") que no tenia
+    ninguna representacion textual en ningun punto de esta pagina — no se agrego ninguna dependencia
+    nueva, es la API `Intl` nativa del navegador.
+  - Los chips de resumen del final del formulario (`.booking-summary`: noches/habitaciones/
+    huespedes/total) y el parrafo de garantia (`.booking-form-reassurance`, agregado en el pase de
+    `$impeccable clarify` anterior de esta sesion) se envolvieron en un nuevo contenedor
+    `.booking-confirm-group` (borde + fondo `var(--surface)` + radio 14px — mismos tokens que ya usan
+    `.booking-search`/`.booking-results`/`.booking-rates`, ningun color nuevo) para que se lean como
+    un solo bloque de confirmacion justo antes del boton de envio, en vez de dos elementos sueltos
+    con margenes independientes.
+- **Por qué:** hallazgo priorizado por el usuario tras los pases de `critique`/`audit`/`harden`/
+  `clarify` anteriores de esta misma sesion, con requisitos explicitos y diferenciados por viewport
+  (sticky acotado en escritorio, nada de sticky grande en movil, tablet sin comprimir el formulario)
+  que esta entrada implementa uno a uno.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguno en los campos del formulario, copy, validaciones, wiring de accesibilidad,
+  comportamiento de envio o logica de reserva — ni en el marcado o estilo propio de las tarjetas de
+  hotel/tarifa, que no se rediseñaron. `.booking-context-summary` es una clase nueva usada solo en
+  esta plantilla (verificado por `grep` que ninguna de las otras tres paginas que comparten
+  `allied-booking.css` la usa), por lo que no afecta `allied-booking.html` ni
+  `allied-booking-rates.html`. Verificado con `npx tsc --noEmit` (sin errores), el detector mecanico
+  de Impeccable con `--scope layout` (0 hallazgos, en modo degradado por dependencias de parseo HTML
+  no disponibles en este entorno) y confirmando que el dev server sigue sirviendo la ruta con HTTP
+  200 tras el cambio. No se verifico visualmente en navegador (comportamiento sticky, ruptura de
+  chips con nombres de hotel largos, o solapamiento en pantallas cortas) por no tener disponible una
+  herramienta de automatizacion en esta sesion — es el riesgo residual mas relevante de este pase.
+
+---
+
+### 2026-08-17 — Copy de solicitud vs. reserva confirmada en `/reservar/solicitud/:slug/:rateId`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable clarify /reservar/solicitud/:slug/:rateId`,
+  acotado a copy de cara al usuario, claridad solicitud-vs-confirmacion, etiquetado
+  requerido/opcional y mensajes de confianza)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** hallazgo P0 verificado de `$impeccable critique /reservar/solicitud/:slug/:rateId`
+  de esta misma sesión ("Reserva vs. solicitud mismatch" — el copy sonaba a reserva ya confirmada
+  antes de que el huesped enviara nada), corregido exactamente en el alcance pedido:
+  - El parrafo de introduccion (`booking-lead`) deja de decir "registra la reserva directamente con
+    el hotel aliado" y pasa a explicar que se envia una solicitud que el hotel revisara y confirmara
+    antes de que la reserva quede en firme. El `h1` ("Completa tu solicitud de reserva") ya usaba la
+    palabra correcta y no se toco.
+  - El boton principal cambia de "Registrar reserva" / "Registrando..." a "Enviar solicitud de
+    reserva" / "Enviando solicitud...", siguiendo textualmente la redaccion que pidio el usuario.
+  - Se agrego un parrafo `.booking-form-reassurance` (icono `pi-shield`, ya usado en
+    `landing.html` — no se invento un icono nuevo) justo antes del bloque de error/acciones,
+    repitiendo en el punto de mayor friccion (justo antes del boton de envio) que el hotel debe
+    confirmar disponibilidad antes de que la reserva sea definitiva.
+  - El campo "Numero de documento" gana un `<small>` persistente (no condicionado a error, a
+    diferencia del resto de hints de este formulario) explicando por que se pide: identificacion
+    ante el hotel al momento del check-in — termino ya usado en `online-check-in.html` en este mismo
+    proyecto. Su `id` se agrega al `aria-describedby` del campo junto al id de error existente
+    (`'guestDocumentNumber-hint guestDocumentNumber-error'` cuando el campo es invalido, o solo el
+    hint cuando es valido), sin tocar el wiring aria de los otros 5 campos que ya quedo resuelto en
+    el pase de `$impeccable harden` anterior de esta sesion.
+  - La etiqueta de "Comentarios" pasa a "Comentarios (opcional)" — el unico campo del formulario sin
+    `Validators.required`, y el unico que el usuario pidio marcar explicitamente.
+  - `resetRequest()` en `allied-booking-request.ts` se elimino en vez de exponerse como boton
+    "Cancelar": el metodo limpiaba las 6 respuestas del formulario en un solo clic, sin
+    confirmacion ni deshacer, y agregar una confirmacion modal habria sido una pieza de UI nueva
+    fuera del alcance de un pase de copy. Se verifico por `grep` que seguia sin ninguna referencia
+    en la plantilla antes de borrarlo.
+- **Por qué:** hallazgos priorizados por el usuario tras `$impeccable critique` de esta misma
+  sesion — el mismatch "reserva" vs. "solicitud" (P0), la ausencia de contexto sobre por que se
+  pide el numero de documento, y el metodo `resetRequest()` sin usar que el pase de `$impeccable
+  audit` ya habia marcado como codigo muerto en vez de una accion "Cancelar" real.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguno en estructura del formulario, validaciones, wiring de accesibilidad ya
+  existente, tarjeta de resumen, comportamiento responsivo o logica de reserva — cambio acotado a
+  texto visible, un parrafo nuevo con estilos aditivos (`.booking-form-reassurance`, reutiliza
+  tokens `--muted`/`--primary` existentes, ningun color nuevo) y la eliminacion de un metodo sin
+  referencias. Verificado con `npx tsc --noEmit` (sin errores), el detector mecanico de Impeccable
+  (0 hallazgos, en modo degradado por dependencias de parseo HTML no disponibles en este entorno) y
+  confirmando que el dev server sigue sirviendo la ruta con HTTP 200 tras el cambio. No se verifico
+  visualmente en navegador por no tener disponible una herramienta de automatizacion en esta sesion.
+
+---
+
+### 2026-08-17 — Accesibilidad de formulario y jerarquía de encabezados en `/reservar/solicitud/:slug/:rateId`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable harden /reservar/solicitud/:slug/:rateId`,
+  acotado a accesibilidad de formulario, feedback de validación y semántica de encabezados)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** hallazgos P0/P2 verificados de `$impeccable audit /reservar/solicitud/:slug/:rateId`
+  de esta misma sesión, corregidos exactamente en el alcance pedido:
+  - Los 6 controles del formulario de `AlliedBookingRequestPage` (`guestName`, `guestEmail`,
+    `guestPhone`, `guestDocumentType`, `guestDocumentNumber`) ganan `[attr.aria-invalid]` y
+    `[attr.aria-describedby]` atados a `isInvalid()`, replicando el patrón `aria-describedby` que
+    `allied-booking.html` (paso 1 del mismo flujo) ya usaba correctamente y que este paso 3 —
+    el que pide más datos personales — nunca tuvo.
+  - Cada mensaje de error (`<small>`) gana un `id` estable (`<campo>-error`) que el `aria-describedby`
+    de su control referencia, y la clase `booking-hint-error` — definida en `allied-booking.css` desde
+    antes de esta sesión pero sin ningún uso real en esta plantilla — para que el error sea
+    visualmente distinguible (color `--danger`) y no solo textual.
+  - Los tres encabezados de estado (`Cargando solicitud`, `No fue posible cargar hoteles`,
+    `Solicitud incompleta`) pasan de `h3` a `h2`: cada uno es el único encabezado bajo el `h1` de la
+    página en su rama de `*ngIf` (loading / error / criterios incompletos son mutuamente
+    excluyentes con la sección del formulario, que sí trae sus propios `h2`), así que no había ningún
+    `h2` intermedio y el salto de nivel era real, no un patrón intencional.
+  - `allied-booking.css` gana el selector `.booking-empty h2, .booking-empty h3 { ... }` — aditivo,
+    no un reemplazo — para que los nuevos `h2` conserven exactamente el mismo tratamiento visual que
+    tenían como `h3`, sin tocar el `h3` que siguen usando sin cambios los estados vacíos de
+    `allied-booking.html` y `allied-booking-rates.html`, que comparten el mismo archivo de estilos.
+- **Por qué:** hallazgos P0 ("Sin `aria-invalid`/`aria-describedby` en los 6 controles") y P2
+  ("regla `.booking-hint-error` definida pero nunca aplicada" + "salto de encabezados h1→h3") de
+  `$impeccable audit /reservar/solicitud/:slug/:rateId` de esta misma sesión — verificados con
+  `grep` antes de tocar código (cero coincidencias de `booking-hint-error` y de `aria-describedby`
+  en esta plantilla, a diferencia de `allied-booking.html`).
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguno en layout, copy, lógica de reserva, comportamiento responsivo, tokens,
+  tarjeta de resumen o comportamiento de envío — el componente `.ts` no se tocó. Cambio acotado a
+  atributos ARIA (invisibles salvo para tecnología de asistencia), a la aparición del color de error
+  ya existente solo cuando un campo es inválido (antes se veía en gris neutro), y al nivel semántico
+  de tres encabezados que ya se veían igual pero se anunciaban con el nivel incorrecto. Verificado
+  con `npx tsc --noEmit` (sin errores, aunque el `.ts` no cambió), el detector mecánico de Impeccable
+  (0 hallazgos, en modo degradado por dependencias de parseo HTML no disponibles en este entorno) y
+  confirmando que el dev server sigue sirviendo la ruta con HTTP 200 tras el cambio. No se verificó
+  visualmente en navegador por no tener disponible una herramienta de automatización en esta sesión.
+
+---
+
+### 2026-08-16 — Proteger `/reservar/tarifas/:slug` contra solicitudes en carrera
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable harden /reservar/tarifas/:slug`,
+  acotado a concurrencia de solicitudes y seguridad de reintento)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** `AlliedBookingRatesPage` nunca tuvo protección contra solicitudes en carrera —
+  ni siquiera antes de esta sesión —, a diferencia de `searchAvailability()` en `/reservar`, que ya
+  descarta respuestas obsoletas con un `availabilityRequestId` incremental (verificado por `grep`
+  en `$impeccable audit /reservar/tarifas/:slug` de esta misma sesión: cero coincidencias de
+  "requestId" en todo el archivo). Se replicó exactamente el mismo patrón y el mismo estilo de
+  código ya usado en `/reservar`:
+  - `requestId: number` privado, incrementado al inicio de cada intento (`loadHotels()` y
+    `retrySearchAvailability()`), propagado explícitamente a `loadAvailableRates()` como segundo
+    parámetro en vez de leerlo implícitamente — así una llamada encadenada desde `loadHotels()`
+    conserva el mismo id que su intento padre, mientras que una reintentona directa de
+    disponibilidad (`retrySearchAvailability()`) obtiene un id nuevo y propio.
+  - Cada `subscribe()` y cada `catchError()` verifica `requestId === this.requestId` antes de
+    aplicar su resultado — si una solicitud más nueva ya se disparó mientras la anterior seguía en
+    vuelo, la respuesta obsoleta se descarta en silencio en vez de sobrescribir el estado con datos
+    viejos.
+  - `retryLoadHotels()` y `retrySearchAvailability()` ganan una guarda `if (this.loadingHotels)
+    return;` al inicio, como defensa adicional a nivel de estado (no depende del DOM ni del ciclo
+    de detección de cambios de Angular).
+  - Los dos botones "Reintentar" ganan `[disabled]="loadingHotels"`, tal como pidió explícitamente
+    el usuario. Al revisar el estado `:disabled` existente se encontró que solo `.booking-primary`
+    tenía una regla `:disabled` explícita (opacidad + `cursor: not-allowed`) — `.booking-secondary`
+    (la clase de estos botones) no tenía ninguna, así que sin agregarla el atributo `disabled`
+    habría quedado con la apariencia por defecto del navegador en vez de un estado visual
+    intencional y coherente con el resto del sistema. Se agregó `.booking-secondary:disabled`
+    reutilizando exactamente los mismos valores que ya usa `.booking-primary:disabled` — una
+    corrección aditiva y compartida que no cambia nada del estado no-deshabilitado en ningún botón
+    secundario existente en las cuatro páginas del flujo.
+- **Por qué:** hallazgo P2 verificado de `$impeccable audit /reservar/tarifas/:slug` de esta misma
+  sesión — el mismo patrón de protección que ya existía en `/reservar`, nunca implementado aquí, ni
+  siquiera antes de que esta sesión agregara los botones de reintento que lo hacían más fácil de
+  disparar.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-rates.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-rates.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguno en la interfaz visible, copy, tarjetas de tarifa, comportamiento responsivo,
+  etiquetado de disponibilidad, query params o mensajes de reintento existentes — cambio acotado a
+  lógica de concurrencia y al nuevo estado `:disabled` (invisible salvo cuando un botón secundario
+  está efectivamente deshabilitado en cualquier página del flujo). Verificado con
+  `npx tsc --noEmit` (sin errores), el detector mecánico de Impeccable (sin hallazgos), confirmando
+  por `grep` que el guardado por `requestId` cubre las cuatro rutas de código que antes no lo
+  tenían, y que el bundle servido por el dev server compiló el cambio sin marcadores de error. No
+  se verificó visualmente en navegador por no tener disponible una herramienta de automatización en
+  esta sesión.
+
+---
+
+### 2026-08-16 — Pulido final de las tarjetas de tarifa de `/reservar/tarifas/:slug`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable polish /reservar/tarifas/:slug`,
+  acotado a consistencia visual final de las tarjetas de habitación/tarifa)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** comparación exhaustiva, propiedad por propiedad, entre `.booking-rate-select-*`
+  (tarjetas de tarifa) y `.booking-result-*` (tarjetas de hotel de `/reservar`, ya pulidas en
+  pasadas anteriores) contra cada punto que pidió el usuario: espaciado, jerarquía tipográfica,
+  prominencia del precio, estados del CTA, bordes/divisores/sombras, presentación de
+  imagen/respaldo, y estados de interacción. El resultado: la tarjeta de tarifa ya coincidía
+  byte a byte con la de hotel en prácticamente todas las propiedades compartidas (tarjeta, media,
+  ícono de respaldo, insignia, cuerpo, `h3`, precio, CTA, divisores por breakpoint) — un resultado
+  esperado, ya que las pasadas de `bolder` y `adapt` de esta misma sesión construyeron la tarjeta
+  de tarifa reutilizando deliberadamente esos mismos valores. Las diferencias encontradas (precio
+  de tarifa sin la línea "Desde" que sí tiene el de hotel; disponibilidad/capacidad como lista con
+  íconos en vez de una sola píldora) están justificadas por diferencias reales en el contenido —
+  precio de tarifa es un valor exacto, no un "desde"; hay tres datos de meta información en vez de
+  uno — y se dejaron como están en vez de forzar una uniformidad superficial que habría ido en
+  contra de la propia jerarquía. Estados de hover/focus/active/disabled del CTA y de la tarjeta ya
+  estaban cubiertos por las reglas compartidas (`.booking-primary`, `.booking-page :focus-visible`)
+  corregidas en pasadas anteriores de esta sesión.
+  - **Limpieza de código muerto**: se eliminó `.booking-option-description`, una regla sin ningún
+    uso en el proyecto (verificado por `grep`, cero coincidencias en cualquier plantilla) que
+    llevaba ahí desde antes de esta sesión, ubicada justo en medio del bloque de
+    `.booking-rate-select-*` que se ha estado modificando activamente — su nombre, muy parecido al
+    de `.booking-rate-select-description` que está justo al lado, generaba una confusión real sobre
+    si estaba relacionada.
+- **Por qué:** pasada final de pulido pedida explícitamente por el usuario, centrada en verificar
+  que las tarjetas de tarifa recién rediseñadas sostuvieran el mismo nivel de consistencia visual
+  que ya tienen las tarjetas de hotel de `/reservar`.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguno visual ni funcional — la única modificación fue eliminar una regla CSS ya
+  huérfana. Verificado con `npx tsc --noEmit` (sin errores), el detector mecánico de Impeccable
+  (sin hallazgos), y confirmando por HTTP que las cuatro rutas del flujo de reserva
+  (`/reservar`, `/reservar/tarifas/:slug`, `/reservar/solicitud/:slug/:rateId`,
+  `/reservar/confirmacion/:id`) siguen sirviendo `200` tras el cambio al archivo de estilos
+  compartido. No se verificó visualmente en navegador por no tener disponible una herramienta de
+  automatización en esta sesión.
+
+---
+
+### 2026-08-16 — Verificar y corregir móvil/tablet en las tarjetas de `/reservar/tarifas/:slug`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable adapt /reservar/tarifas/:slug for
+  mobile and tablet`, centrado en las tarjetas de habitación/tarifa recién rediseñadas)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** verificación por aritmética (sin navegador disponible en esta sesión) de las
+  tarjetas `.booking-rate-select-card` en los anchos explícitamente pedidos por el usuario —
+  320px, 375px y 390px de móvil, el rango de tablet 700–1039px, y móvil en horizontal con poca
+  altura — recalculando ancho de contenedor menos gutters, padding de `.booking-rates`, columnas
+  de la tarjeta y ancho disponible para texto en cada caso. El patrón ya estaba probado (es el
+  mismo que `$impeccable adapt` verificó y corrigió para las tarjetas de hotel de `/reservar`), así
+  que la mayoría de los puntos ya sostenían: objetivos táctiles (heredados de `.booking-primary`,
+  ya en 48px), espaciado entre tarjetas (`.booking-rate-grid` ya en `gap: 1.25rem`, igual que
+  `.booking-options`), la franja de horizontal-con-poca-altura (ya cubierta por la regla compartida
+  del hero, y `.booking-rate-select-media` ya tenía su propio `max-height: 150px` desde la pasada
+  de `bolder`), y el ancho de precio/CTA en las tres configuraciones responsivas.
+  - **Hallazgo real y corregido**: `.booking-rate-select-media-fallback` no tenía relleno
+    horizontal (`padding`), a diferencia de que el texto que muestra (`rate.roomType`) es texto
+    libre y mucho más largo y variable que el `type` de hotel del panel equivalente de
+    `/reservar` (p. ej. "Cama en habitación compartida", 30 caracteres, frente a un máximo de 22
+    en los tipos de hotel). A 320px de ancho de viewport (256px de ancho de tarjeta calculado), el
+    texto podía llegar a tocar los bordes de la tarjeta sin ningún margen. Se agregó
+    `padding: 0 1.25rem`, la misma unidad de espaciado horizontal ya usada en el resto de la
+    tarjeta (`.booking-rate-select-body`, `.booking-rate-select-side`).
+  - Se revisó pero **no se tocó** el panel equivalente de `/reservar`
+    (`.booking-result-media-fallback`), que comparte la misma carencia de relleno: los valores de
+    `hotel.type` son un conjunto cerrado y corto (máximo 22 caracteres, verificado que no desborda
+    a 320px), y tocar ese archivo habría sido rediseñar "otro paso de reserva", fuera del alcance
+    explícito de esta pasada.
+- **Por qué:** el usuario pidió verificar y mejorar específicamente las tarjetas rediseñadas de
+  esta misma sesión en móvil y tablet, en los anchos exactos que detalló.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguno funcional; una sola propiedad `padding` agregada a una regla ya introducida
+  en la pasada de `bolder` de esta misma tarjeta. Verificado con `npx tsc --noEmit` (sin errores),
+  el detector mecánico de Impeccable en modo `--scope layout` y escaneo completo (ambos sin
+  hallazgos), y confirmando que el bundle servido por el dev server compiló el cambio sin
+  marcadores de error. Los cálculos de ancho a 320/375/390px y en el rango de tablet se verificaron
+  por aritmética sobre los valores reales de `--container`, `padding` y `grid-template-columns`,
+  no por captura de pantalla — no había disponible una herramienta de automatización de navegador
+  en esta sesión, igual que en todas las corridas anteriores.
+
+---
+
+### 2026-08-16 — Rediseñar las tarjetas de tarifa de `/reservar/tarifas/:slug` con imagen y jerarquía
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable bolder /reservar/tarifas/:slug`,
+  acotado explícitamente a las tarjetas de habitación/tarifa)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** rediseño acotado a las tarjetas de tarifa (`.booking-rate-card` →
+  `.booking-rate-select-card`), aplicando exactamente el mismo sistema visual que
+  `$impeccable bolder` ya construyó para las tarjetas de hotel de `/reservar`, sin tocar el
+  encabezado/hero compartido, los query params, la lógica de reintento ni las correcciones de
+  idioma de la pasada anterior:
+  - `AlliedRoomRate` (`shared/allied-hotels.ts`) gana un campo opcional `imageUrl?: string`,
+    reflejando exactamente el mismo campo ya agregado a `AlliedHotel`. Ningún dato de ejemplo
+    actual lo define — es infraestructura lista para fotos reales de habitaciones específicas,
+    igual que en el paso anterior.
+  - Para el caso sin foto (el único caso real hoy), el panel de respaldo reutiliza textualmente el
+    mismo degradado radial sobre `var(--ink)` que ya usa la tarjeta de hotel — misma intención de
+    consistencia visual entre pasos que pidió el usuario — con un ícono según el tipo de
+    habitación. Se agregó `getRoomTypeIcon()` en `allied-booking-flow.ts`: como `roomType` es texto
+    libre (a diferencia del tipo de hotel, que es un conjunto cerrado), se resolvió con reglas por
+    palabra clave sobre el texto normalizado (sin tildes): "suite"→`pi-star`, "cabana"→`pi-home`,
+    "compartid"→`pi-users`, "apartamento"→`pi-building`, con `pi-building` como respaldo para
+    "estándar", "superior", "ejecutiva" y cualquier tipo no reconocido.
+  - La insignia de `rate.rateName` (p. ej. "Flexible", "No reembolsable", "Con desayuno") ahora
+    flota sobre la imagen/panel como insignia de política — es el campo más cercano a "condición de
+    cancelación/reembolso" que existe en el modelo de datos actual (no hay un campo estructurado
+    separado para eso), así que se le dio prominencia visual clara en vez de inventar una nueva
+    taxonomía de políticas no respaldada por los datos.
+  - Jerarquía reforzada dentro de la tarjeta: nombre de habitación (`h3`, `1.35rem`/900, antes
+    `1.12rem`), descripción, capacidad, disponibilidad (con la etiqueta "Disponibilidad estimada"
+    de la pasada de `clarify` anterior intacta), precio (`1.85rem`/900, antes `1.15rem`) y el CTA
+    "Elegir tarifa" ahora en `.booking-primary` a ancho completo de su columna — la misma jerarquía
+    y el mismo lenguaje visual que ya tienen las tarjetas de hotel.
+  - Precio y CTA vuelven a vivir en una columna lateral consistente (`.booking-rate-select-side`)
+    en las tres mismas configuraciones responsivas que las tarjetas de hotel: apilado en móvil,
+    imagen a la izquierda + contenido apilado en tablet (`700–1039px`), y tres columnas en
+    escritorio (`≥1040px`) — así que comparar precio entre varias tarifas al desplazarse por la
+    lista siempre encuentra el precio en la misma posición visual, en cualquier ancho de pantalla.
+  - Como `.booking-rate-card`/`.booking-rate-price`/`.booking-rate-grid`/`.booking-rate-selected`
+    solo se usaban en este archivo (verificado por `grep` antes de tocar nada — a diferencia de
+    `.booking-badge`, que sigue intacto y compartido), se retiraron por completo en vez de
+    mantenerse en paralelo; `.booking-rate-selected` ya era una clase muerta (nunca se aplicaba
+    dinámicamente en ningún template) y no se volvió a crear su equivalente.
+- **Por qué:** el usuario pidió explícitamente que la experiencia de selección de tarifa se
+  sintiera como una reserva de hotel real en vez de una lista administrativa, replicando
+  exactamente el sistema ya construido para `/reservar`, manteniendo comparables precio y CTA entre
+  opciones y preservando la etiqueta de honestidad de disponibilidad ya implementada.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-rates.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-rates.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-flow.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`,
+  `frontend/src/app/shared/allied-hotels.ts`, `AGENTS.md`.
+- **Impacto:** Ninguna migración ni cambio de API — `imageUrl` en `AlliedRoomRate` es opcional y
+  compatible hacia atrás. No se tocó el encabezado/hero compartido, los query params, la lógica de
+  reintento (`retryLoadHotels`/`retrySearchAvailability`) ni las correcciones de idioma de la
+  pasada de `clarify` anterior, todas verificadas intactas tras el cambio. Verificado con
+  `npx tsc --noEmit` (sin errores), el detector mecánico de Impeccable (sin hallazgos), confirmando
+  por `grep` que las clases CSS retiradas no dejaron ninguna referencia huérfana en ningún archivo
+  del directorio, y que el bundle servido por el dev server compiló el cambio sin marcadores de
+  error en los cuatro chunks del flujo de reserva. No se verificó visualmente en navegador por no
+  tener disponible una herramienta de automatización en esta sesión.
+
+---
+
+### 2026-08-16 — Corregir idioma y honestidad de disponibilidad en `/reservar/tarifas/:slug`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable clarify /reservar/tarifas/:slug`,
+  acotado a corrección del español, pluralización y honestidad de disponibilidad)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:**
+  - Se restauraron las tildes faltantes en todo el texto visible de `allied-booking-rates.html`
+    ("Navegacion"→"Navegación", "sesion"→"sesión", "habitacion"→"habitación" ×3, "busqueda"→
+    "búsqueda" ×3, "huesped(es)"→"huéspedes", "esta activo"→"está activo") — verificado con `grep`
+    exhaustivo antes y después del cambio, cero coincidencias restantes.
+  - Se reemplazaron las tres pluralizaciones literales por texto condicional correcto: "tarifa(s)"
+    → `{{ n === 1 ? 'tarifa' : 'tarifas' }}`, "huesped(es)" → `{{ maxGuests === 1 ? 'huésped' :
+    'huéspedes' }}`, "disponible(s)" → ver el punto siguiente (se resolvió junto con la honestidad
+    de disponibilidad, ya que ambos afectaban la misma línea).
+  - **Honestidad de disponibilidad de tarifa**: `getAvailableRoomRateCount(rate)` cae en el mismo
+    patrón de estimación por hash que ya tenía `getAvailableRoomCount(hotel)` en `/reservar` cuando
+    `rate.availableRooms` no viene en los datos (que es siempre el caso hoy — ningún dato de
+    ejemplo lo define). Antes se mostraba como "{{n}} disponible(s)" sin ninguna distinción. Se
+    agregó `isAvailableRoomRateCountEstimated(rate)` en `allied-booking-flow.ts` — el mismo patrón
+    exacto que `isAvailableRoomCountEstimated(hotel)` ya usa en `/reservar`, aplicado al nivel de
+    tarifa en vez de al nivel de hotel — y el template ahora bifurca en dos `<li>` (con
+    pluralización correcta en ambas ramas): "Disponibilidad estimada: N habitación(es)" cuando el
+    dato es estimado, o "N habitación(es) disponible(s)" cuando es un valor real.
+- **Por qué:** el usuario pidió explícitamente reflejar en esta página el mismo patrón de
+  honestidad ya implementado en `/reservar`, más la corrección general de acentos y pluralización
+  ya identificada como hallazgo P1/P2 en `$impeccable audit /reservar/tarifas/:slug` de esta misma
+  sesión.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-rates.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-rates.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-flow.ts`, `AGENTS.md`.
+- **Impacto:** Ninguno en layout, estructura de las tarjetas de tarifa, lógica de reintento, query
+  params, precios o estilos — cambio acotado a texto y a un nuevo getter derivado de datos ya
+  existentes (sin nuevos campos, migraciones ni cambios de API). Verificado con
+  `npx tsc --noEmit` (sin errores), el detector mecánico de Impeccable (sin hallazgos), un barrido
+  exhaustivo por `grep` confirmando cero acentos faltantes y cero patrones `(s)`/`(es)` restantes
+  en el archivo, y confirmando que el bundle servido por el dev server compiló el cambio sin
+  marcadores de error y que la ruta sigue sirviendo `200`. No se verificó visualmente en navegador
+  por no tener disponible una herramienta de automatización en esta sesión.
+
+---
+
+### 2026-08-16 — Añadir recuperación de errores en `/reservar/tarifas/:slug`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable harden /reservar/tarifas/:slug`,
+  acotado a recuperación de errores)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** `AlliedBookingRatesPage` (paso 2 del flujo de reserva) tenía el mismo callejón
+  sin salida que `AlliedBookingPage` (paso 1) tenía antes de la pasada de `harden` de esta misma
+  sesión: si la carga inicial de hoteles o la consulta de disponibilidad fallaban, el mensaje
+  describía el problema pero no ofrecía ninguna acción de recuperación — solo una recarga completa
+  de la página. Se replicó exactamente el mismo patrón ya implementado en `/reservar`:
+  - `hotelsLoadErrorContext: 'initial' | 'availability'` distingue cuál de las dos llamadas falló
+    (`loadHotels()` vs `loadAvailableRates()`), igual que en `allied-booking.ts`.
+  - `retryLoadHotels()` reinvoca `loadHotels()`. `retrySearchAvailability()` reinvoca
+    `loadAvailableRates()` con el slug del hotel (promovido de constante local a campo privado
+    `hotelSlug` para que la reintentona pueda acceder a él), pero primero restablece
+    `loadingHotels = true` y limpia `hotelsLoadError` — `loadAvailableRates()` en sí no gestiona su
+    propio estado de carga (siempre se invocaba justo después de que `loadHotels()` ya lo hubiera
+    hecho), así que sin ese paso el botón de reintentar habría disparado la consulta en segundo
+    plano sin ninguna señal visual de que algo estaba pasando.
+  - El bloque único `*ngIf="!loadingHotels && hotelsLoadError"` se dividió en dos, uno por
+    contexto, cada uno con su propio botón "Reintentar" — misma estructura, mismas clases
+    (`.booking-empty`, `.booking-secondary`, ícono `pi-refresh`) que ya usa `/reservar`. El
+    encabezado del caso de disponibilidad ("No fue posible consultar disponibilidad") no existía
+    antes en esta página porque el bloque único nunca distinguía los dos casos; se tomó
+    textualmente del mismo encabezado que ya usa `/reservar` para ese mismo escenario.
+- **Por qué:** hallazgo P1 verificado de `$impeccable audit /reservar/tarifas/:slug` en esta misma
+  sesión — el mismo defecto que `harden` ya había corregido un paso antes en el flujo, nunca
+  propagado aquí.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-rates.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-rates.html`, `AGENTS.md`.
+- **Impacto:** Ninguno en el layout de las tarjetas de tarifa, copy existente, lógica de
+  disponibilidad, estilos o comportamiento de query params — no se agregó CSS nueva, se
+  reutilizaron íntegramente `.booking-empty`/`.booking-secondary`, ya definidas en el archivo de
+  estilos compartido. No se tocó ningún otro paso del flujo de reserva. Verificado con
+  `npx tsc --noEmit` (sin errores), el detector mecánico de Impeccable (sin hallazgos) y
+  confirmando que el bundle servido por el dev server compiló `retryLoadHotels`/
+  `retrySearchAvailability` sin marcadores de error y que la ruta sigue sirviendo `200`. No se
+  verificó visualmente en navegador por no tener disponible una herramienta de automatización en
+  esta sesión.
+
+---
+
+### 2026-08-16 — Pulido final de `/reservar`: contraste AA del azul primario y estados de botón
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable polish /reservar`, acotado a
+  consistencia visual, contraste, estados de botón, detalle de tarjetas, bordes, sombras y
+  tipografía)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:**
+  - **Contraste AA del texto en azul primario sobre fondos claros**: `critique` y `audit` ya habían
+    señalado que `--primary` (`#2c7be5`) sobre blanco computa ~4.14:1, bajo el mínimo de 4.5:1 que
+    exige WCAG AA (1.4.3) para texto normal. Verificado por cálculo de luminancia relativa
+    (fórmula WCAG), no por herramienta externa. Se agregó `--primary-text: #2369c5` — el mismo
+    valor hexadecimal que ya existía como `--primary-hover`, reutilizado (no inventado) porque ya
+    cumple 5.39:1 sobre blanco y 4.90:1 sobre `--accent`, ambos por encima del mínimo — y se aplicó
+    únicamente a los usos de `--primary` como **color de texto** sobre fondo claro: el enlace de
+    navegación "Hoteles aliados", la píldora de "N resultados", la insignia "Aliado Wayra", los
+    chips de `.booking-summary` y `.booking-confirmation-details`, y `.booking-kicker` en su
+    contexto de tarjeta blanca (encabezado de resultados, copy de confirmación). El botón primario
+    (`background: var(--primary)`, texto blanco) **no se tocó** — se dejó exactamente como estaba,
+    por instrucción explícita del usuario, aunque comparte la misma relación de contraste
+    (~4.14:1) que el texto que sí se corrigió; ese hallazgo relacionado se deja documentado aquí,
+    no resuelto.
+  - **Caso especial — `.booking-kicker` en el hero**: esta clase se usa en 8 lugares de las cuatro
+    páginas del flujo de reserva; en 6 de esos 8 sitios el fondo es una tarjeta blanca, pero en 2
+    (el kicker "Paso N de 3" dentro del hero oscuro) el fondo es `var(--ink)`. Cambiar el color
+    base habría corregido los 6 casos blancos pero empeorado el contraste en el hero (un azul más
+    oscuro sobre un fondo ya oscuro reduce el contraste, no lo mejora). Se agregó una regla más
+    específica `.booking-hero .booking-kicker { color: var(--primary); }` que restaura el color
+    original solo ahí — el hero queda exactamente igual que antes de este cambio, sin tocarlo, tal
+    como pidió el usuario ("small text on white backgrounds").
+  - **Estados de botón faltantes**: `.booking-primary`, `.booking-secondary` y
+    `.booking-destination-option` no tenían ningún estado `:active` (retroceso táctil al soltar el
+    clic) en todo el archivo — verificado por búsqueda exhaustiva, cero coincidencias. Se agregó
+    `transform: translateY(0)` en el press de los botones principales y un fondo `--accent` en el
+    press de las opciones de destino, reutilizando la misma transición ya declarada en la regla
+    base (sin nueva propiedad de animación).
+  - Los botones "Cancelar"/"Aceptar" del selector de rango de fechas (`::ng-deep
+    .booking-date-range-cancel/-accept`) no tenían **ningún** estado interactivo — ni `:hover` ni
+    transición — a diferencia de `.booking-primary`/`.booking-secondary`, cuyo lenguaje visual
+    imitan. Se agregó `transition`, `:hover` (reutilizando exactamente los mismos tokens y valores
+    que sus equivalentes `.booking-primary`/`.booking-secondary`) y `:active`.
+- **Hallazgos verificados pero dejados fuera de alcance, documentados para una pasada futura**:
+  - El botón primario comparte la misma relación de contraste ~4.14:1 que el texto corregido en
+    este cambio, pero el usuario pidió explícitamente no tocar el color del botón primario.
+  - `allied-booking.css` usa `font-weight: 850` y `900` en 21 declaraciones, pero
+    `frontend/src/styles.css` solo carga las fuentes variables Manrope (peso `200 800`) y Sora
+    (peso `100 800`) — cualquier peso por encima de 800 se recorta silenciosamente al máximo
+    disponible del archivo de fuente (800), sin error visible. Verificado leyendo las declaraciones
+    `@font-face` reales, no por renderizado. Es un patrón preexistente y de todo el sitio —
+    `landing.css` y `allied-hotels.css` usan el mismo rango 700–900 — por lo que corregirlo solo en
+    `allied-booking.css` dejaría el código fuente inconsistente con sus páginas hermanas sin
+    ningún cambio visible (el resultado renderizado ya es idéntico en los tres archivos, recortado
+    a 800 en los tres). Corregirlo bien requiere una pasada a nivel de sitio, fuera del alcance de
+    `polish /reservar`.
+- **Por qué:** el usuario pidió esta pasada final centrada explícitamente en consistencia visual,
+  contraste de accesibilidad, estados de botón, detalle de las tarjetas de hotel, bordes, sombras y
+  tipografía, preservando layout, comportamiento responsivo, copy, lógica de reserva, el sistema de
+  imagen de respaldo y la estructura de tokens — con atención especial al azul primario como texto
+  pequeño sobre fondos blancos, sin cambiar el color del botón primario.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguna migración, variable de entorno ni cambio de API. Cambio de color acotado
+  exclusivamente a usos de texto (nunca a fondos de botón) más adición de estados `:active`/`:hover`
+  que no existían. Verificado con `npx tsc --noEmit` (sin errores), el detector mecánico de
+  Impeccable (sin hallazgos) y confirmando por HTTP que las cuatro rutas del flujo de reserva
+  siguen sirviendo `200` con el nuevo token compilado en sus cuatro chunks. Los cálculos de
+  contraste se verificaron aplicando la fórmula de luminancia relativa de WCAG a mano sobre los
+  valores hexadecimales reales, no con una herramienta de contraste ni una captura de pantalla — no
+  había disponible una herramienta de automatización de navegador en esta sesión, igual que en
+  todas las corridas anteriores sobre este mismo objetivo.
+
+---
+
+### 2026-08-16 — Consolidar los colores repetidos de `allied-booking.css` en tokens
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable extract /reservar`, acotado
+  explícitamente a tokens de color en `allied-booking.css`)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor
+- **Qué se hizo:** un inventario exhaustivo (`grep` de todos los `rgba()`/hex del archivo, no solo
+  lectura manual) encontró 16 usos de `rgba(44, 123, 229, …)` (el RGB de `--primary` repetido en
+  literal), 5 usos de `rgba(255, 255, 255, …)`, 4 de `rgba(17, 24, 39, …)` (el RGB de `--ink`,
+  incluyendo dentro de las propias definiciones de `--shadow-card`/`--shadow-elevated`), 2 de
+  `rgba(220, 38, 38, …)` (el RGB de `--danger`) y 2 del hexadecimal suelto `#b9c4d2`. Se agregaron
+  al bloque de tokens de `.booking-page`:
+  - Primitivos de canal RGB: `--primary-rgb`, `--ink-rgb`, `--white-rgb`, `--danger-rgb` — cada uno
+    es literalmente los mismos tres números que ya estaban repetidos por todo el archivo, ahora
+    declarados una sola vez.
+  - Tokens semánticos derivados, para los valores que se repetían 2–5 veces con la misma intención:
+    `--primary-border-soft` (alpha 0.18 × 5, bordes de píldoras/tarjetas con tinte primario),
+    `--primary-border-strong` (alpha 0.28 × 3, borde de hover de tarjetas y anillo de foco),
+    `--primary-focus-glow` (alpha 0.16 × 2, resplandor de foco en inputs) e `--input-hover` (el
+    hexadecimal `#b9c4d2` × 2, borde de hover en inputs de texto y el date-picker).
+  - Los usos que compartían el mismo canal RGB pero con un alpha que NO se repetía en otro lugar
+    (por ejemplo el resplandor del hero a 0.22, el del panel de respaldo de la tarjeta a 0.32, el
+    hover del botón secundario a 0.34) se dejaron con su alpha literal exacto, solo cambiando el
+    canal de color a `rgba(var(--primary-rgb), X)` — se resistió la tentación de forzarlos a
+    compartir un token con otro uso solo porque el número de alpha coincidía por casualidad; un
+    borde, un resplandor de gradiente y una sombra de botón no son la misma decisión de diseño
+    aunque compartan opacidad.
+  - Se dejaron intactos, sin tokenizar, los colores hexadecimal que aparecen una sola vez en todo
+    el archivo (`#fff7f7`, `#f8fbff`): no hay repetición que consolidar ahí, y la propia guía de
+    `extract` advierte explícitamente contra crear tokens para valores usados una sola vez.
+- **Por qué:** el usuario pidió consolidar específicamente los `rgba(44, 123, 229, …)` repetidos y
+  los colores sueltos recurrentes, preservando la apariencia renderizada exactamente. Este mismo
+  hallazgo ya lo había señalado `$impeccable audit` como P2 ("Token drift") varias pasadas atrás en
+  esta sesión.
+- **Compatibilidad con el resto del flujo de reserva:** `allied-booking.css` es el `styleUrl`
+  compartido por `allied-booking.ts`, `-rates.ts`, `-request.ts` y `-confirmation.ts`. La técnica
+  usada (`rgba(var(--x-rgb), alpha)`) es matemáticamente idéntica en su color computado al literal
+  `rgba(r, g, b, alpha)` que reemplaza — no es una aproximación ni un ajuste de tono, así que no
+  hay riesgo de que el color visible cambie en ninguna de las cuatro páginas. Se confirmó
+  descargando los cuatro chunks JS compilados que sirve el dev server para estas rutas y
+  verificando que ninguno conserva ya un triplete de color sin tokenizar.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguno visual ni funcional — cambio puramente de origen del valor (literal → token
+  matemáticamente equivalente), sin tocar markup, layout, espaciado, tipografía, comportamiento
+  responsivo ni lógica. Verificado con `npx tsc --noEmit` (sin errores), el detector mecánico de
+  Impeccable (sin hallazgos) y confirmando por HTTP que las cuatro rutas del flujo de reserva
+  siguen sirviendo `200`. No se verificó visualmente en navegador por no tener disponible una
+  herramienta de automatización en esta sesión; la equivalencia de color se sostiene en la
+  semántica garantizada por la especificación de CSS Custom Properties, no en una captura de
+  pantalla.
+
+---
+
+### 2026-08-16 — Adaptar `/reservar` a móvil, tablet y orientación horizontal corta
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable adapt /reservar for mobile and
+  tablet`)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:**
+  - **Objetivos táctiles**: `.booking-header nav a` pasó de `min-height: 40px` a `44px`, y
+    `.booking-view-back` (el enlace "Volver" sobre el hero) de `32px` a `44px` — ambos por debajo
+    de la guía de 44×44px para móvil que `$impeccable audit` ya había señalado como P3. El offset
+    vertical de `.booking-view-back` (`top: -3.55rem`) no cambió: con la altura nueva sigue
+    quedando dentro del padding del hero sin solaparse con el kicker/h1 de abajo (verificado por
+    cálculo, sin renderizado en vivo disponible).
+  - **Tarjetas de resultado en tablet** (`768–1023px` es el rango de tablet estándar; este proyecto
+    ya usa `700–1039px` como su propio rango de tablet establecido, así que se mantuvo esa
+    convención): antes de este cambio, las tarjetas de `$impeccable bolder` solo tenían dos
+    estados — apiladas (imagen arriba a `aspect-ratio: 16/10`) por debajo de `1040px`, o el
+    diseño de tres columnas de escritorio a partir de `1040px`. En una tablet en vertical
+    (`768–834px` típico), eso significaba una imagen de hasta ~520px de alto solo para la foto,
+    antes de siquiera llegar al nombre del hotel. Se agregó un nivel intermedio propio de tablet
+    (`700–1039px`, rango acotado para no heredar nada del nivel de escritorio): imagen a la
+    izquierda (`minmax(200px, 38%)`) y nombre/ubicación + disponibilidad/precio/CTA apilados a la
+    derecha, con un divisor horizontal (`border-top`) entre ambos bloques en vez del divisor
+    vertical que usa escritorio. Es el patrón de "layout de dos columnas" que la propia guía de
+    `adapt` recomienda para tablet, distinto tanto del apilado de móvil como de las tres columnas
+    de escritorio.
+  - **Móvil en horizontal con poca altura** (p. ej. un iPhone acostado, ~375–430px de alto): se
+    agregó `@media (orientation: landscape) and (max-height: 500px)` que reduce el padding vertical
+    del hero (`4.5rem/3rem` → `2rem/1.5rem`), reajusta el offset de `.booking-view-back` a `-1rem`
+    para que seguir cabiendo dentro del padding reducido sin solaparse, y limita la imagen de la
+    tarjeta de resultado a `max-height: 150px` en vez de dejarla a `aspect-ratio: 16/10` (que en un
+    teléfono acostado de ~690px de ancho ocuparía ~430px de alto, es decir, más que la altura
+    completa de la pantalla). Es exactamente el caso que la guía de `adapt` marca como error común
+    ("Forget landscape orientation on mobile/tablet").
+- **Por qué:** el usuario pidió adaptar `/reservar` para móvil y tablet. La página ya había pasado
+  por `critique`, `audit`, `harden`, `clarify`, `layout`, `bolder` y `distill` en esta misma sesión,
+  pero ninguna de esas pasadas había revisado tablet como nivel intermedio propio ni el caso de
+  móvil en horizontal con poca altura — ambos señalados explícitamente en la guía de `adapt` como
+  puntos que no hay que olvidar.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguno funcional; solo CSS responsivo nuevo o ajustado, sin tocar markup, lógica ni
+  copy. Verificado con `npx tsc --noEmit` (sin errores), con el detector mecánico de Impeccable en
+  modo `--scope layout` y escaneo completo (ambos sin hallazgos) y confirmando que el bundle
+  servido por el dev server compiló el nuevo CSS sin marcadores de error. Los cálculos de offset
+  vertical del enlace "Volver" en ambos contextos (tablet/desktop existente y el nuevo caso de
+  horizontal con poca altura) se verificaron por aritmética sobre los valores de padding y posición
+  absoluta, no por captura de pantalla — no había disponible una herramienta de automatización de
+  navegador en esta sesión, igual que en las corridas previas sobre este mismo objetivo.
+
+---
+
+### 2026-08-16 — Quitar el fondo de cuadrícula decorativa del hero de `/reservar`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable distill /reservar`, acotado
+  explícitamente al hero)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** se eliminaron dos reglas de `allied-booking.css`:
+  - `.booking-hero::before` — el pseudo-elemento con dos capas de `linear-gradient` en cruz
+    formando una cuadrícula de líneas de 56×56px sobre el hero. Era el mismo hallazgo advisorio
+    (`codex-grid-background`) que el detector mecánico de Impeccable venía marcando en cada corrida
+    de `critique`, `audit` y `bolder` de esta sesión sobre esta página; ahora el escaneo del
+    directorio da limpio (`[]`) por primera vez en toda la sesión.
+  - `.booking-hero > * { position: relative; z-index: 1; }` — regla auxiliar que existía solo para
+    levantar el contenido del hero por encima de la cuadrícula eliminada. Sin la cuadrícula, esta
+    regla no tenía ya ningún propósito, así que se retiró junto con ella en vez de dejarla como CSS
+    huérfano.
+  - Se dejó intacto todo lo demás del hero: el degradado radial sobre `var(--ink)` (color ya
+    existente, no se tocó), el copy, el enlace "Volver", el kicker "Paso 1 de 3", la tipografía y
+    el `position: relative` de `.booking-container` (sigue siendo necesario para posicionar
+    `.booking-view-back`, que no depende de la cuadrícula).
+- **Hallazgo relevante para el alcance:** `allied-booking-rates.ts`, `allied-booking-request.ts` y
+  `allied-booking-confirmation.ts` declaran `styleUrl: './allied-booking.css'` — comparten el mismo
+  archivo de estilos que `AlliedBookingPage`, no uno propio. La clase `.booking-hero` y su
+  cuadrícula decorativa venían renderizándose igual en los cuatro pasos del flujo de reserva, no
+  solo en `/reservar`. El pedido del usuario fue explícito sobre quitar la cuadrícula y acotado a
+  "el hero"; dado que las cuatro páginas comparten literalmente la misma regla CSS, no había forma
+  de quitarla solo de una sin inventar una clase nueva por página (una abstracción no solicitada).
+  Se optó por quitarla del archivo compartido, lo que corrige el mismo patrón ya señalado por el
+  detector en los cuatro pasos por igual, en vez de dejar tres de los cuatro con el patrón genérico
+  todavía presente. Se verificó que las cuatro rutas (`/reservar`, `/reservar/tarifas/:slug`,
+  `/reservar/solicitud/:slug/:rateId`, `/reservar/confirmacion/:id`) siguen respondiendo `200` tras
+  el cambio.
+- **Por qué:** el usuario pidió explícitamente quitar el fondo de cuadrícula genérico del hero y
+  simplificarlo para que se sintiera específico de una experiencia de reserva hotelera, preservando
+  copy, buscador, tarjetas de resultado, funcionalidad, colores y tipografía — y sin deshacer las
+  mejoras de accesibilidad, layout o tarjetas de pasadas anteriores en esta misma sesión.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguno funcional. Cambio puramente de eliminación de CSS decorativo, sin tocar
+  markup, lógica ni copy. Verificado con `npx tsc --noEmit` (sin errores), con el detector mecánico
+  de Impeccable (pasó de 1 hallazgo advisorio a 0), y confirmando por HTTP que las cuatro rutas del
+  flujo de reserva siguen sirviendo `200` tras el cambio al archivo de estilos compartido. No se
+  verificó visualmente en navegador por no tener disponible una herramienta de automatización de
+  navegador en esta sesión, igual que en las corridas previas sobre este mismo objetivo.
+
+---
+
+### 2026-08-16 — Rediseñar las tarjetas de resultados de `/reservar` con imagen y jerarquía fuerte
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable bolder /reservar`, acotado
+  explícitamente a los resultados y tarjetas de hotel)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** rediseño acotado a las tarjetas de resultados de `AlliedBookingPage`
+  (`.booking-options`/`.booking-option` → `.booking-result-card`), sin tocar el encabezado, el
+  formulario de búsqueda, los estados vacíos ni las páginas de tarifas/solicitud/confirmación:
+  - `AlliedHotel` (`shared/allied-hotels.ts`) gana un campo opcional `imageUrl?: string`. Cuando un
+    hotel lo trae, la tarjeta muestra una foto real (`object-fit: cover`, `loading="lazy"`, área
+    reservada con `aspect-ratio` para no producir salto de layout). Ningún hotel de los datos de
+    ejemplo actuales define `imageUrl` — es infraestructura lista para fotos reales, no una
+    afirmación de que ya existen.
+  - Para el caso sin foto (el único caso real hoy), se construyó un panel de respaldo deliberado en
+    vez de un hueco gris: reutiliza el mismo motivo visual ya establecido en el hero de esta misma
+    página (`radial-gradient(circle at 82% 14%, rgba(44,123,229,.32), transparent 34%)` sobre
+    `var(--ink)`) con un ícono grande según el tipo de alojamiento (`getHotelTypeIcon()` en
+    `allied-booking-flow.ts`: Hotel/Apartahotel→`pi-building`, Hostal→`pi-home`, Alojamiento
+    turístico→`pi-compass`) y el tipo en texto grande. Se evitó deliberadamente reutilizar el
+    patrón de líneas de cuadrícula del hero (`.booking-hero::before`), ya que el detector mecánico
+    de Impeccable lo tiene marcado como firma de "UI genérica" en un hallazgo previo de esta misma
+    sesión.
+  - La insignia "Aliado Wayra" (`.booking-badge`, clase compartida con las páginas de tarifas y
+    solicitud — **sin modificar su regla base**) ahora flota sobre la imagen/panel mediante una
+    clase adicional exclusiva de esta tarjeta (`.booking-result-badge`, `position: absolute`).
+  - El nombre del hotel pasó de `1.12rem` a `1.35rem` en Sora 900, y el precio principal de
+    `1.15rem` a `1.85rem` — la jerarquía tipográfica ahora hace evidente en un vistazo cuál es el
+    dato más importante de la tarjeta.
+  - El botón "Ver tarifas" pasó de `.booking-secondary` (contorno, sin relleno — el mismo estilo
+    que un botón secundario/de cancelar) a `.booking-primary` (relleno, el mismo lenguaje visual ya
+    usado en el botón de búsqueda del formulario), a ancho completo de su columna. Era la única
+    acción de cada tarjeta y estaba vestida como si fuera secundaria.
+  - En escritorio (`≥1040px`) la tarjeta pasó de dos columnas (contenido | precio) a tres
+    (imagen `300px` | contenido | precio `230px`, con un separador `1px solid var(--border)` entre
+    contenido y precio). En móvil, la imagen ocupa el ancho completo arriba (`aspect-ratio: 16/10`)
+    y el resto se apila debajo, igual que antes.
+  - Se retiraron las reglas CSS de `.booking-option`/`.booking-option-side`/
+    `.booking-option-selected` (huérfanas tras el cambio de clase) de los selectores combinados que
+    compartían con `.booking-rate-card`/`.booking-rate-price`/`.booking-rate-selected`, dejando
+    estas últimas intactas para las páginas de tarifas y solicitud, que no se tocaron.
+- **Por qué:** el usuario pidió explícitamente que los resultados dejaran de sentirse como "una
+  lista administrativa" y se sintieran como una experiencia real de reserva hotelera, con imagen
+  como elemento primario, jerarquía fuerte en nombre/ubicación/tipo/precio/disponibilidad, y la
+  acción principal claramente dominante — acotado sin tocar encabezado, buscador ni el resto del
+  flujo de reserva.
+- **Decisión de diseño sin confirmar con el usuario (declarada aquí por transparencia):** no
+  existen fotos reales de los hoteles aliados ni un campo de imagen en el modelo de datos previo.
+  En vez de simular fotos falsas para hoteles específicos (lo cual habría sido engañoso) o detener
+  el trabajo a esperar confirmación, se optó por construir la infraestructura real
+  (`imageUrl`) más un panel de respaldo con identidad visual fuerte y honesta, dejando explícito en
+  el resumen de la sesión que el usuario puede sustituirlo por fotos reales cuando existan. Esta
+  sesión ya había recibido una pregunta de aclaración rechazada por el usuario durante
+  `$impeccable critique`, lo que indicó preferencia por ejecución autónoma en vez de pausas.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-flow.ts`,
+  `frontend/src/app/shared/allied-hotels.ts`, `AGENTS.md`.
+- **Impacto:** Ninguna migración ni cambio de API — `imageUrl` es un campo opcional, compatible
+  hacia atrás con los datos de ejemplo actuales y con cualquier otro consumidor de `AlliedHotel`
+  (`allied-booking-rates.ts`, `allied-booking-request.ts`, que no lo usan y no se ven afectados).
+  Verificado con `npx tsc --noEmit` (sin errores), releyendo el bundle servido por el dev server
+  (el chunk de la página contiene `.booking-result-card` y `getHotelTypeIcon` sin marcadores de
+  error de compilación) y con el detector mecánico de Impeccable (mismo único hallazgo advisorio
+  preexistente de antes de este cambio, sin hallazgos nuevos — confirma que el nuevo panel de
+  respaldo no reprodujo el patrón de cuadrícula ya señalado). Se verificó por lectura de código que
+  las clases compartidas con las páginas de tarifas/solicitud (`.booking-badge`, `.booking-rate-card`,
+  `.booking-rate-price`, `.booking-rate-selected`) conservan sus reglas base sin cambios. No se
+  verificó visualmente en navegador por no tener disponible una herramienta de automatización de
+  navegador en esta sesión, igual que en las corridas previas sobre este mismo objetivo.
+
+---
+
+### 2026-08-16 — Agrupar habitaciones y huéspedes en la búsqueda de `/reservar`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable layout /reservar`)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** design
+- **Qué se hizo:** ajuste estructural sobre el formulario de búsqueda de `AlliedBookingPage`
+  (`allied-booking.html`/`.css`), sin tocar el resto de la página:
+  - Los campos "Habitaciones" y "Huéspedes" dejaron de ser dos columnas independientes con el
+    mismo peso visual que "Destino" y "Fechas" (cinco unidades de decisión en una sola fila, por
+    encima del límite de cuatro que ya había señalado `$impeccable critique` en su evaluación de
+    carga cognitiva). Ahora comparten un contenedor `.booking-field-group` que ocupa una sola
+    columna de la fila en escritorio (`≥1040px`, `grid-template-columns` pasó de cinco pistas a
+    cuatro) y se dividen internamente en una sub-cuadrícula de dos columnas con `gap: 0.65rem`,
+    frente al `gap: 1.05rem` que separa los grupos de nivel superior — el contraste entre espaciado
+    ajustado y generoso es lo que comunica visualmente "estos dos campos van juntos" sin agregar
+    bordes, fondo ni sombra (se evitó deliberadamente una tarjeta anidada dentro de la tarjeta de
+    búsqueda).
+  - Efecto secundario positivo en el punto de quiebre intermedio (`700–1039px`): antes, cinco
+    campos en una cuadrícula de dos columnas dejaban el botón de búsqueda solo en una tercera fila
+    con una columna vacía a su lado; con cuatro unidades, el botón ahora empareja limpiamente con
+    el grupo de ocupación en la segunda fila.
+  - En móvil (una sola columna implícita), "Habitaciones" y "Huéspedes" pasaron de ocupar dos filas
+    completas apiladas a compartir una sola fila de dos columnas, reduciendo el desplazamiento
+    vertical para un ajuste que es, en esencia, una sola decisión de ocupación.
+  - Se intentó primero agregar un encabezado compartido "Ocupación" sobre ambos campos, pero se
+    descartó: introducía una tercera fila de etiqueta que no existe en "Destino" ni "Fechas",
+    rompiendo la alineación de altura entre columnas de la misma fila (`align-items: end` en
+    `.booking-search`). La agrupación final se apoya solo en proximidad y contraste de espaciado,
+    como indica la skill ("Group by meaning. Use proximity before adding containers or
+    decoration").
+- **Por qué:** `$impeccable layout /reservar`, a solicitud del usuario, tras las pasadas previas de
+  `critique`, `audit`, `harden` y `clarify` sobre la misma página. `critique` ya había señalado
+  este hallazgo específico en su lista de verificación de carga cognitiva ("Chunking (≤4/group):
+  the search form presents 5 parallel decision units in one row... Rooms+guests should collapse
+  into one 'occupancy' control").
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguno funcional; los `formControlName` de "rooms" y "guests" no cambiaron, solo su
+  agrupación visual y de espaciado. No hay migraciones, variables de entorno ni cambios de API.
+  Verificado con `npx tsc --noEmit` (sin errores), releyendo el bundle servido por el dev server
+  (el chunk de la página contiene la nueva clase `.booking-field-group` sin marcadores de error de
+  compilación) y con el escaneo mecánico de Impeccable en modo `--scope layout` (sin hallazgos). No
+  se verificó visualmente en navegador por no tener disponible una herramienta de automatización de
+  navegador en esta sesión, igual que en las corridas previas sobre este mismo objetivo; el orden
+  de tabulación por teclado no cambió (sigue el orden del documento: destino → fechas →
+  habitaciones → huéspedes → buscar), solo el agrupamiento visual.
+
+---
+
+### 2026-08-16 — Corregir y clarificar el texto de la búsqueda de `/reservar`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable clarify /reservar`)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** pasada de redacción sobre la misma página pública de búsqueda de hoteles
+  aliados (`AlliedBookingPage`, ruta `/reservar`) y sus dependencias directas:
+  - Se restauraron las tildes faltantes en todo el texto visible de
+    `allied-booking.html`/`.ts` (`"pais"→"país"`, `"ubicacion"→"ubicación"`,
+    `"huespedes"→"huéspedes"`, `"sesion"→"sesión"`, `"ocupacion"→"ocupación"`,
+    `"busqueda"→"búsqueda"`, etc.) y en el archivo de datos de ejemplo que comparten todas las
+    páginas de hoteles aliados (`shared/allied-hotels.ts`: nombres de ciudad, departamento, tipo
+    de alojamiento y descripciones — p. ej. `"Bogota"→"Bogotá"`, `"turistico"→"turístico"`,
+    `"montana"→"montaña"`). No se tocó ninguna lógica de comparación: la búsqueda ya normaliza
+    tildes con `normalizeText()`, así que el emparejamiento no cambia.
+  - El placeholder del selector de fechas pasó de `"Check-in - Check-out"` (inglés) a
+    `"Llegada - Salida"` para que coincida con el término que ya usaba el propio mensaje de
+    validación del mismo campo (`"Selecciona llegada y salida."`) — eran dos términos distintos
+    para el mismo concepto dentro del mismo campo.
+  - `"La salida debe ser posterior."` pasó a `"La salida debe ser posterior a la llegada."`: el
+    mensaje original no decía posterior a qué.
+  - `"Escribe un pais o ciudad aliado."` pasó a `"Escribe un país o ciudad con hoteles
+    aliados."` (además de la tilde, el adjetivo "aliado" no concordaba en género con "ciudad").
+  - La disponibilidad de habitaciones en cada tarjeta de resultado dejó de mostrarse siempre
+    como `"{{n}} disponibles"` sin aclarar de qué (¿habitaciones? ¿algo más?) ni si el número es
+    exacto o estimado. Se agregó `isAvailableRoomCountEstimated()` en `allied-booking-flow.ts`
+    (deriva de si `hotel.availableRooms` viene o no de datos reales) y el template ahora muestra
+    `"Disponibilidad estimada: N habitaciones"` cuando el dato viene del cálculo de respaldo, o
+    `"N habitaciones disponibles"` cuando es un valor real — el mismo estándar de honestidad que
+    ya aplicaba `"Total estimado:"` para el precio, pero que antes no cubría el conteo de
+    habitaciones (con los datos de ejemplo actuales, siempre cae en la rama estimada).
+  - El precio por noche pasó de una única línea ambigua `"Desde por noche"` bajo el precio a una
+    estructura de tres líneas `"Desde" / precio / "Por noche"`, gramaticalmente completa.
+  - Los mensajes de error de geolocalización (`shared/current-location-destination.ts`) ahora
+    terminan todos con la misma acción de recuperación explícita ("Escribe tu destino
+    manualmente"), y el caso de permiso denegado por el navegador ya no se colapsa en un mensaje
+    genérico: se distingue de otros fallos de geolocalización usando el código de error real que
+    entrega la API (`GeolocationPositionError.code`), que antes se descartaba sin usar.
+- **Por qué:** `$impeccable clarify /reservar`, a solicitud del usuario, tras las pasadas previas
+  de `critique`, `audit` y `harden` sobre la misma página. La falta sistemática de tildes y la
+  inconsistencia terminológica del selector de fechas se detectaron al leer el flujo completo de
+  interacción, como indica la guía de la skill. La etiqueta honesta de disponibilidad resuelve
+  directamente el hallazgo P1 de `critique` sobre el conteo de habitaciones mostrado con la misma
+  autoridad visual que un dato real sin serlo siempre.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-flow.ts`,
+  `frontend/src/app/shared/allied-hotels.ts`,
+  `frontend/src/app/shared/current-location-destination.ts`, `AGENTS.md`.
+- **Impacto:** Ninguno funcional; solo texto y una etiqueta derivada de datos ya existentes (sin
+  nuevos campos, migraciones, variables de entorno ni cambios de API). El archivo de datos de
+  ejemplo (`allied-hotels.ts`) es compartido por otras páginas de hoteles aliados, que se
+  benefician igual de la corrección ortográfica sin cambio de comportamiento. Verificado con
+  `npx tsc --noEmit` (sin errores) y releyendo el bundle servido por el dev server (el chunk de la
+  página contiene el nuevo texto y el nuevo método sin marcadores de error de compilación). Se
+  re-ejecutó el detector mecánico de Impeccable: mismo único hallazgo advisorio preexistente
+  (`codex-grid-background`, fuera de alcance), sin hallazgos nuevos. No se verificó visualmente en
+  navegador por no tener disponible una herramienta de automatización de navegador en esta sesión,
+  igual que en las corridas previas de `critique`/`audit`/`harden` sobre este mismo objetivo.
+
+---
+
+### 2026-08-16 — Endurecer accesibilidad y recuperación de errores en la búsqueda de `/reservar`
+
+- **Autor:** Claude Code, a solicitud del usuario (`$impeccable harden /reservar`)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** correcciones de robustez sobre la página pública de búsqueda de hoteles aliados
+  (`AlliedBookingPage`, ruta `/reservar`), identificadas previamente por `$impeccable critique` y
+  `$impeccable audit` sobre el mismo objetivo:
+  - El combobox de destino (`allied-booking.html`) dejó de anidar los botones del panel de
+    sugerencias dentro del `<label>` del campo de texto (nesting inválido que podía causar
+    comportamiento inconsistente en lectores de pantalla). El input ahora expone
+    `role="combobox"`, `aria-autocomplete="list"`, `aria-expanded` y `aria-controls`; el panel de
+    sugerencias es `role="listbox"` con cada opción como `role="option"`.
+  - El cierre del panel de destino dejó de depender de un `setTimeout(120ms)` en el evento `blur`
+    del input (`allied-booking.ts`), que podía cerrar el panel debajo del foco de un usuario de
+    teclado navegando hacia el botón "Mi ubicación" con Tab. Ahora usa `(focusout)` en el
+    contenedor con verificación de `event.relatedTarget` (`onDestinationFocusOut`): el panel solo
+    se cierra si el nuevo foco cae fuera del contenedor. Se agregó cierre con `Escape`.
+  - El estado `hotelsLoadError` (carga inicial de hoteles vs. consulta de disponibilidad) ahora
+    distingue su origen (`hotelsLoadErrorContext: 'initial' | 'availability'`) y cada caso muestra
+    un botón "Reintentar" que reinvoca la acción que falló (`retryLoadHotels()` /
+    `retrySearchAvailability()`), en vez de ser un callejón sin salida que solo se resolvía
+    recargando la página completa.
+  - `searchAvailability()` gana una guarda de reentrada (`if (this.searchingAvailability) return;`)
+    como defensa adicional contra doble envío, además de la que ya daba el botón deshabilitado.
+  - Los campos "Habitaciones" y "Huéspedes" muestran de forma permanente el rango válido
+    (`Entre 1 y 4 habitaciones` / `Entre 1 y 8 huéspedes`) en vez de solo mostrarlo como error
+    después de que el campo pierde el foco, con `aria-describedby` enlazando el input al hint.
+  - Se agregó un bloque `@media (prefers-reduced-motion: reduce)` que anula el desplazamiento
+    `translateY` en el hover de tarjetas y botones, conservando la retroalimentación de color y
+    sombra para quienes prefieren menos movimiento.
+- **Por qué:** `$impeccable critique /reservar` y `$impeccable audit /reservar` (dos pasadas
+  independientes, con sub-agentes aislados para diseño y detector) identificaron el combobox de
+  destino como hallazgo P0 (bloqueo real de accesibilidad, no cosmético) y el callejón sin salida
+  de `hotelsLoadError` como P1; ambos quedaron etiquetados explícitamente para `$impeccable
+  harden`. El usuario ejecutó ese comando a continuación sobre el mismo objetivo.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`, `AGENTS.md`.
+- **Impacto:** Ninguno funcional fuera de esta página; no hay migraciones, variables de entorno,
+  cambios de API ni recursos RBAC nuevos. Verificado con `npx tsc --noEmit` (sin errores) y
+  releyendo el bundle servido por el dev server (`chunk-IFFASTAW.js` contiene los nuevos métodos y
+  atributos ARIA sin marcadores de error de compilación). Se re-ejecutó el detector mecánico de
+  Impeccable sobre el directorio del componente: mismo único hallazgo advisorio preexistente
+  (`codex-grid-background`, fuera de alcance de este cambio), sin hallazgos nuevos. No se pudo
+  verificar visualmente en navegador porque esta sesión no tenía una herramienta de automatización
+  de navegador disponible (Playwright/Puppeteer/computer-use); esto se declaró explícitamente en
+  las corridas de `critique` y `audit` previas y sigue aplicando aquí.
+
+---
+
+### 2026-08-16 — Quitar la línea conectora y centrar la flecha entre icono y número en "Operación"
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** design
+- **Qué se hizo:** tercer ajuste puntual sobre la misma sección "Operación", sin tocar el resto de
+  la landing: se quitó por completo el pseudo-elemento `.wayra-flow-step::before` (la línea de 1px
+  con degradado introducida en el cambio anterior para conectar cada icono con el siguiente número).
+  El glifo de flecha (`.wayra-flow-step::after`, solo `≥1024px`) se mantiene, pero ahora se posiciona
+  con `left: calc((var(--flow-head-width) + 100% + var(--flow-gap)) / 2)` — el punto medio exacto
+  entre el borde derecho del icono del paso actual y el borde izquierdo del número del siguiente
+  paso — más `transform: translate(-50%, -50%)` para centrar el propio glifo sobre ese punto en
+  ambos ejes. El resultado es una única flecha flotando centrada entre cada icono y el número
+  siguiente, sin línea que los una.
+- **Por qué:** el usuario pidió explícitamente borrar la línea del cambio anterior y, en su lugar,
+  centrar el icono de la flecha entre cada icono y número.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.css`,
+  `AGENTS.md`.
+- **Impacto:** Ninguno. Cambio puramente visual acotado a esta sección; no hay migraciones,
+  variables de entorno, cambios de API ni recursos RBAC nuevos. Verificado con `tsc --noEmit` (sin
+  errores) y capturas de pantalla reales (Playwright headless, dev server local) en 1024px, 1280px
+  y 1440px: la flecha queda centrada entre cada icono y el número siguiente, sin línea visible, y
+  sin overflow horizontal en ningún ancho probado.
+
+---
+
+### 2026-08-16 — Alargar el conector entre pasos y ampliar el espacio antes de la fila en "Operación"
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** design
+- **Qué se hizo:** segundo ajuste puntual sobre la misma sección "Operación", sin tocar el resto de
+  la landing:
+  - El margen superior de la fila de tres pasos (`<ol class="wayra-flow-steps">`) subió de
+    `mt-20 sm:mt-24 lg:mt-28` a `mt-24 sm:mt-28 lg:mt-32`, para separar más el párrafo introductorio
+    del bloque de número + icono de cada paso.
+  - El conector horizontal entre pasos (`≥1024px`) dejó de ser un único glifo de flecha centrado en
+    el angosto `column-gap` entre columnas (que quedaba flotando, sin tocar visualmente ni el icono
+    del paso anterior ni el número del siguiente) y pasó a ser una línea continua
+    (`.wayra-flow-step::before`, `height: 1px`, degradado sutil) que arranca justo después del icono
+    del paso actual y cruza todo el resto de la columna más el `column-gap`, terminando con la punta
+    de flecha (`.wayra-flow-step::after`, mismo glifo de antes) a un `1rem` del número del siguiente
+    paso. El punto de arranque usa una nueva variable `--flow-head-width: 7.5rem` (ancho aproximado
+    del bloque número + gap + icono) declarada en `.wayra-flow-step`; el punto de llegada usa
+    `right: calc(-1 * (var(--flow-gap) - 1rem))`, es decir, se ancla al borde derecho de la columna
+    actual y se proyecta hacia la siguiente sin necesidad de calcular anchos absolutos por paso. El
+    resultado se lee como una sola línea que va de número a número, no como una flecha suelta en el
+    espacio vacío entre columnas.
+- **Por qué:** el usuario pidió más aire entre los iconos/números y el párrafo de arriba, y que la
+  flecha entre pasos fuera más larga, de modo que conectara visualmente un número con el siguiente
+  en vez de quedar aislada en el hueco entre columnas.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`, `AGENTS.md`.
+- **Impacto:** Ninguno. Cambio puramente visual acotado a esta sección; no hay migraciones,
+  variables de entorno, cambios de API ni recursos RBAC nuevos. Verificado con `tsc --noEmit` (sin
+  errores) y capturas de pantalla reales (Playwright headless, dev server local) en 375px, 1024px,
+  1280px y 1440px: la línea conecta el icono de cada paso con el número del siguiente en desktop, el
+  flujo vertical de móvil queda intacto (la regla nueva solo aplica desde `1024px`), y no hay
+  overflow horizontal en ningún ancho probado.
+
+---
+
+### 2026-08-16 — Agrupar número + icono y ampliar espaciado vertical en "Operación"
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** design
+- **Qué se hizo:** ajuste puntual sobre la sección "Operación" (fondo oscuro, `id="producto"`,
+  encabezado "Del check-in al cierre de caja..."), sin tocar ninguna otra sección:
+  - `.wayra-flow-top` (la fila que contiene el número y el icono de cada paso) pasó de
+    `justify-content: space-between` a `justify-content: flex-start` con `gap: 0.85rem` (antes
+    `1rem`). Con `space-between`, en columnas anchas de escritorio el número quedaba pegado al
+    borde izquierdo y el icono al borde derecho de la columna, separados por decenas de píxeles de
+    aire — parecían dos elementos sueltos en vez de una sola unidad "número de paso + icono". Con
+    `flex-start` ambos quedan agrupados y pegados a la izquierda, leyéndose de inmediato como una
+    misma pieza (`01` + icono de calendario, `02` + icono de edificio, `03` + icono de billetera).
+  - Se aumentó el espacio vertical entre el título, el párrafo y la fila de pasos: el párrafo pasó
+    de `mt-4` a `mt-5 sm:mt-6`, y la fila de los tres pasos (`<ol class="wayra-flow-steps">`) pasó
+    de `mt-16 sm:mt-20 lg:mt-24` a `mt-20 sm:mt-24 lg:mt-28`.
+- **Por qué:** el usuario reportó, tras el rediseño anterior, que el número y el icono de cada paso
+  no se percibían como una sola unidad visual (quedaban en extremos opuestos de la fila) y que el
+  párrafo bajo el título seguía sintiéndose pegado a la fila de pasos.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`, `AGENTS.md`.
+- **Impacto:** Ninguno. Cambio puramente visual acotado a esta sección; no hay migraciones,
+  variables de entorno, cambios de API ni recursos RBAC nuevos. Verificado con `tsc --noEmit` (sin
+  errores) y capturas de pantalla reales (Playwright headless, dev server local) en 320px, 375px,
+  768px, 1024px, 1280px y 1440px: número e icono agrupados como una sola unidad en los tres pasos,
+  jerarquía título → párrafo → fila de pasos con más aire, conector entre pasos alineado, y sin
+  overflow horizontal en ningún ancho.
+
+---
+
+### 2026-08-16 — Rediseño de jerarquía y layout en "Operación" y "Evidencia de producto" (sin la skill `impeccable`)
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** design
+- **Qué se hizo:** nuevo rediseño acotado a las mismas dos secciones de la landing pública (`/`)
+  que las dos entradas anteriores, esta vez implementado directamente (sin invocar `impeccable` ni
+  ninguna skill, a pedido explícito del usuario), sin tocar el resto de la página:
+  - **Sección "Operación" (fondo oscuro, `id="producto"`)**: el número decorativo de cada paso dejó
+    de ser un elemento `position: absolute` superpuesto en la esquina (que quedaba parcialmente
+    tapado por el icono) y pasó a vivir en el flujo normal, en una fila propia (`.wayra-flow-top`,
+    `display: flex; justify-content: space-between`) junto al icono, ambos alineados y sin
+    solaparse. El número ahora se formatea con dos dígitos (`{{ i + 1 | number: '2.0-0' }}` → "01",
+    "02", "03") en vez de "1", "2", "3". El conector entre pasos (flecha) se reposicionó para
+    alinearse verticalmente con el centro de esa fila superior en vez de con el número; en
+    escritorio (`≥1024px`) su ancho ahora usa la misma variable CSS (`--flow-gap`) que el
+    `column-gap` del grid, así el conector siempre ocupa exactamente el espacio entre columnas sin
+    valores mágicos duplicados. Se aumentó el margen entre la intro y la fila de pasos
+    (`mt-16 sm:mt-20 lg:mt-24`, antes `mt-20 sm:mt-24`) para que la sección respire mejor a lo
+    ancho de las pantallas grandes.
+  - **Sección "Evidencia de producto" (fondo claro, "Lo que queda registrado en Wayra")**: el
+    problema principal no era el tamaño de la captura de producto en sí, sino que todo el bloque
+    (captura + los 4 puntos + la fila de confianza) vivía centrado en una columna angosta de
+    `max-width: 820px` dentro de un contenedor de hasta 1472px, dejando franjas enormes de espacio
+    en blanco a los lados. Se cambió `.wayra-proof-wrap` a un grid de 2 columnas en escritorio
+    (`≥1024px`, `minmax(0,1.55fr) minmax(0,1fr)`, ~58/42): la captura (`.wayra-proof-media`) ocupa
+    la columna izquierda a su ancho natural (ya no se le impone un `max-width` fijo) y los 4 puntos
+    (`.wayra-proof-panel` → `.wayra-proof-chain`) pasan de ser tarjetas pequeñas con borde propio a
+    una lista vertical sin chrome, con divisores sutiles (`border-top`) entre filas, icono más
+    grande (52px) y tipografía con más presencia — se siente como una lista asociada a la captura,
+    no como tarjetas sueltas. En `<1024px` (tablet y móvil) el grid cae a una sola columna:
+    captura arriba, lista debajo, sin recortes. La fila "Base operativa segura"
+    (`.wayra-proof-footer` → `.wayra-proof-trust`) dejó de ser una línea delgada de texto centrado
+    bajo un simple `border-top`, y pasó a ser un bloque diferenciado con borde, fondo `var(--surface)`
+    y radio 18px, con un icono (`pi-shield`) y la etiqueta en mayúsculas a la izquierda y los 5
+    checks en fila a la derecha (con `flex-wrap` para que se apilen solos en pantallas angostas, sin
+    media query dedicada). Se aumentó el padding vertical de la sección
+    (`py-20 sm:py-24 lg:py-28`, antes `py-16 sm:py-20`) para que el bloque use mejor el alto
+    disponible.
+- **Por qué:** el usuario reportó que, pese a los ajustes previos, el contenido seguía sintiéndose
+  pequeño dentro de espacios muy grandes en ambas secciones: los números de los pasos quedaban mal
+  posicionados/escondidos detrás de los iconos, y en la sección de evidencia la captura y las 4
+  tarjetas quedaban comprimidas en una franja angosta central con demasiado espacio muerto alrededor,
+  mientras "Base operativa segura" se sentía como un footer accidental. Pidió explícitamente no usar
+  la skill `impeccable` esta vez y trabajar directamente sobre el HTML/CSS existente.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`, `AGENTS.md`.
+- **Impacto:** Ninguno. Cambio puramente visual/estructural en la landing pública; no hay
+  migraciones, variables de entorno, cambios de API ni recursos RBAC nuevos. Verificado con
+  `tsc --noEmit` (sin errores), `ng build` de producción completo, y capturas de pantalla reales
+  (Playwright headless, dev server local) en 320px, 375px, 390px, 768px, 1024px, 1280px, 1440px y
+  1920px: sin overflow horizontal en ningún ancho, números "01/02/03" visibles y sin solaparse con
+  los iconos, conector alineado en desktop y mobile, captura de producto con protagonismo junto a
+  la lista de 4 puntos en desktop y apilada arriba en mobile/tablet, y "Base operativa segura"
+  renderizando como panel diferenciado (borde y fondo sutiles, visibles al hacer zoom sobre la
+  captura) en todos los anchos probados.
+
+---
+
+### 2026-08-16 — Refinamiento de espaciado y jerarquía en "Operación" y "Evidencia de producto"
+
+- **Autor:** Claude Code (skill `impeccable`), a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** design
+- **Qué se hizo:** refinamiento visual acotado a las dos secciones de la landing pública (`/`)
+  descritas en la entrada anterior, sin tocar el resto de la página:
+  - **Sección "Operación" (fondo oscuro, `id="producto"`)**: se aumentó el padding vertical de la
+    sección (de `py-20 sm:py-28` a `pt-28 pb-20 sm:pt-36 sm:pb-28`, con más énfasis en el top) y el
+    margen entre el bloque de intro y la fila de pasos (de `mt-16` a `mt-20 sm:mt-24`). El número
+    decorativo de cada paso (antes en línea junto al icono, dentro de `.wayra-flow-head`, compitiendo
+    por espacio horizontal) se sacó del `head` y se reposicionó con `position: absolute` en la
+    esquina superior derecha de cada `<li>` (más grande, 4.5rem, opacidad reducida a modo de
+    marca de agua), dejando el icono como único elemento en el flujo normal del `head`. Esto evita
+    que el número se vea apretado o tapado por el icono. Se recalculó el offset horizontal del
+    conector (flecha) móvil (de `left: 66px` a `left: 28px`) para que siga alineado al nuevo icono,
+    que ahora empieza en el borde izquierdo del `<li>`.
+  - **Sección "Evidencia de producto" (fondo claro, "Lo que queda registrado en Wayra")**: se quitó
+    el borde/fondo/sombra compartidos que envolvían a la vez la captura, los 4 bloques y la fila de
+    confianza (`.wayra-proof-panel` → renombrada a `.wayra-proof-wrap`, ahora sin chrome propio,
+    solo layout). La captura de producto (`.wayra-proof-hero`) redujo su ancho máximo en escritorio
+    de 900px a 820px para cederle protagonismo a los 4 bloques. Los 4 bloques (Reserva, Habitación,
+    Caja, Gerencia), antes una lista con borde superior/izquierdo fino y sin icono, pasaron a ser
+    tarjetas individuales (`.wayra-proof-chain li`: borde, radio 16px, fondo `var(--surface)`) con
+    un icono propio arriba (`.wayra-proof-icon`, mismo tratamiento visual que `.wayra-simple-point`
+    de la sección "Problema") y la etiqueta en `.wayra-proof-label`. Se agregó el campo `icon` a la
+    interfaz `ProofItem` y a los 4 registros de `proofItems` en `landing.ts` (`pi-calendar-plus`,
+    `pi-home`, `pi-wallet`, `pi-chart-line`). El grid pasa de apilado (móvil) a 2×2 (`sm:`, ≥640px,
+    breakpoint nuevo) a 4 columnas (`lg:`, ≥1024px). La fila de confianza "Base operativa segura" se
+    centró y su etiqueta pasó a mayúsculas con tracking, para diferenciarla visualmente de las
+    tarjetas de arriba.
+- **Por qué:** el usuario reportó que la sección de pasos operativos se sentía apretada arriba y que
+  los números grandes quedaban tapados/cortados por los iconos, y que la sección de evidencia se
+  veía desbalanceada porque la captura dominaba visualmente sobre los 4 bloques que explican qué
+  centraliza Wayra.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`,
+  `frontend/src/app/components/pages/landing/landing.ts`.
+- **Impacto:** Ninguno. Cambio puramente visual/estructural en la landing pública; no hay
+  migraciones, variables de entorno, cambios de API ni recursos RBAC nuevos. Verificado en
+  navegador (Playwright headless) en anchos de escritorio (1440px), tablet (800px) y móvil (390px);
+  el detector mecánico de `impeccable` corrió en modo degradado (sin parser HTML disponible) y no
+  arrojó hallazgos.
+
+---
+
+### 2026-08-16 - Division en dos secciones: flujo operativo y evidencia de producto
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** design
+- **Que se hizo:** a pedido explicito del usuario, se dividio la seccion "Operacion" (rediseñada
+  en el paso anterior) en dos secciones `<section>` independientes en `/`, sin tocar ninguna otra
+  parte de la landing:
+  - **Seccion 1 (fondo oscuro, `id="producto"` sin cambios)**: se quito por completo el panel de
+    producto (`landing-5.png`, la cadena Reserva/Habitación/Caja/Gerencia, "Base operativa
+    segura"); ahora solo contiene el encabezado+parrafo y los 3 pasos operativos. Se aumento la
+    jerarquia visual de cada paso: el icono paso de 48px a 56px y se agrego un numero grande (2.75rem,
+    tipografia Sora, blanco al 18% de opacidad) al lado del icono en vez del badge pequeño
+    superpuesto de la version anterior -- mas legible y mas simple de posicionar. Los titulos
+    subieron de `text-lg` a `text-xl`/`sm:text-2xl`. Las descripciones de cada paso se acortaron
+    aun mas (de una oracion con dos clausulas a una sola clausula concisa, ejemplo: "Recepción
+    confirma reserva, huésped y horario en un mismo registro."), sin agregar ningun dato nuevo.
+    El conector entre pasos (flecha abajo en movil/tablet, flecha derecha en desktop) se mantuvo,
+    recalculando su posicion para el nuevo tamaño de icono.
+  - **Seccion 2 (nueva, fondo claro `bg-white`)**: seccion nueva inmediatamente despues, con la
+    misma anatomia de intro centrada que ya usan "Publico" y "FAQ" (encabezado + una oracion de
+    apoyo nueva: "Reservas, habitaciones, pagos y actividad operativa quedan conectados en un
+    mismo lugar."). El encabezado "Lo que queda registrado en Wayra" paso de ser un `<h3>` dentro
+    del panel a ser el `<h2>` propio de la seccion. Debajo, el mismo panel de producto de antes
+    (captura real `landing-5.png` grande y prominente, cadena Reserva/Habitación/Caja/Gerencia,
+    fila compacta de "Base operativa segura") ahora vive solo en esta seccion clara. Como el
+    panel paso de flotar sobre un fondo oscuro a vivir dentro de una seccion ya blanca, se cambio
+    su fondo de `var(--card)` (blanco puro, se habria confundido con el fondo de la seccion) a
+    `var(--surface)` -- el mismo token que ya usa `.wayra-image-card` para tarjetas sobre fondo
+    blanco en el resto de la pagina, no un valor nuevo.
+  - Limpieza: se elimino la regla `.wayra-operation-section .wayra-proof-panel p` (quedo huerfana
+    al mover el panel fuera de la seccion oscura) y los `!important` que solo existian para ganarle
+    a esa regla en `.wayra-proof-caption`, `.wayra-proof-chain p` y `.wayra-proof-footer li`.
+- **Por que:** el usuario pidio explicitamente que el flujo operativo (como progresa la operacion)
+  y la evidencia de producto (que queda centralizado en Wayra) se sintieran como dos mensajes
+  visualmente independientes, con una seccion clara despues de la oscura como separacion fuerte,
+  en vez de convivir dentro de una sola seccion como en el paso anterior.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.ts`,
+  `frontend/src/app/components/pages/landing/landing.css`, `AGENTS.md`.
+- **Impacto:** solo esta parte de la landing publica; sin migraciones, variables nuevas, cambios
+  de API ni recursos RBAC. Verificado con `tsc --noEmit`, el detector de Impeccable (cero
+  hallazgos) y un build de produccion completo, confirmando en el bundle final las dos secciones,
+  el nuevo copy de apoyo y el token `--surface` en el panel. **Sin acceso a navegador en esta
+  sesion**, sigue sin verificarse visualmente el resultado renderizado (el contraste real entre
+  las dos secciones, la posicion exacta del conector junto al numero grande, la densidad final
+  del panel claro) -- documentado aqui para revision en pantalla antes de darlo por definitivo.
+
+---
+
+### 2026-08-16 - Rediseno de la seccion "Del check-in al cierre de caja"
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** design
+- **Que se hizo:** a pedido explicito y detallado del usuario, se rediseño solo la seccion
+  "Operacion" (`id="producto"`, encabezado "Del check-in al cierre de caja...") de `/`, sin tocar
+  ninguna otra seccion, marca, color, tipografia ni tono de copy:
+  - Se elimino la imagen grande de portada (`landing-3.png`) y su bloque de 2 columnas; el
+    encabezado+parrafo ahora es una intro centrada (mismo patron ya usado en "Publico"/"FAQ").
+    Como la imagen quedo sin ninguna referencia en el proyecto, se borraron tambien
+    `landing-3.png`, `landing-3.webp` y `landing-3-960w.webp` de `frontend/public/landing/`.
+  - `turnMoments` ("Antes del check-in", "Durante la estadía", "Al cierre de caja") se convirtio
+    en un flujo de 3 pasos numerados (numero + icono + titulo + una sola explicacion). Se
+    eliminaron las etiquetas de "evidencia" (`Reserva`/`Huéspedes`/`Abonos`, etc.) y la linea de
+    "resultado" separada; su contenido se fusiono en una sola oracion concisa por paso (nueva
+    propiedad `summary` en `TurnMoment`, reemplazando `description`+`evidence`+`outcome`) sin
+    agregar ningun dato nuevo. Tambien se quito el fondo de tarjeta individual de cada paso
+    (bordes + relleno) para evitar tarjetas anidadas, dejando solo el numero+icono+texto sobre el
+    fondo de la seccion. En escritorio (1024px+) los 3 pasos se conectan en fila con una flecha
+    (`pi-arrow-right`) entre cada par; en movil y tablet se apilan verticalmente conectados por
+    una flecha hacia abajo (`pi-arrow-down`) -- mismo umbral de 1024px ya usado hoy para este
+    tipo de contenido, para no repetir el aprieto de tablet-portrait que se corrigio en el pase de
+    adapt de esta tarde.
+  - El panel de prueba ("Lo que queda registrado en Wayra") se simplifico de una grilla de 3
+    columnas (imagen 380px + lista + aside separado) a un panel de una sola columna donde la
+    captura real de producto (`landing-5.png`, la misma imagen ya aprobada, sin cambiar el
+    archivo) lidera a ancho casi completo (hasta 900px en desktop). Reserva/Habitación/Caja/
+    Gerencia pasaron de una lista vertical con borde inferior por item a una fila conectada por
+    divisores (borde superior apilado en movil, bordes laterales en fila de 4 columnas en
+    desktop) para que se lean como una jerarquia conectada, no una lista suelta.
+  - "Base operativa segura" dejo de ser un aside grande con encabezado propio, parrafo y lista
+    vertical de 5 items; ahora es una etiqueta pequeña + fila compacta de tags con check dentro
+    del mismo panel del producto, no un bloque separado.
+  - Limpieza de CSS: se eliminaron por completo las clases que quedaron sin ningun uso
+    (`.wayra-turn-flow`, `.wayra-turn-icon`, `.wayra-turn-evidence`, `.wayra-turn-body strong`,
+    `.wayra-proof-list`, `.wayra-proof-trust` y sus variantes, `.wayra-trust-list` y sus
+    variantes) en vez de dejarlas huerfanas.
+- **Por que:** el usuario aporto un brief detallado pidiendo simplificar esta seccion especifica,
+  quitar la imagen de portada generica, convertir los 3 momentos en un flujo conectado, reducir
+  pildoras/badges/tarjetas anidadas, y hacer del panel de producto la prueba visual principal con
+  "Base operativa segura" integrada como fila compacta -- sin rediseñar el resto de la landing ni
+  cambiar marca/colores/tipografia/copy.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.ts`,
+  `frontend/src/app/components/pages/landing/landing.css`,
+  `frontend/public/landing/landing-3.png` (eliminado), `AGENTS.md`.
+- **Impacto:** solo la seccion "Operacion" de la landing publica; sin migraciones, variables
+  nuevas, cambios de API ni recursos RBAC. Verificado con `tsc --noEmit`, el detector de
+  Impeccable (cero hallazgos) y un build de produccion completo, confirmando en el bundle final
+  que las reglas de conexion (flecha abajo en movil/tablet, flecha derecha en desktop) y la
+  grilla de 4 columnas del panel de prueba compilaron correctamente, y que `landing-3` ya no
+  aparece en ningun bundle. **Sin acceso a navegador en esta sesion**, no se pudo verificar
+  visualmente el resultado renderizado (proporciones exactas del conector, alineacion optica del
+  numero sobre el icono, densidad final del panel) -- se documenta aqui explicitamente para que
+  se revise en pantalla antes de darlo por definitivo.
+
+---
+
+### 2026-08-16 - Identidad hotelera en el hero de la landing (reemplazo de la grilla generica)
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** design
+- **Que se hizo:** a pedido explicito del usuario, se reemplazo el fondo decorativo del hero
+  (`.wayra-hero::before`), la grilla de lineas uniformes de 56x56px que tanto la critica como el
+  detector de Impeccable venian marcando como un patron generico de SaaS ("recurring generated-UI
+  signature"), por dos elementos conectados a la operacion hotelera, sin tocar nada mas de la
+  seccion ni de la pagina:
+  - Las lineas de la grilla se reemplazaron por un patron de particiones asimetricas (ancho de
+    "habitaciones" desigual: 42/35/52px en vez de una celda uniforme) mas una linea horizontal
+    mas espaciada representando un "pasillo" -- un plano de planta abstracto, no una grilla de
+    papel cuadriculado. Esto tambien cumple la regla propia del detector de Impeccable para fondos
+    de grilla: necesitan un plano, mapa o instrumento de medicion real detras, no una grilla suelta.
+  - Se agrego un `::after` con un unico glifo `pi-key` (ya parte de PrimeIcons, la libreria de
+    iconos que la pagina usa en otros 21 lugares) a escala muy grande (26rem), rotado y con
+    opacidad muy baja (5%), como marca de agua ambiental en la esquina inferior izquierda del
+    hero -- una senal de hospitalidad inequivoca (una llave = una habitacion) que no depende de
+    que el visitante interprete correctamente un patron abstracto de lineas.
+  - No se toco ningun color nuevo (solo `var(--ink-foreground)` y el mismo `rgba(255,255,255,α)`
+    que ya usaba la grilla original), ninguna fuente nueva, ninguna copia, la jerarquia de los CTA
+    ("Solicitar demo para mi hotel" / "Ver cómo funciona"), ni el mockup de producto
+    (`.wayra-product-hero`) -- exactamente el alcance que pidio el usuario. El resplandor radial
+    azul existente (`--primary` al 22%) tambien se dejo sin tocar: no era el patron senalado por
+    la critica ni por el detector, y el usuario pidio preservar la paleta.
+- **Por que:** la critica y la auditoria de Impeccable de esta tarde habian senalado
+  repetidamente este mismo hallazgo (verdicto de especificidad de diseño: "el copy es especifico
+  del hotel, el fondo visual no") sin actuar sobre el, remitiendolo siempre a una decision de
+  diseno deliberada. El usuario pidio resolverlo directamente, con restricciones explicitas de
+  alcance (paleta, tipografia, copy, jerarquia de CTA y screenshot intactos; solo el hero; sin
+  rediseñar el resto).
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.css`,
+  `AGENTS.md`.
+- **Impacto:** solo el fondo decorativo del hero de la landing publica; sin migraciones,
+  variables nuevas, cambios de API ni recursos RBAC. Verificado con `tsc --noEmit`, el detector de
+  Impeccable (el hallazgo `codex-grid-background` que senalaba la grilla generica ya no aparece,
+  cero hallazgos en total) y un build de produccion completo, confirmando byte a byte en el bundle
+  final que el patron de particiones y el glifo de llave (codepoint `\e981`, el mismo que usa
+  `pi-key` en el resto de la aplicacion) llegaron intactos. Sin acceso a navegador en esta sesion,
+  no se pudo verificar visualmente el resultado renderizado; el razonamiento de opacidad,
+  contraste y posicionamiento (con `overflow: hidden` en `.wayra-hero` como red de seguridad
+  contra cualquier desbordamiento) esta documentado arriba para que se revise visualmente antes de
+  darlo por definitivo.
+
+---
+
+### 2026-08-16 - Polish: tokens de color faltantes en la landing
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix, polish
+- **Que se hizo:** `$impeccable polish` sobre `/`, dirigido al unico item de deriva de diseño que
+  cada pasada de hoy (audit, harden, optimize, layout, typeset, adapt) veniá senalando y
+  deliberadamente dejando para esta. Se agregaron 5 tokens nuevos al bloque `:root`-equivalente de
+  `landing.css` (`--border-hover`, `--secondary-hover`, `--input-hover`, `--disabled-surface`,
+  `--disabled-foreground`) y se reemplazaron los 16 valores hex sueltos que quedaban fuera del
+  sistema de tokens: los que coincidian con un token ya existente en significado (`#ffffff` en
+  variantes de "texto/fondo sobre --ink" -> `var(--ink-foreground)`, o "superficie clara" ->
+  `var(--card)`, o "contenido sobre --primary" -> `var(--primary-foreground)`) se reescribieron
+  con ese token; los que formaban un rol reconocible pero sin token (bordes en hover, superficie
+  deshabilitada) recibieron uno de los 5 tokens nuevos; y se corrigio el rojo de error duplicado
+  (`.field-error` usaba `#b91c1c` en vez de `var(--danger)` `#dc2626`, dos rojos distintos para el
+  mismo significado). Se dejo sin tocar, a proposito, el unico valor verdaderamente unico de la
+  pagina: el `#0e1626` de `.wayra-product-hero`, un tono deliberadamente mas oscuro que `--ink`
+  para dar profundidad al marco del mockup de producto -- promoverlo a token seria inventar una
+  abstraccion para un solo uso, exactamente lo que la guia de polish pide evitar.
+- **Por que:** era el unico hallazgo que sobrevivio sin resolver a los seis comandos de Impeccable
+  corridos hoy sobre esta pagina (todos lo señalaron y lo remitieron aqui explicitamente); cerrarlo
+  no cambia ningun pixel renderizado (todos los valores de reemplazo son identicos byte a byte a
+  los que reemplazan), solo elimina la duplicidad para que un cambio de marca futuro no tenga que
+  encontrar y actualizar 16 lugares sueltos.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.css`,
+  `AGENTS.md`.
+- **Impacto:** solo landing publica; sin cambios visuales (mismos valores, ahora nombrados); sin
+  migraciones, variables nuevas de entorno, cambios de API ni recursos RBAC. Verificado con
+  `tsc --noEmit`, el detector de Impeccable (mismo unico hallazgo advisory de siempre, sin
+  cambios) y un build de produccion completo.
+
+---
+
+### 2026-08-16 - Adaptacion movil/tablet: hover atascado en touch y turno operativo en tablet
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Que se hizo:** pasada de `$impeccable adapt` sobre `/`, con alcance explicito a movil y
+  tablet:
+  - **15 reglas `:hover` sin ninguna guarda de input.** `landing.css` tenia 15 bloques de estilos
+    `:hover` (elevacion de tarjetas, zoom de imagenes, cambios de color/fondo en botones y
+    enlaces) sin `@media (hover: hover)`. En iOS/iPadOS Safari, un toque puede dejar esos estilos
+    "atascados" hasta el siguiente toque en otro lugar, porque WebKit simula el hover en el primer
+    tap sobre pantallas tactiles. Se extrajeron los 15 bloques a un unico
+    `@media (hover: hover) and (pointer: fine)` consolidado (seccion nueva al final de
+    `landing.css`, junto a los demas breakpoints), preservando con cuidado los casos donde un
+    selector de hover venia mezclado con un estado que debe seguir siendo incondicional: el menu
+    de accesos para huespedes abierto (`[open]`), el foco de teclado en el menu movil
+    (`:focus-visible`) y el item de FAQ abierto (`[open]`) se separaron para que sigan
+    funcionando igual sin importar el dispositivo.
+  - **El flujo de "turno operativo" (3 pasos) saltaba a 3 columnas en el primer breakpoint de
+    tablet (768px), no en desktop.** Con contenido real (icono + titulo + descripcion + 3
+    etiquetas de evidencia + resultado) cada columna quedaba en apenas ~230px en un iPad en
+    vertical -- justo el rango que la guia de adaptacion pide resolver con menos columnas, no
+    mas, en tablet. Se movio la regla `grid-template-columns: repeat(3, ...)` del breakpoint de
+    768px al de 1024px, de modo que tablet en vertical (768-1023px, todos los modelos de iPad
+    caen ahi) reciba el flujo apilado en una columna, con espacio real para el contenido, y solo
+    tablet en horizontal / desktop (1024px+, donde ya caen todos los iPads en horizontal) reciba
+    las 3 columnas lado a lado -- el comportamiento "adaptativo por orientacion" que la guia pide
+    para tablets.
+  - Se revisaron y descartaron, con evidencia, otros dos puntos de la lista de verificacion:
+    `env(safe-area-inset-*)`/`viewport-fit=cover` (el sitio no intenta contenido a sangre completa
+    cerca de los bordes, asi que agregarlo resolveria un problema que no existe hoy) y orientacion
+    horizontal en telefono (sin señal concreta de ruptura en el codigo). Los tamaños de objetivo
+    tactil ya se habian verificado y corregido en la auditoria y en la pasada de layout de esta
+    misma tarde.
+- **Por que:** el usuario pidio explicitamente `$impeccable adapt` con alcance a movil y tablet;
+  la propia guia de Impeccable para este comando nombra el patron de hover atascado en touch como
+  algo "critico" y pide breakpoints de contenido en vez de saltar directo de movil a desktop.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.css`,
+  `AGENTS.md`.
+- **Impacto:** solo landing publica; sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC. Verificado con `tsc --noEmit`, el detector de Impeccable (sin hallazgos nuevos) y un build
+  de produccion completo, confirmando en el bundle final que los 15 estilos de hover quedaron
+  dentro de `@media (hover: hover) and (pointer: fine)`, que los 3 estados que debian seguir
+  siendo incondicionales (`[open]` x2, `:focus-visible`) sobrevivieron la separacion intactos, y
+  que la regla de 3 columnas del turno operativo quedo dentro de `@media (min-width: 1024px)` y
+  ya no en el de 768px.
+
+---
+
+### 2026-08-16 - Entrega real de las tipografias de marca (Manrope y Sora)
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Que se hizo:** hallazgo original de la auditoria de esta misma tarde, deliberadamente
+  diferido a `$impeccable typeset`: `landing.css` (y las hojas de estilo de
+  `hoteles-aliados`, `reservar` y `check-in-online`) declaran `font-family: 'Manrope', ...` y
+  `'Sora', ...` para todo el texto y los encabezados, pero el proyecto nunca cargaba esas
+  fuentes -- sin `@font-face`, ningun link a Google Fonts y ningun archivo local, el navegador
+  caia en silencio al *fallback* del sistema (`Segoe UI`/sans-serif) en las 4 paginas publicas,
+  siempre, sin que nadie lo notara. Se autohospedaron ambas familias como fuentes variables
+  (`font-weight: 200 800` Manrope, `100 800` Sora -- se verifico que cubren exactamente el rango
+  650-900 que el propio CSS ya usaba en `font-weight` sueltos, evidencia de que las fuentes
+  variables eran la entrega originalmente prevista) en subconjuntos latin + latin-ext (suficiente
+  para español), descargadas de Google Fonts (`fonts.gstatic.com`) como 4 archivos `.woff2` en
+  `frontend/public/fonts/` (~89 KB combinados) y declaradas con `@font-face`/`font-display: swap`
+  en `frontend/src/styles.css` (hoja global: un `@font-face` no tiene selector que Angular pueda
+  encapsular por componente, asi que su lugar correcto es el global; se confirmo antes que
+  ninguna clase del dashboard interno referencia 'Manrope'/'Sora', por lo que esto no cambia nada
+  fuera de las 4 paginas publicas). Verificado con un build de produccion real
+  (`ng build --configuration production`): los 4 `.woff2` llegan a `dist/frontend/browser/fonts/`
+  y las 4 URLs aparecen correctamente en el CSS minificado.
+  - De paso, dos parrafos de prosa sin limite de medida (el de "Problema" y el de "Operación",
+    ninguno tenia `max-w-*`, a diferencia del parrafo del hero que si lo tiene) podian superar
+    las 100 caracteres por linea en anchos de tablet/desktop sin breakpoint de columnas; se les
+    agrego `max-w-[65ch]`. Se aplico el mismo limite (`max-width: 65ch`) a las respuestas del
+    FAQ, que tampoco tenian ninguno y llegaban a rondar 108 caracteres por linea en desktop.
+- **Por que:** es el hallazgo de "Delivery" mas señalado de la sesion: la propia hoja de estilos
+  ya declaraba una identidad tipografica especifica (dos familias con nombre, no un generico
+  `sans-serif`), asi que renderizar por fin esas fuentes es continuar una decision ya tomada, no
+  reemplazar una identidad -- corresponde a `$impeccable typeset` en modo "mejorar el uso de lo
+  ya establecido", no a `new-work`.
+- **Archivos/areas afectadas:** `frontend/src/styles.css`,
+  `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`, `frontend/public/fonts/*.woff2`
+  (4 archivos nuevos), `AGENTS.md`.
+- **Impacto:** activa Manrope/Sora en las 4 paginas publicas (landing, hoteles-aliados, reservar,
+  check-in-online), no solo en `/`; no toca ninguna pantalla del dashboard interno. Sin
+  migraciones, variables nuevas, cambios de API ni recursos RBAC. Verificado con `tsc --noEmit`,
+  el detector de Impeccable (`--scope type`, sin hallazgos) y un build de produccion completo.
+
+---
+
+### 2026-08-16 - Correcciones estructurales de layout en la landing
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix, a11y
+- **Que se hizo:** pasada de `$impeccable layout` sobre `/`, con una evaluacion estructural
+  aislada delegada a un sub-agente (sin ver el scan mecanico) y `detect.mjs --scope layout` como
+  segunda pasada independiente, sintetizadas y verificadas contra el codigo real antes de tocar
+  nada:
+  - **Bug de scroll con doble offset.** El ancla `#operacion` (`landing.html`, dentro de la
+    seccion "Operacion") tenia `class="wayra-section-anchor"` con `position: relative; top:
+    -88px` en CSS para simular el offset del header. Pero `scrollToSection()`
+    (`landing.ts:635-686`) ya calcula su propio offset con
+    `getBoundingClientRect().top + scrollY - headerOffset - 12`, y `getBoundingClientRect` ya
+    refleja el corrimiento CSS -- el offset del header se aplicaba dos veces. Cualquier clic en
+    "Como funciona" (nav del header o boton secundario del hero) sobrescrolleaba ~150-170px de
+    mas, aterrizando dentro del encabezado/imagen en vez de en el bloque de "turno operativo". Se
+    elimino el hack de CSS; el calculo de `scrollToSection` (y `scrollToCurrentHash`) queda como
+    unica fuente de verdad del offset.
+  - **Tarjetas de "Para quien" sin division visible.** El contenedor de las 4 tarjetas de
+    audiencia usaba `bg-slate-200` como fondo para simular lineas divisorias entre tarjetas (un
+    patron comun de Tailwind), pero le faltaba `gap-px`: sin espacio entre tarjetas el fondo
+    nunca se asomaba, asi que las 4 tarjetas quedaban visualmente pegadas sin ninguna separacion
+    hasta el hover. Se agrego `gap-px` al contenedor.
+  - **Orden DOM/visual invertido en la seccion "Problema".** `.wayra-problem-section` usaba
+    `order: 1` / `order: 2` en CSS (declarado sin media query, o sea aplicado en todos los
+    anchos, mas una segunda declaracion identica y redundante dentro de `@media
+    (min-width:1024px)`) para que el texto se leyera visualmente antes que la imagen, pero el DOM
+    seguia siendo `<figure>` (imagen) antes que `<article>` (texto). Un lector de pantalla o
+    usuario de teclado llegaba primero a la imagen (con su alt text largo) en cualquier ancho de
+    pantalla, no solo en desktop. Se invirtio el orden real en el HTML (`<article>` antes que
+    `<figure>`) y se eliminaron ambas reglas `order` en CSS, ya innecesarias.
+  - **Ritmo de espaciado plano entre secciones de contenido muy distinto.** Las 4 secciones
+    posteriores al hero (Problema, Operacion, Publico, FAQ) usaban el mismo `py-16 sm:py-20` sin
+    importar que Operacion concentra muchisimo mas contenido (encabezado+imagen, un flujo de 3
+    pasos con evidencia y resultado cada uno, mas un panel de prueba de 3 partes) que, por
+    ejemplo, Publico (una intro y 4 tarjetas cortas). Se le dio a Operacion mas aire
+    (`py-20 sm:py-28`) y se separo mas su bloque de "turno operativo" del panel de prueba
+    (`mt-12` -> `mt-16`) para diferenciar el ritmo macro de las demas secciones.
+  - **Enlaces del footer con objetivo de toque chico.** Los enlaces de navegacion del footer
+    usaban `min-h-9` (36px) mientras el resto de la pagina usa 40-46px como minimo (menu movil,
+    menu de accesos para huespedes). Se subio a `min-h-11` (44px) para igualar el resto de la
+    pagina en la ultima superficie de conversion antes de salir del sitio.
+- **Por que:** el objetivo era resolver problemas estructurales reales (jerarquia de lectura,
+  agrupacion, ritmo, orden DOM/visual), no solo estetica. Cada hallazgo se verifico linea por
+  linea contra el codigo actual antes de aplicarse; ninguno se acepto solo porque lo dijo el
+  sub-agente.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`, `AGENTS.md`.
+- **Impacto:** solo landing publica; sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC. Verificado con `tsc --noEmit` (sin errores) y con el detector de Impeccable en modo
+  `--scope layout` (sin hallazgos) y en modo completo (sin hallazgos nuevos frente a la pasada
+  anterior).
+
+---
+
+### 2026-08-16 - Claridad de copy en la landing (CTA, confirmacion, FAQ, campos opcionales)
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix, copy
+- **Que se hizo:** pasada de `$impeccable clarify` sobre `/`, leyendo el flujo completo (no strings
+  sueltos) para encontrar donde el texto prometia algo distinto de lo que el propio sitio ya
+  explicaba en otro lado:
+  - El CTA "Ver demo para mi hotel" aparecia en 6 lugares (header, menu movil, hero, CTA final,
+    footer) prometiendo ver una demo de inmediato, cuando en realidad abre un formulario de 4
+    pasos y el propio modal ("Primero coordinamos contigo...") y la FAQ ("Solicitas una demo...
+    el equipo se comunica contigo para coordinar el acceso") ya describian el flujo real como una
+    solicitud con seguimiento posterior. Se cambio a "Solicitar demo para mi hotel" en los 6
+    lugares para que la etiqueta describa lo que realmente pasa al hacer clic.
+  - La pantalla de confirmacion ("Recibimos la información de {hotel} y del contacto de demo del
+    hotel. El equipo de Wayra revisará los datos para coordinar la demostración.") tenia una
+    redaccion confusa y usaba una terminologia distinta a la de la FAQ para describir el mismo
+    paso siguiente; se reescribio para que confirme el hecho (solicitud recibida) y el proximo
+    paso (el equipo se pondra en contacto) con el mismo lenguaje que ya usa la FAQ.
+  - La respuesta de la FAQ "¿Qué puedo gestionar desde Wayra?" era una sola oracion con 11
+    sustantivos en una lista plana; se reagrupo en 4 bloques tematicos (reservas/huespedes,
+    pagos/facturas, inventario/limpieza/mantenimiento, reportes) para que se pueda escanear.
+  - Se corrigieron dos erratas de tilde en copy visible: "Gestion hotelera SaaS" -> "Gestión
+    hotelera SaaS" (footer) y "Proceso o modulo..." -> "Proceso o módulo..." (placeholder del
+    campo de comentarios).
+  - Los 3 campos realmente opcionales del formulario (sitio web, usuario de prueba, comentarios)
+    no indicaban su condicion de forma consistente: el campo de usuario decia "Opcional" solo en
+    el placeholder (que no es una etiqueta persistente) y los otros dos no decian nada. Se movio
+    "(opcional)" a la etiqueta visible de los 3 campos y se dejo el placeholder del campo de
+    usuario solo con el ejemplo/razon de uso.
+  - Se reviso tambien el copy de reintentar que se agrego en el hardening de esta misma tarde: el
+    error de cargos tenia el boton "reintentar" en minuscula encadenado dentro de la oracion,
+    mientras que el error de ubicacion usaba un boton "Reintentar" en mayuscula separado. Se
+    unifico al patron de boton "Reintentar" independiente en ambos casos.
+- **Por que:** la critica y la auditoria de Impeccable de hoy ya habian marcado el desajuste entre
+  el CTA "Ver demo" y el formulario real de 15 campos como el hallazgo P1 mas importante de toda
+  la landing, y ambas sugerian `$impeccable clarify` como el comando indicado para resolverlo.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.ts`, `AGENTS.md`.
+- **Impacto:** solo copy de landing publica; sin migraciones, variables nuevas, cambios de API ni
+  recursos RBAC. Verificado con `tsc --noEmit` (sin errores), con el detector de Impeccable (sin
+  hallazgos nuevos) y con un grep dirigido para confirmar que no quedan mas instancias de "Ver
+  demo" ni otras erratas de tilde del mismo patron en el archivo.
+
+---
+
+### 2026-08-16 - Optimizacion de imagenes y layout-thrash en la landing
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix, perf
+- **Que se hizo:** el mayor cuello de botella medido en `/` eran las 4 imagenes de producto
+  (`landing-1/2/3/5.png`, todas 1672x941): 6.49 MB en PNG sin comprimir, servidas sin ancho/alto
+  (causando CLS) y sin ninguna variante responsiva. Se generaron versiones WebP en dos niveles
+  (960w y resolucion nativa 1672w, calidad 82) con Python/Pillow -- la unica herramienta de
+  conversion de imagenes disponible en esta maquina (no hay cwebp/magick/ffmpeg/sharp instalados) --
+  quedando en 0.35 MB combinadas en el nivel 1672w (-94.6%) y aun menos en el nivel 960w. Se
+  envolvio cada `<img>` en `<picture>` con `<source type="image/webp" srcset="... 960w, ... 1672w">`
+  y se dejo el PNG original como fallback de `<img>` (con `width`/`height` reales para reservar el
+  espacio y evitar el layout shift). La imagen del hero (LCP de la pagina) ademas recibio
+  `fetchpriority="high"`. Se corrigio tambien el layout-thrash que el detector de Impeccable venia
+  marcando en `.wayra-demo-progress-bar` (`transition: width` en `landing.css:731`): se cambio a
+  `transform: scaleX()` con `transform-origin: left`, actualizando el binding en `landing.html` de
+  `[style.width.%]` a `[style.transform]`.
+- **Por que:** la auditoria tecnica de Impeccable sobre `/` (13/20) ya habia marcado el
+  layout-thrash del detector y la falta de dimensiones en las imagenes como hallazgos P2/P3, pero
+  al pedir `$impeccable optimize` se midio el peso real de los archivos de imagen (no solo se leyo
+  el markup) y resulto ser, por lejos, el cuello de botella mas grande de la pagina -- muy por
+  encima del hallazgo de CSS que ya se conocia.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`, `frontend/public/landing/*.webp`
+  (8 archivos nuevos), `AGENTS.md`.
+- **Impacto:** solo landing publica; sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC. Verificado con `tsc --noEmit` (sin errores) y con el detector de Impeccable (el hallazgo
+  `layout-transition` ya no aparece). Nota para una futura pasada: esta es una SPA sin SSR/prerender
+  (`@angular/build:application` sin `server`/`prerender` en `angular.json`), asi que ninguna imagen
+  puede empezar a descargarse hasta que el bundle de Angular termine de arrancar; eso es un techo
+  de LCP mas grande que el peso de las imagenes, pero migrar a SSR es un cambio de arquitectura que
+  requiere aprobacion explicita (afecta el despliegue en Railway) y no se toco en esta pasada.
+
+---
+
+### 2026-08-16 - Hardening de accesibilidad y resiliencia en el formulario de demo de la landing
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix, a11y
+- **Que se hizo:** tras una critica y una auditoria tecnica de Impeccable sobre la landing publica
+  (`/`), se aplicaron los hallazgos P1/P2 mas criticos del formulario de solicitud de demo
+  (`landing.html`/`landing.ts`/`landing.css`):
+  - El campo "Cargo" (`jobTitle`, requerido) dependia de `rolesService.publicJobTitles()` sin
+    ninguna opcion de respaldo: si la llamada fallaba, el select quedaba vacio y el usuario no
+    podia avanzar del paso 1 nunca. Se agrego una opcion fija "Otro" (solo si el backend no la
+    trae ya, via el getter `jobTitlesIncludeOtro`) y un boton "reintentar" junto al mensaje de
+    error que vuelve a llamar `loadDemoJobTitles()` (antes privado, ahora publico para el
+    template).
+  - Se aplico el mismo patron de resiliencia a la carga de paises/departamentos/ciudades
+    (`country-state-city` via import dinamico): se agregaron los estados
+    `locationCountriesLoading`/`locationLoadError`, manejo de `try/catch` en
+    `onDemoCountryChange`/`onDemoStateChange`/`loadDemoCountries`, un indicador "Cargando
+    paises..." en el select y un boton de reintento.
+  - Los 12 mensajes de error de validacion del formulario (`field-error`) no tenian ninguna
+    asociacion accesible: se agrego `id` a cada `<small>`, `role="alert"`, y
+    `[attr.aria-invalid]`/`[attr.aria-describedby]` en cada input/select correspondiente, ademas
+    de `role="alert"` en los banners dinamicos (desajuste de horarios, error de envio).
+  - El clic en el fondo del modal (`(click)="closeDemoModal()"`) reseteaba el formulario de 4
+    pasos sin ninguna confirmacion. Se agrego `closeDemoModalWithConfirm()`, que pide confirmacion
+    nativa solo si el formulario tiene datos sin guardar (`demoForm.dirty`) y la solicitud no se
+    envio ya; se conecto al clic de fondo, la tecla Escape y el boton X del encabezado (el boton
+    "Cancelar" explicito se dejo sin cambios, ya que su propio texto ya comunica la intencion de
+    descartar).
+  - Se agrego un limite superior (`Validators.max(2000)`, `max="2000"`) al campo "Numero de
+    habitaciones", que solo tenia minimo.
+  - Se agrego `aria-hidden="true"` a los 28 iconos decorativos `pi pi-*` de la pagina, que no
+    llevaban ninguno salvo un caso existente.
+- **Por que:** la critica Impeccable de hoy (31/40, Good) y la auditoria tecnica (13/20,
+  Acceptable) del target `/` identificaron el campo "Cargo" sin respaldo como el unico hallazgo
+  que puede bloquear el 100% de una sesion de conversion ante un fallo de red, ademas de la falta
+  de anuncio accesible en los errores del formulario principal del sitio y la perdida silenciosa
+  de datos al hacer clic fuera del modal.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.ts`,
+  `frontend/src/app/components/pages/landing/landing.css`, `AGENTS.md`.
+- **Impacto:** solo landing publica y su formulario de solicitud de demo; sin migraciones,
+  variables nuevas, cambios de API ni recursos RBAC. Verificado con `tsc --noEmit` (sin errores) y
+  con el detector de Impeccable (`detect.mjs`) antes y despues del cambio, sin nuevos hallazgos
+  introducidos.
+
+---
+
+### 2026-08-16 - Fixes de UX en /reservar (enlace Volver y overflow del buscador)
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Que se hizo:** revision dirigida del flujo `/reservar` (busqueda, tarifas, solicitud,
+  confirmacion; los 4 pasos comparten `allied-booking.css`). Se corrigio `.booking-view-back`
+  (mismo bug que en `/hoteles-aliados`: `left: -4.25rem` lo recortaba fuera del hero en casi todo
+  el rango de escritorio/tablet), afectando los 4 pasos. Se corrigio `.booking-search`: a partir de
+  1040px el grid de 5 columnas usaba minimos fijos (`300/320/150/150/230px`, suma 1150px) que
+  superaban el ancho disponible del contenedor en ese punto de quiebre (~900px), rompiendo el
+  layout del buscador entre ~1040px y ~1289px de ancho; se redujeron los minimos
+  (`240/240/100/100/170px`) para que quepan con margen. Ambos hallazgos se verificaron con
+  medicion exacta de `getBoundingClientRect`/`scrollWidth` via Chrome DevTools Protocol antes y
+  despues del fix, en 390/820/1040/1100/1200/1440px, y con capturas reales del buscador y del
+  paso de tarifas con datos reales (Hotel Arimaca) en el rango antes roto.
+- **Por que:** continuacion del pedido de mejorar las vistas publicas de hoteles aliados con
+  Impeccable; se aplico el mismo criterio de priorizar hallazgos verificables sobre corridas
+  formales de cada comando.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/allied-booking/allied-booking.css`,
+  `AGENTS.md`.
+- **Impacto:** solo el flujo publico de reserva con hoteles aliados; sin migraciones, variables
+  nuevas, cambios de API ni recursos RBAC.
+
+---
+
+### 2026-08-16 - Fixes de UX en /hoteles-aliados (enlace Volver, plural, dato vacio, a11y)
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix, ux
+- **Que se hizo:** revision dirigida de `/hoteles-aliados` (critique/audit/adapt/harden segun
+  hallazgos, no los seis comandos sugeridos). Se corrigio el enlace "Volver" del hero, que estaba
+  posicionado con `left: -4.25rem` respecto a un contenedor con mucho menos margen propio: quedaba
+  recortado por el `overflow: hidden` del hero en casi todos los anchos de escritorio y tablet
+  (solo escapaba en monitores ultra anchos), verificado con mediciones exactas de
+  `getBoundingClientRect` via Chrome DevTools Protocol. Se corrigio el plural de "1 tipos de
+  alojamiento" -> "1 tipo de alojamiento" con un getter `hotelTypeCount`. Se corrigio el separador
+  huerfano "· Hotel" cuando `hotel.city` viene vacio. Se agrego `aria-live="polite"` a los mensajes
+  de conteo/carga/error, y se corrigio que el contador de resultados se mostrara simultaneo al
+  mensaje de carga (le faltaba `*ngIf="!loading"`). Tambien se ajusto `.allied-nav a` en movil
+  (`min-width: 0`, `white-space: normal`) como endurecimiento defensivo, aunque la sospecha inicial
+  de overflow horizontal en movil resulto ser un falso positivo de la herramienta de captura usada
+  para diagnosticar (el escalado de pantalla de Windows distorsionaba el ancho de layout); se
+  descarto tras medir el viewport real con el protocolo DevTools sin el flag de captura.
+- **Por que:** el usuario pidio mejorar `/hoteles-aliados` citando los comandos
+  critique/audit/layout/adapt/harden/polish de Impeccable, aclarando que no hacia falta usarlos
+  todos. Se priorizaron los hallazgos verificables sobre corridas formales de cada comando.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/allied-hotels/allied-hotels.html`,
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.ts`,
+  `frontend/src/app/components/pages/allied-hotels/allied-hotels.css`, `AGENTS.md`.
+- **Impacto:** solo la vista publica de hoteles aliados; sin migraciones, variables nuevas, cambios
+  de API ni recursos RBAC. Verificado con capturas via Chrome DevTools Protocol
+  (`Emulation.setDeviceMetricsOverride` + `Page.captureScreenshot`) en 390/820/1440px, mas
+  medicion directa de `scrollWidth`/`getBoundingClientRect` para descartar overflow.
+
+---
+
+### 2026-08-16 - Peso visual de confianza, FAQ y contraste del panel de prueba
+
+- **Autor:** Claude Code, a solicitud de rastor65
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux, fix
+- **Que se hizo:** se le dio a "Base operativa segura" una tarjeta propia con fondo de acento en
+  lugar de un simple borde divisor, siguiendo la observacion de la critica de que el bloque
+  necesitaba mas peso visual para el gerente/dueno del hotel. En el FAQ se agrego la pregunta
+  "¿Puedo empezar con pocas habitaciones?" y se amplio la respuesta de "¿Como funciona la
+  solicitud de demo?" para aclarar que pasa despues de enviarla. Tras revision del usuario se
+  detecto que el texto dentro de esa tarjeta (y de "Lo que queda registrado en Wayra") era casi
+  ilegible: la regla `.wayra-operation-section p { color: var(--ink-muted) !important; }`,
+  pensada para el fondo oscuro de toda la seccion "Operacion", se aplicaba tambien a las tarjetas
+  claras anidadas dentro de `.wayra-proof-panel`. Se agrego
+  `.wayra-operation-section .wayra-proof-panel p { color: var(--muted) !important; }` con mayor
+  especificidad para restaurar el contraste correcto en ambas tarjetas.
+- **Por que:** la critica Impeccable del 2026-08-16T08:15:53Z (23/32) dejaba dos observaciones
+  menores sin resolver: el panel de confianza se leia como nota al pie y el FAQ no cubria que
+  pasa tras enviar la solicitud ni si el producto sirve para hoteles pequenos. El bug de contraste
+  lo reporto el usuario tras ver la tarjeta ya renderizada.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/landing.css`,
+  `frontend/src/app/components/pages/landing/landing.ts`, `AGENTS.md`.
+- **Impacto:** solo landing publica; sin migraciones, variables nuevas, cambios de API ni recursos
+  RBAC. Verificado con capturas headless (Edge `--headless=new`) del hero, panel de prueba/confianza
+  y FAQ contra el `ng serve` local, incluyendo un recorte ampliado de la tarjeta para confirmar el
+  contraste tras el fix.
 
 ---
 

@@ -46,16 +46,16 @@
         </a>
 
         <p class="booking-kicker">
-          Confirmacion
+          Solicitud enviada
         </p>
 
         <h1>
-          Reserva registrada
+          Tu solicitud fue enviada
         </h1>
 
         <p class="booking-lead">
-          Te enviaremos un correo con los datos de tu reserva y los proximos
-          pasos cuando el hotel revise tu solicitud.
+          Gracias por confiar en Wayra. El hotel aliado revisara tu solicitud
+          y te confirmaremos la disponibilidad tan pronto tengamos respuesta.
         </p>
 
       </div>
@@ -66,33 +66,47 @@
       <div class="booking-container">
 
         <section
+          #confirmationRegion
           class="booking-confirmation-page"
           tabindex="-1"
           aria-live="polite">
 
           <div class="booking-confirmation-icon">
-            <i class="pi pi-check"></i>
+            <i
+              class="pi pi-check"
+              aria-hidden="true"></i>
           </div>
 
           <div class="booking-confirmation-copy">
             <p class="booking-kicker">
-              Solicitud enviada al hotel
+              Proximos pasos
             </p>
 
             <h2>
-              Reserva registrada
+              El hotel revisara tu solicitud
             </h2>
 
             <p>
-              Te enviaremos un correo con los datos de tu reserva y los
-              proximos pasos cuando el hotel revise tu solicitud.
+              Te enviaremos un correo con la confirmacion de disponibilidad
+              en cuanto el hotel responda. Mientras tanto, estos son los
+              datos de tu solicitud:
             </p>
 
             <div
-              *ngIf="hasStayDates"
+              *ngIf="hasConfirmationDetails"
               class="booking-confirmation-details">
 
-              <span>
+              <span *ngIf="hotelName">
+                <i class="pi pi-building"></i>
+                {{ hotelName }}
+              </span>
+
+              <span *ngIf="reservationId">
+                <i class="pi pi-ticket"></i>
+                Referencia #{{ reservationId }}
+              </span>
+
+              <span *ngIf="hasStayDates">
                 <i class="pi pi-calendar"></i>
                 {{ checkIn }} al {{ checkOut }}
               </span>

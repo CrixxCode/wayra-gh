@@ -3,26 +3,15 @@
 }
 
 .wayra-landing {
-  --background: #ffffff;
-  --foreground: #172033;
-  --card: #ffffff;
+  /* Intentional page-specific overrides: landing uses a brighter marketing
+     blue and a lighter muted-ink tone than the transactional flows share. */
   --primary: #1f67c7;
   --primary-hover: #18539f;
-  --primary-foreground: #ffffff;
-  --secondary: #f6f8fb;
-  --muted: #647087;
-  --border: #e2e7ef;
-  --input: #dce3ed;
-  --surface: #f8fafc;
-  --ink: #111827;
-  --ink-foreground: #ffffff;
   --ink-muted: #cbd5e1;
-  --ink-border: rgba(255, 255, 255, 0.14);
-  --accent: #edf5ff;
-  --danger: #dc2626;
-  --radius: 14px;
-  --shadow-card: 0 1px 2px rgba(17, 24, 39, 0.06), 0 18px 42px rgba(17, 24, 39, 0.07);
-  --shadow-elevated: 0 28px 70px -32px rgba(17, 24, 39, 0.45);
+  --border-hover: #cbd5e1;
+  --secondary-hover: #eef3f9;
+  --disabled-surface: #f1f5f9;
+  --disabled-foreground: #94a3b8;
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
@@ -80,11 +69,6 @@
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.wayra-audience-card:hover,
-.wayra-faq-item:hover {
-  transform: translateY(-3px);
-}
-
 .wayra-header {
   border-bottom-color: var(--border) !important;
   background: rgba(255, 255, 255, 0.94) !important;
@@ -129,16 +113,6 @@
   transition: transform 0.18s ease;
 }
 
-.wayra-link:hover,
-.wayra-guest-access summary:hover,
-.wayra-header-login:hover {
-  color: var(--foreground);
-}
-
-.wayra-link:hover::after {
-  transform: scaleX(1);
-}
-
 .wayra-guest-access summary,
 .wayra-header-login {
   padding: 0 0.8rem;
@@ -160,9 +134,8 @@
   display: none;
 }
 
-.wayra-guest-access[open] summary,
-.wayra-guest-access summary:hover {
-  border-color: #cbd5e1;
+.wayra-guest-access[open] summary {
+  border-color: var(--border-hover);
   background: var(--secondary);
 }
 
@@ -200,22 +173,12 @@
   text-decoration: none;
 }
 
-.wayra-guest-access-menu a:hover {
-  background: var(--accent);
-  color: var(--primary);
-}
-
 .wayra-header-login {
   gap: 0.45rem;
   border: 1px solid var(--border);
   background: var(--secondary);
   color: var(--foreground);
   white-space: nowrap;
-}
-
-.wayra-header-login:hover {
-  border-color: #cbd5e1;
-  background: #eef3f9;
 }
 
 .wayra-mobile-panel {
@@ -247,7 +210,6 @@
   transition: background-color 0.18s ease, color 0.18s ease;
 }
 
-.wayra-mobile-link:hover,
 .wayra-mobile-link:focus-visible {
   background: var(--accent);
   color: var(--primary);
@@ -284,25 +246,11 @@
   color: var(--primary-foreground);
 }
 
-.wayra-btn-primary:hover,
-.wayra-form-button-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-}
-
 .wayra-btn-secondary,
 .wayra-form-button-secondary {
   border: 1px solid var(--input);
   background: var(--background);
   color: var(--foreground);
-}
-
-.wayra-btn-secondary:hover,
-.wayra-form-button-secondary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: rgba(44, 123, 229, 0.34);
-  background: var(--accent);
 }
 
 .wayra-btn-primary:disabled,
@@ -339,11 +287,45 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.16;
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-  background-size: 56px 56px;
+    repeating-linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.09) 0,
+      rgba(255, 255, 255, 0.09) 1px,
+      transparent 1px,
+      transparent 43px,
+      rgba(255, 255, 255, 0.09) 43px,
+      rgba(255, 255, 255, 0.09) 44px,
+      transparent 44px,
+      transparent 79px,
+      rgba(255, 255, 255, 0.09) 79px,
+      rgba(255, 255, 255, 0.09) 80px,
+      transparent 80px,
+      transparent 132px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.06) 0,
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px,
+      transparent 96px
+    );
+}
+
+.wayra-hero::after {
+  content: '\e981';
+  font-family: 'primeicons';
+  position: absolute;
+  z-index: 0;
+  left: -3.5rem;
+  bottom: -5.5rem;
+  display: block;
+  font-size: 26rem;
+  line-height: 1;
+  color: var(--ink-foreground);
+  opacity: 0.05;
+  transform: rotate(-18deg);
+  pointer-events: none;
 }
 
 .wayra-hero > * {
@@ -376,12 +358,6 @@
   border-color: var(--ink-border);
   background: transparent;
   color: var(--ink-foreground);
-}
-
-.wayra-hero .wayra-btn-secondary:hover,
-.wayra-operation-section .wayra-btn-secondary:hover,
-.wayra-final-cta .wayra-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.08);
 }
 
 .wayra-product-hero {
@@ -422,19 +398,6 @@
   box-shadow: var(--shadow-elevated);
 }
 
-.wayra-image-card:hover img,
-.wayra-dark-image:hover img {
-  transform: scale(1.025);
-}
-
-.wayra-problem-section figure {
-  order: 2;
-}
-
-.wayra-problem-section article {
-  order: 1;
-}
-
 .wayra-simple-point {
   display: flex;
   align-items: center;
@@ -455,27 +418,6 @@
   color: var(--primary);
 }
 
-.wayra-proof-panel {
-  display: grid;
-  gap: 1.5rem;
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--card);
-  box-shadow: var(--shadow-card);
-}
-
-.wayra-proof-panel > figure,
-.wayra-proof-panel > div,
-.wayra-proof-trust {
-  min-width: 0;
-}
-
-.wayra-proof-trust {
-  padding: 0;
-  background: transparent;
-}
-
 .wayra-operation-section,
 .wayra-final-cta {
   background: radial-gradient(circle at 82% 14%, rgba(31, 103, 199, 0.22), transparent 34%), var(--ink);
@@ -486,160 +428,221 @@
   color: var(--ink-muted) !important;
 }
 
-.wayra-operation-section article {
-  padding-block: 1rem;
-}
+/* ---- 3-step operational flow ---- */
 
-.wayra-operation-section article > p {
-  padding-right: clamp(0rem, 2vw, 1.5rem);
-}
-
-.wayra-trust-list {
+.wayra-flow-steps {
+  --flow-gap: 3.25rem;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.8rem;
+  gap: var(--flow-gap);
   list-style: none;
 }
 
-.wayra-trust-list li {
+.wayra-flow-step {
+  --flow-head-width: 7.5rem;
+  position: relative;
+}
+
+.wayra-flow-step h3 {
+  margin: 0;
+}
+
+.wayra-flow-step p {
+  margin: 0.75rem 0 0;
+  max-width: 42ch;
+  font-size: 0.94rem;
+  line-height: 1.7;
+}
+
+.wayra-flow-top {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  color: var(--foreground);
-  font-size: 0.95rem;
-  font-weight: 750;
+  justify-content: flex-start;
+  gap: 0.85rem;
+  margin-bottom: 1.75rem;
 }
 
-.wayra-section-anchor {
-  position: relative;
-  top: -88px;
+.wayra-flow-number {
+  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.42);
+  letter-spacing: 0.01em;
 }
 
-.wayra-turn-flow {
-  margin: 0;
-  padding: 1.3rem 0 0;
-  display: grid;
-  gap: 1rem;
-  list-style: none;
-  border-top: 1px solid var(--ink-border);
-}
-
-.wayra-turn-flow li {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  gap: 0.95rem;
-  align-items: start;
-  min-height: 126px;
-  padding: 1rem;
-  border: 1px solid var(--ink-border);
-  border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.045);
-}
-
-.wayra-turn-icon {
-  width: 44px;
-  height: 44px;
+.wayra-flow-icon {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
   display: inline-grid;
   place-items: center;
-  border-radius: 12px;
-  background: #ffffff;
+  border-radius: 14px;
+  background: var(--ink-foreground);
   color: var(--ink);
+  font-size: 1.3rem;
 }
 
-.wayra-turn-evidence {
+.wayra-flow-step:not(:last-child)::after {
+  content: '\e919';
+  font-family: 'primeicons';
+  position: absolute;
+  left: 28px;
+  top: calc(100% + 14px);
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.15rem;
+  pointer-events: none;
+}
+
+/* ---- product proof ---- */
+
+.wayra-proof-wrap {
+  display: grid;
+  gap: 2.75rem;
+}
+
+.wayra-proof-media {
+  min-width: 0;
+}
+
+.wayra-proof-hero {
+  width: 100%;
+}
+
+.wayra-proof-caption {
   margin: 0.85rem 0 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.wayra-proof-panel {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.wayra-proof-chain {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+.wayra-proof-chain li {
+  display: flex;
+  gap: 1.1rem;
+  padding: 1.6rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.wayra-proof-chain li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.wayra-proof-chain li:last-child {
+  padding-bottom: 0;
+}
+
+.wayra-proof-icon {
+  flex: 0 0 52px;
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--accent);
+  color: var(--primary);
+  font-size: 1.2rem;
+}
+
+.wayra-proof-label {
+  display: block;
+  color: var(--foreground);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.wayra-proof-chain p {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.wayra-proof-trust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 2rem;
+  padding: 1.5rem 1.75rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.wayra-proof-trust-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.wayra-proof-trust-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--primary);
+  font-size: 0.95rem;
+}
+
+.wayra-proof-trust-label {
+  color: var(--foreground);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.wayra-proof-trust ul {
+  flex: 1 1 260px;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.55rem 1.35rem;
   list-style: none;
 }
 
-.wayra-turn-evidence li {
-  min-height: 28px;
+.wayra-proof-trust li {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
-  padding: 0 0.65rem;
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-  font-size: 0.76rem;
-  font-weight: 850;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
 }
 
-.wayra-turn-body strong {
-  display: block;
-  margin-top: 0.95rem;
-  color: #ffffff;
-  font-size: 0.9rem;
-  line-height: 1.55;
-}
-
-.wayra-trust-list i {
-  width: 26px;
-  height: 26px;
-  flex: 0 0 26px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--accent);
+.wayra-proof-trust i {
   color: var(--primary);
   font-size: 0.7rem;
-}
-
-.wayra-proof-list {
-  display: grid;
-  gap: 1rem;
-}
-
-.wayra-proof-list article {
-  padding-bottom: 0.9rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.wayra-proof-list span {
-  display: block;
-  color: var(--foreground);
-  font-size: 0.9rem;
-  font-weight: 850;
-}
-
-.wayra-proof-list p {
-  margin: 0.25rem 0 0;
-  color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.6;
 }
 
 .wayra-audience-card {
   min-height: 210px;
   padding: 1.5rem;
   background: var(--card);
-}
-
-.wayra-audience-card:hover {
-  box-shadow: var(--shadow-card);
-}
-
-.wayra-proof-trust .wayra-trust-list {
-  grid-template-columns: 1fr;
-  gap: 0.7rem;
-}
-
-.wayra-proof-trust .wayra-trust-list li {
-  min-height: auto;
-  align-items: flex-start;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--foreground);
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
-
-.wayra-proof-trust .wayra-trust-list i {
-  margin-top: 0.05rem;
 }
 
 .wayra-faq-item {
@@ -649,7 +652,6 @@
   box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
 }
 
-.wayra-faq-item:hover,
 .wayra-faq-item[open] {
   border-color: rgba(44, 123, 229, 0.28);
   box-shadow: 0 12px 32px rgba(17, 24, 39, 0.08);
@@ -665,7 +667,7 @@
   cursor: pointer;
   color: var(--foreground);
   font-size: 0.98rem;
-  font-weight: 850;
+  font-weight: 800;
   list-style: none;
 }
 
@@ -683,7 +685,7 @@
   border-radius: 999px;
   background: var(--accent);
   color: var(--primary);
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .wayra-faq-item[open] summary::after {
@@ -692,6 +694,7 @@
 
 .wayra-faq-item p {
   margin: 0;
+  max-width: 65ch;
   padding: 0 1.2rem 1.15rem;
   color: var(--muted);
   font-size: 0.92rem;
@@ -715,14 +718,15 @@
   max-height: calc(100vh - 2rem);
   overflow-y: auto;
   border-radius: 18px;
-  background: #ffffff;
+  background: var(--card);
   box-shadow: var(--shadow-elevated);
   animation: wayra-modal-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .wayra-demo-progress-bar {
+  transform-origin: left;
   background: var(--primary);
-  transition: width 0.25s ease;
+  transition: transform 0.25s ease;
 }
 
 .wayra-demo-step {
@@ -734,7 +738,7 @@
   padding: 10px 12px;
   border: 1px solid var(--input);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--card);
   color: var(--muted);
   cursor: pointer;
   font-size: 14px;
@@ -760,7 +764,7 @@
 }
 
 .wayra-demo-step-active span {
-  background: #ffffff;
+  background: var(--primary-foreground);
   color: var(--primary);
 }
 
@@ -800,16 +804,12 @@
   padding: 0 13px;
   border: 1px solid var(--input);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--card);
   color: var(--foreground);
   outline: none;
   font-size: 14px;
   font-weight: 650;
   transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
-}
-
-.wayra-demo-input:hover {
-  border-color: #b9c4d2;
 }
 
 .wayra-demo-input:focus {
@@ -819,8 +819,8 @@
 
 .wayra-demo-input:disabled {
   cursor: not-allowed;
-  background: #f1f5f9;
-  color: #94a3b8;
+  background: var(--disabled-surface);
+  color: var(--disabled-foreground);
 }
 
 select.wayra-demo-input {
@@ -843,9 +843,22 @@ select.wayra-demo-input {
 }
 
 .field-error {
-  color: #b91c1c;
+  color: var(--danger);
   font-size: 0.75rem;
   font-weight: 700;
+}
+
+.wayra-inline-retry {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
 
 .wayra-landing :focus-visible {
@@ -867,43 +880,30 @@ select.wayra-demo-input {
   }
 }
 
-@media (min-width: 768px) {
-  .wayra-proof-panel {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  }
-
-  .wayra-proof-trust {
-    grid-column: 1 / -1;
-    padding-top: 1.25rem;
-    border-top: 1px solid var(--border);
-  }
-
-  .wayra-turn-flow {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-}
-
 @media (min-width: 1024px) {
+  .wayra-flow-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    --flow-gap: 3.75rem;
+  }
+
+  .wayra-flow-step:not(:last-child)::after {
+    content: '\e91b';
+    left: calc((var(--flow-head-width) + 100% + var(--flow-gap)) / 2);
+    right: auto;
+    top: 28px;
+    width: auto;
+    text-align: left;
+    transform: translate(-50%, -50%);
+  }
+
+  .wayra-proof-wrap {
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    gap: 4rem;
+    align-items: center;
+  }
+
   .wayra-proof-panel {
-    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.1fr) minmax(260px, 0.65fr);
-    align-items: start;
-  }
-
-  .wayra-proof-trust {
-    grid-column: auto;
-    padding-top: 0;
-    padding-left: 1.25rem;
-    border-top: 0;
-    border-left: 1px solid var(--border);
-  }
-
-  .wayra-problem-section figure {
-    order: 2;
-  }
-
-  .wayra-problem-section article {
-    order: 1;
+    padding-left: 0.5rem;
   }
 }
 
@@ -911,13 +911,6 @@ select.wayra-demo-input {
   .wayra-header {
     box-shadow: 0 7px 22px rgba(15, 23, 42, 0.05);
   }
-}
-
-@media (max-width: 767px) {
-  .wayra-trust-list {
-    grid-template-columns: 1fr;
-  }
-
 }
 
 @media (max-width: 639px) {
@@ -964,6 +957,88 @@ select.wayra-demo-input {
 
   .wayra-final-cta {
     border-radius: 18px;
+  }
+}
+
+/* Hover-only polish, gated so a tap on iOS/iPadOS Safari can't leave a card, button, or
+   link visibly "stuck" in its hover state until the next tap elsewhere. Every rule here is
+   decorative; nothing interactive depends on hover to work. */
+@media (hover: hover) and (pointer: fine) {
+  .wayra-audience-card:hover,
+  .wayra-faq-item:hover {
+    transform: translateY(-3px);
+  }
+
+  .wayra-link:hover,
+  .wayra-guest-access summary:hover,
+  .wayra-header-login:hover {
+    color: var(--foreground);
+  }
+
+  .wayra-link:hover::after {
+    transform: scaleX(1);
+  }
+
+  .wayra-guest-access summary:hover {
+    border-color: var(--border-hover);
+    background: var(--secondary);
+  }
+
+  .wayra-guest-access-menu a:hover {
+    background: var(--accent);
+    color: var(--primary);
+  }
+
+  .wayra-header-login:hover {
+    border-color: var(--border-hover);
+    background: var(--secondary-hover);
+  }
+
+  .wayra-mobile-link:hover {
+    background: var(--accent);
+    color: var(--primary);
+  }
+
+  .wayra-btn-primary:hover,
+  .wayra-form-button-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+  }
+
+  .wayra-btn-secondary:hover,
+  .wayra-form-button-secondary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: rgba(44, 123, 229, 0.34);
+    background: var(--accent);
+  }
+
+  .wayra-hero .wayra-btn-secondary:hover,
+  .wayra-operation-section .wayra-btn-secondary:hover,
+  .wayra-final-cta .wayra-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .wayra-image-card:hover img,
+  .wayra-dark-image:hover img {
+    transform: scale(1.025);
+  }
+
+  .wayra-audience-card:hover {
+    box-shadow: var(--shadow-card);
+  }
+
+  .wayra-faq-item:hover {
+    border-color: rgba(44, 123, 229, 0.28);
+    box-shadow: 0 12px 32px rgba(17, 24, 39, 0.08);
+  }
+
+  .wayra-demo-input:hover {
+    border-color: var(--input-hover);
+  }
+
+  .wayra-inline-retry:hover {
+    color: var(--primary-hover);
   }
 }
 

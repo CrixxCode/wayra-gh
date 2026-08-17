@@ -17,7 +17,7 @@
 
       </a>
 
-      <nav aria-label="Navegacion publica">
+      <nav aria-label="Navegación pública">
         <a routerLink="/hoteles-aliados">
           Hoteles aliados
         </a>
@@ -27,7 +27,7 @@
         </a>
 
         <a routerLink="/login">
-          Iniciar sesion
+          Iniciar sesión
         </a>
       </nav>
 
@@ -58,8 +58,9 @@
         </h1>
 
         <p class="online-lead">
-          Ingresa el codigo de tu reserva y registra los datos del
-          huesped principal sin entrar al sistema interno del hotel.
+          Ingresa el código de tu reserva y el documento del titular; te
+          pediremos los datos de todos los huéspedes de la reserva sin
+          entrar al sistema interno del hotel.
         </p>
 
       </div>
@@ -83,7 +84,7 @@
 
               <div>
                 <p>
-                  Codigo de reserva
+                  Código de reserva
                 </p>
 
                 <h2>
@@ -96,7 +97,7 @@
             <label class="online-field online-code-field">
               <span>
                 <i class="pi pi-ticket"></i>
-                Codigo
+                Código
               </span>
 
               <input
@@ -104,22 +105,108 @@
                 formControlName="reservationCode"
                 placeholder="Ej: WYR-2458"
                 autocomplete="off"
-                [class.input-error]="isReservationInvalid('reservationCode')" />
+                [class.input-error]="isReservationInvalid('reservationCode')"
+                [attr.aria-invalid]="isReservationInvalid('reservationCode') ? true : null"
+                [attr.aria-describedby]="
+                  isReservationInvalid('reservationCode')
+                    ? 'reservationCode-hint reservationCode-error'
+                    : 'reservationCode-hint'
+                " />
 
-              <small *ngIf="isReservationInvalid('reservationCode')">
+              <small id="reservationCode-hint">
+                Lo encuentras en la confirmación de tu reserva, entregada
+                por el hotel o por Wayra.
+              </small>
+
+              <small
+                *ngIf="isReservationInvalid('reservationCode')"
+                id="reservationCode-error">
                 {{ getReservationError('reservationCode') }}
               </small>
             </label>
 
 
+            <label class="online-field">
+              <span>Tipo de documento del titular</span>
+
+              <select
+                formControlName="documentType"
+                [class.input-error]="isReservationInvalid('documentType')"
+                [attr.aria-invalid]="isReservationInvalid('documentType') ? true : null"
+                [attr.aria-describedby]="isReservationInvalid('documentType') ? 'documentType-error' : null">
+
+                <option
+                  *ngFor="
+                    let option of documentTypes;
+                    trackBy: trackByValue
+                  "
+                  [value]="option.value">
+
+                  {{ option.label }}
+
+                </option>
+              </select>
+
+              <small
+                *ngIf="isReservationInvalid('documentType')"
+                id="documentType-error">
+                {{ getReservationError('documentType') }}
+              </small>
+            </label>
+
+
+            <label class="online-field">
+              <span>Número de documento del titular</span>
+
+              <input
+                type="text"
+                formControlName="documentNumber"
+                autocomplete="off"
+                [class.input-error]="isReservationInvalid('documentNumber')"
+                [attr.aria-invalid]="isReservationInvalid('documentNumber') ? true : null"
+                [attr.aria-describedby]="
+                  isReservationInvalid('documentNumber')
+                    ? 'documentNumber-hint documentNumber-error'
+                    : 'documentNumber-hint'
+                " />
+
+              <small id="documentNumber-hint">
+                Debe coincidir con el documento registrado en la reserva.
+              </small>
+
+              <small
+                *ngIf="isReservationInvalid('documentNumber')"
+                id="documentNumber-error">
+                {{ getReservationError('documentNumber') }}
+              </small>
+            </label>
+
+
+            <p
+              *ngIf="lookupError"
+              id="online-check-in-lookup-error"
+              class="online-consent-error"
+              tabindex="-1"
+              aria-live="assertive">
+              {{ lookupError }}
+            </p>
+
+
             <div class="online-code-actions">
+              <span
+                class="online-code-actions-spacer"
+                aria-hidden="true">
+                &nbsp;
+              </span>
+
               <button
                 type="submit"
-                class="online-primary">
+                class="online-primary"
+                [disabled]="lookingUp">
 
-                Continuar
+                {{ lookingUp ? 'Buscando...' : 'Buscar reserva' }}
 
-                <i class="pi pi-arrow-right text-xs"></i>
+                <i class="pi pi-arrow-right text-xs" *ngIf="!lookingUp"></i>
 
               </button>
             </div>
@@ -130,6 +217,7 @@
           <form
             *ngIf="codeConfirmed"
             id="guest-check-in-data"
+            tabindex="-1"
             class="online-card online-guest-card"
             [formGroup]="guestForm"
             (ngSubmit)="submitCheckIn()">
@@ -141,7 +229,7 @@
 
               <div>
                 <p>
-                  Huesped principal
+                  {{ guestLines.length }} huésped{{ guestLines.length === 1 ? '' : 'es' }}
                 </p>
 
                 <h2>
@@ -155,241 +243,401 @@
               <i class="pi pi-check-circle"></i>
 
               <span>
-                Reserva
+                Reserva verificada
               </span>
 
               <strong>
                 {{ reservationCodeLabel }}
               </strong>
+
+              <ng-container *ngIf="reservationSummary?.hotel_name as hotelName">
+                &middot; {{ hotelName }}
+              </ng-container>
+
+              <ng-container *ngIf="reservationSummary?.expected_check_in && reservationSummary?.expected_check_out">
+                &middot; {{ reservationSummary?.expected_check_in }} al {{ reservationSummary?.expected_check_out }}
+              </ng-container>
             </div>
 
 
-            <div class="online-form-grid">
+            <div class="online-guest-lines">
 
-              <label class="online-field">
-                <span>Nombres</span>
+              <article
+                class="online-guest-line"
+                *ngFor="
+                  let guestLine of guestLines.controls;
+                  let index = index;
+                  trackBy: trackByGuestLine
+                "
+                [formGroup]="guestLine">
 
-                <input
-                  type="text"
-                  formControlName="firstName"
-                  autocomplete="given-name"
-                  [class.input-error]="isGuestInvalid('firstName')" />
+                <h3 class="online-guest-line-title">
+                  Huésped {{ index + 1 }}
+                  <span *ngIf="index === 0">(titular)</span>
+                </h3>
 
-                <small *ngIf="isGuestInvalid('firstName')">
-                  {{ getGuestError('firstName') }}
-                </small>
-              </label>
+                <fieldset class="online-field-group">
+                  <legend class="online-field-group-title">Datos personales</legend>
 
+                  <div class="online-form-grid">
 
-              <label class="online-field">
-                <span>Apellidos</span>
+                    <label class="online-field">
+                      <span>Nombres</span>
 
-                <input
-                  type="text"
-                  formControlName="lastName"
-                  autocomplete="family-name"
-                  [class.input-error]="isGuestInvalid('lastName')" />
+                      <input
+                        type="text"
+                        formControlName="firstName"
+                        autocomplete="given-name"
+                        [class.input-error]="isGuestLineInvalid(index, 'firstName')"
+                        [attr.aria-invalid]="isGuestLineInvalid(index, 'firstName') ? true : null"
+                        [attr.aria-describedby]="isGuestLineInvalid(index, 'firstName') ? 'guestLine-' + index + '-firstName-error' : null" />
 
-                <small *ngIf="isGuestInvalid('lastName')">
-                  {{ getGuestError('lastName') }}
-                </small>
-              </label>
-
-
-              <label class="online-field">
-                <span>Tipo de documento</span>
-
-                <select
-                  formControlName="documentType"
-                  [class.input-error]="isGuestInvalid('documentType')">
-
-                  <option
-                    *ngFor="
-                      let option of documentTypes;
-                      trackBy: trackByValue
-                    "
-                    [value]="option.value">
-
-                    {{ option.label }}
-
-                  </option>
-                </select>
-
-                <small *ngIf="isGuestInvalid('documentType')">
-                  {{ getGuestError('documentType') }}
-                </small>
-              </label>
+                      <small
+                        *ngIf="isGuestLineInvalid(index, 'firstName')"
+                        id="guestLine-{{ index }}-firstName-error">
+                        {{ getGuestLineError(index, 'firstName') }}
+                      </small>
+                    </label>
 
 
-              <label class="online-field">
-                <span>Numero de documento</span>
+                    <label class="online-field">
+                      <span>Apellidos</span>
 
-                <input
-                  type="text"
-                  formControlName="documentNumber"
-                  autocomplete="off"
-                  [class.input-error]="isGuestInvalid('documentNumber')" />
+                      <input
+                        type="text"
+                        formControlName="lastName"
+                        autocomplete="family-name"
+                        [class.input-error]="isGuestLineInvalid(index, 'lastName')"
+                        [attr.aria-invalid]="isGuestLineInvalid(index, 'lastName') ? true : null"
+                        [attr.aria-describedby]="isGuestLineInvalid(index, 'lastName') ? 'guestLine-' + index + '-lastName-error' : null" />
 
-                <small *ngIf="isGuestInvalid('documentNumber')">
-                  {{ getGuestError('documentNumber') }}
-                </small>
-              </label>
-
-
-              <label class="online-field">
-                <span>Fecha de nacimiento</span>
-
-                <input
-                  type="date"
-                  formControlName="birthDate"
-                  [max]="maxBirthDate"
-                  [class.input-error]="isGuestInvalid('birthDate')" />
-
-                <small *ngIf="isGuestInvalid('birthDate')">
-                  {{ getGuestError('birthDate') }}
-                </small>
-              </label>
+                      <small
+                        *ngIf="isGuestLineInvalid(index, 'lastName')"
+                        id="guestLine-{{ index }}-lastName-error">
+                        {{ getGuestLineError(index, 'lastName') }}
+                      </small>
+                    </label>
 
 
-              <label class="online-field">
-                <span>Nacionalidad</span>
+                    <label class="online-field">
+                      <span>Fecha de nacimiento</span>
 
-                <input
-                  type="text"
-                  formControlName="nationality"
-                  autocomplete="country-name"
-                  [class.input-error]="isGuestInvalid('nationality')" />
+                      <input
+                        type="date"
+                        formControlName="birthDate"
+                        [min]="minBirthDate"
+                        [max]="maxBirthDate"
+                        [class.input-error]="isGuestLineInvalid(index, 'birthDate')"
+                        [attr.aria-invalid]="isGuestLineInvalid(index, 'birthDate') ? true : null"
+                        [attr.aria-describedby]="isGuestLineInvalid(index, 'birthDate') ? 'guestLine-' + index + '-birthDate-error' : null" />
 
-                <small *ngIf="isGuestInvalid('nationality')">
-                  {{ getGuestError('nationality') }}
-                </small>
-              </label>
-
-
-              <label class="online-field">
-                <span>Correo</span>
-
-                <input
-                  type="email"
-                  formControlName="email"
-                  autocomplete="email"
-                  [class.input-error]="isGuestInvalid('email')" />
-
-                <small *ngIf="isGuestInvalid('email')">
-                  {{ getGuestError('email') }}
-                </small>
-              </label>
+                      <small
+                        *ngIf="isGuestLineInvalid(index, 'birthDate')"
+                        id="guestLine-{{ index }}-birthDate-error">
+                        {{ getGuestLineError(index, 'birthDate') }}
+                      </small>
+                    </label>
 
 
-              <label class="online-field">
-                <span>Telefono</span>
+                    <label class="online-field">
+                      <span>Nacionalidad</span>
 
-                <input
-                  type="tel"
-                  formControlName="phone"
-                  autocomplete="tel"
-                  [class.input-error]="isGuestInvalid('phone')" />
+                      <input
+                        type="text"
+                        formControlName="nationality"
+                        autocomplete="country-name"
+                        [class.input-error]="isGuestLineInvalid(index, 'nationality')"
+                        [attr.aria-invalid]="isGuestLineInvalid(index, 'nationality') ? true : null"
+                        [attr.aria-describedby]="isGuestLineInvalid(index, 'nationality') ? 'guestLine-' + index + '-nationality-error' : null" />
 
-                <small *ngIf="isGuestInvalid('phone')">
-                  {{ getGuestError('phone') }}
-                </small>
-              </label>
+                      <small
+                        *ngIf="isGuestLineInvalid(index, 'nationality')"
+                        id="guestLine-{{ index }}-nationality-error">
+                        {{ getGuestLineError(index, 'nationality') }}
+                      </small>
+                    </label>
 
-
-              <label class="online-field">
-                <span>Hora estimada de llegada</span>
-
-                <select
-                  formControlName="arrivalTime"
-                  [class.input-error]="isGuestInvalid('arrivalTime')">
-
-                  <option value="">
-                    Selecciona una hora
-                  </option>
-
-                  <option
-                    *ngFor="
-                      let option of arrivalWindows;
-                      trackBy: trackByValue
-                    "
-                    [value]="option.value">
-
-                    {{ option.label }}
-
-                  </option>
-                </select>
-
-                <small *ngIf="isGuestInvalid('arrivalTime')">
-                  {{ getGuestError('arrivalTime') }}
-                </small>
-              </label>
+                  </div>
+                </fieldset>
 
 
-              <label class="online-field">
-                <span>Contacto de emergencia</span>
+                <fieldset class="online-field-group">
+                  <legend class="online-field-group-title">Documento de identidad</legend>
 
-                <input
-                  type="text"
-                  formControlName="emergencyContactName"
-                  autocomplete="name"
-                  [class.input-error]="isGuestInvalid('emergencyContactName')" />
+                  <button
+                    *ngIf="index === 0"
+                    type="button"
+                    class="online-inline-action"
+                    (click)="useTitularDocumentForFirstGuest()">
 
-                <small *ngIf="isGuestInvalid('emergencyContactName')">
-                  {{ getGuestError('emergencyContactName') }}
-                </small>
-              </label>
+                    <i class="pi pi-copy"></i>
+                    Usar el documento del titular
+
+                  </button>
+
+                  <div class="online-form-grid">
+
+                    <label class="online-field">
+                      <span>Tipo de documento</span>
+
+                      <select
+                        formControlName="documentType"
+                        [class.input-error]="isGuestLineInvalid(index, 'documentType')"
+                        [attr.aria-invalid]="isGuestLineInvalid(index, 'documentType') ? true : null"
+                        [attr.aria-describedby]="isGuestLineInvalid(index, 'documentType') ? 'guestLine-' + index + '-documentType-error' : null">
+
+                        <option
+                          *ngFor="
+                            let option of documentTypes;
+                            trackBy: trackByValue
+                          "
+                          [value]="option.value">
+
+                          {{ option.label }}
+
+                        </option>
+                      </select>
+
+                      <small
+                        *ngIf="isGuestLineInvalid(index, 'documentType')"
+                        id="guestLine-{{ index }}-documentType-error">
+                        {{ getGuestLineError(index, 'documentType') }}
+                      </small>
+                    </label>
 
 
-              <label class="online-field">
-                <span>Telefono de emergencia</span>
+                    <label class="online-field">
+                      <span>Número de documento</span>
 
-                <input
-                  type="tel"
-                  formControlName="emergencyContactPhone"
-                  autocomplete="tel"
-                  [class.input-error]="isGuestInvalid('emergencyContactPhone')" />
+                      <input
+                        type="text"
+                        formControlName="documentNumber"
+                        autocomplete="off"
+                        [class.input-error]="isGuestLineInvalid(index, 'documentNumber')"
+                        [attr.aria-invalid]="isGuestLineInvalid(index, 'documentNumber') ? true : null"
+                        [attr.aria-describedby]="isGuestLineInvalid(index, 'documentNumber') ? 'guestLine-' + index + '-documentNumber-error' : null" />
 
-                <small *ngIf="isGuestInvalid('emergencyContactPhone')">
-                  {{ getGuestError('emergencyContactPhone') }}
-                </small>
-              </label>
+                      <small
+                        *ngIf="isGuestLineInvalid(index, 'documentNumber')"
+                        id="guestLine-{{ index }}-documentNumber-error">
+                        {{ getGuestLineError(index, 'documentNumber') }}
+                      </small>
+                    </label>
 
+                  </div>
+                </fieldset>
 
-              <label class="online-field online-field-wide">
-                <span>Observaciones</span>
-
-                <textarea
-                  rows="4"
-                  formControlName="notes"
-                  placeholder="Preferencias de llegada o informacion adicional.">
-                </textarea>
-              </label>
+              </article>
 
             </div>
 
 
-            <label class="online-consent">
-              <input
-                type="checkbox"
-                formControlName="acceptsDataPolicy" />
+            <div class="online-guest-shared-fields">
 
-              <span>
-                Autorizo el tratamiento de mis datos para gestionar el
-                check-in de esta reserva.
-              </span>
-            </label>
+              <fieldset class="online-field-group">
+                <legend class="online-field-group-title">Contacto</legend>
 
-            <small
-              *ngIf="isGuestInvalid('acceptsDataPolicy')"
-              class="online-consent-error">
-              {{ getGuestError('acceptsDataPolicy') }}
-            </small>
+                <div class="online-form-grid">
+
+                  <label class="online-field">
+                    <span>Correo</span>
+
+                    <input
+                      type="email"
+                      formControlName="email"
+                      autocomplete="email"
+                      [class.input-error]="isGuestInvalid('email')"
+                      [attr.aria-invalid]="isGuestInvalid('email') ? true : null"
+                      [attr.aria-describedby]="isGuestInvalid('email') ? 'email-error' : null" />
+
+                    <small
+                      *ngIf="isGuestInvalid('email')"
+                      id="email-error">
+                      {{ getGuestError('email') }}
+                    </small>
+                  </label>
+
+
+                  <label class="online-field">
+                    <span>Teléfono</span>
+
+                    <input
+                      type="tel"
+                      formControlName="phone"
+                      autocomplete="tel"
+                      [class.input-error]="isGuestInvalid('phone')"
+                      [attr.aria-invalid]="isGuestInvalid('phone') ? true : null"
+                      [attr.aria-describedby]="
+                        isGuestInvalid('phone')
+                          ? 'phone-hint phone-error'
+                          : 'phone-hint'
+                      " />
+
+                    <small id="phone-hint">
+                      Incluye el código de país si es un número internacional.
+                    </small>
+
+                    <small
+                      *ngIf="isGuestInvalid('phone')"
+                      id="phone-error">
+                      {{ getGuestError('phone') }}
+                    </small>
+                  </label>
+
+                </div>
+              </fieldset>
+
+
+              <fieldset class="online-field-group">
+                <legend class="online-field-group-title">Llegada</legend>
+
+                <div class="online-form-grid">
+
+                  <label class="online-field">
+                    <span>Hora estimada de llegada</span>
+
+                    <select
+                      formControlName="arrivalTime"
+                      [class.input-error]="isGuestInvalid('arrivalTime')"
+                      [attr.aria-invalid]="isGuestInvalid('arrivalTime') ? true : null"
+                      [attr.aria-describedby]="
+                        isGuestInvalid('arrivalTime')
+                          ? 'arrivalTime-hint arrivalTime-error'
+                          : 'arrivalTime-hint'
+                      ">
+
+                      <option value="">
+                        Selecciona una hora
+                      </option>
+
+                      <option
+                        *ngFor="
+                          let option of arrivalWindows;
+                          trackBy: trackByValue
+                        "
+                        [value]="option.value">
+
+                        {{ option.label }}
+
+                      </option>
+                    </select>
+
+                    <small id="arrivalTime-hint">
+                      Ayuda al hotel a preparar tu llegada.
+                    </small>
+
+                    <small
+                      *ngIf="isGuestInvalid('arrivalTime')"
+                      id="arrivalTime-error">
+                      {{ getGuestError('arrivalTime') }}
+                    </small>
+                  </label>
+
+
+                  <label class="online-field">
+                    <span>Observaciones (opcional)</span>
+
+                    <textarea
+                      rows="4"
+                      formControlName="notes"
+                      placeholder="Preferencias de llegada o información adicional.">
+                    </textarea>
+                  </label>
+
+                </div>
+              </fieldset>
+
+
+              <fieldset class="online-field-group">
+                <legend class="online-field-group-title">Contacto de emergencia</legend>
+
+                <div class="online-form-grid">
+
+                  <label class="online-field">
+                    <span>Nombre del contacto</span>
+
+                    <input
+                      type="text"
+                      formControlName="emergencyContactName"
+                      autocomplete="name"
+                      [class.input-error]="isGuestInvalid('emergencyContactName')"
+                      [attr.aria-invalid]="isGuestInvalid('emergencyContactName') ? true : null"
+                      [attr.aria-describedby]="isGuestInvalid('emergencyContactName') ? 'emergencyContactName-error' : null" />
+
+                    <small
+                      *ngIf="isGuestInvalid('emergencyContactName')"
+                      id="emergencyContactName-error">
+                      {{ getGuestError('emergencyContactName') }}
+                    </small>
+                  </label>
+
+
+                  <label class="online-field">
+                    <span>Teléfono del contacto</span>
+
+                    <input
+                      type="tel"
+                      formControlName="emergencyContactPhone"
+                      autocomplete="tel"
+                      [class.input-error]="isGuestInvalid('emergencyContactPhone')"
+                      [attr.aria-invalid]="isGuestInvalid('emergencyContactPhone') ? true : null"
+                      [attr.aria-describedby]="isGuestInvalid('emergencyContactPhone') ? 'emergencyContactPhone-error' : null" />
+
+                    <small
+                      *ngIf="isGuestInvalid('emergencyContactPhone')"
+                      id="emergencyContactPhone-error">
+                      {{ getGuestError('emergencyContactPhone') }}
+                    </small>
+                  </label>
+
+                </div>
+              </fieldset>
+
+
+              <fieldset class="online-field-group">
+                <legend class="online-field-group-title">Consentimiento</legend>
+
+                <label class="online-consent">
+                  <input
+                    type="checkbox"
+                    formControlName="acceptsDataPolicy"
+                    [attr.aria-invalid]="isGuestInvalid('acceptsDataPolicy') ? true : null"
+                    [attr.aria-describedby]="isGuestInvalid('acceptsDataPolicy') ? 'acceptsDataPolicy-error' : null" />
+
+                  <span>
+                    El hotel usa estos datos para identificar a cada huésped y
+                    coordinar tu llegada. Autorizo el tratamiento de mis datos
+                    y los de los demás huéspedes para gestionar el check-in de
+                    esta reserva.
+                  </span>
+                </label>
+
+                <small
+                  *ngIf="isGuestInvalid('acceptsDataPolicy')"
+                  id="acceptsDataPolicy-error"
+                  class="online-consent-error">
+                  {{ getGuestError('acceptsDataPolicy') }}
+                </small>
+              </fieldset>
+
+            </div>
+
+
+            <p
+              *ngIf="submitError"
+              id="online-check-in-error"
+              class="online-consent-error"
+              tabindex="-1"
+              aria-live="assertive">
+              {{ submitError }}
+            </p>
 
 
             <div class="online-actions">
               <button
                 type="button"
                 class="online-secondary"
+                [disabled]="submitting"
                 (click)="resetFlow()">
 
                 Limpiar
@@ -398,11 +646,12 @@
 
               <button
                 type="submit"
-                class="online-primary">
+                class="online-primary"
+                [disabled]="submitting">
 
-                Enviar check-in
+                {{ submitting ? 'Enviando...' : 'Enviar check-in' }}
 
-                <i class="pi pi-send text-xs"></i>
+                <i class="pi pi-send text-xs" *ngIf="!submitting"></i>
 
               </button>
             </div>
@@ -426,8 +675,12 @@
             </h2>
 
             <p>
-              Los datos del huesped principal quedaron listos para la
-              reserva {{ reservationCodeLabel }}.
+              Los datos de {{ confirmation?.guests?.length || guestLines.length }}
+              huésped{{ (confirmation?.guests?.length || guestLines.length) === 1 ? '' : 'es' }}
+              quedaron listos para la reserva {{ reservationCodeLabel }}<ng-container *ngIf="confirmation?.hotel_name as hotelName">
+                en {{ hotelName }}</ng-container>. Un
+              recepcionista verificará la identidad de cada huésped y
+              confirmará el check-in a su llegada.
             </p>
 
             <a
@@ -451,17 +704,17 @@
           <ul>
             <li>
               <i class="pi pi-ticket"></i>
-              <span>Codigo de reserva del hotel.</span>
+              <span>Código de reserva del hotel.</span>
             </li>
 
             <li>
               <i class="pi pi-id-card"></i>
-              <span>Documento vigente del huesped principal.</span>
+              <span>Documento vigente de cada huésped de la reserva.</span>
             </li>
 
             <li>
               <i class="pi pi-phone"></i>
-              <span>Telefono y contacto de emergencia.</span>
+              <span>Teléfono y contacto de emergencia.</span>
             </li>
           </ul>
         </aside>

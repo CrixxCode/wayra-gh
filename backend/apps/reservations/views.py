@@ -36,8 +36,13 @@ from apps.reservations.serializers import (
     ReservationDepositSerializer,
     WebReservationCreateSerializer,
     WebReservationResponseSerializer,
+    OnlineCheckInSerializer,
+    OnlineCheckInResponseSerializer,
+    OnlineCheckInLookupSerializer,
+    OnlineCheckInLookupResponseSerializer,
 )
 from apps.reservations.public_booking import create_web_reservation
+from apps.reservations.online_check_in import submit_online_check_in, lookup_online_check_in
 from apps.reservations.services import (
     ROOM_STATUS_AVAILABLE,
     ROOM_STATUS_RESERVED,
@@ -95,6 +100,35 @@ class WebReservationViewSet(viewsets.GenericViewSet):
             context=self.get_serializer_context(),
         )
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class OnlineCheckInViewSet(viewsets.GenericViewSet):
+    serializer_class = OnlineCheckInSerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "online_check_in"
+    http_method_names = ["post", "options", "head"]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = submit_online_check_in(data=serializer.validated_data)
+        response_serializer = OnlineCheckInResponseSerializer(
+            result,
+            context=self.get_serializer_context(),
+        )
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["post"], url_path="lookup")
+    def lookup(self, request, *args, **kwargs):
+        serializer = OnlineCheckInLookupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = lookup_online_check_in(data=serializer.validated_data)
+        response_serializer = OnlineCheckInLookupResponseSerializer(
+            result,
+            context=self.get_serializer_context(),
+        )
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
 class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):

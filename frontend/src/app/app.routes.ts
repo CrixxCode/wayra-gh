@@ -123,7 +123,7 @@ export const routes: Routes = [
     {
         path: 'reservar/confirmacion/:reservationId',
         loadComponent: loadAlliedBookingConfirmationComponent,
-        title: 'Reserva Registrada',
+        title: 'Solicitud Enviada',
     },
     {
         path: 'booking',

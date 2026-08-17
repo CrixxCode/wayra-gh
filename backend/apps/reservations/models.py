@@ -269,6 +269,12 @@ class ReservationGuest(models.Model):
     blood_type = models.CharField(max_length=10, blank=True, null=True)
     emergency_contact_name = models.CharField(max_length=120, blank=True, null=True)
     emergency_contact_phone = models.CharField(max_length=40, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=40, blank=True, null=True)
+    arrival_time_window = models.CharField(max_length=20, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    accepts_data_policy = models.BooleanField(default=False)
+    online_check_in_submitted_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -1,3 +1,7 @@
+import {
+  AbstractControl,
+  ValidationErrors,
+} from '@angular/forms';
 import { ParamMap, Params } from '@angular/router';
 
 import {
@@ -411,6 +415,68 @@ export function getAvailableRoomCount(
   );
 }
 
+const HOTEL_TYPE_ICONS: Record<string, string> = {
+  'Hotel': 'pi pi-building',
+  'Hostal': 'pi pi-home',
+  'Apartahotel': 'pi pi-building',
+  'Alojamiento turístico': 'pi pi-compass',
+};
+
+export function getHotelTypeIcon(type: string): string {
+
+  return HOTEL_TYPE_ICONS[type] ?? 'pi pi-building';
+}
+
+const ROOM_TYPE_ICON_RULES: {
+  keyword: string;
+  icon: string;
+}[] = [
+  {
+    keyword: 'suite',
+    icon: 'pi pi-star',
+  },
+  {
+    keyword: 'cabana',
+    icon: 'pi pi-home',
+  },
+  {
+    keyword: 'compartid',
+    icon: 'pi pi-users',
+  },
+  {
+    keyword: 'apartamento',
+    icon: 'pi pi-building',
+  },
+];
+
+export function getRoomTypeIcon(roomType: string): string {
+
+  const normalized =
+    normalizeText(roomType);
+
+  const rule =
+    ROOM_TYPE_ICON_RULES.find(
+      (candidate) =>
+        normalized.includes(candidate.keyword)
+    );
+
+  return rule?.icon ?? 'pi pi-building';
+}
+
+export function isAvailableRoomCountEstimated(
+  hotel: AlliedHotel
+): boolean {
+
+  return typeof hotel.availableRooms !== 'number';
+}
+
+export function isAvailableRoomRateCountEstimated(
+  rate: AlliedRoomRate
+): boolean {
+
+  return typeof rate.availableRooms !== 'number';
+}
+
 export function getAvailableRoomRateCount(
   hotel: AlliedHotel,
   rate: AlliedRoomRate,
@@ -570,6 +636,58 @@ export function toDateInputValue(date: Date): string {
     `${date.getDate()}`.padStart(2, '0');
 
   return `${year}-${month}-${day}`;
+}
+
+export function phoneFormatValidator(
+  control: AbstractControl
+): ValidationErrors | null {
+
+  const value =
+    (control.value ?? '').toString().trim();
+
+  if (!value) {
+    return null;
+  }
+
+  if (!/^\+?[0-9\s\-()]+$/.test(value)) {
+    return { phoneFormat: true };
+  }
+
+  const digitCount =
+    value.replace(/[^0-9]/g, '').length;
+
+  return digitCount >= 7 && digitCount <= 15
+    ? null
+    : { phoneFormat: true };
+}
+
+const DOCUMENT_NUMBER_PATTERNS: Record<string, RegExp> = {
+  CC: /^[0-9]{5,15}$/,
+  CE: /^[0-9]{5,15}$/,
+  DNI: /^[0-9]{5,15}$/,
+  PASAPORTE: /^[A-Za-z0-9]{5,15}$/,
+};
+
+export function documentNumberFormatValidator(
+  control: AbstractControl
+): ValidationErrors | null {
+
+  const value =
+    (control.value ?? '').toString().trim();
+
+  if (!value) {
+    return null;
+  }
+
+  const documentType =
+    control.parent?.get('guestDocumentType')?.value ?? 'CC';
+
+  const pattern =
+    DOCUMENT_NUMBER_PATTERNS[documentType] ?? DOCUMENT_NUMBER_PATTERNS['CC'];
+
+  return pattern.test(value)
+    ? null
+    : { documentNumberFormat: true };
 }
 
 function normalizeNumber(

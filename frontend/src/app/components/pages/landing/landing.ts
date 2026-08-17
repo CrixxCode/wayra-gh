@@ -41,15 +41,14 @@ interface NavLink {
 
 interface TurnMoment {
   title: string;
-  description: string;
+  summary: string;
   icon: string;
-  evidence: string[];
-  outcome: string;
 }
 
 interface ProofItem {
   label: string;
   description: string;
+  icon: string;
 }
 
 interface AudienceItem {
@@ -115,6 +114,9 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   locationDepartments: HotelLocationDepartment[] = [];
   locationCities: string[] = [];
 
+  locationCountriesLoading = false;
+  locationLoadError = '';
+
 
   // =========================================================
   // FORMULARIO DE DEMO
@@ -141,6 +143,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
         [
           Validators.required,
           Validators.min(1),
+          Validators.max(2000),
         ],
       ],
 
@@ -260,42 +263,21 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   readonly turnMoments: TurnMoment[] = [
     {
       title: 'Antes del check-in',
-      description:
-        'Recepción confirma la reserva con habitación, huésped, abono y horario en el mismo registro.',
+      summary:
+        'Recepción confirma reserva, huésped y horario en un mismo registro.',
       icon: 'pi pi-calendar-clock',
-      evidence: [
-        'Reserva',
-        'Huéspedes',
-        'Abonos',
-      ],
-      outcome:
-        'El turno sabe quién llega y qué falta revisar.',
     },
     {
       title: 'Durante la estadía',
-      description:
-        'Habitaciones, limpieza, servicios e inventario quedan conectados a la estadía correcta.',
+      summary:
+        'Habitaciones, limpieza y servicios quedan conectados a la estadía activa.',
       icon: 'pi pi-building',
-      evidence: [
-        'Habitación',
-        'Limpieza',
-        'Servicios',
-      ],
-      outcome:
-        'El equipo ve qué está listo, ocupado o pendiente.',
     },
     {
       title: 'Al cierre de caja',
-      description:
-        'Pagos, cargos, reportes y actividad quedan disponibles para revisar el día sin cruzar hojas sueltas.',
+      summary:
+        'Pagos, cargos y reportes quedan disponibles para el cierre del día.',
       icon: 'pi pi-wallet',
-      evidence: [
-        'Pagos',
-        'Reportes',
-        'Actividad',
-      ],
-      outcome:
-        'Gerencia revisa saldos y operación desde una sola fuente.',
     },
   ];
 
@@ -309,21 +291,25 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
       label: 'Reserva',
       description:
         'Fechas, habitación, huéspedes, abonos y estado del check-in.',
+      icon: 'pi pi-calendar-plus',
     },
     {
       label: 'Habitación',
       description:
         'Disponibilidad, limpieza, mantenimiento e inventario asociado.',
+      icon: 'pi pi-home',
     },
     {
       label: 'Caja',
       description:
         'Cargos, pagos, reembolsos, saldos y cierre de la estadía.',
+      icon: 'pi pi-wallet',
     },
     {
       label: 'Gerencia',
       description:
         'Ocupación, ingresos, egresos, reportes y registro de actividad.',
+      icon: 'pi pi-chart-line',
     },
   ];
 
@@ -406,12 +392,17 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     {
       question: '¿Qué puedo gestionar desde Wayra?',
       answer:
-        'Puedes gestionar reservas, habitaciones, huéspedes, clientes, servicios, pagos, facturas, inventario, limpieza, mantenimiento, egresos y reportes.',
+        'Reservas, habitaciones y huéspedes; servicios, pagos y facturas; inventario, limpieza y mantenimiento; y reportes con los egresos del hotel.',
     },
     {
       question: '¿Cómo funciona la solicitud de demo?',
       answer:
-        'Solicitas una demo con tus datos de contacto y el contexto del hotel. El equipo de Wayra revisa la información y coordina el acceso.',
+        'Solicitas una demo con tus datos de contacto y el contexto del hotel. El equipo de Wayra revisa la información y se comunica contigo para coordinar el acceso, sin activar cobros ni publicar tus datos.',
+    },
+    {
+      question: '¿Puedo empezar con pocas habitaciones?',
+      answer:
+        'Sí. Wayra se adapta al tamaño real del hotel, desde alojamientos pequeños hasta operaciones con varias habitaciones y equipos, sin exigir una escala mínima.',
     },
     {
       question: '¿Qué es el check-in online?',
@@ -445,6 +436,15 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   jobTitles: JobTitle[] = [];
   jobTitlesLoading = false;
   jobTitlesLoadError = '';
+
+  get jobTitlesIncludeOtro(): boolean {
+    return this.jobTitles.some(
+      (jobTitle) =>
+        String(jobTitle.name || '')
+          .trim()
+          .toLowerCase() === 'otro'
+    );
+  }
 
 
   // =========================================================
@@ -563,7 +563,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   handleEscapeKey(): void {
 
     if (this.demoModalOpen) {
-      this.closeDemoModal();
+      this.closeDemoModalWithConfirm();
     }
   }
 
@@ -743,6 +743,23 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
 
+  // Backdrop/Escape/X are accidental dismissals, unlike the explicit "Cancelar" button, so confirm before discarding a dirty form.
+  closeDemoModalWithConfirm(): void {
+
+    if (
+      !this.demoSubmitted &&
+      this.demoForm.dirty &&
+      !window.confirm(
+        '¿Descartar los datos que ya ingresaste en la solicitud de demo?'
+      )
+    ) {
+      return;
+    }
+
+    this.closeDemoModal();
+  }
+
+
   // =========================================================
   // PASOS
   // =========================================================
@@ -884,11 +901,21 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     });
 
     this.locationCities = [];
+    this.locationLoadError = '';
 
-    this.locationDepartments =
-      await loadDepartmentsForCountry(
-        this.demoForm.controls.location.controls.country.value
-      );
+    try {
+
+      this.locationDepartments =
+        await loadDepartmentsForCountry(
+          this.demoForm.controls.location.controls.country.value
+        );
+    } catch {
+
+      this.locationDepartments = [];
+
+      this.locationLoadError =
+        'No se pudieron cargar los departamentos disponibles.';
+    }
   }
 
 
@@ -901,11 +928,22 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     const location =
       this.demoForm.controls.location.controls;
 
-    this.locationCities =
-      await loadCitiesForDepartment(
-        location.country.value,
-        location.state.value
-      );
+    this.locationLoadError = '';
+
+    try {
+
+      this.locationCities =
+        await loadCitiesForDepartment(
+          location.country.value,
+          location.state.value
+        );
+    } catch {
+
+      this.locationCities = [];
+
+      this.locationLoadError =
+        'No se pudieron cargar las ciudades disponibles.';
+    }
   }
 
 
@@ -1158,13 +1196,32 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   // PAÍSES
   // =========================================================
 
-  private loadDemoCountries(): void {
+  loadDemoCountries(): void {
+
+    if (
+      this.locationCountries.length > 0 ||
+      this.locationCountriesLoading
+    ) {
+      return;
+    }
+
+    this.locationCountriesLoading = true;
+    this.locationLoadError = '';
 
     loadHotelCountries()
       .then((countries) => {
 
         this.locationCountries =
           countries;
+      })
+      .catch(() => {
+
+        this.locationLoadError =
+          'No se pudieron cargar los países disponibles.';
+      })
+      .finally(() => {
+
+        this.locationCountriesLoading = false;
       });
   }
 
@@ -1173,7 +1230,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   // CARGOS
   // =========================================================
 
-  private loadDemoJobTitles(): void {
+  loadDemoJobTitles(): void {
 
     if (
       this.jobTitles.length > 0 ||

@@ -37,12 +37,14 @@ import {
   getAvailableRoomCount,
   getEstimatedTotal,
   getNights,
+  getHotelTypeIcon,
   getRateFrom,
   getSelectedDateRange,
   getTodayDate,
   hasDateRangeError,
   hasDestinationMatches,
   hasIncompleteDateRange,
+  isAvailableRoomCountEstimated,
   parseBookingCriteriaFromQuery,
 } from './allied-booking-flow';
 
@@ -78,6 +80,7 @@ export class AlliedBookingPage implements OnInit {
   destinationPanelOpen = false;
   locatingDestination = false;
   destinationLocationError = '';
+  hotelsLoadErrorContext: 'initial' | 'availability' = 'initial';
 
   readonly searchForm =
     this.formBuilder.nonNullable.group({
@@ -133,6 +136,7 @@ export class AlliedBookingPage implements OnInit {
       .listActiveAlliedHotels()
       .pipe(
         catchError(() => {
+          this.hotelsLoadErrorContext = 'initial';
           this.hotelsLoadError = 'No fue posible cargar los hoteles aliados activos.';
           return of([] as AlliedHotel[]);
         })
@@ -243,6 +247,10 @@ export class AlliedBookingPage implements OnInit {
 
   searchAvailability(): void {
 
+    if (this.searchingAvailability) {
+      return;
+    }
+
     this.searchForm.markAllAsTouched();
 
     if (this.loadingHotels) {
@@ -278,6 +286,7 @@ export class AlliedBookingPage implements OnInit {
       .pipe(
         catchError(() => {
           if (requestId === this.availabilityRequestId) {
+            this.hotelsLoadErrorContext = 'availability';
             this.hotelsLoadError = 'No fue posible consultar disponibilidad.';
           }
           return of([] as AlliedHotel[]);
@@ -294,14 +303,38 @@ export class AlliedBookingPage implements OnInit {
       });
   }
 
+  retryLoadHotels(): void {
+    this.loadHotels();
+  }
+
+  retrySearchAvailability(): void {
+    this.searchAvailability();
+  }
+
   openDestinationPanel(): void {
     this.destinationPanelOpen = true;
   }
 
   closeDestinationPanel(): void {
-    window.setTimeout(() => {
-      this.destinationPanelOpen = false;
-    }, 120);
+    this.destinationPanelOpen = false;
+  }
+
+  onDestinationFocusOut(event: FocusEvent): void {
+
+    const container =
+      event.currentTarget as HTMLElement;
+
+    const nextFocusTarget =
+      event.relatedTarget as Node | null;
+
+    if (
+      nextFocusTarget &&
+      container.contains(nextFocusTarget)
+    ) {
+      return;
+    }
+
+    this.closeDestinationPanel();
   }
 
   selectDestination(
@@ -483,6 +516,16 @@ export class AlliedBookingPage implements OnInit {
     );
   }
 
+  isAvailableRoomCountEstimated(hotel: AlliedHotel): boolean {
+
+    return isAvailableRoomCountEstimated(hotel);
+  }
+
+  getHotelTypeIcon(type: string): string {
+
+    return getHotelTypeIcon(type);
+  }
+
   formatCurrency(value: number): string {
 
     return formatBookingCurrency(value);
@@ -496,7 +539,7 @@ export class AlliedBookingPage implements OnInit {
       return error.message;
     }
 
-    return 'No pudimos usar tu ubicacion.';
+    return 'No pudimos usar tu ubicación. Escribe tu destino manualmente.';
   }
 
   private syncDatePickerDraft(): void {

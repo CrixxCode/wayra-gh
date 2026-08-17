@@ -1754,3 +1754,394 @@ class WebReservationPublicApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Reservation.objects.count(), 0)
+
+
+class OnlineCheckInPublicApiTests(APITestCase):
+    def _md(self, group, code, name=None, sort_order=1):
+        return MasterData.objects.update_or_create(
+            group=group,
+            code=code,
+            defaults={
+                "name": name or code.title(),
+                "sort_order": sort_order,
+                "is_active": True,
+            },
+        )[0]
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        # El throttle publico usa el cache por defecto (proceso compartido entre
+        # tests); lo limpiamos para que cada test empiece con su propia cuota.
+        cache.clear()
+
+        self.document_type = self._md(MasterData.Group.DOCUMENT_TYPE, "CC", "Cedula", 1)
+        self._md(MasterData.Group.CLIENT_TYPE, "REGULAR", "Regular", 1)
+        self._md(MasterData.Group.CLIENT_STATUS, "ACTIVO", "Activo", 1)
+        self.room_status_available = self._md(MasterData.Group.ROOM_STATUS, "DISPONIBLE", "Disponible", 1)
+        self.status_pending = self._md(MasterData.Group.RESERVATION_STATUS, "PENDIENTE", "Pendiente", 1)
+        self.status_confirmed = self._md(MasterData.Group.RESERVATION_STATUS, "CONFIRMADA", "Confirmada", 2)
+        self.status_cancelled = self._md(MasterData.Group.RESERVATION_STATUS, "CANCELADA", "Cancelada", 3)
+        self.origin = self._md(MasterData.Group.RESERVATION_ORIGIN, "WEB", "Web", 1)
+
+        self.hotel_settings = HotelSettings.objects.create(
+            hotel_name="Hotel Check-in Online",
+            city="Bogota",
+            country="Colombia",
+            reservations_email="reservas@checkinonline.test",
+        )
+        self.manager = User.objects.create_user(
+            username="manager-checkin",
+            email="manager-checkin@example.com",
+            password="test-pass",
+            hotel_settings=self.hotel_settings,
+        )
+        self.client_record = Client.objects.create(
+            hotel_settings=self.hotel_settings,
+            document_type=self.document_type,
+            document_number="1234567890",
+            first_name="Laura",
+            last_name="Gomez",
+            email="laura@example.com",
+            client_type=self._md(MasterData.Group.CLIENT_TYPE, "REGULAR"),
+            status=self._md(MasterData.Group.CLIENT_STATUS, "ACTIVO"),
+        )
+        self.check_in_date = timezone.localdate() + timedelta(days=5)
+        self.check_out_date = self.check_in_date + timedelta(days=2)
+        self.reservation = Reservation.objects.create(
+            client=self.client_record,
+            status=self.status_confirmed,
+            origin=self.origin,
+            hotel_settings=self.hotel_settings,
+            expected_check_in=self.check_in_date,
+            expected_check_out=self.check_out_date,
+        )
+
+        # Una habitacion para dos adultos: la reserva es para 2 huespedes.
+        self.floor = HotelFloor.objects.create(
+            hotel_settings=self.hotel_settings,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=1,
+        )
+        self.room_type = RoomType.objects.create(
+            hotel_settings=self.hotel_settings,
+            code="STD",
+            name="Estandar",
+            capacity=2,
+            bed_count=1,
+            is_active=True,
+        )
+        self.rate = Rate.objects.create(
+            hotel_settings=self.hotel_settings,
+            room_type=self.room_type,
+            name="Flexible check-in",
+            price=180000,
+            is_active=True,
+        )
+        self.room = Room.objects.create(
+            number="101",
+            room_type=self.room_type,
+            rate=self.rate,
+            floor=self.floor,
+            status=self.room_status_available,
+        )
+        ReservationRoom.objects.create(
+            reservation=self.reservation,
+            room=self.room,
+            night_rate=self.rate.price,
+            adults=2,
+            children=0,
+        )
+
+    def _guest_payload(self, **overrides):
+        guest = {
+            "firstName": "Laura",
+            "lastName": "Gomez",
+            "documentType": "CC",
+            "documentNumber": "1234567890",
+            "birthDate": "1990-05-10",
+            "nationality": "Colombia",
+        }
+        guest.update(overrides)
+        return guest
+
+    def _payload(self, guests=None, **overrides):
+        payload = {
+            "reservationCode": f"WYR-{self.reservation.id}",
+            "guests": guests
+            if guests is not None
+            else [
+                self._guest_payload(),
+                self._guest_payload(
+                    firstName="Mario",
+                    lastName="Gomez",
+                    documentNumber="1234567891",
+                    birthDate="1988-11-02",
+                ),
+            ],
+            "email": "laura@example.com",
+            "phone": "3001234567",
+            "arrivalTime": "14:00-16:00",
+            "emergencyContactName": "Carlos Gomez",
+            "emergencyContactPhone": "3007654321",
+            "notes": "Llegada en vuelo nocturno.",
+            "acceptsDataPolicy": True,
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_guest_can_submit_online_check_in_for_two_guests(self):
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["reservation_id"], self.reservation.id)
+        self.assertEqual(response.data["status_code"], "CONFIRMADA")
+        self.assertEqual(len(response.data["guests"]), 2)
+
+        self.assertEqual(self.reservation.guests.count(), 2)
+        first_guest = self.reservation.guests.get(document_number="1234567890")
+        second_guest = self.reservation.guests.get(document_number="1234567891")
+        self.assertEqual(first_guest.email, "laura@example.com")
+        self.assertEqual(second_guest.email, "laura@example.com")
+        self.assertEqual(first_guest.arrival_time_window, "14:00-16:00")
+        self.assertTrue(first_guest.accepts_data_policy)
+        self.assertTrue(second_guest.accepts_data_policy)
+        self.assertIsNotNone(first_guest.online_check_in_submitted_at)
+        self.assertIsNotNone(second_guest.online_check_in_submitted_at)
+
+        # No modifica el flujo operativo interno: sigue sin check-in real.
+        self.reservation.refresh_from_db()
+        self.assertIsNone(self.reservation.real_check_in)
+        self.assertEqual(self.reservation.status_code, "CONFIRMADA")
+
+        notification = Notification.objects.filter(
+            user=self.manager,
+            title="Check-in online recibido",
+        ).first()
+        self.assertIsNotNone(notification)
+        self.assertIn("2 huespedes", notification.message)
+
+    def test_resubmission_is_idempotent_and_updates_existing_guests(self):
+        first = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(),
+            format="json",
+        )
+        self.assertEqual(first.status_code, 200)
+
+        second = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(notes="Cambio de hora de llegada."),
+            format="json",
+        )
+        self.assertEqual(second.status_code, 200)
+
+        self.assertEqual(self.reservation.guests.count(), 2)
+        first_guest = self.reservation.guests.get(document_number="1234567890")
+        self.assertEqual(first_guest.notes, "Cambio de hora de llegada.")
+
+        # La notificacion a recepcion solo se dispara en el primer envio.
+        self.assertEqual(
+            Notification.objects.filter(
+                user=self.manager,
+                title="Check-in online recibido",
+            ).count(),
+            1,
+        )
+
+    def test_guest_count_mismatch_is_rejected(self):
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(guests=[self._guest_payload()]),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.reservation.guests.count(), 0)
+
+    def test_duplicate_document_within_payload_is_rejected(self):
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(
+                guests=[
+                    self._guest_payload(),
+                    self._guest_payload(firstName="Mario", lastName="Gomez"),
+                ]
+            ),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        # La transaccion no deja guardado ni al primer huesped.
+        self.assertEqual(self.reservation.guests.count(), 0)
+
+    def test_document_mismatch_is_rejected_without_leaking_reservation_data(self):
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(
+                guests=[
+                    self._guest_payload(documentNumber="999999"),
+                    self._guest_payload(
+                        firstName="Mario",
+                        lastName="Gomez",
+                        documentNumber="1234567891",
+                        birthDate="1988-11-02",
+                    ),
+                ]
+            ),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.reservation.guests.count(), 0)
+
+    def test_unknown_reservation_code_is_rejected(self):
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(reservationCode="WYR-999999"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_pending_reservation_is_not_eligible(self):
+        self.reservation.status = self.status_pending
+        self.reservation.save(update_fields=["status"])
+
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("confirmada", response.data["detail"])
+        self.assertEqual(self.reservation.guests.count(), 0)
+
+    def test_cancelled_reservation_is_not_eligible(self):
+        self.reservation.status = self.status_cancelled
+        self.reservation.save(update_fields=["status"])
+
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("cancelada", response.data["detail"])
+
+    def test_already_checked_in_reservation_is_not_eligible(self):
+        self.reservation.real_check_in = timezone.now()
+        self.reservation.save(update_fields=["real_check_in"])
+
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("presencial", response.data["detail"])
+        self.assertEqual(self.reservation.guests.count(), 0)
+
+    def test_missing_data_policy_consent_is_rejected(self):
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(acceptsDataPolicy=False),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.reservation.guests.count(), 0)
+
+    def test_invalid_arrival_window_is_rejected(self):
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(arrivalTime="00:00-99:00"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def _lookup_payload(self, **overrides):
+        payload = {
+            "reservationCode": f"WYR-{self.reservation.id}",
+            "documentType": "CC",
+            "documentNumber": "1234567890",
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_lookup_returns_reservation_summary_for_matching_titular(self):
+        response = self.client.post(
+            "/api/online-check-in/lookup/",
+            data=self._lookup_payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["reservation_id"], self.reservation.id)
+        self.assertEqual(response.data["hotel_name"], "Hotel Check-in Online")
+        self.assertEqual(response.data["total_guests"], 2)
+        self.assertTrue(response.data["eligible"])
+        self.assertIsNone(response.data["eligible_reason"])
+        self.assertEqual(response.data["existing_guests"], [])
+
+    def test_lookup_rejects_document_mismatch(self):
+        response = self.client.post(
+            "/api/online-check-in/lookup/",
+            data=self._lookup_payload(documentNumber="000000"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_lookup_rejects_unknown_reservation_code(self):
+        response = self.client.post(
+            "/api/online-check-in/lookup/",
+            data=self._lookup_payload(reservationCode="WYR-999999"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_lookup_reports_not_eligible_reservation_without_error_status(self):
+        self.reservation.status = self.status_pending
+        self.reservation.save(update_fields=["status"])
+
+        response = self.client.post(
+            "/api/online-check-in/lookup/",
+            data=self._lookup_payload(),
+            format="json",
+        )
+
+        # No es un error HTTP: el documento si coincidio, solo no es elegible todavia.
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["eligible"])
+        self.assertIn("confirmada", response.data["eligible_reason"])
+
+    def test_lookup_returns_existing_guests_after_submission(self):
+        submit_response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(),
+            format="json",
+        )
+        self.assertEqual(submit_response.status_code, 200)
+
+        response = self.client.post(
+            "/api/online-check-in/lookup/",
+            data=self._lookup_payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["existing_guests"]), 2)
+        documents = {guest["document_number"] for guest in response.data["existing_guests"]}
+        self.assertEqual(documents, {"1234567890", "1234567891"})

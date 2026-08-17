@@ -54,7 +54,9 @@
           class="allied-view-back"
           routerLink="/">
 
-          <i class="pi pi-arrow-left"></i>
+          <i
+            class="pi pi-arrow-left"
+            aria-hidden="true"></i>
           Volver
 
         </a>
@@ -75,17 +77,17 @@
         <div class="allied-stats" aria-label="Resumen de hoteles aliados">
           <span>
             <strong>{{ hotels.length }}</strong>
-            alojamientos encontrados
+            {{ hotels.length === 1 ? 'alojamiento encontrado' : 'alojamientos encontrados' }}
           </span>
 
           <span>
-            <strong>{{ hotelTypes.length - 1 }}</strong>
-            tipos de alojamiento
+            <strong>{{ hotelTypeCount }}</strong>
+            {{ hotelTypeCount === 1 ? 'tipo de alojamiento' : 'tipos de alojamiento' }}
           </span>
 
           <span>
             <strong>{{ totalRooms }}</strong>
-            habitaciones registradas
+            {{ totalRooms === 1 ? 'habitacion registrada' : 'habitaciones registradas' }}
           </span>
         </div>
 
@@ -135,22 +137,37 @@
         </div>
 
 
-        <p class="allied-result-count">
+        <p
+          *ngIf="!loading"
+          class="allied-result-count"
+          aria-live="polite">
           {{ filteredHotels.length }}
-          alojamiento(s) encontrados
+          {{ filteredHotels.length === 1 ? 'alojamiento encontrado' : 'alojamientos encontrados' }}
         </p>
 
         <p
           *ngIf="loading"
-          class="allied-result-count">
+          class="allied-result-count"
+          aria-live="polite">
           Cargando hoteles aliados...
         </p>
 
-        <p
+        <div
           *ngIf="!loading && loadError"
-          class="allied-result-count allied-error">
-          {{ loadError }}
-        </p>
+          class="allied-error-state"
+          aria-live="polite">
+
+          <p class="allied-result-count allied-error">
+            {{ loadError }}
+          </p>
+
+          <button
+            type="button"
+            (click)="retryLoadHotels()">
+            Reintentar
+          </button>
+
+        </div>
 
         <div
           *ngIf="!loading"
@@ -163,36 +180,69 @@
             [id]="hotel.slug"
             class="allied-card">
 
-            <span class="allied-badge">
-              <i class="pi pi-sparkles"></i>
-              Aliado Wayra
-            </span>
+            <div class="allied-card-media">
+              <img
+                *ngIf="hotel.imageUrl && !hasImageError(hotel)"
+                [src]="hotel.imageUrl"
+                [alt]="hotel.name"
+                loading="lazy"
+                (error)="onImageError(hotel)" />
+
+              <div
+                *ngIf="!hotel.imageUrl || hasImageError(hotel)"
+                class="allied-card-media-fallback">
+                <i
+                  [class]="hotelTypeIcon(hotel)"
+                  aria-hidden="true"></i>
+                <span>
+                  {{ hotel.type }}
+                </span>
+              </div>
+            </div>
 
             <h2>
               {{ hotel.name }}
             </h2>
 
             <p class="allied-location">
-              <i class="pi pi-map-marker"></i>
-              {{ hotel.city }} · {{ hotel.type }}
+              <i
+                class="pi pi-map-marker"
+                aria-hidden="true"></i>
+              {{ locationLabel(hotel) }}
+            </p>
+
+            <p
+              *ngIf="hotel.description"
+              class="allied-description">
+              {{ hotel.description }}
             </p>
 
             <ul>
               <li
                 *ngFor="
-                  let highlight of hotel.highlights;
+                  let highlight of hotel.highlights.slice(0, 3);
                   trackBy: trackByIndex
                 ">
 
-                <i class="pi pi-check"></i>
+                <i
+                  class="pi pi-check"
+                  aria-hidden="true"></i>
                 {{ highlight }}
 
+              </li>
+
+              <li
+                *ngIf="hotel.highlights.length > 3"
+                class="allied-card-more">
+                +{{ hotel.highlights.length - 3 }} mas
               </li>
             </ul>
 
             <div class="allied-card-footer">
-              <span>
-                {{ hotel.rooms }} habitaciones
+              <span
+                *ngIf="hotel.nightlyRateFrom > 0"
+                class="allied-card-price">
+                Desde {{ formatCurrency(hotel.nightlyRateFrom) }} por noche
               </span>
 
               <a
@@ -209,10 +259,12 @@
 
 
         <div
-          *ngIf="!loading && filteredHotels.length === 0"
+          *ngIf="!loading && !loadError && filteredHotels.length === 0"
           class="allied-empty">
 
-          <i class="pi pi-search"></i>
+          <i
+            class="pi pi-search"
+            aria-hidden="true"></i>
 
           <h2>
             No hay hoteles con esos filtros

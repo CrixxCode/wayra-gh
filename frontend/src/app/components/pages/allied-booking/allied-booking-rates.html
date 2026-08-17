@@ -17,13 +17,13 @@
 
       </a>
 
-      <nav aria-label="Navegacion publica">
+      <nav aria-label="Navegación pública">
         <a routerLink="/hoteles-aliados">
           Hoteles aliados
         </a>
 
         <a routerLink="/login">
-          Iniciar sesion
+          Iniciar sesión
         </a>
       </nav>
 
@@ -51,7 +51,7 @@
         </p>
 
         <h1>
-          Elige habitacion y tarifa
+          Elige habitación y tarifa
         </h1>
 
         <p class="booking-lead">
@@ -73,7 +73,7 @@
           <div class="booking-results-header">
             <div>
               <p class="booking-kicker">
-                Habitacion y tarifa
+                Habitación y tarifa
               </p>
 
               <h2>
@@ -86,7 +86,8 @@
             </div>
 
             <span *ngIf="selectedHotel && criteriaReady">
-              {{ availableRoomRates.length }} tarifa(s)
+              {{ availableRoomRates.length }}
+              {{ availableRoomRates.length === 1 ? 'tarifa' : 'tarifas' }}
             </span>
           </div>
 
@@ -109,7 +110,7 @@
 
 
           <div
-            *ngIf="!loadingHotels && hotelsLoadError"
+            *ngIf="!loadingHotels && hotelsLoadError && hotelsLoadErrorContext === 'initial'"
             class="booking-empty">
 
             <i class="pi pi-search"></i>
@@ -121,6 +122,47 @@
             <p>
               {{ hotelsLoadError }}
             </p>
+
+            <button
+              type="button"
+              class="booking-secondary"
+              [disabled]="loadingHotels"
+              (click)="retryLoadHotels()">
+
+              Reintentar
+
+              <i class="pi pi-refresh text-xs"></i>
+
+            </button>
+
+          </div>
+
+
+          <div
+            *ngIf="!loadingHotels && hotelsLoadError && hotelsLoadErrorContext === 'availability'"
+            class="booking-empty">
+
+            <i class="pi pi-search"></i>
+
+            <h3>
+              No fue posible consultar disponibilidad
+            </h3>
+
+            <p>
+              {{ hotelsLoadError }}
+            </p>
+
+            <button
+              type="button"
+              class="booking-secondary"
+              [disabled]="loadingHotels"
+              (click)="retrySearchAvailability()">
+
+              Reintentar
+
+              <i class="pi pi-refresh text-xs"></i>
+
+            </button>
 
           </div>
 
@@ -136,7 +178,7 @@
             </h3>
 
             <p>
-              El hotel seleccionado no esta activo dentro de los aliados Wayra.
+              El hotel seleccionado no está activo dentro de los aliados Wayra.
             </p>
 
             <a
@@ -162,11 +204,11 @@
             <i class="pi pi-calendar"></i>
 
             <h3>
-              Completa la busqueda
+              Completa la búsqueda
             </h3>
 
             <p>
-              Necesitas destino, fechas, habitaciones y huespedes para ver
+              Necesitas destino, fechas, habitaciones y huéspedes para ver
               tarifas disponibles.
             </p>
 
@@ -175,7 +217,7 @@
               [queryParams]="queryParams"
               class="booking-primary">
 
-              Editar busqueda
+              Editar búsqueda
 
             </a>
 
@@ -199,7 +241,7 @@
             </h3>
 
             <p>
-              Ajusta fechas, habitaciones o huespedes para consultar otras
+              Ajusta fechas, habitaciones o huéspedes para consultar otras
               opciones.
             </p>
 
@@ -208,7 +250,7 @@
               [queryParams]="queryParams"
               class="booking-primary">
 
-              Cambiar busqueda
+              Cambiar búsqueda
 
             </a>
 
@@ -230,31 +272,66 @@
                 let rate of availableRoomRates;
                 trackBy: trackByIndex
               "
-              class="booking-rate-card">
+              class="booking-rate-select-card">
 
-              <div>
-                <span class="booking-badge">
+              <div class="booking-rate-select-media">
+                <img
+                  *ngIf="rate.imageUrl"
+                  [src]="rate.imageUrl"
+                  [alt]="rate.roomType"
+                  loading="lazy" />
+
+                <div
+                  *ngIf="!rate.imageUrl"
+                  class="booking-rate-select-media-fallback"
+                  aria-hidden="true">
+
+                  <i [ngClass]="getRoomTypeIcon(rate.roomType)"></i>
+
+                  <span>
+                    {{ rate.roomType }}
+                  </span>
+
+                </div>
+
+                <span class="booking-badge booking-rate-select-badge">
                   {{ rate.rateName }}
                 </span>
+              </div>
 
+
+              <div class="booking-rate-select-body">
                 <h3>
                   {{ rate.roomType }}
                 </h3>
 
-                <p>
+                <p class="booking-rate-select-description">
                   {{ rate.description }}
                 </p>
 
-                <ul>
+                <ul class="booking-rate-select-meta">
                   <li>
                     <i class="pi pi-users"></i>
-                    Hasta {{ rate.maxGuests }} huesped(es) por habitacion
+                    Hasta {{ rate.maxGuests }}
+                    {{ rate.maxGuests === 1 ? 'huésped' : 'huéspedes' }}
+                    por habitación
                   </li>
 
-                  <li>
+                  <li *ngIf="isAvailableRoomRateCountEstimated(rate)">
+                    <i class="pi pi-building"></i>
+                    Disponibilidad estimada:
+                    {{ getAvailableRoomRateCount(rate) }}
+                    {{ getAvailableRoomRateCount(rate) === 1 ? 'habitación' : 'habitaciones' }}
+                  </li>
+
+                  <li *ngIf="!isAvailableRoomRateCountEstimated(rate)">
                     <i class="pi pi-building"></i>
                     {{ getAvailableRoomRateCount(rate) }}
-                    disponible(s)
+                    {{
+                      getAvailableRoomRateCount(rate) === 1
+                        ? 'habitación disponible'
+                        : 'habitaciones disponibles'
+                    }}
                   </li>
 
                   <li>
@@ -266,23 +343,25 @@
               </div>
 
 
-              <div class="booking-rate-price">
-                <strong>
-                  {{ formatCurrency(rate.nightlyRate) }}
-                </strong>
+              <div class="booking-rate-select-side">
+                <div class="booking-rate-select-price">
+                  <strong>
+                    {{ formatCurrency(rate.nightlyRate) }}
+                  </strong>
 
-                <small>
-                  Por noche
-                </small>
+                  <small>
+                    Por noche
+                  </small>
 
-                <small>
-                  Total estimado:
-                  {{ formatCurrency(getRateEstimatedTotal(rate)) }}
-                </small>
+                  <small>
+                    Total estimado:
+                    {{ formatCurrency(getRateEstimatedTotal(rate)) }}
+                  </small>
+                </div>
 
                 <button
                   type="button"
-                  class="booking-primary"
+                  class="booking-primary booking-rate-select-cta"
                   (click)="selectRoomRate(rate)">
 
                   Elegir tarifa

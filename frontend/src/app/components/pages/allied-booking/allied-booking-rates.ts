@@ -26,6 +26,8 @@ import {
   getAvailableRoomRates,
   getNights,
   getRateEstimatedTotal,
+  getRoomTypeIcon,
+  isAvailableRoomRateCountEstimated,
   isBookingCriteriaComplete,
   parseBookingCriteriaFromQuery,
 } from './allied-booking-flow';
@@ -57,12 +59,21 @@ export class AlliedBookingRatesPage implements OnInit {
 
   loadingHotels = true;
   hotelsLoadError = '';
+  hotelsLoadErrorContext: 'initial' | 'availability' = 'initial';
+
+  private hotelSlug = '';
+  private requestId = 0;
 
   ngOnInit(): void {
     this.loadHotels();
   }
 
   private loadHotels(): void {
+
+    const requestId =
+      this.requestId + 1;
+
+    this.requestId = requestId;
     this.loadingHotels = true;
     this.hotelsLoadError = '';
 
@@ -70,14 +81,22 @@ export class AlliedBookingRatesPage implements OnInit {
       .listActiveAlliedHotels()
       .pipe(
         catchError(() => {
-          this.hotelsLoadError = 'No fue posible cargar los hoteles aliados activos.';
+          if (requestId === this.requestId) {
+            this.hotelsLoadErrorContext = 'initial';
+            this.hotelsLoadError = 'No fue posible cargar los hoteles aliados activos.';
+          }
           return of([] as AlliedHotel[]);
         })
       )
       .subscribe((hotels) => {
+        if (requestId !== this.requestId) {
+          return;
+        }
+
         const hotelSlug =
           this.route.snapshot.paramMap.get('hotelSlug') ?? '';
 
+        this.hotelSlug = hotelSlug;
         this.hotels = hotels;
         this.criteria =
           parseBookingCriteriaFromQuery(
@@ -96,22 +115,33 @@ export class AlliedBookingRatesPage implements OnInit {
           return;
         }
 
-        this.loadAvailableRates(hotelSlug);
+        this.loadAvailableRates(hotelSlug, requestId);
       });
   }
 
-  private loadAvailableRates(hotelSlug: string): void {
+  private loadAvailableRates(
+    hotelSlug: string,
+    requestId: number
+  ): void {
+
     this.alliedHotelService
       .listActiveAlliedHotels(
         buildAvailabilityQueryParams(this.criteria)
       )
       .pipe(
         catchError(() => {
-          this.hotelsLoadError = 'No fue posible consultar disponibilidad.';
+          if (requestId === this.requestId) {
+            this.hotelsLoadErrorContext = 'availability';
+            this.hotelsLoadError = 'No fue posible consultar disponibilidad.';
+          }
           return of([] as AlliedHotel[]);
         })
       )
       .subscribe((hotels) => {
+        if (requestId !== this.requestId) {
+          return;
+        }
+
         const availableHotel =
           findHotelBySlug(
             hotels,
@@ -130,6 +160,30 @@ export class AlliedBookingRatesPage implements OnInit {
 
         this.loadingHotels = false;
       });
+  }
+
+  retryLoadHotels(): void {
+
+    if (this.loadingHotels) {
+      return;
+    }
+
+    this.loadHotels();
+  }
+
+  retrySearchAvailability(): void {
+
+    if (this.loadingHotels) {
+      return;
+    }
+
+    const requestId =
+      this.requestId + 1;
+
+    this.requestId = requestId;
+    this.loadingHotels = true;
+    this.hotelsLoadError = '';
+    this.loadAvailableRates(this.hotelSlug, requestId);
   }
 
   get queryParams() {
@@ -203,6 +257,16 @@ export class AlliedBookingRatesPage implements OnInit {
       rate,
       this.criteria
     );
+  }
+
+  isAvailableRoomRateCountEstimated(rate: AlliedRoomRate): boolean {
+
+    return isAvailableRoomRateCountEstimated(rate);
+  }
+
+  getRoomTypeIcon(roomType: string): string {
+
+    return getRoomTypeIcon(roomType);
   }
 
   formatCurrency(value: number): string {

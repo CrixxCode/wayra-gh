@@ -239,6 +239,7 @@ REST_FRAMEWORK = {
         "password_reset": "5/min",
         "demo_request": "5/min",
         "web_reservation": "5/min",
+        "online_check_in": "8/min",
     },
     "EXCEPTION_HANDLER": "accounts.exceptions.exception_handler",
     "DEFAULT_FILTER_BACKENDS": [

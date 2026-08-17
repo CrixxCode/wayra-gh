@@ -26,6 +26,7 @@ import {
   BookingCriteria,
   buildAvailabilityQueryParams,
   buildBookingQueryParams,
+  documentNumberFormatValidator,
   findHotelBySlug,
   findRoomRateById,
   formatBookingCurrency,
@@ -34,6 +35,7 @@ import {
   getRateEstimatedTotal,
   isBookingCriteriaComplete,
   parseBookingCriteriaFromQuery,
+  phoneFormatValidator,
   toDateInputValue,
 } from './allied-booking-flow';
 
@@ -99,7 +101,7 @@ export class AlliedBookingRequestPage implements OnInit {
         '',
         [
           Validators.required,
-          Validators.minLength(7),
+          phoneFormatValidator,
         ],
       ],
       guestDocumentType: [
@@ -110,7 +112,7 @@ export class AlliedBookingRequestPage implements OnInit {
         '',
         [
           Validators.required,
-          Validators.minLength(4),
+          documentNumberFormatValidator,
         ],
       ],
       notes: [''],
@@ -118,6 +120,12 @@ export class AlliedBookingRequestPage implements OnInit {
 
   ngOnInit(): void {
     this.loadHotels();
+
+    this.requestForm.controls.guestDocumentType.valueChanges.subscribe(
+      () => {
+        this.requestForm.controls.guestDocumentNumber.updateValueAndValidity();
+      }
+    );
   }
 
   private loadHotels(): void {
@@ -256,6 +264,26 @@ export class AlliedBookingRequestPage implements OnInit {
     );
   }
 
+  get dateRangeLabel(): string {
+
+    const [
+      checkIn,
+      checkOut,
+    ] = this.criteria.dateRange;
+
+    if (!checkIn || !checkOut) {
+      return '';
+    }
+
+    const formatter =
+      new Intl.DateTimeFormat('es-CO', {
+        day: 'numeric',
+        month: 'short',
+      });
+
+    return `${formatter.format(checkIn)} - ${formatter.format(checkOut)}`;
+  }
+
   submitBooking(): void {
 
     if (this.saving) {
@@ -333,20 +361,6 @@ export class AlliedBookingRequestPage implements OnInit {
           this.submitError = this.extractErrorMessage(error);
         },
       });
-  }
-
-  resetRequest(): void {
-
-    this.requestForm.reset({
-      guestName: '',
-      guestEmail: '',
-      guestPhone: '',
-      guestDocumentType: 'CC',
-      guestDocumentNumber: '',
-      notes: '',
-    });
-
-    this.submitError = '';
   }
 
   isInvalid(controlName: BookingControlName): boolean {

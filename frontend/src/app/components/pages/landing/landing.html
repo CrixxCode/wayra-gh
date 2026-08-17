@@ -56,6 +56,7 @@
             Accesos para huéspedes
 
             <i
+              aria-hidden="true"
               class="pi pi-chevron-down">
             </i>
 
@@ -87,6 +88,7 @@
           [routerLink]="landingSessionActionRoute">
 
           <i
+            aria-hidden="true"
             [class]="landingSessionActionIcon">
           </i>
 
@@ -99,7 +101,7 @@
           class="wayra-btn-primary wayra-btn-small"
           (click)="openDemoModal($event)">
 
-          Ver demo para mi hotel
+          Solicitar demo para mi hotel
 
         </button>
 
@@ -114,7 +116,7 @@
           class="wayra-btn-primary wayra-btn-small hidden sm:inline-flex"
           (click)="openDemoModal($event)">
 
-          Ver demo para mi hotel
+          Solicitar demo para mi hotel
 
         </button>
 
@@ -127,6 +129,7 @@
           aria-label="Abrir menú">
 
           <i
+            aria-hidden="true"
             [ngClass]="
               mobileMenuOpen
                 ? 'pi pi-times'
@@ -186,6 +189,7 @@
           (click)="closeMobileMenu()">
 
           <i
+            aria-hidden="true"
             [class]="landingSessionActionIcon">
           </i>
 
@@ -198,7 +202,7 @@
           class="wayra-btn-primary mt-2 sm:hidden"
           (click)="openDemoModal($event)">
 
-          Ver demo para mi hotel
+          Solicitar demo para mi hotel
 
         </button>
 
@@ -257,9 +261,10 @@
               class="wayra-btn-primary"
               (click)="openDemoModal($event)">
 
-              Ver demo para mi hotel
+              Solicitar demo para mi hotel
 
               <i
+                aria-hidden="true"
                 class="pi pi-arrow-right text-xs">
               </i>
 
@@ -285,6 +290,7 @@
               class="inline-flex items-center gap-2">
 
               <i
+                aria-hidden="true"
                 class="pi pi-check-circle text-emerald-600">
               </i>
 
@@ -296,6 +302,7 @@
               class="inline-flex items-center gap-2">
 
               <i
+                aria-hidden="true"
                 class="pi pi-check-circle text-emerald-600">
               </i>
 
@@ -307,6 +314,7 @@
               class="inline-flex items-center gap-2">
 
               <i
+                aria-hidden="true"
                 class="pi pi-check-circle text-emerald-600">
               </i>
 
@@ -327,10 +335,22 @@
           <div
             class="wayra-product-hero">
 
-            <img
-              src="/landing/landing-1.png"
-              alt="Panel principal de la plataforma hotelera Wayra"
-              class="block w-full" />
+            <picture>
+
+              <source
+                type="image/webp"
+                srcset="/landing/landing-1-960w.webp 960w, /landing/landing-1.webp 1672w"
+                sizes="(max-width: 1023px) 100vw, 830px" />
+
+              <img
+                src="/landing/landing-1.png"
+                alt="Panel principal de la plataforma hotelera Wayra"
+                width="1672"
+                height="941"
+                fetchpriority="high"
+                class="block w-full" />
+
+            </picture>
 
           </div>
 
@@ -359,23 +379,6 @@
       <div
         class="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-12 lg:gap-14 lg:px-8">
 
-        <figure
-          class="wayra-reveal lg:col-span-7">
-
-          <div
-            class="wayra-image-card">
-
-            <img
-              src="/landing/landing-2.png"
-              alt="Procesos administrativos hoteleros gestionados con documentos y herramientas dispersas"
-              loading="lazy"
-              class="h-full w-full object-cover" />
-
-          </div>
-
-        </figure>
-
-
         <article
           class="wayra-reveal lg:col-span-5">
 
@@ -388,7 +391,7 @@
           </h2>
 
           <p
-            class="mt-5 text-base leading-8 text-slate-600">
+            class="mt-5 max-w-[65ch] text-base leading-8 text-slate-600">
 
             Cuando cada área usa una fuente distinta, la operación pierde
             claridad y el equipo dedica más tiempo a coordinar datos que a
@@ -404,6 +407,7 @@
               class="wayra-simple-point">
 
               <i
+                aria-hidden="true"
                 class="pi pi-copy">
               </i>
 
@@ -418,6 +422,7 @@
               class="wayra-simple-point">
 
               <i
+                aria-hidden="true"
                 class="pi pi-sync">
               </i>
 
@@ -432,6 +437,7 @@
               class="wayra-simple-point">
 
               <i
+                aria-hidden="true"
                 class="pi pi-chart-bar">
               </i>
 
@@ -446,6 +452,7 @@
               class="wayra-simple-point">
 
               <i
+                aria-hidden="true"
                 class="pi pi-replay">
               </i>
 
@@ -460,6 +467,7 @@
               class="wayra-simple-point">
 
               <i
+                aria-hidden="true"
                 class="pi pi-clone">
               </i>
 
@@ -473,6 +481,34 @@
 
         </article>
 
+
+        <figure
+          class="wayra-reveal lg:col-span-7">
+
+          <div
+            class="wayra-image-card">
+
+            <picture>
+
+              <source
+                type="image/webp"
+                srcset="/landing/landing-2-960w.webp 960w, /landing/landing-2.webp 1672w"
+                sizes="(max-width: 1023px) 100vw, 830px" />
+
+              <img
+                src="/landing/landing-2.png"
+                alt="Procesos administrativos hoteleros gestionados con documentos y herramientas dispersas"
+                width="1672"
+                height="941"
+                loading="lazy"
+                class="h-full w-full object-cover" />
+
+            </picture>
+
+          </div>
+
+        </figure>
+
       </div>
 
     </section>
@@ -485,221 +521,250 @@
 
     <section
       id="producto"
-      class="wayra-operation-section py-16 text-white sm:py-20">
+      class="wayra-operation-section pt-28 pb-20 text-white sm:pt-36 sm:pb-28">
 
       <div
         class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         <div
-          class="grid items-center gap-10 lg:grid-cols-12 lg:gap-14">
+          class="mx-auto max-w-3xl text-center py-10">
 
-          <article
-            class="wayra-reveal lg:col-span-5">
+          <h2
+            class="wayra-heading text-3xl font-extrabold leading-tight sm:text-4xl">
 
-            <h2
-              class="wayra-heading text-3xl font-extrabold leading-tight sm:text-4xl">
+            Del check-in al cierre de caja, sin partir la información.
 
-              Del check-in al cierre de caja, sin partir la información.
+          </h2>
 
-            </h2>
+          <p
+            class="mt-5 text-base leading-7 text-slate-300 sm:mt-6">
 
-            <p
-              class="mt-5 text-base leading-8 text-slate-300">
+            La misma reserva alimenta recepción, habitaciones, servicios,
+            pagos y reportes. Cada área ve lo que necesita sin reconstruir
+            el día desde mensajes o archivos separados.
 
-              La misma reserva alimenta recepción, habitaciones, servicios,
-              pagos y reportes. Cada área ve lo que necesita sin reconstruir
-              el día desde mensajes o archivos separados.
-
-            </p>
-
-          </article>
-
-
-          <figure
-            class="wayra-reveal lg:col-span-7">
-
-            <div
-              class="wayra-dark-image">
-
-              <img
-                src="/landing/landing-3.png"
-                alt="Recepción hotelera utilizando una operación digital centralizada"
-                loading="lazy"
-                class="h-full w-full object-cover" />
-
-            </div>
-
-          </figure>
+          </p>
 
         </div>
 
         <div
           id="operacion"
-          class="wayra-section-anchor"
           aria-hidden="true">
         </div>
 
         <ol
-          class="wayra-turn-flow wayra-reveal mt-12">
+          class="wayra-flow-steps wayra-reveal mt-24 sm:mt-28 lg:mt-32">
 
           <li
             *ngFor="
               let moment of turnMoments;
+              let i = index;
               trackBy: trackByIndex
-            ">
+            "
+            class="wayra-flow-step">
 
             <div
-              class="wayra-turn-icon">
+              class="wayra-flow-top">
 
-              <i
-                [class]="moment.icon">
-              </i>
+              <span
+                class="wayra-flow-number"
+                aria-hidden="true">
+
+                {{ i + 1 | number: '2.0-0' }}
+
+              </span>
+
+              <span
+                class="wayra-flow-icon">
+
+                <i
+                  aria-hidden="true"
+                  [class]="moment.icon">
+                </i>
+
+              </span>
 
             </div>
 
-            <div
-              class="wayra-turn-body">
+            <h3
+              class="wayra-heading text-xl font-extrabold text-white sm:text-2xl">
 
-              <h3
-                class="wayra-heading text-lg font-extrabold text-white">
+              {{ moment.title }}
 
-                {{ moment.title }}
+            </h3>
 
-              </h3>
+            <p>
 
-              <p
-                class="mt-2 text-sm leading-7">
+              {{ moment.summary }}
 
-                {{ moment.description }}
-
-              </p>
-
-              <ul
-                class="wayra-turn-evidence">
-
-                <li
-                  *ngFor="
-                    let item of moment.evidence;
-                    trackBy: trackByIndex
-                  ">
-
-                  {{ item }}
-
-                </li>
-
-              </ul>
-
-              <strong>
-
-                {{ moment.outcome }}
-
-              </strong>
-
-            </div>
+            </p>
 
           </li>
 
         </ol>
 
-        <div
-          class="wayra-proof-panel wayra-reveal mt-12">
+      </div>
 
-          <figure>
+    </section>
+
+
+    <!-- ====================================================
+         EVIDENCIA DE PRODUCTO
+    ===================================================== -->
+
+    <section
+      class="bg-white py-20 sm:py-24 lg:py-28">
+
+      <div
+        class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+
+        <div
+          class="mx-auto max-w-3xl text-center">
+
+          <h2
+            class="wayra-heading text-3xl font-extrabold text-slate-900 sm:text-4xl">
+
+            Lo que queda registrado en Wayra
+
+          </h2>
+
+          <p
+            class="mt-4 text-base leading-7 text-slate-600">
+
+            Reservas, habitaciones, pagos y actividad operativa quedan
+            conectados en un mismo lugar.
+
+          </p>
+
+        </div>
+
+        <div
+          class="wayra-proof-wrap wayra-reveal mt-14 sm:mt-16 lg:mt-20">
+
+          <div
+            class="wayra-proof-media">
 
             <div
-              class="wayra-image-card">
+              class="wayra-image-card wayra-proof-hero">
 
-              <img
-                src="/landing/landing-5.png"
-                alt="Reportes e indicadores de operación hotelera en Wayra"
-                loading="lazy"
-                class="h-full w-full object-cover" />
+              <picture>
+
+                <source
+                  type="image/webp"
+                  srcset="/landing/landing-5-960w.webp 960w, /landing/landing-5.webp 1672w"
+                  sizes="(max-width: 1023px) 100vw, 900px" />
+
+                <img
+                  src="/landing/landing-5.png"
+                  alt="Reportes e indicadores de operación hotelera en Wayra"
+                  width="1672"
+                  height="941"
+                  loading="lazy"
+                  class="h-full w-full object-cover" />
+
+              </picture>
 
             </div>
 
-            <figcaption
-              class="mt-3 text-center text-xs text-slate-600">
+            <p
+              class="wayra-proof-caption">
 
               Vista ilustrativa de ocupación, pagos y actividad del hotel.
 
-            </figcaption>
+            </p>
 
-          </figure>
+          </div>
 
-          <div>
+          <div
+            class="wayra-proof-panel">
 
-            <h3
-              class="wayra-heading text-2xl font-extrabold text-slate-900">
+            <ul
+              class="wayra-proof-chain">
 
-              Lo que queda registrado en Wayra
-
-            </h3>
-
-            <div
-              class="wayra-proof-list mt-6">
-
-              <article
+              <li
                 *ngFor="
                   let item of proofItems;
                   trackBy: trackByIndex
                 ">
 
-                <span>
+                <span
+                  class="wayra-proof-icon"
+                  aria-hidden="true">
 
-                  {{ item.label }}
+                  <i
+                    [class]="item.icon">
+                  </i>
 
                 </span>
 
-                <p>
+                <div>
 
-                  {{ item.description }}
+                  <span
+                    class="wayra-proof-label">
 
-                </p>
+                    {{ item.label }}
 
-              </article>
+                  </span>
 
-            </div>
+                  <p>
 
-          </div>
+                    {{ item.description }}
 
-          <aside
-            class="wayra-proof-trust">
+                  </p>
 
-            <h3
-              class="wayra-heading text-xl font-extrabold text-slate-900">
-
-              Base operativa segura
-
-            </h3>
-
-            <p
-              class="mt-2 text-sm leading-6 text-slate-600">
-
-              Cada hotel trabaja con configuración propia, usuarios, roles y
-              registro de actividad.
-
-            </p>
-
-            <ul
-              class="wayra-trust-list mt-5">
-
-              <li
-                *ngFor="
-                  let trustItem of trustItems;
-                  trackBy: trackByIndex
-                ">
-
-                <i
-                  class="pi pi-check">
-                </i>
-
-                {{ trustItem }}
+                </div>
 
               </li>
 
             </ul>
 
-          </aside>
+          </div>
+
+        </div>
+
+        <div
+          class="wayra-proof-trust wayra-reveal mt-10 sm:mt-12">
+
+          <div
+            class="wayra-proof-trust-head">
+
+            <span
+              class="wayra-proof-trust-icon"
+              aria-hidden="true">
+
+              <i
+                class="pi pi-shield">
+              </i>
+
+            </span>
+
+            <span
+              class="wayra-proof-trust-label">
+
+              Base operativa segura
+
+            </span>
+
+          </div>
+
+          <ul>
+
+            <li
+              *ngFor="
+                let trustItem of trustItems;
+                trackBy: trackByIndex
+              ">
+
+              <i
+                aria-hidden="true"
+                class="pi pi-check">
+              </i>
+
+              {{ trustItem }}
+
+            </li>
+
+          </ul>
 
         </div>
 
@@ -742,7 +807,7 @@
 
 
         <div
-          class="mt-10 grid overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">
+          class="mt-10 grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">
 
           <article
             *ngFor="
@@ -755,6 +820,7 @@
               class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
 
               <i
+                aria-hidden="true"
                 [class]="audience.icon">
               </i>
 
@@ -869,9 +935,10 @@
           class="wayra-btn-primary mt-8"
           (click)="openDemoModal($event)">
 
-          Ver demo para mi hotel
+          Solicitar demo para mi hotel
 
           <i
+            aria-hidden="true"
             class="pi pi-arrow-right text-xs">
           </i>
 
@@ -916,7 +983,7 @@
 
             <small
               class="block text-xs font-bold text-slate-600">
-              Gestion hotelera SaaS
+              Gestión hotelera SaaS
             </small>
           </span>
 
@@ -971,7 +1038,7 @@
               let link of navLinks;
               trackBy: trackByIndex
             "
-            class="block min-h-9 text-sm font-semibold text-slate-400 transition hover:text-white"
+            class="block min-h-11 text-sm font-semibold text-slate-400 transition hover:text-white"
             href="#{{ link.sectionId }}"
             (click)="scrollToSection($event, link.sectionId)">
 
@@ -1002,10 +1069,11 @@
             (click)="openDemoModal($event)">
 
             <i
+              aria-hidden="true"
               class="pi pi-calendar-plus text-sky-400">
             </i>
 
-            Ver demo para mi hotel
+            Solicitar demo para mi hotel
 
           </button>
 
@@ -1014,6 +1082,7 @@
             [routerLink]="landingSessionActionRoute">
 
             <i
+              aria-hidden="true"
               [class]="landingSessionActionIcon + ' text-sky-400'">
             </i>
 
@@ -1050,7 +1119,7 @@
   <div
     *ngIf="demoModalOpen"
     class="wayra-demo-overlay fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/70 px-4 py-6 backdrop-blur-sm"
-    (click)="closeDemoModal()">
+    (click)="closeDemoModalWithConfirm()">
 
     <section
       class="wayra-demo-modal w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-950/30"
@@ -1091,9 +1160,10 @@
           type="button"
           class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
           aria-label="Cerrar solicitud de demo"
-          (click)="closeDemoModal()">
+          (click)="closeDemoModalWithConfirm()">
 
           <i
+            aria-hidden="true"
             class="pi pi-times">
           </i>
 
@@ -1138,8 +1208,8 @@
             class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200">
 
             <div
-              class="wayra-demo-progress-bar h-full rounded-full"
-              [style.width.%]="demoStepProgress">
+              class="wayra-demo-progress-bar h-full w-full rounded-full"
+              [style.transform]="'scaleX(' + (demoStepProgress / 100) + ')'">
             </div>
 
           </div>
@@ -1274,7 +1344,15 @@
                       )
                     "
                     formControlName="hotelName"
-                    autocomplete="organization" />
+                    autocomplete="organization"
+                    [attr.aria-invalid]="
+                      isInvalid('hotel', 'hotelName')
+                    "
+                    [attr.aria-describedby]="
+                      isInvalid('hotel', 'hotelName')
+                        ? 'demo-hotel-name-error'
+                        : null
+                    " />
 
                   <small
                     *ngIf="
@@ -1283,6 +1361,8 @@
                         'hotelName'
                       )
                     "
+                    id="demo-hotel-name-error"
+                    role="alert"
                     class="field-error">
 
                     Ingresa el nombre del hotel.
@@ -1310,7 +1390,15 @@
                         'hotelType'
                       )
                     "
-                    formControlName="hotelType">
+                    formControlName="hotelType"
+                    [attr.aria-invalid]="
+                      isInvalid('hotel', 'hotelType')
+                    "
+                    [attr.aria-describedby]="
+                      isInvalid('hotel', 'hotelType')
+                        ? 'demo-hotel-type-error'
+                        : null
+                    ">
 
                     <option
                       value=""
@@ -1338,6 +1426,8 @@
                         'hotelType'
                       )
                     "
+                    id="demo-hotel-type-error"
+                    role="alert"
                     class="field-error">
 
                     Selecciona el tipo de alojamiento.
@@ -1360,6 +1450,7 @@
                     id="demo-rooms"
                     type="number"
                     min="1"
+                    max="2000"
                     inputmode="numeric"
                     class="wayra-demo-input"
                     [class.input-error]="
@@ -1368,7 +1459,15 @@
                         'rooms'
                       )
                     "
-                    formControlName="rooms" />
+                    formControlName="rooms"
+                    [attr.aria-invalid]="
+                      isInvalid('hotel', 'rooms')
+                    "
+                    [attr.aria-describedby]="
+                      isInvalid('hotel', 'rooms')
+                        ? 'demo-rooms-error'
+                        : null
+                    " />
 
                   <small
                     *ngIf="
@@ -1377,9 +1476,11 @@
                         'rooms'
                       )
                     "
+                    id="demo-rooms-error"
+                    role="alert"
                     class="field-error">
 
-                    Ingresa una cantidad válida.
+                    Ingresa una cantidad entre 1 y 2000.
 
                   </small>
 
@@ -1392,7 +1493,7 @@
                   for="demo-website">
 
                   <span>
-                    Sitio web o red social
+                    Sitio web o red social (opcional)
                   </span>
 
                   <input
@@ -1417,6 +1518,7 @@
                   (click)="goToRequesterStep()">
 
                   <i
+                    aria-hidden="true"
                     class="pi pi-arrow-left text-xs">
                   </i>
 
@@ -1432,6 +1534,7 @@
                   Continuar
 
                   <i
+                    aria-hidden="true"
                     class="pi pi-arrow-right text-xs">
                   </i>
 
@@ -1486,13 +1589,27 @@
                       )
                     "
                     formControlName="country"
-                    (change)="onDemoCountryChange()">
+                    (change)="onDemoCountryChange()"
+                    [attr.aria-invalid]="
+                      isInvalid('location', 'country')
+                    "
+                    [attr.aria-describedby]="
+                      locationLoadError
+                        ? 'demo-country-load-error'
+                        : isInvalid('location', 'country')
+                          ? 'demo-country-error'
+                          : null
+                    ">
 
                     <option
                       value=""
                       disabled>
 
-                      Selecciona un país
+                      {{
+                        locationCountriesLoading
+                          ? 'Cargando países...'
+                          : 'Selecciona un país'
+                      }}
 
                     </option>
 
@@ -1510,12 +1627,33 @@
                   </select>
 
                   <small
+                    *ngIf="locationLoadError"
+                    id="demo-country-load-error"
+                    role="alert"
+                    class="field-error">
+
+                    {{ locationLoadError }}
+
+                    <button
+                      type="button"
+                      class="wayra-inline-retry"
+                      (click)="loadDemoCountries()">
+
+                      Reintentar
+
+                    </button>
+
+                  </small>
+
+                  <small
                     *ngIf="
                       isInvalid(
                         'location',
                         'country'
                       )
                     "
+                    id="demo-country-error"
+                    role="alert"
                     class="field-error">
 
                     Selecciona el país.
@@ -1547,7 +1685,15 @@
                     [disabled]="
                       !locationDepartments.length
                     "
-                    (change)="onDemoStateChange()">
+                    (change)="onDemoStateChange()"
+                    [attr.aria-invalid]="
+                      isInvalid('location', 'state')
+                    "
+                    [attr.aria-describedby]="
+                      isInvalid('location', 'state')
+                        ? 'demo-state-error'
+                        : null
+                    ">
 
                     <option
                       value=""
@@ -1577,6 +1723,8 @@
                         'state'
                       )
                     "
+                    id="demo-state-error"
+                    role="alert"
                     class="field-error">
 
                     Selecciona el departamento.
@@ -1607,6 +1755,14 @@
                     formControlName="city"
                     [disabled]="
                       !locationCities.length
+                    "
+                    [attr.aria-invalid]="
+                      isInvalid('location', 'city')
+                    "
+                    [attr.aria-describedby]="
+                      isInvalid('location', 'city')
+                        ? 'demo-city-error'
+                        : null
                     ">
 
                     <option
@@ -1637,6 +1793,8 @@
                         'city'
                       )
                     "
+                    id="demo-city-error"
+                    role="alert"
                     class="field-error">
 
                     Selecciona la ciudad.
@@ -1666,7 +1824,15 @@
                       )
                     "
                     formControlName="address"
-                    autocomplete="street-address" />
+                    autocomplete="street-address"
+                    [attr.aria-invalid]="
+                      isInvalid('location', 'address')
+                    "
+                    [attr.aria-describedby]="
+                      isInvalid('location', 'address')
+                        ? 'demo-address-error'
+                        : null
+                    " />
 
                   <small
                     *ngIf="
@@ -1675,6 +1841,8 @@
                         'address'
                       )
                     "
+                    id="demo-address-error"
+                    role="alert"
                     class="field-error">
 
                     Ingresa la dirección.
@@ -1695,6 +1863,7 @@
                   (click)="goToHotelStep()">
 
                   <i
+                    aria-hidden="true"
                     class="pi pi-arrow-left text-xs">
                   </i>
 
@@ -1710,6 +1879,7 @@
                   Continuar
 
                   <i
+                    aria-hidden="true"
                     class="pi pi-arrow-right text-xs">
                   </i>
 
@@ -1765,7 +1935,15 @@
                       ) ||
                       hasSameDemoOperationTimes()
                     "
-                    formControlName="checkInTime" />
+                    formControlName="checkInTime"
+                    [attr.aria-invalid]="
+                      isInvalid('operation', 'checkInTime')
+                    "
+                    [attr.aria-describedby]="
+                      isInvalid('operation', 'checkInTime')
+                        ? 'demo-check-in-time-error'
+                        : null
+                    " />
 
                   <small
                     *ngIf="
@@ -1774,6 +1952,8 @@
                         'checkInTime'
                       )
                     "
+                    id="demo-check-in-time-error"
+                    role="alert"
                     class="field-error">
 
                     Selecciona el horario de check-in.
@@ -1803,7 +1983,15 @@
                       ) ||
                       hasSameDemoOperationTimes()
                     "
-                    formControlName="checkOutTime" />
+                    formControlName="checkOutTime"
+                    [attr.aria-invalid]="
+                      isInvalid('operation', 'checkOutTime')
+                    "
+                    [attr.aria-describedby]="
+                      isInvalid('operation', 'checkOutTime')
+                        ? 'demo-check-out-time-error'
+                        : null
+                    " />
 
                   <small
                     *ngIf="
@@ -1812,6 +2000,8 @@
                         'checkOutTime'
                       )
                     "
+                    id="demo-check-out-time-error"
+                    role="alert"
                     class="field-error">
 
                     Selecciona el horario de check-out.
@@ -1827,6 +2017,7 @@
                 *ngIf="
                   hasSameDemoOperationTimes()
                 "
+                role="alert"
                 class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
 
                 Check-in y check-out no pueden tener la misma hora.
@@ -1841,7 +2032,7 @@
                   for="demo-username">
 
                   <span>
-                    Usuario para acceso de prueba
+                    Usuario para acceso de prueba (opcional)
                   </span>
 
                   <input
@@ -1858,7 +2049,15 @@
                       demoForm.controls.requester.controls.username
                     "
                     autocomplete="username"
-                    placeholder="Opcional" />
+                    placeholder="Lo usamos si activamos tu acceso de prueba"
+                    [attr.aria-invalid]="
+                      isInvalid('requester', 'username')
+                    "
+                    [attr.aria-describedby]="
+                      isInvalid('requester', 'username')
+                        ? 'demo-username-error'
+                        : null
+                    " />
 
                   <small
                     *ngIf="
@@ -1867,6 +2066,8 @@
                         'username'
                       )
                     "
+                    id="demo-username-error"
+                    role="alert"
                     class="field-error">
 
                     Usa al menos tres caracteres.
@@ -1882,7 +2083,7 @@
                   for="demo-message">
 
                   <span>
-                    Comentarios para la demo
+                    Comentarios para la demo (opcional)
                   </span>
 
                   <textarea
@@ -1892,7 +2093,7 @@
                     [formControl]="
                       demoForm.controls.requester.controls.message
                     "
-                    placeholder="Proceso o modulo que quieres revisar durante la demo.">
+                    placeholder="Proceso o módulo que quieres revisar durante la demo.">
                   </textarea>
 
                 </label>
@@ -1901,6 +2102,7 @@
 
               <p
                 *ngIf="demoSubmitError"
+                role="alert"
                 class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
 
                 {{ demoSubmitError }}
@@ -1917,6 +2119,7 @@
                   (click)="goToLocationStep()">
 
                   <i
+                    aria-hidden="true"
                     class="pi pi-arrow-left text-xs">
                   </i>
 
@@ -1936,6 +2139,7 @@
                   }}
 
                   <i
+                    aria-hidden="true"
                     class="text-xs"
                     [ngClass]="
                       demoSubmitting
@@ -1996,7 +2200,15 @@
                       )
                     "
                     formControlName="contactName"
-                    autocomplete="name" />
+                    autocomplete="name"
+                    [attr.aria-invalid]="
+                      isInvalid('requester', 'contactName')
+                    "
+                    [attr.aria-describedby]="
+                      isInvalid('requester', 'contactName')
+                        ? 'demo-contact-name-error'
+                        : null
+                    " />
 
                   <small
                     *ngIf="
@@ -2005,6 +2217,8 @@
                         'contactName'
                       )
                     "
+                    id="demo-contact-name-error"
+                    role="alert"
                     class="field-error">
 
                     Ingresa el nombre de contacto.
@@ -2032,7 +2246,17 @@
                         'jobTitle'
                       )
                     "
-                    formControlName="jobTitle">
+                    formControlName="jobTitle"
+                    [attr.aria-invalid]="
+                      isInvalid('requester', 'jobTitle')
+                    "
+                    [attr.aria-describedby]="
+                      jobTitlesLoadError && !jobTitlesLoading
+                        ? 'demo-job-title-load-error'
+                        : isInvalid('requester', 'jobTitle')
+                          ? 'demo-job-title-error'
+                          : null
+                    ">
 
                     <option
                       value=""
@@ -2057,6 +2281,14 @@
 
                     </option>
 
+                    <option
+                      *ngIf="!jobTitlesIncludeOtro"
+                      value="Otro">
+
+                      Otro
+
+                    </option>
+
                   </select>
 
                   <small
@@ -2064,9 +2296,21 @@
                       jobTitlesLoadError &&
                       !jobTitlesLoading
                     "
+                    id="demo-job-title-load-error"
+                    role="alert"
                     class="field-error">
 
                     {{ jobTitlesLoadError }}
+                    Selecciona "Otro" para continuar mientras lo resolvemos.
+
+                    <button
+                      type="button"
+                      class="wayra-inline-retry"
+                      (click)="loadDemoJobTitles()">
+
+                      Reintentar
+
+                    </button>
 
                   </small>
 
@@ -2077,6 +2321,8 @@
                         'jobTitle'
                       )
                     "
+                    id="demo-job-title-error"
+                    role="alert"
                     class="field-error">
 
                     Selecciona el cargo.
@@ -2106,7 +2352,15 @@
                       )
                     "
                     formControlName="email"
-                    autocomplete="email" />
+                    autocomplete="email"
+                    [attr.aria-invalid]="
+                      isInvalid('requester', 'email')
+                    "
+                    [attr.aria-describedby]="
+                      isInvalid('requester', 'email')
+                        ? 'demo-email-error'
+                        : null
+                    " />
 
                   <small
                     *ngIf="
@@ -2115,6 +2369,8 @@
                         'email'
                       )
                     "
+                    id="demo-email-error"
+                    role="alert"
                     class="field-error">
 
                     Ingresa un correo válido.
@@ -2144,7 +2400,15 @@
                       )
                     "
                     formControlName="phone"
-                    autocomplete="tel" />
+                    autocomplete="tel"
+                    [attr.aria-invalid]="
+                      isInvalid('requester', 'phone')
+                    "
+                    [attr.aria-describedby]="
+                      isInvalid('requester', 'phone')
+                        ? 'demo-phone-error'
+                        : null
+                    " />
 
                   <small
                     *ngIf="
@@ -2153,6 +2417,8 @@
                         'phone'
                       )
                     "
+                    id="demo-phone-error"
+                    role="alert"
                     class="field-error">
 
                     Ingresa un teléfono de contacto.
@@ -2188,6 +2454,7 @@
                   Continuar
 
                   <i
+                    aria-hidden="true"
                     class="pi pi-arrow-right text-xs">
                   </i>
 
@@ -2219,6 +2486,7 @@
             class="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
 
             <i
+              aria-hidden="true"
               class="pi pi-check text-xl">
             </i>
 
@@ -2234,11 +2502,10 @@
           <p
             class="mx-auto mt-3 max-w-xl text-sm leading-7 text-slate-600">
 
-            Recibimos la información de
-            {{ demoRequestSummary }}
-            y del contacto de demo del hotel.
-            El equipo de Wayra revisará los datos
-            para coordinar la demostración.
+            Recibimos la solicitud de demo de
+            {{ demoRequestSummary }}.
+            El equipo de Wayra va a revisar tus datos
+            y se pondrá en contacto contigo para coordinar el acceso.
 
           </p>
 

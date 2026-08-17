@@ -1,7 +1,10 @@
 import { CommonModule } from '@angular/common';
 import {
+  AfterViewInit,
   Component,
+  ElementRef,
   inject,
+  ViewChild,
 } from '@angular/core';
 import {
   ActivatedRoute,
@@ -18,9 +21,18 @@ import {
   templateUrl: './allied-booking-confirmation.html',
   styleUrl: './allied-booking.css',
 })
-export class AlliedBookingConfirmationPage {
+export class AlliedBookingConfirmationPage implements AfterViewInit {
 
   private readonly route = inject(ActivatedRoute);
+
+  @ViewChild('confirmationRegion')
+  private readonly confirmationRegion?: ElementRef<HTMLElement>;
+
+  readonly reservationId =
+    this.route.snapshot.paramMap.get('reservationId') ?? '';
+
+  readonly hotelName =
+    this.route.snapshot.queryParamMap.get('hotel') ?? '';
 
   readonly checkIn =
     this.route.snapshot.queryParamMap.get('checkIn') ?? '';
@@ -34,5 +46,18 @@ export class AlliedBookingConfirmationPage {
       this.checkIn &&
       this.checkOut
     );
+  }
+
+  get hasConfirmationDetails(): boolean {
+
+    return Boolean(
+      this.hotelName ||
+      this.reservationId ||
+      this.hasStayDates
+    );
+  }
+
+  ngAfterViewInit(): void {
+    this.confirmationRegion?.nativeElement.focus();
   }
 }

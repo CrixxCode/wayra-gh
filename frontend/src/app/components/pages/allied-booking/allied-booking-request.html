@@ -67,8 +67,9 @@
         </h1>
 
         <p class="booking-lead">
-          Confirma la opcion elegida y registra la reserva directamente con el
-          hotel aliado.
+          Confirma la opcion elegida y envia tu solicitud; el hotel aliado la
+          revisara y confirmara la disponibilidad antes de que la reserva
+          quede en firme.
         </p>
 
       </div>
@@ -85,9 +86,9 @@
           <div class="booking-empty">
             <i class="pi pi-calendar"></i>
 
-            <h3>
+            <h2>
               Cargando solicitud
-            </h3>
+            </h2>
 
             <p>
               Estamos consultando el hotel y la tarifa seleccionados.
@@ -104,9 +105,9 @@
           <div class="booking-empty">
             <i class="pi pi-search"></i>
 
-            <h3>
+            <h2>
               No fue posible cargar hoteles
-            </h3>
+            </h2>
 
             <p>
               {{ hotelsLoadError }}
@@ -127,9 +128,9 @@
           <div class="booking-empty">
             <i class="pi pi-search"></i>
 
-            <h3>
+            <h2>
               Solicitud incompleta
-            </h3>
+            </h2>
 
             <p>
               El hotel, la tarifa o los criterios de busqueda ya no estan
@@ -218,6 +219,31 @@
               </h2>
             </div>
 
+            <div class="booking-context-summary">
+              <span>
+                {{ selectedHotel.name }}
+              </span>
+
+              <span>
+                {{ selectedRoomRate.roomType }}
+                -
+                {{ selectedRoomRate.rateName }}
+              </span>
+
+              <span *ngIf="dateRangeLabel">
+                {{ dateRangeLabel }}
+              </span>
+
+              <span>
+                {{ criteria.guests }}
+                {{
+                  criteria.guests === 1
+                    ? 'huesped'
+                    : 'huespedes'
+                }}
+              </span>
+            </div>
+
 
             <div class="booking-grid">
 
@@ -227,9 +253,15 @@
                 <input
                   type="text"
                   formControlName="guestName"
-                  autocomplete="name" />
+                  autocomplete="name"
+                  [class.input-error]="isInvalid('guestName')"
+                  [attr.aria-invalid]="isInvalid('guestName') ? true : null"
+                  [attr.aria-describedby]="isInvalid('guestName') ? 'guestName-error' : null" />
 
-                <small *ngIf="isInvalid('guestName')">
+                <small
+                  *ngIf="isInvalid('guestName')"
+                  id="guestName-error"
+                  class="booking-hint-error">
                   Ingresa el nombre de contacto.
                 </small>
               </label>
@@ -241,9 +273,15 @@
                 <input
                   type="email"
                   formControlName="guestEmail"
-                  autocomplete="email" />
+                  autocomplete="email"
+                  [class.input-error]="isInvalid('guestEmail')"
+                  [attr.aria-invalid]="isInvalid('guestEmail') ? true : null"
+                  [attr.aria-describedby]="isInvalid('guestEmail') ? 'guestEmail-error' : null" />
 
-                <small *ngIf="isInvalid('guestEmail')">
+                <small
+                  *ngIf="isInvalid('guestEmail')"
+                  id="guestEmail-error"
+                  class="booking-hint-error">
                   Ingresa un correo valido.
                 </small>
               </label>
@@ -255,17 +293,27 @@
                 <input
                   type="tel"
                   formControlName="guestPhone"
-                  autocomplete="tel" />
+                  autocomplete="tel"
+                  [class.input-error]="isInvalid('guestPhone')"
+                  [attr.aria-invalid]="isInvalid('guestPhone') ? true : null"
+                  [attr.aria-describedby]="isInvalid('guestPhone') ? 'guestPhone-error' : null" />
 
-                <small *ngIf="isInvalid('guestPhone')">
-                  Ingresa un telefono de contacto.
+                <small
+                  *ngIf="isInvalid('guestPhone')"
+                  id="guestPhone-error"
+                  class="booking-hint-error">
+                  Ingresa un telefono valido (7 a 15 digitos).
                 </small>
               </label>
 
               <label class="booking-field">
                 <span>Tipo de documento</span>
 
-                <select formControlName="guestDocumentType">
+                <select
+                  formControlName="guestDocumentType"
+                  [class.input-error]="isInvalid('guestDocumentType')"
+                  [attr.aria-invalid]="isInvalid('guestDocumentType') ? true : null"
+                  [attr.aria-describedby]="isInvalid('guestDocumentType') ? 'guestDocumentType-error' : null">
                   <option value="CC">
                     Cedula de ciudadania
                   </option>
@@ -283,7 +331,10 @@
                   </option>
                 </select>
 
-                <small *ngIf="isInvalid('guestDocumentType')">
+                <small
+                  *ngIf="isInvalid('guestDocumentType')"
+                  id="guestDocumentType-error"
+                  class="booking-hint-error">
                   Selecciona el tipo de documento.
                 </small>
               </label>
@@ -295,16 +346,32 @@
                 <input
                   type="text"
                   formControlName="guestDocumentNumber"
-                  autocomplete="off" />
+                  autocomplete="off"
+                  [class.input-error]="isInvalid('guestDocumentNumber')"
+                  [attr.aria-invalid]="isInvalid('guestDocumentNumber') ? true : null"
+                  [attr.aria-describedby]="
+                    isInvalid('guestDocumentNumber')
+                      ? 'guestDocumentNumber-hint guestDocumentNumber-error'
+                      : 'guestDocumentNumber-hint'
+                  " />
 
-                <small *ngIf="isInvalid('guestDocumentNumber')">
-                  Ingresa el numero de documento.
+                <small id="guestDocumentNumber-hint">
+                  Lo solicitamos para identificarte con el hotel al momento
+                  del check-in.
+                </small>
+
+                <small
+                  *ngIf="isInvalid('guestDocumentNumber')"
+                  id="guestDocumentNumber-error"
+                  class="booking-hint-error">
+                  Ingresa un numero de documento valido para el tipo
+                  seleccionado.
                 </small>
               </label>
 
 
               <label class="booking-field booking-field-wide">
-                <span>Comentarios</span>
+                <span>Comentarios (opcional)</span>
 
                 <textarea
                   rows="4"
@@ -316,34 +383,44 @@
             </div>
 
 
-            <div class="booking-summary">
-              <span>
-                {{ nights || 0 }}
-                {{ nights === 1 ? 'noche' : 'noches' }}
-              </span>
+            <div class="booking-confirm-group">
 
-              <span>
-                {{ criteria.rooms }}
-                {{
-                  criteria.rooms === 1
-                    ? 'habitacion'
-                    : 'habitaciones'
-                }}
-              </span>
+              <div class="booking-summary">
+                <span>
+                  {{ nights || 0 }}
+                  {{ nights === 1 ? 'noche' : 'noches' }}
+                </span>
 
-              <span>
-                {{ criteria.guests }}
-                {{
-                  criteria.guests === 1
-                    ? 'huesped'
-                    : 'huespedes'
-                }}
-              </span>
+                <span>
+                  {{ criteria.rooms }}
+                  {{
+                    criteria.rooms === 1
+                      ? 'habitacion'
+                      : 'habitaciones'
+                  }}
+                </span>
 
-              <span>
-                {{ formatCurrency(getRateEstimatedTotal()) }}
-                estimado
-              </span>
+                <span>
+                  {{ criteria.guests }}
+                  {{
+                    criteria.guests === 1
+                      ? 'huesped'
+                      : 'huespedes'
+                  }}
+                </span>
+
+                <span>
+                  {{ formatCurrency(getRateEstimatedTotal()) }}
+                  estimado
+                </span>
+              </div>
+
+              <p class="booking-form-reassurance">
+                <i class="pi pi-shield"></i>
+                Esto envia tu solicitud al hotel; el hotel confirmara
+                disponibilidad antes de que la reserva quede en firme.
+              </p>
+
             </div>
 
             <div
@@ -371,7 +448,7 @@
                 class="booking-primary"
                 [disabled]="saving">
 
-                {{ saving ? 'Registrando...' : 'Registrar reserva' }}
+                {{ saving ? 'Enviando solicitud...' : 'Enviar solicitud de reserva' }}
 
                 <i class="pi pi-arrow-right text-xs"></i>
 

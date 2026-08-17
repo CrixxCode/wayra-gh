@@ -13,6 +13,10 @@ import { catchError, of } from 'rxjs';
 
 import { AlliedHotel } from '../../../shared/allied-hotels';
 import { AlliedHotelService } from '../../../services/allied-hotels';
+import {
+  formatBookingCurrency,
+  getHotelTypeIcon,
+} from '../allied-booking/allied-booking-flow';
 
 @Component({
   selector: 'app-allied-hotels',
@@ -31,6 +35,8 @@ export class AlliedHotelsPage implements OnInit, AfterViewInit {
   loading = true;
   loadError = '';
 
+  private readonly imageLoadErrors = new Set<string>();
+
   get totalRooms(): number {
     return this.hotels.reduce(
       (sum, hotel) => sum + hotel.rooms,
@@ -38,8 +44,28 @@ export class AlliedHotelsPage implements OnInit, AfterViewInit {
     );
   }
 
-  search = '';
-  typeFilter = 'Todos';
+  filteredHotels: AlliedHotel[] = [];
+
+  private _search = '';
+  private _typeFilter = 'Todos';
+
+  get search(): string {
+    return this._search;
+  }
+
+  set search(value: string) {
+    this._search = value;
+    this.recomputeFilteredHotels();
+  }
+
+  get typeFilter(): string {
+    return this._typeFilter;
+  }
+
+  set typeFilter(value: string) {
+    this._typeFilter = value;
+    this.recomputeFilteredHotels();
+  }
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -52,6 +78,14 @@ export class AlliedHotelsPage implements OnInit, AfterViewInit {
 
   ngAfterViewInit(): void {
     this.scrollToFragment();
+  }
+
+  retryLoadHotels(): void {
+    if (this.loading) {
+      return;
+    }
+
+    this.loadHotels();
   }
 
   private loadHotels(): void {
@@ -69,6 +103,7 @@ export class AlliedHotelsPage implements OnInit, AfterViewInit {
       .subscribe((hotels) => {
         this.hotels = hotels;
         this.loading = false;
+        this.recomputeFilteredHotels();
         this.scrollToFragment();
       });
   }
@@ -92,6 +127,10 @@ export class AlliedHotelsPage implements OnInit, AfterViewInit {
     });
   }
 
+  get hotelTypeCount(): number {
+    return this.hotelTypes.length - 1;
+  }
+
   get hotelTypes(): string[] {
 
     return [
@@ -104,16 +143,16 @@ export class AlliedHotelsPage implements OnInit, AfterViewInit {
     ];
   }
 
-  get filteredHotels(): AlliedHotel[] {
+  private recomputeFilteredHotels(): void {
 
     const query =
-      this.normalize(this.search);
+      this.normalize(this._search);
 
-    return this.hotels.filter((hotel) => {
+    this.filteredHotels = this.hotels.filter((hotel) => {
 
       const matchesType =
-        this.typeFilter === 'Todos' ||
-        hotel.type === this.typeFilter;
+        this._typeFilter === 'Todos' ||
+        hotel.type === this._typeFilter;
 
       const searchableText =
         this.normalize(
@@ -138,8 +177,38 @@ export class AlliedHotelsPage implements OnInit, AfterViewInit {
   }
 
   clearFilters(): void {
-    this.search = '';
-    this.typeFilter = 'Todos';
+    this._search = '';
+    this._typeFilter = 'Todos';
+    this.recomputeFilteredHotels();
+  }
+
+  locationLabel(hotel: AlliedHotel): string {
+
+    const place =
+      hotel.city ||
+      hotel.department ||
+      hotel.country ||
+      '';
+
+    return place
+      ? `${place} · ${hotel.type}`
+      : hotel.type;
+  }
+
+  hotelTypeIcon(hotel: AlliedHotel): string {
+    return getHotelTypeIcon(hotel.type);
+  }
+
+  formatCurrency(value: number): string {
+    return formatBookingCurrency(value);
+  }
+
+  hasImageError(hotel: AlliedHotel): boolean {
+    return this.imageLoadErrors.has(hotel.slug);
+  }
+
+  onImageError(hotel: AlliedHotel): void {
+    this.imageLoadErrors.add(hotel.slug);
   }
 
   trackByHotel(

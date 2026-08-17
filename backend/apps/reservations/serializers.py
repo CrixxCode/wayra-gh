@@ -32,7 +32,12 @@ from apps.reservations.services import (
 from apps.hotel_settings.models import PaymentMethod, ReservationPolicy, HotelSettings
 from accounts.tenancy import TenantSerializerMixin, is_effective_global_admin
 from apps.clients.models import Client
+from apps.clients.serializers import normalize_phone
 from apps.inventory.models import Item
+from apps.reservations.online_check_in import (
+    ONLINE_CHECK_IN_ARRIVAL_WINDOWS,
+    ONLINE_CHECK_IN_MAX_GUESTS,
+)
 from apps.rooms.models import Room
 
 
@@ -343,6 +348,12 @@ class ReservationGuestSerializer(serializers.ModelSerializer):
             "blood_type",
             "emergency_contact_name",
             "emergency_contact_phone",
+            "email",
+            "phone",
+            "arrival_time_window",
+            "notes",
+            "accepts_data_policy",
+            "online_check_in_submitted_at",
             "created_at",
         ]
         read_only_fields = ("id", "created_at", "full_name")
@@ -1656,3 +1667,191 @@ class WebReservationResponseSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+
+class OnlineCheckInLookupSerializer(serializers.Serializer):
+    reservation_code = serializers.CharField(max_length=30)
+    guest_document_type = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+        default="CC",
+    )
+    guest_document_number = serializers.CharField(max_length=40, min_length=5)
+
+    ALIASES = {
+        "reservationCode": "reservation_code",
+        "documentType": "guest_document_type",
+        "documentNumber": "guest_document_number",
+    }
+
+    def to_internal_value(self, data):
+        mutable_data = data.copy() if hasattr(data, "copy") else dict(data)
+        for source_key, target_key in self.ALIASES.items():
+            if source_key in mutable_data and target_key not in mutable_data:
+                mutable_data[target_key] = mutable_data[source_key]
+        return super().to_internal_value(mutable_data)
+
+    def validate_guest_document_number(self, value):
+        value = str(value or "").strip()
+        if not value:
+            raise serializers.ValidationError("El numero de documento es obligatorio.")
+        return value
+
+
+class OnlineCheckInLookupResponseSerializer(serializers.Serializer):
+    reservation_id = serializers.IntegerField(source="reservation.id", read_only=True)
+    hotel_name = serializers.CharField(
+        source="reservation.hotel_settings.hotel_name", read_only=True
+    )
+    status_code = serializers.CharField(source="reservation.status_code", read_only=True)
+    expected_check_in = serializers.DateField(
+        source="reservation.expected_check_in", read_only=True
+    )
+    expected_check_out = serializers.DateField(
+        source="reservation.expected_check_out", read_only=True
+    )
+    total_guests = serializers.IntegerField(source="reservation.total_guests", read_only=True)
+    eligible = serializers.SerializerMethodField()
+    eligible_reason = serializers.SerializerMethodField()
+    existing_guests = serializers.SerializerMethodField()
+
+    def get_eligible(self, obj):
+        return bool(obj["eligibility"]["eligible"])
+
+    def get_eligible_reason(self, obj):
+        return obj["eligibility"]["reason"]
+
+    def get_existing_guests(self, obj):
+        return [
+            {
+                "first_name": guest.first_name,
+                "last_name": guest.last_name,
+                "document_type": guest.document_type_code,
+                "document_number": guest.document_number,
+                "birth_date": guest.birth_date,
+                "nationality": guest.nationality,
+                "email": guest.email,
+                "phone": guest.phone,
+                "arrival_time_window": guest.arrival_time_window,
+                "emergency_contact_name": guest.emergency_contact_name,
+                "emergency_contact_phone": guest.emergency_contact_phone,
+                "notes": guest.notes,
+                "accepts_data_policy": guest.accepts_data_policy,
+            }
+            for guest in obj["existing_guests"]
+        ]
+
+
+class OnlineCheckInGuestSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=120, min_length=2)
+    last_name = serializers.CharField(max_length=120, min_length=2)
+    guest_document_type = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+        default="CC",
+    )
+    guest_document_number = serializers.CharField(max_length=40, min_length=5)
+    birth_date = serializers.DateField()
+    nationality = serializers.CharField(max_length=80, min_length=3)
+
+    ALIASES = {
+        "firstName": "first_name",
+        "lastName": "last_name",
+        "documentType": "guest_document_type",
+        "documentNumber": "guest_document_number",
+        "birthDate": "birth_date",
+    }
+
+    def to_internal_value(self, data):
+        mutable_data = data.copy() if hasattr(data, "copy") else dict(data)
+        for source_key, target_key in self.ALIASES.items():
+            if source_key in mutable_data and target_key not in mutable_data:
+                mutable_data[target_key] = mutable_data[source_key]
+        return super().to_internal_value(mutable_data)
+
+    def validate_guest_document_number(self, value):
+        value = str(value or "").strip()
+        if not value:
+            raise serializers.ValidationError("El numero de documento es obligatorio.")
+        return value
+
+    def validate_birth_date(self, value):
+        if value >= timezone.localdate():
+            raise serializers.ValidationError("La fecha de nacimiento no es valida.")
+        return value
+
+
+class OnlineCheckInSerializer(serializers.Serializer):
+    reservation_code = serializers.CharField(max_length=30)
+    guests = OnlineCheckInGuestSerializer(many=True)
+    email = serializers.EmailField(max_length=120)
+    phone = serializers.CharField(max_length=40, min_length=7)
+    arrival_time_window = serializers.ChoiceField(choices=ONLINE_CHECK_IN_ARRIVAL_WINDOWS)
+    emergency_contact_name = serializers.CharField(max_length=120, min_length=3)
+    emergency_contact_phone = serializers.CharField(max_length=40, min_length=7)
+    notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    accepts_data_policy = serializers.BooleanField()
+
+    ALIASES = {
+        "reservationCode": "reservation_code",
+        "arrivalTime": "arrival_time_window",
+        "emergencyContactName": "emergency_contact_name",
+        "emergencyContactPhone": "emergency_contact_phone",
+        "acceptsDataPolicy": "accepts_data_policy",
+    }
+
+    def to_internal_value(self, data):
+        mutable_data = data.copy() if hasattr(data, "copy") else dict(data)
+        for source_key, target_key in self.ALIASES.items():
+            if source_key in mutable_data and target_key not in mutable_data:
+                mutable_data[target_key] = mutable_data[source_key]
+        return super().to_internal_value(mutable_data)
+
+    def validate_guests(self, value):
+        if not value:
+            raise serializers.ValidationError("Debes registrar al menos un huesped.")
+        if len(value) > ONLINE_CHECK_IN_MAX_GUESTS:
+            raise serializers.ValidationError(
+                f"No puedes registrar mas de {ONLINE_CHECK_IN_MAX_GUESTS} huespedes."
+            )
+        return value
+
+    def validate_phone(self, value):
+        return normalize_phone(value)
+
+    def validate_emergency_contact_phone(self, value):
+        return normalize_phone(value)
+
+    def validate_accepts_data_policy(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                "Debes aceptar el tratamiento de datos para continuar."
+            )
+        return value
+
+
+class OnlineCheckInResponseSerializer(serializers.Serializer):
+    reservation_id = serializers.IntegerField(source="reservation.id", read_only=True)
+    hotel_name = serializers.CharField(
+        source="reservation.hotel_settings.hotel_name", read_only=True
+    )
+    status_code = serializers.CharField(source="reservation.status_code", read_only=True)
+    expected_check_in = serializers.DateField(
+        source="reservation.expected_check_in", read_only=True
+    )
+    expected_check_out = serializers.DateField(
+        source="reservation.expected_check_out", read_only=True
+    )
+    guests = serializers.SerializerMethodField()
+
+    def get_guests(self, obj):
+        return [
+            {
+                "full_name": guest.full_name,
+                "document_number": guest.document_number,
+                "online_check_in_submitted_at": guest.online_check_in_submitted_at,
+            }
+            for guest in obj["guests"]
+        ]

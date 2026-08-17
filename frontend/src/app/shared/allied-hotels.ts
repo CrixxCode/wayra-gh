@@ -7,6 +7,7 @@ export interface AlliedHotel {
   country: string;
   description: string;
   highlights: string[];
+  imageUrl?: string;
   rooms: number;
   availableRooms?: number | null;
   maxGuestsPerRoom: number;
@@ -20,6 +21,7 @@ export interface AlliedRoomRate {
   roomType: string;
   rateName: string;
   description: string;
+  imageUrl?: string;
   maxGuests: number;
   nightlyRate: number;
   availableRooms?: number | null;
@@ -30,15 +32,15 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
     slug: 'hotel-casa-aurora',
     name: 'Hotel Casa Aurora',
     type: 'Hotel',
-    city: 'Bogota',
+    city: 'Bogotá',
     department: 'Cundinamarca',
     country: 'Colombia',
     description:
-      'Alojamiento urbano con habitaciones estandar y superiores cerca del centro.',
+      'Alojamiento urbano con habitaciones estándar y superiores cerca del centro.',
     highlights: [
-      'Recepcion 24 horas',
+      'Recepción 24 horas',
       'Desayuno incluido',
-      'Wi-Fi para huespedes',
+      'Wi-Fi para huéspedes',
     ],
     rooms: 42,
     maxGuestsPerRoom: 3,
@@ -46,7 +48,7 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
     roomRates: [
       {
         id: 'standard-flex',
-        roomType: 'Habitacion estandar',
+        roomType: 'Habitación estándar',
         rateName: 'Flexible',
         description: 'Tarifa base con cambios sujetos a disponibilidad.',
         maxGuests: 2,
@@ -54,9 +56,9 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
       },
       {
         id: 'superior-breakfast',
-        roomType: 'Habitacion superior',
+        roomType: 'Habitación superior',
         rateName: 'Con desayuno',
-        description: 'Habitacion superior para parejas o viaje corporativo.',
+        description: 'Habitación superior para parejas o viaje corporativo.',
         maxGuests: 3,
         nightlyRate: 245000,
       },
@@ -67,11 +69,11 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
     slug: 'hostal-sendero-azul',
     name: 'Hostal Sendero Azul',
     type: 'Hostal',
-    city: 'Medellin',
+    city: 'Medellín',
     department: 'Antioquia',
     country: 'Colombia',
     description:
-      'Espacios compartidos y privados pensados para estadias cortas.',
+      'Espacios compartidos y privados pensados para estadías cortas.',
     highlights: [
       'Cocina compartida',
       'Zona social',
@@ -83,7 +85,7 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
     roomRates: [
       {
         id: 'shared-bed',
-        roomType: 'Cama en habitacion compartida',
+        roomType: 'Cama en habitación compartida',
         rateName: 'No reembolsable',
         description: 'Cama individual en dormitorio compartido.',
         maxGuests: 1,
@@ -91,9 +93,9 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
       },
       {
         id: 'private-room',
-        roomType: 'Habitacion privada',
+        roomType: 'Habitación privada',
         rateName: 'Flexible',
-        description: 'Habitacion privada sencilla para estancias cortas.',
+        description: 'Habitación privada sencilla para estancias cortas.',
         maxGuests: 2,
         nightlyRate: 165000,
       },
@@ -108,10 +110,10 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
     department: 'Valle del Cauca',
     country: 'Colombia',
     description:
-      'Apartamentos con cocina equipada para estadias prolongadas.',
+      'Apartamentos con cocina equipada para estadías prolongadas.',
     highlights: [
       'Cocina equipada',
-      'Lavanderia',
+      'Lavandería',
       'Tarifas por temporada',
     ],
     rooms: 27,
@@ -129,7 +131,7 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
       {
         id: 'family-apartment',
         roomType: 'Apartamento familiar',
-        rateName: 'Estadia prolongada',
+        rateName: 'Estadía prolongada',
         description: 'Apartamento amplio con cocina y sala independiente.',
         maxGuests: 4,
         nightlyRate: 340000,
@@ -142,12 +144,12 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
     name: 'Hotel Brisa del Rio',
     type: 'Hotel',
     city: 'Barranquilla',
-    department: 'Atlantico',
+    department: 'Atlántico',
     country: 'Colombia',
     description:
-      'Hotel corporativo con salones de reunion y facil acceso empresarial.',
+      'Hotel corporativo con salones de reunión y fácil acceso empresarial.',
     highlights: [
-      'Salones de reunion',
+      'Salones de reunión',
       'Parqueadero',
       'Restaurante',
     ],
@@ -157,15 +159,15 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
     roomRates: [
       {
         id: 'business-standard',
-        roomType: 'Habitacion ejecutiva',
+        roomType: 'Habitación ejecutiva',
         rateName: 'Corporativa',
-        description: 'Habitacion ejecutiva con escritorio de trabajo.',
+        description: 'Habitación ejecutiva con escritorio de trabajo.',
         maxGuests: 2,
         nightlyRate: 210000,
       },
       {
         id: 'business-plus',
-        roomType: 'Habitacion ejecutiva plus',
+        roomType: 'Habitación ejecutiva plus',
         rateName: 'Con desayuno',
         description: 'Incluye desayuno y mayor espacio de trabajo.',
         maxGuests: 3,
@@ -177,15 +179,15 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
   {
     slug: 'posada-monte-claro',
     name: 'Posada Monte Claro',
-    type: 'Alojamiento turistico',
+    type: 'Alojamiento turístico',
     city: 'Salento',
-    department: 'Quindio',
+    department: 'Quindío',
     country: 'Colombia',
     description:
       'Posada tranquila para viajeros que buscan naturaleza y descanso.',
     highlights: [
       'Tours locales',
-      'Vista a la montana',
+      'Vista a la montaña',
       'Desayuno campesino',
     ],
     rooms: 16,
@@ -194,17 +196,17 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
     roomRates: [
       {
         id: 'mountain-room',
-        roomType: 'Habitacion vista montana',
+        roomType: 'Habitación vista montaña',
         rateName: 'Flexible',
-        description: 'Habitacion tranquila con desayuno campesino.',
+        description: 'Habitación tranquila con desayuno campesino.',
         maxGuests: 2,
         nightlyRate: 145000,
       },
       {
         id: 'triple-cabin',
-        roomType: 'Cabana triple',
+        roomType: 'Cabaña triple',
         rateName: 'Experiencia local',
-        description: 'Cabana para grupo pequeno con tour local incluido.',
+        description: 'Cabaña para grupo pequeño con tour local incluido.',
         maxGuests: 3,
         nightlyRate: 230000,
       },
@@ -216,10 +218,10 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
     name: 'Suite Marina 73',
     type: 'Apartahotel',
     city: 'Cartagena',
-    department: 'Bolivar',
+    department: 'Bolívar',
     country: 'Colombia',
     description:
-      'Suites amobladas cerca de la zona turistica para viajes familiares.',
+      'Suites amobladas cerca de la zona turística para viajes familiares.',
     highlights: [
       'Suites familiares',
       'Piscina',
@@ -231,7 +233,7 @@ export const ALLIED_HOTELS: AlliedHotel[] = [
     roomRates: [
       {
         id: 'suite-standard',
-        roomType: 'Suite estandar',
+        roomType: 'Suite estándar',
         rateName: 'Flexible',
         description: 'Suite amoblada para parejas o viaje familiar corto.',
         maxGuests: 3,

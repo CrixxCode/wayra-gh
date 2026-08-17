@@ -372,6 +372,34 @@ def notify_reservation_cancelled(reservation) -> list[Notification]:
     )
 
 
+def notify_online_check_in_submitted(reservation, guests) -> list[Notification]:
+    if reservation is None or not guests:
+        return []
+    hotel_settings = getattr(reservation, "hotel_settings", None)
+    guest_names = ", ".join(getattr(guest, "full_name", None) or "Huesped" for guest in guests)
+    guest_count = len(guests)
+    guests_label = "huesped" if guest_count == 1 else "huespedes"
+    message = (
+        f"{guest_names} completaron el check-in online de la reserva #{reservation.id} "
+        f"({guest_count} {guests_label}). Verifica su identidad al llegar para confirmar "
+        "el check-in en recepcion."
+    )
+    return notify_hotel_managers(
+        hotel_settings=hotel_settings,
+        title="Check-in online recibido",
+        message=message,
+        notification_type=Notification.NotificationType.RESERVATION,
+        priority=Notification.Priority.MEDIUM,
+        action_url="/reservas",
+        related_object=reservation,
+        metadata={
+            "guest_ids": [guest.id for guest in guests],
+            "guest_count": guest_count,
+            "arrival_time_window": guests[0].arrival_time_window or "",
+        },
+    )
+
+
 def notify_reservation_pending_balance(
     reservation,
     *,

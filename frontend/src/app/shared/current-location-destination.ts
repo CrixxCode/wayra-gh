@@ -20,7 +20,9 @@ export async function resolveCurrentLocationDestination(
 ): Promise<CurrentLocationDestinationResult> {
 
   if (!navigator.geolocation) {
-    throw new Error('Tu navegador no permite usar tu ubicacion.');
+    throw new Error(
+      'Tu navegador no permite usar tu ubicación. Escribe tu destino manualmente.'
+    );
   }
 
   const position =
@@ -36,7 +38,9 @@ export async function resolveCurrentLocationDestination(
     findDestinationMatch(options, location);
 
   if (!match) {
-    throw new Error('No encontramos destinos aliados para tu ubicacion.');
+    throw new Error(
+      'No encontramos destinos aliados cerca de tu ubicación. Escribe tu destino manualmente.'
+    );
   }
 
   return match;
@@ -46,8 +50,8 @@ function getCurrentPosition(): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(
       resolve,
-      () => {
-        reject(new Error('No pudimos acceder a tu ubicacion.'));
+      (error) => {
+        reject(new Error(describeGeolocationError(error)));
       },
       {
         enableHighAccuracy: false,
@@ -56,6 +60,19 @@ function getCurrentPosition(): Promise<GeolocationPosition> {
       }
     );
   });
+}
+
+function describeGeolocationError(
+  error: GeolocationPositionError
+): string {
+
+  if (error.code === error.PERMISSION_DENIED) {
+    return 'No autorizaste el acceso a tu ubicación. ' +
+      'Actívalo en los permisos del navegador o escribe tu destino manualmente.';
+  }
+
+  return 'No pudimos determinar tu ubicación. ' +
+    'Intenta de nuevo o escribe tu destino manualmente.';
 }
 
 async function reverseGeocodePosition(
@@ -75,7 +92,9 @@ async function reverseGeocodePosition(
     );
 
   if (!response.ok) {
-    throw new Error('No pudimos identificar tu ciudad.');
+    throw new Error(
+      'No pudimos identificar tu ciudad. Escribe tu destino manualmente.'
+    );
   }
 
   return response.json() as Promise<ReverseGeocodeResponse>;

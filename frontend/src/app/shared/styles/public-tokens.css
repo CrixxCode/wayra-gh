@@ -1,0 +1,38 @@
+/*
+ * Shared design tokens for Wayra's public-facing pages: landing, allied hotel
+ * search, allied booking request, and online check-in. Declared on the
+ * combined selector below (not :root) so each page's own root class keeps a
+ * higher-specificity slot to override a token locally when it intentionally
+ * diverges (see e.g. --primary in landing.css), without needing !important.
+ *
+ * This is the public light-theme surface only. It intentionally shares no
+ * names with the --gh-* dashboard tokens defined in styles.css, and must not
+ * be extended to dashboard/private selectors.
+ */
+.wayra-landing,
+.booking-page,
+.allied-hotels-page,
+.online-checkin-page {
+  --background: #ffffff;
+  --foreground: #172033;
+  --card: #ffffff;
+  --primary: #2c7be5;
+  --primary-hover: #2369c5;
+  --primary-foreground: #ffffff;
+  --secondary: #f6f8fb;
+  --muted: #647087;
+  --border: #e2e7ef;
+  --input: #dce3ed;
+  --input-hover: #b9c4d2;
+  --surface: #f8fafc;
+  --ink: #111827;
+  --ink-foreground: #ffffff;
+  --ink-muted: #8b95aa;
+  --white-rgb: 255, 255, 255;
+  --ink-border: rgba(var(--white-rgb), 0.14);
+  --accent: #edf5ff;
+  --danger: #dc2626;
+  --radius: 14px;
+  --shadow-card: 0 1px 2px rgba(17, 24, 39, 0.06), 0 18px 42px rgba(17, 24, 39, 0.07);
+  --shadow-elevated: 0 28px 70px -32px rgba(17, 24, 39, 0.45);
+}
