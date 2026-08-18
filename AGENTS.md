@@ -1073,6 +1073,45 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-17 — Comando `seed_extra_roles`: seis roles operativos adicionales
+
+- **Autor:** Claude Code, a solicitud del usuario (para correr en el servicio de Railway)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** se agregó `backend/accounts/management/commands/seed_extra_roles.py`, un
+  management command separado de `seed_rbac` que crea/actualiza seis roles operativos: `reception`
+  (Recepción, exactamente los mismos recursos que `staff` — se copian de la BD en vez de duplicar la
+  lista de dominios), `housekeeping` (Limpieza: lectura/escritura de `cleaning_tasks`, lectura de
+  `rooms`/`room_type`/`recurring_work`), `maintenance` (Mantenimiento: lectura/escritura de
+  `maintenance_orders`/`recurring_work`, lectura de `rooms`/`room_type`), `finance` (Finanzas:
+  lectura/escritura de `invoices`/`payments`/`credit-notes`/`expenses`/`financial_control`, lectura
+  de `charges`/`reservations`/`reports`), `inventory` (Inventario: lectura/escritura de
+  `items`/`inventory-movements`/`room-inventory`, lectura de `rooms`) y `auditor` (solo lectura de
+  todos los dominios operativos del hotel + `reports.read` + `audit.read`, sin ningún scope de
+  escritura). También siembra un catálogo mínimo de `JobTitle` por rol. El comando valida al inicio
+  que los cuatro roles base de `seed_rbac` (`admin`, `manager`, `platform_admin`, `staff`) ya existan
+  y aborta con `CommandError` si falta alguno.
+- **Por qué:** el usuario pidió nueve roles con slugs específicos (`platform_admin`, `admin`/
+  `hotel_admin`, `manager`, `reception`, `housekeeping`, `maintenance`, `finance`, `inventory`,
+  `auditor`) para ejecutar en producción (Railway). Tres de esos slugs ya existen tal cual en
+  `seed_rbac` (`platform_admin`, `manager`, y `admin` cubre "Administrador del hotel" — se decidió
+  con el usuario **no** crear un slug `hotel_admin` separado). `seed_rbac` documenta explícitamente
+  que solo reescribe cuatro roles base y que los roles adicionales de un hotel "se crean a mano y no
+  se tocan"; en vez de ampliar esa lista base (lo que habría sido un cambio de arquitectura mayor,
+  afectando a todos los hoteles existentes en cada corrida de `seed_rbac`), se optó — consultado con
+  el usuario — por un comando aparte que trata estos seis roles nuevos como roles manuales,
+  preservando la garantía de reproducibilidad de `seed_rbac` intacta.
+- **Archivos/áreas afectadas:** `backend/accounts/management/commands/seed_extra_roles.py` (nuevo).
+- **Impacto:** sin migraciones ni cambios de API. No agrega recursos RBAC nuevos, solo reutiliza los
+  que ya siembra `seed_rbac` — por eso requiere correr `python manage.py seed_rbac` primero en
+  cualquier entorno donde los recursos no estén al día (se validó localmente: una base desactualizada
+  sin los recursos `recurring_work.*` hacía fallar la asignación a `housekeeping`/`maintenance`/
+  `auditor` hasta refrescar con `seed_rbac --only-resources`). **Paso manual de despliegue:** en
+  Railway, correr `python manage.py seed_rbac` (si no se corrió recientemente) y luego
+  `python manage.py seed_extra_roles`, vía `railway run` o la consola del servicio.
+
+---
+
 ### 2026-08-18 — Pulido final: ícono de check-in decorativo y fade de errores del modal de demo
 
 - **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `polish`, cerrando
