@@ -1093,6 +1093,71 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-18 — Interceptor HTTP global para reaccionar al instante si el hotel se desactiva
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** el bloqueo de hotel desactivado (entrada del 2026-08-18 sobre
+  `HotelActiveMiddleware`) ya rechazaba toda petición API con `403 {code: "hotel_inactive"}`, y
+  `auth.guard.ts` ya sacaba al usuario a `/login` — pero solo **al navegar** (`canActivateChild`
+  corre en cada cambio de ruta). Si el usuario se quedaba quieto en una pantalla sin navegar ni
+  recargar, no había nada que reaccionara: sus peticiones fallarían una por una con ese 403, pero
+  cada componente maneja sus propios errores de forma distinta y ninguno sabía de este código en
+  particular. Se agregó `hotelInactiveInterceptor`
+  (`frontend/src/app/interceptors/hotel-inactive.interceptor.ts`), un `HttpInterceptorFn`
+  registrado en `app.config.ts` junto al `hotelContextInterceptor` ya existente: intercepta
+  **cualquier** respuesta HTTP con `status 403` y `error.code === "hotel_inactive"`, muestra el
+  mismo toast que ya usaba el guard, cierra la sesión (`authService.logout()`) y redirige a
+  `/login`, sin esperar a la próxima navegación. Excluye explícitamente las peticiones a
+  `/api/auth/login/` (ese 403 ya lo maneja `login.ts` con su propio mensaje, sin sesión que
+  cerrar). Un flag a nivel de módulo (`isHandlingHotelInactive`) evita que una ráfaga de
+  peticiones paralelas fallando al mismo tiempo (ej. un dashboard cargando varios widgets)
+  dispare el logout/redirect mas de una vez.
+- **Por qué:** el usuario preguntó explícitamente qué pasaba si desactivaban el hotel mientras un
+  usuario seguía navegando dentro de la plataforma sin cambiar de pantalla; se confirmó que ese
+  caso quedaba sin cubrir y pidió cerrarlo.
+- **Archivos/áreas afectadas:** `frontend/src/app/interceptors/hotel-inactive.interceptor.ts`
+  (nuevo), `frontend/src/app/app.config.ts`.
+- **Impacto:** ninguna migración ni cambio de API. `npx tsc --noEmit` y `npx ng build
+  --configuration development` pasan limpio. No se probó manualmente en navegador con una sesión
+  real (se validó el bloqueo de backend con datos temporales vía `manage.py shell`, ver entrada
+  anterior sobre pruebas, pero no este interceptor en concreto).
+
+---
+
+### 2026-08-18 — Fix: el criterio de "configuracion completa" ocultaba todos los hoteles reales
+
+- **Autor:** Claude Code, a solicitud del usuario (reportó que la búsqueda de hoteles no devolvía
+  ninguno, con una captura de un error de consola irrelevante — `net::ERR_BLOCKED_BY_CLIENT` en
+  `static.cloudflareinsights.com`, un bloqueador de anuncios frenando el beacon de analítica de
+  Cloudflare, sin relación con la app)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** la entrada anterior de este mismo día copió literalmente la lista de campos
+  requeridos de `buildHotelSetupStatus()` (frontend), que incluye `legal_name` (razón social) y
+  coordenadas de mapa (`latitude`/`longitude`). Se verificó contra la base local
+  (`python manage.py shell`) que **ningún** hotel real tenía esos dos campos llenos — ni siquiera
+  "Hotel Arimaca", el único con estructura de habitaciones completa — así que el directorio público
+  y todo `/reservar/*` quedaban vacíos. Esa lista tiene sentido para *avisarle al admin* que
+  complete el perfil de su hotel, pero es más estricta de lo necesario para *bloquear* que el
+  público lo reserve. Se acortó `REQUIRED_HOTEL_SETUP_FIELDS` en
+  `apps/hotel_settings/services.py` a lo que de verdad hace falta para operar una reserva:
+  `hotel_name`, `address`, `country`, `state`, `city`, `check_in_time`, `check_out_time`, más al
+  menos un medio de contacto (`reservations_email` o `general_email` o `primary_phone` — ya no los
+  tres) y al menos una habitación registrada. `legal_name` y las coordenadas de mapa dejaron de ser
+  bloqueantes para la vista pública.
+- **Por qué:** confirmar la reserva de un hotel no depende de su razón social ni de que tenga un
+  pin exacto en el mapa; depender de esos dos campos dejaba sin mostrar hoteles perfectamente
+  operativos solo porque nadie había llenado un dato administrativo o de mapa.
+- **Archivos/áreas afectadas:** `backend/apps/hotel_settings/services.py`.
+- **Impacto:** ninguna migración. Las pruebas de `apps.hotel_settings` (incluidas las 2 agregadas en
+  la entrada anterior) y la suite completa del backend (312 pruebas) siguen en verde sin cambios —
+  cubrían el caso de "hotel incompleto" con campos que también quedaron en la lista corta
+  (`address`, `check_in_time`, `check_out_time`). No se probó manualmente en navegador.
+
+---
+
 ### 2026-08-18 — Hoteles aliados/reservas solo muestran hoteles activos y con configuracion completa
 
 - **Autor:** Claude Code, a solicitud del usuario

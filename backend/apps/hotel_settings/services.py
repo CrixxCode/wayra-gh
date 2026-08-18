@@ -18,20 +18,17 @@ class AlliedHotelAvailabilityCriteria:
     guests: int
 
 
-# Espejo de los campos requeridos por `buildHotelSetupStatus()`
-# (`frontend/src/app/services/hotel-setup-status.ts`), que ya usa esta misma lista para decidir
-# si avisarle al administrador del hotel que falta completar su configuracion. Un hotel que no
-# cumple estos requisitos no esta listo para mostrarse a huespedes ni para recibir reservas.
+# Campos sin los cuales un hotel no puede *operar* una reserva publica: donde queda, con que
+# horario recibe/entrega habitaciones, y con que correo se le contacta para confirmarla. A
+# proposito es mas corto que `buildHotelSetupStatus()` (`hotel-setup-status.ts`) — esa lista
+# tambien exige razon social y coordenadas de mapa, que son utiles para el panel del hotel pero
+# no bloquean que una reserva se pueda tomar y confirmar.
 REQUIRED_HOTEL_SETUP_FIELDS = (
     "hotel_name",
-    "legal_name",
     "address",
     "country",
     "state",
     "city",
-    "primary_phone",
-    "general_email",
-    "reservations_email",
     "check_in_time",
     "check_out_time",
 )
@@ -49,7 +46,11 @@ def is_hotel_setup_complete(hotel: HotelSettings) -> bool:
     if not all(_has_value(getattr(hotel, field)) for field in REQUIRED_HOTEL_SETUP_FIELDS):
         return False
 
-    if not _has_value(hotel.latitude) or not _has_value(hotel.longitude):
+    has_contact = any(
+        _has_value(getattr(hotel, field))
+        for field in ("reservations_email", "general_email", "primary_phone")
+    )
+    if not has_contact:
         return False
 
     has_rooms = any(int(floor.room_count or 0) > 0 for floor in hotel.floors.all())

@@ -8,6 +8,7 @@ import { provideHttpClient, withInterceptors, withXsrfConfiguration } from '@ang
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { AppTitleStrategy } from './app-title.strategy';
 import { hotelContextInterceptor } from './interceptors/hotel-context.interceptor';
+import { hotelInactiveInterceptor } from './interceptors/hotel-inactive.interceptor';
 
 // ✅ PrimeNG modules para notificaciones y confirmaciones
 import { ToastModule } from 'primeng/toast';
@@ -25,7 +26,7 @@ export const appConfig: ApplicationConfig = {
     provideAnimationsAsync(), // 👈 reemplaza a BrowserAnimationsModule
 
     provideHttpClient(
-      withInterceptors([hotelContextInterceptor]),
+      withInterceptors([hotelContextInterceptor, hotelInactiveInterceptor]),
       withXsrfConfiguration({
         cookieName: 'csrftoken',
         headerName: 'X-CSRFToken'
