@@ -4,21 +4,15 @@ import {
   Component,
   HostListener,
   OnDestroy,
-  OnInit,
   inject,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { catchError, finalize, of } from 'rxjs';
 
 import {
   DemoRequestPayload,
   DemoRequestService,
 } from '../../../services/demo-request';
-import {
-  AuthService,
-  MeResponse,
-} from '../../../services/auth/auth';
 
 import {
   JobTitle,
@@ -33,11 +27,9 @@ import {
   loadHotelCountries,
 } from '../../../shared/hotel-location-options';
 
+import { PublicHeaderComponent } from '../../shared/public-header/public-header';
+import { PublicFooterComponent } from '../../shared/public-footer/public-footer';
 
-interface NavLink {
-  label: string;
-  sectionId: string;
-}
 
 interface TurnMoment {
   title: string;
@@ -80,16 +72,16 @@ type DemoFormSection =
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    RouterLink,
+    PublicHeaderComponent,
+    PublicFooterComponent,
   ],
   templateUrl: './landing.html',
   styleUrl: './landing.css',
 })
-export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
+export class LandingPage implements AfterViewInit, OnDestroy {
 
   private readonly formBuilder = inject(FormBuilder);
   private readonly demoRequestService = inject(DemoRequestService);
-  private readonly authService = inject(AuthService);
   private readonly rolesService = inject(RolesService);
 
   private previousBodyOverflow = '';
@@ -233,30 +225,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   });
 
   // =========================================================
-  // NAVEGACIÓN
-  // =========================================================
-
-  readonly navLinks: NavLink[] = [
-    {
-      label: 'Producto',
-      sectionId: 'producto',
-    },
-    {
-      label: 'Cómo funciona',
-      sectionId: 'operacion',
-    },
-    {
-      label: 'Para quién',
-      sectionId: 'publico',
-    },
-    {
-      label: 'FAQ',
-      sectionId: 'faq',
-    },
-  ];
-
-
-  // =========================================================
   // TURNO OPERATIVO
   // =========================================================
 
@@ -320,27 +288,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     'Gestión desde navegador',
     'Configuración del hotel',
   ];
-
-  landingSessionAuthenticated =
-    this.authService.getCachedSessionState();
-
-  get landingSessionActionRoute(): string {
-    return this.landingSessionAuthenticated
-      ? '/dashboard'
-      : '/login';
-  }
-
-  get landingSessionActionLabel(): string {
-    return this.landingSessionAuthenticated
-      ? 'Ir al panel'
-      : 'Iniciar sesión';
-  }
-
-  get landingSessionActionIcon(): string {
-    return this.landingSessionAuthenticated
-      ? 'pi pi-chart-line'
-      : 'pi pi-sign-in';
-  }
 
   // =========================================================
   // PÚBLICO
@@ -420,8 +367,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   // =========================================================
   // ESTADO
   // =========================================================
-
-  mobileMenuOpen = false;
 
   openFaqIndex: number | null = null;
   demoModalOpen = false;
@@ -535,10 +480,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   // LIFECYCLE
   // =========================================================
 
-  ngOnInit(): void {
-    this.refreshLandingSessionState();
-  }
-
   ngAfterViewInit(): void {
 
     window.setTimeout(() => {
@@ -575,42 +516,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
 
   // =========================================================
-  // MENÚ
-  // =========================================================
-
-  private refreshLandingSessionState(): void {
-
-    this.authService
-      .getUserInfo()
-      .pipe(
-        catchError(() => {
-          this.authService.rememberSessionState(false);
-          return of(null);
-        })
-      )
-      .subscribe((user: MeResponse | null) => {
-        const isAuthenticated =
-          Boolean(user?.username);
-
-        this.landingSessionAuthenticated =
-          isAuthenticated;
-
-        this.authService.rememberSessionState(isAuthenticated);
-      });
-  }
-
-
-  toggleMobileMenu(): void {
-    this.mobileMenuOpen = !this.mobileMenuOpen;
-  }
-
-
-  closeMobileMenu(): void {
-    this.mobileMenuOpen = false;
-  }
-
-
-  // =========================================================
   // SCROLL
   // =========================================================
 
@@ -629,7 +534,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
     const header =
       document.querySelector(
-        '.wayra-header'
+        '.public-header'
       ) as HTMLElement | null;
 
     const headerOffset =
@@ -663,8 +568,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
       '',
       `#${sectionId}`
     );
-
-    this.closeMobileMenu();
   }
 
 
@@ -833,8 +736,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   openDemoModal(event?: Event): void {
 
     event?.preventDefault();
-
-    this.closeMobileMenu();
 
     this.demoModalOpen = true;
     this.demoSubmitted = false;
@@ -1304,7 +1205,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
     const header =
       document.querySelector(
-        '.wayra-header'
+        '.public-header'
       ) as HTMLElement | null;
 
     const headerOffset =

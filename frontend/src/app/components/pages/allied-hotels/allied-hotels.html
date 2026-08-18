@@ -1,48 +1,6 @@
 <div class="allied-hotels-page">
 
-  <header class="allied-header">
-    <div class="allied-header-inner">
-
-      <a
-        class="allied-brand"
-        routerLink="/">
-
-        <img
-          src="/logo.png"
-          alt="Wayra" />
-
-        <span>
-          Wayra
-        </span>
-
-      </a>
-
-      <nav
-        class="allied-nav"
-        aria-label="Navegacion publica">
-
-        <a
-          class="allied-nav-link"
-          routerLink="/">
-          Inicio
-        </a>
-
-        <a
-          class="allied-nav-secondary"
-          routerLink="/reservar">
-          Buscar alojamiento
-        </a>
-
-        <a
-          class="allied-nav-login"
-          routerLink="/login">
-          Iniciar sesion
-        </a>
-
-      </nav>
-
-    </div>
-  </header>
+  <app-public-header></app-public-header>
 
 
   <main>
@@ -284,5 +242,7 @@
     </section>
 
   </main>
+
+  <app-public-footer variant="compact"></app-public-footer>
 
 </div>

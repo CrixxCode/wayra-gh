@@ -1,0 +1,139 @@
+<header class="public-header">
+
+  <div class="public-header-inner">
+
+    <a
+      class="public-header-brand"
+      routerLink="/"
+      (click)="closeMobileMenu()">
+
+      <img
+        src="/logo.png"
+        alt="Wayra" />
+
+      <span>
+        Wayra
+      </span>
+
+    </a>
+
+
+    <nav
+      class="public-header-nav"
+      aria-label="Navegación pública">
+
+      <a
+        *ngFor="let item of navItems; trackBy: trackByRoute"
+        class="public-header-link"
+        [routerLink]="item.route"
+        routerLinkActive="is-active"
+        [routerLinkActiveOptions]="{ exact: false }"
+        ariaCurrentWhenActive="page">
+
+        {{ item.label }}
+
+      </a>
+
+    </nav>
+
+
+    <div class="public-header-actions">
+
+      <a
+        class="public-header-session"
+        [routerLink]="sessionActionRoute"
+        (click)="closeMobileMenu()">
+
+        <i
+          aria-hidden="true"
+          [class]="sessionActionIcon">
+        </i>
+
+        {{ sessionActionLabel }}
+
+      </a>
+
+      <button
+        *ngIf="ctaLabel"
+        type="button"
+        class="public-header-cta"
+        (click)="onCtaClick($event)">
+
+        {{ ctaLabel }}
+
+      </button>
+
+    </div>
+
+
+    <button
+      type="button"
+      class="public-header-toggle"
+      (click)="toggleMobileMenu()"
+      [attr.aria-expanded]="mobileMenuOpen"
+      aria-controls="public-header-mobile-menu"
+      [attr.aria-label]="mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'">
+
+      <i
+        aria-hidden="true"
+        [ngClass]="mobileMenuOpen ? 'pi pi-times' : 'pi pi-bars'">
+      </i>
+
+    </button>
+
+  </div>
+
+
+  <!-- MENÚ MÓVIL -->
+
+  <div
+    *ngIf="mobileMenuOpen"
+    id="public-header-mobile-menu"
+    class="public-header-mobile-panel">
+
+    <nav
+      class="public-header-mobile-nav"
+      aria-label="Navegación móvil">
+
+      <a
+        *ngFor="let item of navItems; trackBy: trackByRoute"
+        class="public-header-mobile-link"
+        [routerLink]="item.route"
+        routerLinkActive="is-active"
+        [routerLinkActiveOptions]="{ exact: false }"
+        ariaCurrentWhenActive="page"
+        (click)="closeMobileMenu()">
+
+        {{ item.label }}
+
+      </a>
+
+      <a
+        class="public-header-mobile-link"
+        [routerLink]="sessionActionRoute"
+        (click)="closeMobileMenu()">
+
+        <i
+          aria-hidden="true"
+          [class]="sessionActionIcon">
+        </i>
+
+        {{ sessionActionLabel }}
+
+      </a>
+
+      <button
+        *ngIf="ctaLabel"
+        type="button"
+        class="public-header-cta public-header-cta-block"
+        (click)="onCtaClick($event)">
+
+        {{ ctaLabel }}
+
+      </button>
+
+    </nav>
+
+  </div>
+
+</header>

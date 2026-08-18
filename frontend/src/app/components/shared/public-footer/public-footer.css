@@ -1,0 +1,247 @@
+/*
+ * Footer publico canonico. Dos variantes de UNA sola hoja de estilos, no dos
+ * componentes. Colores derivados de los tokens ya declarados en
+ * public-tokens.css (herencia normal de custom properties, no duplicados
+ * aqui): la variante full reutiliza los mismos --ink/--ink-foreground/
+ * --ink-muted/--ink-border que ya usan el hero y las secciones oscuras de
+ * landing, para quedar visualmente integrada con esas franjas en vez de un
+ * gris Tailwind aparte. La variante compacta usa la paleta clara normal
+ * (--background/--border/--muted) a proposito: debajo de contenido
+ * transaccional, una franja oscura de marca pesaria mas, no menos.
+ */
+
+:host {
+  display: block;
+}
+
+.public-footer {
+  border-top: 1px solid var(--border);
+}
+
+.public-footer-inner {
+  width: min(100% - 2rem, 1408px);
+  margin: 0 auto;
+}
+
+/* ---- variante full (unicamente en /) ---- */
+
+.public-footer-full {
+  background: var(--ink);
+  color: var(--ink-muted);
+  border-top-color: var(--ink-border);
+}
+
+.public-footer-grid {
+  display: grid;
+  gap: 2.5rem;
+  padding: 3.5rem 0 2.5rem;
+  grid-template-columns: 1fr;
+}
+
+.public-footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--ink-foreground);
+  text-decoration: none;
+}
+
+.public-footer-brand img {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 12px;
+}
+
+.public-footer-brand strong {
+  display: block;
+  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--ink-foreground);
+}
+
+.public-footer-brand small {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.public-footer-description {
+  margin: 1rem 0 0;
+  max-width: 36rem;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  color: var(--ink-muted);
+}
+
+.public-footer-tags {
+  margin: 1.25rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.public-footer-tags span {
+  border: 1px solid var(--ink-border);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.public-footer-col h3 {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-foreground);
+}
+
+.public-footer-links {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.public-footer-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+.public-footer-copyright-strip {
+  border-top: 1px solid var(--ink-border);
+}
+
+.public-footer-copyright-inner {
+  padding: 1.5rem 0;
+}
+
+.public-footer-copyright {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+}
+
+/* ---- variante compact (6 rutas transaccionales) ---- */
+
+.public-footer-compact {
+  background: var(--background);
+  color: var(--muted);
+}
+
+.public-footer-compact-inner {
+  padding: 1.75rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  text-align: center;
+}
+
+.public-footer-compact-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.public-footer-compact-brand img {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 8px;
+}
+
+.public-footer-compact-brand p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.public-footer-compact-brand strong {
+  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.public-footer-compact-descriptor {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.public-footer-compact-descriptor::before {
+  content: '·';
+  margin: 0 0.4em;
+  color: var(--border);
+}
+
+.public-footer-compact .public-footer-copyright {
+  color: var(--muted);
+}
+
+/* Desde tablet hay espacio de sobra para que marca y copyright convivan en
+   una sola fila, marca a la izquierda, copyright a la derecha, en vez de
+   quedar apiladas y centradas como en mobile. */
+@media (min-width: 640px) {
+  .public-footer-compact-inner {
+    flex-direction: row;
+    justify-content: space-between;
+    text-align: left;
+  }
+
+  .public-footer-compact .public-footer-copyright {
+    text-align: right;
+  }
+}
+
+/* ---- responsive: la grilla del full pasa de 1 a 2 a 4 columnas; la
+   compacta es una sola linea centrada en todos los anchos ---- */
+
+@media (min-width: 640px) {
+  .public-footer-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Marca ocupa la fila completa desde tablet: con 3 columnas hijas en una
+     grilla de 2, la tercera (Cuenta) quedaba huerfana en su propia fila con
+     una celda vacia al lado. De 1024px en adelante ya no hace falta este
+     ajuste especifico porque la grilla de 4 columnas ya reparte marca(2) +
+     Navegacion(1) + Cuenta(1) sin sobrantes, pero mantener la regla no hace
+     daño y evita un salto de layout entre 640 y 1024px. */
+  .public-footer-brand-col {
+    grid-column: span 2;
+  }
+}
+
+@media (min-width: 1024px) {
+  .public-footer-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ---- foco: definido aqui mismo porque el encapsulamiento de vistas de
+   Angular impide que las reglas ":focus-visible" globales de cada pagina
+   alcancen el DOM de este componente hijo (mismo motivo que en
+   PublicHeaderComponent) ---- */
+
+.public-footer a:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Hover-only, nunca la unica senal: el foco ya tiene su propio anillo. */
+@media (hover: hover) and (pointer: fine) {
+  .public-footer-full .public-footer-brand:hover strong,
+  .public-footer-full .public-footer-links a:hover {
+    color: var(--ink-foreground);
+  }
+}

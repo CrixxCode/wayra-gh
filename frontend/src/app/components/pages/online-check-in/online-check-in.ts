@@ -18,6 +18,8 @@ import {
   OnlineCheckInResponse,
   OnlineCheckInService,
 } from '../../../services/online-check-in';
+import { PublicHeaderComponent } from '../../shared/public-header/public-header';
+import { PublicFooterComponent } from '../../shared/public-footer/public-footer';
 
 type ReservationCodeControlName =
   | 'reservationCode'
@@ -71,6 +73,8 @@ type GuestLineGroup = FormGroup<{
     CommonModule,
     ReactiveFormsModule,
     RouterLink,
+    PublicHeaderComponent,
+    PublicFooterComponent,
   ],
   templateUrl: './online-check-in.html',
   styleUrl: './online-check-in.css',

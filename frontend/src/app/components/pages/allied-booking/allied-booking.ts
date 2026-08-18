@@ -47,6 +47,8 @@ import {
   isAvailableRoomCountEstimated,
   parseBookingCriteriaFromQuery,
 } from './allied-booking-flow';
+import { PublicHeaderComponent } from '../../shared/public-header/public-header';
+import { PublicFooterComponent } from '../../shared/public-footer/public-footer';
 
 @Component({
   selector: 'app-allied-booking',
@@ -56,6 +58,8 @@ import {
     DatePickerModule,
     ReactiveFormsModule,
     RouterLink,
+    PublicHeaderComponent,
+    PublicFooterComponent,
   ],
   templateUrl: './allied-booking.html',
   styleUrl: './allied-booking.css',

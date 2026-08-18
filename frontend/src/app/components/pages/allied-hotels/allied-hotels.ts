@@ -17,6 +17,8 @@ import {
   formatBookingCurrency,
   getHotelTypeIcon,
 } from '../allied-booking/allied-booking-flow';
+import { PublicHeaderComponent } from '../../shared/public-header/public-header';
+import { PublicFooterComponent } from '../../shared/public-footer/public-footer';
 
 @Component({
   selector: 'app-allied-hotels',
@@ -25,6 +27,8 @@ import {
     CommonModule,
     FormsModule,
     RouterLink,
+    PublicHeaderComponent,
+    PublicFooterComponent,
   ],
   templateUrl: './allied-hotels.html',
   styleUrl: './allied-hotels.css',

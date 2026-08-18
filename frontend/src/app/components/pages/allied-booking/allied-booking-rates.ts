@@ -31,6 +31,8 @@ import {
   isBookingCriteriaComplete,
   parseBookingCriteriaFromQuery,
 } from './allied-booking-flow';
+import { PublicHeaderComponent } from '../../shared/public-header/public-header';
+import { PublicFooterComponent } from '../../shared/public-footer/public-footer';
 
 @Component({
   selector: 'app-allied-booking-rates',
@@ -38,6 +40,8 @@ import {
   imports: [
     CommonModule,
     RouterLink,
+    PublicHeaderComponent,
+    PublicFooterComponent,
   ],
   templateUrl: './allied-booking-rates.html',
   styleUrl: './allied-booking.css',

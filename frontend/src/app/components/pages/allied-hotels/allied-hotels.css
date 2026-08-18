@@ -20,87 +20,6 @@
   margin: 0 auto;
 }
 
-.allied-header {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05);
-  backdrop-filter: blur(16px);
-}
-
-.allied-header-inner {
-  width: min(100% - 2rem, 92rem);
-  margin: 0 auto;
-  min-height: 68px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
-}
-
-.allied-brand,
-.allied-nav,
-.allied-nav a {
-  display: inline-flex;
-  align-items: center;
-}
-
-.allied-brand {
-  gap: 0.75rem;
-  color: var(--foreground);
-  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
-  font-size: 1.2rem;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.allied-brand img {
-  width: auto;
-  height: 2.5rem;
-}
-
-.allied-nav {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.75rem;
-}
-
-.allied-nav a {
-  min-height: 44px;
-  justify-content: center;
-  padding: 0 1rem;
-  border-radius: 10px;
-  font-size: 0.86rem;
-  font-weight: 800;
-  text-decoration: none;
-  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
-}
-
-.allied-nav-link {
-  border: 1px solid transparent;
-  color: var(--muted);
-}
-
-.allied-nav-secondary {
-  border: 1px solid rgba(44, 123, 229, 0.24);
-  background: var(--accent);
-  color: var(--primary-text);
-}
-
-.allied-nav-login {
-  border: 1px solid var(--border);
-  background: var(--secondary);
-  color: var(--foreground);
-}
-
-.allied-nav a:hover {
-  border-color: rgba(44, 123, 229, 0.36);
-  background: var(--accent);
-  color: var(--primary-hover);
-}
-
 .allied-hero {
   position: relative;
   overflow: hidden;
@@ -586,32 +505,6 @@
 }
 
 @media (max-width: 640px) {
-  .allied-header-inner {
-    min-height: auto;
-    padding: 0.8rem 0;
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .allied-nav {
-    width: 100%;
-    gap: 0.5rem;
-  }
-
-  .allied-nav a {
-    flex: 1;
-    min-width: 0;
-    justify-content: center;
-    padding: 0 0.65rem;
-    font-size: 0.8rem;
-    text-align: center;
-    white-space: normal;
-  }
-
-  .allied-brand img {
-    height: 2.2rem;
-  }
-
   .allied-view-back {
     top: -3rem;
   }

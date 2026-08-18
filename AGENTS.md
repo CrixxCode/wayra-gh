@@ -949,6 +949,12 @@ como en `apps.rooms`. Es una duplicación conocida — ver [deuda técnica](#13-
    diálogos, calendarios). Modo oscuro soportado en toda la UI.
 7. **Iconos:** FontAwesome, con la clase completa guardada en `Resource.icon`
    (ej. `fa-solid fa-calendar w-5`).
+8. **Header público:** toda ruta pública (landing, hoteles aliados, reserva, check-in online) usa
+   `app-public-header` (`frontend/src/app/components/shared/public-header/`). No crear un `<header>`
+   propio por página: altura, ancho del contenedor, logo, z-index, blur, sombra, breakpoint y foco
+   son valores únicos definidos ahí. Lo único configurable por página es `ctaLabel`/`ctaTriggered`
+   (el botón de acción final, ej. "Solicitar demo"); la navegación y el estado activo/de sesión se
+   resuelven solos (routing + `AuthService`).
 
 ### Git
 
@@ -1072,6 +1078,181 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > debe escribirse en el momento del cambio.
 
 ---
+
+### 2026-08-18 — `PublicFooterComponent`: la variante `compact` gana identidad de marca
+
+- **Autor:** Claude Code (skill `impeccable polish`), a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** la variante `compact` (usada en las 6 rutas transaccionales) pasó de ser una
+  sola línea de copyright centrada a una fila balanceada: logo pequeño (1.75rem) + "Wayra" +
+  "Gestión hotelera SaaS" (el mismo tagline que ya usa la variante `full`) a la izquierda,
+  copyright a la derecha (`© {{ year }} Wayra. Todos los derechos reservados.` — construcción más
+  natural que la de `full`, que deja el año al final). En mobile (<640px) ambos bloques se apilan
+  y centran. El padding vertical subió de `1.25rem` a `1.75rem`. La marca no es un enlace (el
+  header ya cubre "volver al inicio" en las 7 rutas; agregar un segundo enlace hubiera sido un
+  elemento interactivo innecesario).
+- **Por qué:** la variante `compact` original, aunque técnicamente correcta, se veía como una
+  simple tira de copyright sin ninguna identidad de marca. Se pidió explícitamente reforzarla
+  usando solo contenido real ya existente en el producto (el mismo tagline de `full`), sin agregar
+  navegación, enlaces legales/sociales ni CTAs.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/shared/public-footer/public-footer.html`,
+  `public-footer.css`. La variante `full` no se tocó.
+- **Impacto:** ninguno funcional. `ng build` generó una advertencia nueva de presupuesto de bundle
+  inicial (2MB + 467 bytes, el límite de error es 3MB) — la extra marca/CSS de esta variante lo
+  empujó apenas sobre el umbral de advertencia; no bloquea el build y no se consideró justificado
+  recortar contenido real por ese margen.
+
+---
+
+### 2026-08-18 — `PublicFooterComponent`: landmark de navegación y balance en tablet
+
+- **Autor:** Claude Code (skill `impeccable adapt`), a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** dos cambios acotados en `public-footer.html`/`.css`, solo en la variante
+  `full` (la única que se usa, en `/`): (1) los enlaces de "Navegación" pasaron de un `<div>`
+  plano a un `<nav aria-label="Navegación del pie de página">` — antes no existía como landmark
+  navegable para lectores de pantalla, y el label es distinto al del header (`Navegación
+  pública`) para no confundirlos cuando ambos coexisten en la misma página; (2) en el rango de
+  tablet (640–1023px), la columna de marca pasó a ocupar la fila completa (`grid-column: span 2`
+  ya desde 640px, no solo desde 1024px) — con 3 columnas hijas en una grilla de 2, la tercera
+  ("Cuenta") quedaba sola en su propia fila con una celda vacía al lado.
+- **Por qué:** una auditoría de adaptación responsive encontró ambos problemas verificables por
+  código (conteo de columnas del grid, ausencia de elemento `<nav>`); ninguno era un error de
+  overflow, solo desbalance visual y una brecha de accesibilidad real.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/shared/public-footer/public-footer.html`,
+  `public-footer.css`.
+- **Impacto:** ninguno funcional. Nota para una tarea aparte (no resuelta aquí porque cruza el
+  límite de "no tocar el cuerpo de las páginas"): las 6 páginas transaccionales usan
+  `min-height: 100vh` sin `display: flex` en su wrapper raíz, así que en una página corta (ej.
+  `/reservar/confirmacion/:reservationId`) el footer compacto puede no quedar pegado al borde
+  inferior real del viewport — queda espacio en blanco debajo. Es un patrón previo a este footer,
+  no algo que el componente pueda resolver por sí solo sin tocar el CSS de esas páginas.
+
+---
+
+### 2026-08-18 — Footer público unificado en `PublicFooterComponent`
+
+- **Autor:** Claude Code (skill `impeccable extract`), a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** se creó `frontend/src/app/components/shared/public-footer/`
+  (`public-footer.ts/.html/.css`, standalone, selector `app-public-footer`) con dos variantes de
+  contenido (`variant: 'full' | 'compact'`, un solo componente, no dos). Se migraron las 7 rutas
+  públicas: `/` usa `variant="full"` (preserva el bloque de marca, la navegación por anclas y el
+  enlace de sesión que ya existían en el footer de landing, quitando únicamente el botón de
+  "Solicitar demo" — ya está en el header y en el hero, era redundante ahí); las otras 6 rutas
+  (`/hoteles-aliados`, `/reservar` y sus 3 pasos, `/check-in-online`) usan `variant="compact"`: una
+  sola línea de copyright, sin marca (el header ya la muestra en las 7 rutas), sin navegación ni
+  CTA. Se eliminó `frontend/src/app/components/layout/footer/` (`app-footer`), un stub huérfano con
+  contenido placeholder (`<p>footer works!</p>`) sin ninguna referencia en el resto del código.
+- **Por qué:** una crítica previa encontró que solo landing tenía footer; las otras 6 rutas
+  terminaban en `</main>` sin ningún punto de salida legal ni de contexto — más notable en
+  `/reservar/solicitud/:slug/:rateId` y `/check-in-online`, que son justo las páginas donde se
+  recolectan datos personales del huésped. No existe todavía contenido ni ruta de
+  Términos/Privacidad en el producto, así que el footer no incluye esos enlaces por ahora (no se
+  fabricó una ruta vacía) — queda pendiente como tarea aparte cuando exista ese contenido real.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/shared/public-footer/` (nuevo);
+  `components/pages/landing/*` (footer viejo removido de `landing.html`, y de `landing.ts` se
+  quitaron `navLinks`/`NavLink` y todo el estado de sesión —`landingSessionAuthenticated`, sus 3
+  getters, `refreshLandingSessionState()`, la inyección de `AuthService`— porque ese componente
+  compartido ahora resuelve su propia sesión, igual que ya hace `PublicHeaderComponent`; también se
+  quitó `RouterLink` de los imports de landing, que quedó sin uso en la plantilla al mover el
+  footer); `components/pages/allied-hotels/*`, `components/pages/allied-booking/*`,
+  `components/pages/online-check-in/*` (cada uno con `<app-public-footer variant="compact">`
+  agregado tras su `</main>`); `components/layout/footer/` (eliminado).
+- **Impacto:** ninguna migración de backend ni de RBAC. `ng build`/`tsc --noEmit` limpios.
+
+---
+
+### 2026-08-18 — `PublicHeaderComponent`: último gap de contraste AA en `:hover` del menú móvil
+
+- **Autor:** Claude Code (skill `impeccable harden`), a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** en `public-header.css`, `.public-header-mobile-link:hover` (dentro de
+  `@media (hover: hover) and (pointer: fine)`) pasó de `color: var(--primary)` a
+  `color: var(--primary-hover)`. Ningún otro selector, valor ni comportamiento se tocó.
+- **Por qué:** una re-auditoría tras el fix anterior encontró que esta regla `:hover` quedó con
+  el mismo par de colores que ya había fallado AA en `.is-active` (`#2c7be5` sobre `--accent`
+  `#edf5ff` = 3.77:1) — el fix anterior corrigió las dos reglas `.is-active` pero no esta,
+  que comparte el mismo origen. `--primary-hover` dá 4.9:1, mismo token ya usado en el resto
+  del componente para este caso.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/shared/public-header/public-header.css`.
+- **Impacto:** ninguno funcional; con esto no queda ningún par de color conocido bajo 4.5:1 en
+  el header público.
+
+---
+
+### 2026-08-18 — `PublicHeaderComponent`: fix de contraste AA y limpieza tras auditoría
+
+- **Autor:** Claude Code (skill `impeccable audit` + `harden` puntual), a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** en `frontend/src/app/components/shared/public-header/public-header.css`,
+  el estado activo del enlace de navegación (`.public-header-link.is-active` y
+  `.public-header-mobile-link.is-active`) pasó de `color: var(--primary)` a
+  `color: var(--primary-hover)`; se quitó el `font-weight: 800` del estado activo de
+  escritorio (queda en el `750` base); y se simplificaron a valores `rem` fijos los seis
+  `clamp()` de espaciado que se habían agregado en el ajuste responsive anterior.
+- **Por qué:** una auditoría encontró que `var(--primary)` (`#2c7be5`) sobre `var(--accent)`
+  (`#edf5ff`) da 3.77:1 de contraste — no cumple WCAG AA (4.5:1) — y falla en 6 de las 7 rutas
+  públicas; landing pasaba por casualidad porque sobreescribe `--primary` a un tono más oscuro.
+  `--primary-hover` ya vale `#2369c5` en `public-tokens.css` (4.9:1, cumple), el mismo valor que
+  `allied-hotels.css`/`allied-booking.css` ya usaban como `--primary-text` local para este caso
+  exacto antes de la extracción — la extracción había perdido esa distinción. El cambio de peso
+  tipográfico en el estado activo generaba además un corrimiento de layout (los enlaces
+  siguientes se movían unos px al activarse uno). Los `clamp()` de espaciado, verificados con la
+  aritmética real, nunca llegaban a comprimirse en ningún ancho visible (el nav de escritorio
+  está en `display:none` por debajo del breakpoint de 1120px, que es la única franja donde el
+  `clamp()` habría tenido efecto), así que quedaban como complejidad sin beneficio.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/shared/public-header/public-header.css`.
+- **Impacto:** ninguno funcional; visualmente el enlace activo se ve un poco más oscuro/con el
+  mismo peso que el resto (antes 800, ahora 750). No se tocó `aria-controls` apuntando a un id
+  ausente mientras el menú móvil está cerrado (hallazgo P3, patrón preexistente y tolerado por
+  la mayoría de lectores de pantalla) ni el ancho de logo/contenedor.
+
+---
+
+### 2026-08-18 — Header público unificado en `PublicHeaderComponent`
+
+- **Autor:** Claude Code (skill `impeccable extract`), a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor
+- **Qué se hizo:** se creó `frontend/src/app/components/shared/public-header/`
+  (`public-header.ts/.html/.css`, standalone, selector `app-public-header`) y se migraron las 7
+  rutas públicas (`/`, `/hoteles-aliados`, `/reservar` y sus 3 pasos, `/check-in-online`) para
+  consumirlo en vez de cada una tener su propio `<header>` inline. El componente resuelve solo:
+  navegación (Hoteles aliados / Reservar / Check-in online, fija, no configurable por página),
+  estado activo (`routerLinkActive` + `ariaCurrentWhenActive="page"`, sin cálculo manual por
+  página), y estado de sesión (mismo patrón cache-then-verify de `AuthService` que ya usaba
+  landing, ahora compartido por las 7 rutas en vez de solo una). Lo único configurable por página
+  es `ctaLabel`/`ctaTriggered`, usado solo por landing para su botón "Solicitar demo para mi
+  hotel". Se retiró el `<details>` de "Accesos para huéspedes" de landing (queda como 3 enlaces
+  planos, igual que las demás páginas) y se eliminaron `mobileMenuOpen`/`toggleMobileMenu`/
+  `closeMobileMenu` de `landing.ts` (ahora viven únicamente en el header compartido). El menú de
+  navegación por anclas de landing (Producto/Cómo funciona/Para quién/FAQ) y el footer no se
+  tocaron: siguen usando `navLinks`/`scrollToSection` como antes, solo que ya no están en el
+  header.
+- **Por qué:** la crítica de header/nav (`$impeccable critique`, misma fecha) encontró que las 4
+  familias de página habían divergido en altura, ancho de contenedor (`92rem` vs `1408px`),
+  tamaño de logo, `z-index` (`20` en booking vs `50` en las demás), blur, sombra, breakpoint móvil
+  (`640px` reflow vs `1024px` hamburguesa) y el propio set de enlaces, sin ninguna fuente única de
+  verdad. `booking-header`'s `z-index:20` en particular era un riesgo real de apilamiento frente a
+  overlays de la app con z-index intermedio.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/shared/public-header/` (nuevo);
+  `components/pages/landing/*`, `components/pages/allied-hotels/*`,
+  `components/pages/allied-booking/*` (los 4 componentes del flujo comparten `allied-booking.css`),
+  `components/pages/online-check-in/*`. Se eliminaron ~886 líneas de markup/CSS de header
+  duplicado entre las 7 páginas a cambio de un componente compartido de ~510 líneas.
+- **Impacto:** ninguna migración de backend ni de RBAC. Cambio visible: el ancho del contenedor del
+  header en landing y hoteles-aliados pasa de `92rem` (1472px) a `1408px` (el valor que ya usaban
+  booking y check-in), por lo que el logo/nav del header puede quedar ~64px más adentro que el
+  contenido de esas dos páginas — no se tocó el ancho de contenido de esas páginas porque está
+  fuera del alcance de "header únicamente". El breakpoint móvil único quedó en `1024px` sin
+  verificación visual en navegador (no había herramienta de browser disponible en la sesión);
+  recomendado un vistazo visual rápido en mobile/tablet antes de dar por cerrado.
 
 ### 2026-08-17 — Tutorial guiado actualizado a los módulos consolidados
 

@@ -1,34 +1,6 @@
 <div class="booking-page">
 
-  <header class="booking-header">
-    <div class="booking-container booking-header-inner">
-
-      <a
-        class="booking-brand"
-        routerLink="/">
-
-        <img
-          src="/logo.png"
-          alt="Wayra" />
-
-        <span>
-          Wayra
-        </span>
-
-      </a>
-
-      <nav aria-label="Navegación pública">
-        <a routerLink="/hoteles-aliados">
-          Hoteles aliados
-        </a>
-
-        <a routerLink="/login">
-          Iniciar sesión
-        </a>
-      </nav>
-
-    </div>
-  </header>
+  <app-public-header></app-public-header>
 
 
   <main>
@@ -551,5 +523,7 @@
     </section>
 
   </main>
+
+  <app-public-footer variant="compact"></app-public-footer>
 
 </div>

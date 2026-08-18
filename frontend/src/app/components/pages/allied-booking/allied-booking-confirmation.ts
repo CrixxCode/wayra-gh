@@ -11,12 +11,17 @@ import {
   RouterLink,
 } from '@angular/router';
 
+import { PublicHeaderComponent } from '../../shared/public-header/public-header';
+import { PublicFooterComponent } from '../../shared/public-footer/public-footer';
+
 @Component({
   selector: 'app-allied-booking-confirmation',
   standalone: true,
   imports: [
     CommonModule,
     RouterLink,
+    PublicHeaderComponent,
+    PublicFooterComponent,
   ],
   templateUrl: './allied-booking-confirmation.html',
   styleUrl: './allied-booking.css',

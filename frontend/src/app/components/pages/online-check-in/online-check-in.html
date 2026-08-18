@@ -1,38 +1,6 @@
 <div class="online-checkin-page">
 
-  <header class="online-header">
-    <div class="online-container online-header-inner">
-
-      <a
-        class="online-brand"
-        routerLink="/">
-
-        <img
-          src="/logo.png"
-          alt="Wayra" />
-
-        <span>
-          Wayra
-        </span>
-
-      </a>
-
-      <nav aria-label="Navegación pública">
-        <a routerLink="/hoteles-aliados">
-          Hoteles aliados
-        </a>
-
-        <a routerLink="/reservar">
-          Reservar
-        </a>
-
-        <a routerLink="/login">
-          Iniciar sesión
-        </a>
-      </nav>
-
-    </div>
-  </header>
+  <app-public-header></app-public-header>
 
 
   <main>
@@ -797,5 +765,7 @@
     </section>
 
   </main>
+
+  <app-public-footer variant="compact"></app-public-footer>
 
 </div>

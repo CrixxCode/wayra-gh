@@ -38,6 +38,8 @@ import {
   phoneFormatValidator,
   toDateInputValue,
 } from './allied-booking-flow';
+import { PublicHeaderComponent } from '../../shared/public-header/public-header';
+import { PublicFooterComponent } from '../../shared/public-footer/public-footer';
 
 type BookingControlName =
   | 'guestName'
@@ -54,6 +56,8 @@ type BookingControlName =
     CommonModule,
     ReactiveFormsModule,
     RouterLink,
+    PublicHeaderComponent,
+    PublicFooterComponent,
   ],
   templateUrl: './allied-booking-request.html',
   styleUrl: './allied-booking.css',

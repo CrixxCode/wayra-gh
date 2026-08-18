@@ -1,0 +1,127 @@
+<footer
+  class="public-footer"
+  [ngClass]="variant === 'full' ? 'public-footer-full' : 'public-footer-compact'">
+
+  <ng-container *ngIf="variant === 'full'; else compactFooter">
+
+    <div class="public-footer-inner public-footer-grid">
+
+      <div class="public-footer-brand-col">
+
+        <a
+          class="public-footer-brand"
+          href="#inicio"
+          (click)="scrollToSection($event, 'inicio')">
+
+          <img
+            src="/logo.png"
+            alt="Wayra" />
+
+          <span>
+            <strong>Wayra</strong>
+            <small>Gestión hotelera SaaS</small>
+          </span>
+
+        </a>
+
+        <p class="public-footer-description">
+          Plataforma para operar reservas, habitaciones, pagos, limpieza,
+          inventario y reportes desde un mismo entorno.
+        </p>
+
+        <div
+          class="public-footer-tags"
+          aria-label="Tipos de alojamientos">
+
+          <span>Hoteles</span>
+          <span>Hostales</span>
+          <span>Apartahoteles</span>
+
+        </div>
+
+      </div>
+
+
+      <div class="public-footer-col">
+
+        <h3>Navegación</h3>
+
+        <nav
+          class="public-footer-links"
+          aria-label="Navegación del pie de página">
+
+          <a
+            *ngFor="let link of navLinks; trackBy: trackBySection"
+            href="#{{ link.sectionId }}"
+            (click)="scrollToSection($event, link.sectionId)">
+
+            {{ link.label }}
+
+          </a>
+
+        </nav>
+
+      </div>
+
+
+      <div class="public-footer-col">
+
+        <h3>Cuenta</h3>
+
+        <div class="public-footer-links">
+
+          <a [routerLink]="sessionActionRoute">
+
+            <i
+              aria-hidden="true"
+              [class]="sessionActionIcon">
+            </i>
+
+            {{ sessionActionLabel }}
+
+          </a>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="public-footer-copyright-strip">
+      <div class="public-footer-inner public-footer-copyright-inner">
+        <p class="public-footer-copyright">
+          Wayra SaaS hotelero. Todos los derechos reservados. {{ year }}
+        </p>
+      </div>
+    </div>
+
+  </ng-container>
+
+
+  <ng-template #compactFooter>
+
+    <div class="public-footer-inner public-footer-compact-inner">
+
+      <div class="public-footer-compact-brand">
+
+        <img
+          src="/logo.png"
+          alt="Wayra" />
+
+        <p>
+          <strong>Wayra</strong>
+          <span class="public-footer-compact-descriptor">Gestión hotelera SaaS</span>
+        </p>
+
+      </div>
+
+      <p class="public-footer-copyright">
+        © {{ year }} Wayra. Todos los derechos reservados.
+      </p>
+
+    </div>
+
+  </ng-template>
+
+</footer>

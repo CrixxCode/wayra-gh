@@ -1,0 +1,292 @@
+/*
+ * Valores canonicos del header publico. Todas las paginas publicas comparten
+ * exactamente estos valores (altura, ancho, logo, z-index, blur, sombra,
+ * breakpoint, touch targets y foco): antes de esta extraccion cada pagina los
+ * declaraba por separado y habian divergido (ver AGENTS.md, registro de esta
+ * migracion). Los colores se derivan de los tokens ya declarados en
+ * public-tokens.css (heredados por herencia normal de custom properties, no
+ * duplicados aqui) para que cada pagina conserve su tinte de --primary.
+ */
+
+:host {
+  display: block;
+}
+
+.public-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--border);
+  background: rgba(var(--white-rgb), 0.96);
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(16px);
+}
+
+.public-header-inner {
+  width: min(100% - 2rem, 1408px);
+  margin: 0 auto;
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+
+.public-header-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--foreground);
+  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.public-header-brand img {
+  width: auto;
+  height: 2.5rem;
+}
+
+.public-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.public-header-link {
+  position: relative;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.9rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 750;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.public-header-link.is-active {
+  /* --primary-hover, no --primary: contra --accent, --primary da 3.77:1 (falla
+     AA 4.5:1) en las 3 rutas que no sobreescriben --primary. --primary-hover
+     ya es #2369c5 en public-tokens.css, el mismo valor que allied-hotels.css/
+     allied-booking.css definian aparte como --primary-text para este mismo
+     caso (texto sobre --accent) antes de esta extraccion: 4.9:1, pasa AA. */
+  border-color: color-mix(in srgb, var(--primary) 24%, transparent);
+  background: var(--accent);
+  color: var(--primary-hover);
+}
+
+.public-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.public-header-session {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.9rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 750;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.public-header-cta {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1.3rem;
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.public-header-toggle {
+  display: none;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+/* ---- menu movil ---- */
+
+.public-header-mobile-panel {
+  padding: 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+  animation: public-header-panel-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes public-header-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.public-header-mobile-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  padding: 0.35rem;
+}
+
+.public-header-mobile-link {
+  position: relative;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  color: var(--foreground);
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.public-header-mobile-link.is-active {
+  background: var(--accent);
+  color: var(--primary-hover);
+}
+
+.public-header-cta-block {
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+/* ---- foco: definido aqui mismo porque el encapsulamiento de vistas de
+   Angular impide que las reglas ":focus-visible" globales de cada pagina
+   alcancen el DOM de este componente hijo ---- */
+
+.public-header a:focus-visible,
+.public-header button:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ---- breakpoint unico: por debajo de este ancho, nav/acciones colapsan a
+   un boton de hamburguesa (mismo mecanismo en las cuatro rutas publicas).
+   1120px, no 1024px: es el unico dato de contenido real que varia entre
+   paginas -> la fila mas cargada es landing con su CTA "Solicitar demo para
+   mi hotel" (marca + 3 enlaces + sesion + CTA), que con los gaps/paddings de
+   arriba en su valor fijo ocupa ~1025px sobre un contenedor de 1088px a
+   1120px de viewport (~63px de margen, el peor caso real); el resto de
+   rutas, sin CTA, cabe con ~360px de sobra. Por debajo de 1120px el nav de
+   escritorio nunca se pinta (display:none), asi que no hay franja
+   intermedia que proteger con clamp(). */
+
+@media (max-width: 1119px) {
+  .public-header-nav,
+  .public-header-actions {
+    display: none;
+  }
+
+  .public-header-toggle {
+    display: inline-flex;
+  }
+}
+
+@media (min-width: 1120px) {
+  .public-header-mobile-panel {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .public-header-brand img {
+    height: 2.2rem;
+  }
+
+  .public-header-inner {
+    gap: 0.75rem;
+  }
+}
+
+/* Telefono en horizontal: el viewport es bajo, no angosto. Sin este tope el
+   panel movil (que crece con el contenido) puede empujar el pie de pantalla
+   fuera de vista o quedar cortado por el navegador. Mismo umbral que ya usa
+   el resto del flujo publico (ver allied-booking.css) para orientacion
+   horizontal. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .public-header-mobile-panel {
+    max-height: calc(100vh - 68px);
+    overflow-y: auto;
+  }
+}
+
+/* Hover-only: nunca la unica senal de estado (el activo ya tiene fondo,
+   borde y aria-current), y protegido para que un tap en iOS/iPadOS Safari
+   no deje un enlace visualmente "atascado" en su estado hover. */
+@media (hover: hover) and (pointer: fine) {
+  .public-header-link:hover {
+    color: var(--foreground);
+  }
+
+  .public-header-session:hover {
+    border-color: var(--border-hover, var(--border));
+    background: var(--secondary-hover, var(--secondary));
+  }
+
+  .public-header-cta:hover {
+    transform: translateY(-1px);
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+  }
+
+  .public-header-mobile-link:hover {
+    /* --primary-hover, no --primary: mismo fix que .is-active (ver arriba),
+       ambas contra --accent. */
+    background: var(--accent);
+    color: var(--primary-hover);
+  }
+
+  .public-header-toggle:hover {
+    background: var(--secondary);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-header-mobile-panel {
+    animation: none;
+  }
+}
