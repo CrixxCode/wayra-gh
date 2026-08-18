@@ -1079,6 +1079,231 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-18 — Alt text del logo ya no atribuye a Wayra un logo propio del hotel
+
+- **Autor:** Claude Code (skill `impeccable clarify`), a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** el hallazgo P2 de la auditoría anterior: el `<img>` del logo en
+  `base_email.html` tenía `alt="{{ app_name }} logo"` fijo, sin importar cuál de las tres fuentes
+  posibles de `logo_url` se estuviera usando (`BRAND_LOGO_URL` de la plataforma, el logo propio
+  subido por el hotel en `hotel_settings.logo`, o el asset embebido por CID de Wayra como último
+  recurso). Cuando se mostraba el logo del hotel, un lector de pantalla o un correo con imágenes
+  bloqueadas igual anunciaba "Wayra logo", atribuyéndole al hotel la marca equivocada.
+  `build_demo_access_email_brand()` en `backend/apps/demo_requests/views.py` y el bloque
+  equivalente en `PasswordResetRequestSerializer.save()` (`backend/accounts/serializers.py`)
+  ahora rastrean con una bandera `using_hotel_logo` cuál rama se usó, y agregan `logo_alt` al
+  diccionario `brand` que ya se pasaba completo al contexto de la plantilla (`**brand`): `"{{
+  app_name }} logo"` (p. ej. "Wayra logo") cuando el logo es el de la plataforma o el asset
+  interno de Wayra, y el texto genérico "Logo del hotel" cuando es el logo subido por el hotel —
+  sin necesitar el nombre exacto del hotel en ese punto del código, que no siempre está
+  disponible ahí. `base_email.html` pasó de `alt="{{ app_name }} logo"` a `alt="{{
+  logo_alt|default:app_name }}"`, con el mismo patrón de filtro `default` que ya usa el archivo
+  en otro lugar (`primary_color|default:'#0f1f41'`).
+- **Por qué:** hallazgo verificado en `.impeccable/critique` (auditoría del 2026-08-18): ninguno
+  de los pases anteriores (extract/harden/polish/adapt) tocó la precisión del alt text, solo su
+  presencia y dimensiones — quedó pendiente hasta esta auditoría final.
+- **Archivos/áreas afectadas:** `backend/apps/demo_requests/views.py`,
+  `backend/accounts/serializers.py`, `backend/templates/email/base_email.html`.
+  `backend/templates/auth` no se tocó. No cambió ninguna URL generada por backend, contraseña,
+  token, regla de expiración ni lógica de negocio — solo se agregó una clave nueva al diccionario
+  `brand` que ya viajaba completo al contexto.
+- **Impacto:** ninguno funcional. `python manage.py check` pasa sin problemas. Verificado
+  llamando directamente a `build_demo_access_email_brand()` con un usuario simulado en las tres
+  ramas (logo de plataforma, logo de hotel, fallback embebido de Wayra) y confirmando que
+  `logo_alt` resuelve correctamente en cada una, más el render de la plantilla confirmando que el
+  atributo `alt` final refleja ese valor. El bloque equivalente en `serializers.py` se verificó
+  por paridad de código exacta con la función ya probada (misma lógica, mismos nombres), no con
+  una llamada en vivo a la base de datos.
+
+---
+
+### 2026-08-18 — Adaptación responsive de los emails transaccionales (320–480px)
+
+- **Autor:** Claude Code (skill `impeccable adapt`), a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** ninguna de las plantillas tenía una sola regla `@media` — el shell era
+  fluido (`width:100%` + `max-width:620px`) pero usaba el mismo padding horizontal de escritorio
+  (28px) en pantallas de 320–414px. Se agregó, solo en `base_email.html` (single source, dentro
+  de `<head>`), un bloque `<style>` con una media query estándar de email (`max-width:480px`,
+  la convención del sector para "mobile" en correo) que reduce el padding horizontal de las tres
+  celdas de contenido (cabecera, cuerpo, franja de soporte) de 28px a 20px por lado —recupera
+  ~16px de ancho útil en los teléfonos más angostos sin tocar el padding vertical ni el padding
+  del canvas exterior (ya era mínimo, 12px). Se usaron clases (`wy-pad-h`/`wy-pad-c`/`wy-pad-f`)
+  con `!important` sobre el estilo inline existente, que sigue siendo el valor por defecto/
+  fallback para cualquier cliente que ignore `<style>` en `<head>`. Además, el botón de
+  "Restablecer contrasena" en `password_reset.html` ganó la clase `wy-cta-reset`: en ≤480px pasa
+  de `inline-block` a `display:block;width:100%` (con `box-sizing:border-box` para que su propio
+  padding no lo desborde) para que sea un objetivo de toque a todo lo ancho de la columna en
+  pantallas angostas; en escritorio y en Outlook no cambia nada (Outlook no lee `<style>`, sigue
+  usando la ghost table MSO existente). No se aplicó ese mismo tratamiento de ancho completo al
+  botón de `demo_temporary_password.html` porque el brief lo pidió específicamente para el correo
+  de recuperación de contraseña, no para el de acceso a la demo.
+- **Por qué:** el brief de este pase pedía verificar 320/360/375/414px explícitamente y corregir
+  solo defectos responsive concretos. El logo (`max-width:160px` fijo), la contraseña temporal
+  (ya con `overflow-wrap`/`word-break` del pase de `harden`) y las URLs largas (`word-break:
+  break-all` ya existente) se revisaron y ya se comportan de forma segura en el peor caso a
+  320px sin necesitar cambios — se confirmó por render con datos extremos, no se tocó nada ahí.
+  El padding horizontal fijo de 28px y la ausencia total de `@media` sí eran una brecha real y
+  concreta frente a lo que el brief pedía probar.
+- **Archivos/áreas afectadas:** `backend/templates/email/base_email.html`,
+  `backend/templates/email/password_reset.html`. `demo_temporary_password.html` no requirió
+  cambios propios en este pase (solo hereda el padding reducido de la base).
+  `backend/templates/auth` no se tocó.
+- **Impacto:** ninguno funcional. `python manage.py check` pasa sin problemas. Verificado
+  renderizando ambas plantillas con datos extremos confirmando que siguen presentes la ghost
+  table MSO de 620px, el contraste `#42557f`, los atributos del logo, los recuadros sin borde
+  lateral y la sombra reducida del pase de `polish`, y que las clases/`@media` nuevas están en el
+  HTML resultante.
+
+---
+
+### 2026-08-18 — Pulido visual de los emails transaccionales (sin tocar lo endurecido)
+
+- **Autor:** Claude Code (skill `impeccable polish`), a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** refinamiento visual puro sobre `base_email.html` y los dos correos hijos,
+  sin tocar ninguna de las correcciones de compatibilidad/accesibilidad del pase de `harden`
+  anterior:
+  1. **Rasgos genéricos de "SaaS de IA" (hallazgo del detector):** el borde izquierdo grueso
+     (`border-left:4px solid #d9b451`) del recuadro de aviso de seguridad — presente
+     idénticamente en ambos correos — se reemplazó por un borde delgado perimetral
+     (`border:1px solid #d7e0ef`) con esquinas uniformes, reutilizando dos valores que ya
+     existían en la paleta (el mismo borde y el mismo fondo cálido `#fbf8ef` de antes) en vez de
+     inventar un color nuevo. La sombra "glow" de la tarjeta exterior
+     (`box-shadow:0 22px 45px rgba(7,14,38,0.18)`, en `base_email.html`, un solo lugar) bajó a
+     una elevación discreta (`0 8px 20px rgba(15,31,65,0.12)`), con offset y blur reales en vez
+     de un halo de color grande.
+  2. **Contraseña temporal** (`demo_temporary_password.html`): pasó de "Contrasena temporal:
+     <valor>" en una sola línea a una micro-etiqueta propia en mayúsculas (mismo estilo que
+     "Credenciales temporales") seguida del valor en su propia línea, en fuente monoespaciada
+     (`'Courier New',Courier,monospace` — segura en todos los clientes de correo, no depende de
+     Manrope/Sora) a 18px en vez de 16px, para que se distinga de un vistazo del nombre de
+     usuario que la acompaña. La variable de Django, la protección contra desbordamiento
+     (`overflow-wrap`/`word-break`/`max-width` del pase de `harden`) y el valor en sí no
+     cambiaron.
+  3. **CTA de recuperación de contraseña** (`password_reset.html`): más aire alrededor del botón
+     (`padding:6px 0 22px 0` → `18px 0 26px 0` en la celda que lo contiene) y un poco más de
+     padding horizontal en el botón mismo (`24px` → `28px`), para que sea inequívocamente la
+     acción dominante del correo. La altura efectiva (~44px, del pase de `harden`) no bajó — el
+     padding vertical del botón siguió en `14px`. El enlace de respaldo permanece secundario, sin
+     cambios.
+- **Por qué:** la crítica del 2026-08-18 marcó el borde lateral y la sombra como los dos rasgos
+  concretos que el detector reconoce como plantilla genérica de SaaS de IA, y como debilidad de
+  jerarquía visual el hecho de que la contraseña temporal tuviera el mismo peso que su propia
+  etiqueta. El pase de `harden` inmediatamente anterior dejó ambos pendientes a propósito
+  ("visual emphasis can be handled in polish").
+- **Archivos/áreas afectadas:** `backend/templates/email/base_email.html`,
+  `backend/templates/email/demo_temporary_password.html`,
+  `backend/templates/email/password_reset.html`. `backend/templates/auth` no se tocó. No se
+  reintrodujo duplicación del shell: el recuadro de seguridad sigue siendo contenido único de
+  cada correo hijo (su copy difiere), así que el cambio de estilo se aplicó por separado en cada
+  archivo, igual que ya se había decidido en el pase de `extract`.
+- **Impacto:** ninguno funcional. `python manage.py check` pasa sin problemas. Verificado
+  renderizando ambas plantillas con `render_to_string` y datos extremos (nombre de hotel largo
+  sin espacios, contraseña larga, URL larga) confirmando en el HTML resultante que siguen
+  presentes: la ghost table MSO de 620px, el contraste `#42557f` del pie de página, los atributos
+  `height="38"`/`max-width:160px` del logo, los metadatos `x-apple-disable-message-reformatting`
+  y `color-scheme`, y las salvaguardas de `overflow-wrap`; y que el borde `border-left` viejo y
+  la sombra `rgba(7,14,38,0.18)` vieja ya no aparecen en ningún archivo.
+
+---
+
+### 2026-08-18 — Endurecimiento de compatibilidad/accesibilidad de los emails transaccionales
+
+- **Autor:** Claude Code (skill `impeccable harden`), a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** sobre el shell compartido `base_email.html` (y dos ajustes puntuales en los
+  dos hijos), sin rediseñar nada visualmente:
+  1. **Outlook desktop (P1 de la crítica):** la tarjeta de 620px ahora está envuelta en una
+     "ghost table" condicional MSO (`<!--[if mso]><table width="620">...<![endif]-->`) que le da
+     a Outlook desktop un ancho fijo real. Antes solo existía `max-width:620px` en CSS, que
+     Outlook ignora — la tarjeta se estiraba a todo el ancho del panel de lectura. Los demás
+     clientes (Gmail, Apple Mail, mobile) no ven ese bloque condicional y siguen usando la tabla
+     fluida existente sin cambios.
+  2. **Contraste del pie de página:** el color del texto exterior (`Correo automatico de...`)
+     cambió de `#7b89a6` (≈3.07:1 sobre `#eaf0fa`, no pasaba WCAG AA) a `#42557f` (≈6.46:1),
+     un color ya usado en el propio sistema como texto secundario/de etiqueta — no se inventó
+     un color nuevo.
+  3. **Logo:** se agregó el atributo HTML `height="38"` (antes el tamaño solo existía como CSS
+     inline, que varios clientes de correo ignoran para `<img>`) y `width:auto;max-width:160px`
+     en CSS. No se fijó un `width` numérico porque el logo es una URL configurable por hotel
+     (`hotel_settings.logo` o `BRAND_LOGO_URL`) de proporción desconocida — forzar un ancho
+     habría distorsionado logos con una relación de aspecto distinta. El `alt` descriptivo ya
+     existía y no se tocó.
+  4. **Contenido largo:** se agregó `overflow-wrap:break-word` en la celda de cabecera (marca +
+     subtítulo) y en la celda completa de `{% block content %}` en la base — protege de una vez
+     nombres de hotel/usuario largos y sin espacios en ambos correos hijos sin tocar cada uno por
+     separado. La contraseña temporal (única en `demo_temporary_password.html`) sumó
+     `overflow-wrap:break-word;word-break:break-all;max-width:100%` directamente, sin cambiar su
+     estilo visual. El padding vertical del botón CTA subió de `13px` a `14px` en ambos correos
+     hijos (altura efectiva ~44px) para que siga siendo un objetivo táctil usable en pantallas
+     angostas — sin cambiar color, forma ni texto.
+  5. **Metadatos seguros de cliente de correo:** se agregaron `<meta name="x-apple-disable-message-reformatting">`
+     (evita que Apple Mail reescale el texto y rompa el layout de ancho fijo) y
+     `<meta name="color-scheme" content="light">` / `<meta name="supported-color-schemes" content="light">`
+     (le indican a Gmail/Apple Mail/Outlook.com que el correo es solo modo claro, para que no
+     intenten invertir colores automáticamente). No se implementó modo oscuro real — se pidió
+     explícitamente dejarlo para un pase aparte.
+- **Por qué:** la crítica del 2026-08-18 (`.impeccable/critique/2026-08-18T05-23-25Z__backend-templates-email.md`)
+  marcó el colapso de ancho en Outlook como P1 y el contraste del pie como P2; este pase — ya con
+  el shell consolidado en `base_email.html` — corrige ambos en un solo lugar en vez de dos, más
+  las salvaguardas de contenido largo y logo que quedaban pendientes.
+- **Archivos/áreas afectadas:** `backend/templates/email/base_email.html`,
+  `backend/templates/email/demo_temporary_password.html`,
+  `backend/templates/email/password_reset.html`. `backend/templates/auth` no se tocó. No se
+  agregaron enlaces legales, sociales ni de soporte nuevos; no se cambió ninguna variable de
+  Django, URL generada por backend, ruta de plantilla ni lógica de negocio (contraseña temporal,
+  expiración de enlace de reseteo).
+- **Impacto:** ninguno funcional. `python manage.py check` pasa sin problemas. Verificado
+  renderizando ambas plantillas con `render_to_string` usando datos extremos (nombre de hotel muy
+  largo sin espacios, contraseña temporal larga, URL larga, logo presente) para confirmar que las
+  salvaguardas de `overflow-wrap`/`word-break` están activas y que ningún bloque de Django quedó
+  sin resolver. Pendiente para pases futuros (no tocado aquí): el borde/sombra genéricos que
+  marcó el detector, énfasis visual mayor de la contraseña temporal, y modo oscuro real.
+
+---
+
+### 2026-08-18 — Plantillas de email transaccional consolidadas en `base_email.html`
+
+- **Autor:** Claude Code (skill `impeccable extract`), a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor
+- **Qué se hizo:** se creó `backend/templates/email/base_email.html`, una plantilla base de
+  Django (`{% extends %}` / `{% block %}`) que ahora es la única fuente del shell compartido de
+  los correos transaccionales: doctype/head, texto de preheader oculto, canvas exterior,
+  tarjeta de contenido de ancho fijo (620px), cabecera con degradado + badge + logo/marca,
+  tipografía base, footer con el enlace de soporte y el pie de página fuera de la tarjeta.
+  `demo_temporary_password.html` y `password_reset.html` pasaron de duplicar ese shell
+  carácter por carácter a extenderlo, aportando solo lo que les es propio vía los bloques
+  `title`, `preheader`, `badge_label`, `brand_subtitle`, `content` y `outer_caption`. No se
+  extrajo el botón CTA ni el aviso de seguridad a un partial aparte porque su copy difiere
+  entre ambos correos (nombre de variable de URL, texto de expiración/advertencia) y separarlos
+  no habría reducido duplicación real. Verificado renderizando ambas plantillas con
+  `render_to_string` y comparando el HTML resultante (normalizado por espacios en blanco)
+  contra el de las plantillas originales tal como estaban en `HEAD` antes de este cambio: la
+  salida es idéntica.
+- **Por qué:** la crítica registrada en `.impeccable/critique/2026-08-18T05-23-25Z__backend-templates-email.md`
+  encontró que ambas plantillas eran copias casi verbatim del mismo shell, lo que significa que
+  los defectos ya identificados ahí (ancho fijo faltante para Outlook, contraste del pie de
+  página) existen hoy duplicados en los dos archivos y cualquier corrección futura tendría que
+  aplicarse dos veces a mano sin garantía de no divergir. Este cambio es solo la extracción
+  estructural pedida explícitamente como paso previo; no corrige ninguno de los hallazgos de la
+  crítica (quedan para pases futuros de `harden`/`audit`/`polish` sobre el nuevo shell
+  compartido).
+- **Archivos/áreas afectadas:** `backend/templates/email/base_email.html` (nuevo),
+  `backend/templates/email/demo_temporary_password.html`,
+  `backend/templates/email/password_reset.html`. `backend/templates/auth` y el resto de
+  `backend/templates/` no se tocaron. Ninguna variable de contexto, URL generada por backend,
+  ruta de plantilla usada por `render_to_string`, ni lógica de envío de correo cambió.
+- **Impacto:** ninguno funcional ni de configuración. `python manage.py check` pasa sin
+  problemas nuevos.
+
+---
+
 ### 2026-08-18 — `PublicFooterComponent`: la variante `compact` gana identidad de marca
 
 - **Autor:** Claude Code (skill `impeccable polish`), a solicitud del usuario

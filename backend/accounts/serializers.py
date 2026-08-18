@@ -670,10 +670,12 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         primary_color = str(getattr(settings, "BRAND_PRIMARY_COLOR", "#0f1f41") or "#0f1f41").strip()
         logo_url = str(getattr(settings, "BRAND_LOGO_URL", "") or "").strip()
 
+        using_hotel_logo = False
         if not logo_url:
             hotel_logo = str(getattr(getattr(user, "hotel_settings", None), "logo", "") or "").strip()
             if hotel_logo:
                 logo_url = hotel_logo
+                using_hotel_logo = True
 
         inline_logo_bytes = None
         inline_logo_name = "logo-white.png"
@@ -698,6 +700,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
             "support_email": support_email,
             "primary_color": primary_color,
             "logo_url": logo_url or None,
+            "logo_alt": "Logo del hotel" if using_hotel_logo else f"{app_name} logo",
         }
 
         subject = "Recuperación de contraseña"

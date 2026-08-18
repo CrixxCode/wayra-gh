@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es" style="margin:0;padding:0;">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}{% endblock %}</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <style>
+    @media screen and (max-width: 480px) {
+      .wy-pad-h { padding-left:20px !important; padding-right:20px !important; }
+      .wy-pad-c { padding-left:20px !important; padding-right:20px !important; }
+      .wy-pad-f { padding-left:20px !important; padding-right:20px !important; }
+      .wy-cta-reset { display:block !important; width:100% !important; max-width:100% !important; box-sizing:border-box !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#eaf0fa;color:#1f2f57;font-family:'Segoe UI',Tahoma,Arial,sans-serif;">
+  <span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;">
+    {% block preheader %}{% endblock %}
+  </span>
+
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;background:#eaf0fa;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <!--[if mso]>
+        <table role="presentation" align="center" width="620" cellspacing="0" cellpadding="0" border="0">
+        <tr>
+        <td>
+        <![endif]-->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px;border-collapse:separate;border-spacing:0;border-radius:20px;overflow:hidden;box-shadow:0 8px 20px rgba(15,31,65,0.12);">
+          <tr>
+            <td class="wy-pad-h" style="background:#0f1f41;background-image:linear-gradient(112deg,#08112f 20%,#091438 52%,#0b1944 100%);padding:26px 28px 24px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                <tr>
+                  <td style="padding:0 0 16px 0;">
+                    <span style="display:inline-block;padding:7px 14px;border-radius:999px;background:rgba(225,235,255,0.14);color:#d9b451;font-size:11px;letter-spacing:0.08em;font-weight:700;text-transform:uppercase;">
+                      {% block badge_label %}{% endblock %}
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                      <tr>
+                        {% if logo_url %}
+                        <td style="width:1%;white-space:nowrap;padding:0 12px 0 0;vertical-align:middle;">
+                          <img src="{{ logo_url }}" alt="{{ logo_alt|default:app_name }}" height="38" style="height:38px;width:auto;max-width:160px;display:block;border:0;">
+                        </td>
+                        {% endif %}
+                        <td style="vertical-align:middle;overflow-wrap:break-word;word-break:break-word;">
+                          <p style="margin:0;color:#f8fbff;font-size:22px;line-height:1.2;font-weight:800;">
+                            {{ app_name }}
+                          </p>
+                          <p style="margin:6px 0 0 0;color:#c9d5ee;font-size:13px;line-height:1.4;">
+                            {% block brand_subtitle %}{% endblock %}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="wy-pad-c" style="background:#ffffff;padding:28px 28px 20px;overflow-wrap:break-word;word-break:break-word;">
+              {% block content %}{% endblock %}
+            </td>
+          </tr>
+
+          <tr>
+            <td class="wy-pad-f" style="background:#f6f9ff;border-top:1px solid #dde6f4;padding:16px 28px 22px;color:#5e6d8e;font-size:12px;line-height:1.55;">
+              Necesitas ayuda? Escribenos a
+              <a href="mailto:{% if support_email %}{{ support_email }}{% else %}soporte@hotel.local{% endif %}" style="color:{{ primary_color|default:'#0f1f41' }};font-weight:700;text-decoration:underline;">
+                {% if support_email %}{{ support_email }}{% else %}soporte@hotel.local{% endif %}
+              </a>.
+            </td>
+          </tr>
+        </table>
+        <!--[if mso]>
+        </td>
+        </tr>
+        </table>
+        <![endif]-->
+
+        <p style="margin:14px 0 0 0;color:#42557f;font-size:11px;line-height:1.4;overflow-wrap:break-word;word-break:break-word;">
+          {% block outer_caption %}{% endblock %}
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
