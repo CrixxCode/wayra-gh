@@ -40,7 +40,7 @@ export class GuidedTour implements OnDestroy {
       description:
         'El menu lateral agrupa las areas operativas. Cada modulo captura una parte del proceso y luego alimenta los reportes.',
       detail:
-        'La ruta natural es: configuracion, habitaciones, clientes, reservas, facturacion, pagos, operacion y reportes.',
+        'La ruta natural es: configuracion, habitaciones, clientes, reservas, catalogo comercial, facturas y pagos, finanzas, inventario, operacion, auditoria y reportes.',
     },
     {
       id: 'hotel-settings',
@@ -87,48 +87,81 @@ export class GuidedTour implements OnDestroy {
         'Cuando la reserva cambia, tambien cambian disponibilidad, alertas, limpieza, facturacion y reportes.',
     },
     {
-      id: 'billing',
-      route: '/facturas',
+      id: 'commercial-catalog',
+      route: '/catalogo-comercial',
       target: 'content',
-      targetRoute: '/facturas',
-      title: 'Facturacion',
+      targetRoute: '/catalogo-comercial',
+      title: 'Catalogo comercial',
       description:
-        'Facturacion consolida cargos de alojamiento, servicios, paquetes y ajustes. Es el puente entre la operacion y el control financiero.',
+        'Servicios, paquetes y promociones viven juntos aqui, en pestanas. Es todo lo que el hotel vende ademas del alojamiento.',
       detail:
-        'Una factura ordenada permite asociar pagos, notas credito y estados de cartera.',
+        'Un paquete combina servicios y una promocion aplica descuentos sobre servicios o paquetes existentes.',
     },
     {
-      id: 'payments',
-      route: '/pagos',
+      id: 'billing',
+      route: '/facturacion',
       target: 'content',
-      targetRoute: '/pagos',
-      title: 'Pagos',
+      targetRoute: '/facturacion',
+      title: 'Facturas y pagos',
       description:
-        'Los pagos cierran parcial o totalmente las facturas. Esta informacion alimenta ingresos, conciliacion y reportes financieros.',
+        'Facturas, pagos y reembolsos quedan documentados aqui en pestanas, como libro de consulta documento a documento.',
       detail:
-        'Separar factura y pago ayuda a ver que se vendio, cuanto se cobro y que queda pendiente.',
+        'No se crean facturas ni pagos desde este modulo: nacen en el check-out o en el detalle de un pago existente.',
+    },
+    {
+      id: 'finance',
+      route: '/finanzas',
+      target: 'content',
+      targetRoute: '/finanzas',
+      title: 'Finanzas',
+      description:
+        'Muestra el resultado del periodo -cuanto entro, cuanto salio y cuanto queda- junto con el detalle de ingresos y egresos.',
+      detail:
+        'Un selector de periodo unico gobierna las tres pestanas: resultado, ingresos y egresos.',
+    },
+    {
+      id: 'financial-control',
+      route: '/control-financiero',
+      target: 'content',
+      targetRoute: '/control-financiero',
+      title: 'Control financiero',
+      description:
+        'Es el modulo de analisis: tablero con punto de equilibrio, simulador de escenarios, estados financieros y umbrales de alerta.',
+      detail:
+        'A diferencia de Finanzas, que muestra el periodo ya cerrado, aqui se proyecta y se configura.',
     },
     {
       id: 'inventory',
-      route: '/items',
+      route: '/inventario',
       target: 'content',
-      targetRoute: '/items',
+      targetRoute: '/inventario',
       title: 'Inventario',
       description:
-        'El inventario administra insumos, productos y movimientos. Sus datos explican consumos, reposiciones y costos asociados a la operacion.',
+        'Administra items de bodega, la dotacion por habitacion, los movimientos de stock y la lista de compra de reposicion.',
       detail:
         'Los movimientos de inventario y el inventario por habitacion muestran donde se usa cada recurso.',
     },
     {
       id: 'operations',
-      route: '/tareas-limpieza',
+      route: '/limpieza-mantenimiento',
       target: 'content',
-      targetRoute: '/tareas-limpieza',
-      title: 'Operacion diaria',
+      targetRoute: '/limpieza-mantenimiento',
+      title: 'Limpieza y mantenimiento',
       description:
-        'Limpieza y mantenimiento actualizan el estado real de las habitaciones. Esa informacion vuelve a disponibilidad y reservas.',
+        'Agrupa por habitacion lo que falta -limpieza o averia- ademas de las pestanas de limpieza, mantenimiento y trabajo programado.',
       detail:
         'Este modulo evita vender una habitacion que todavia no esta lista o que tiene una novedad pendiente.',
+    },
+    {
+      id: 'audit',
+      route: '/auditoria',
+      target: 'content',
+      targetRoute: '/auditoria',
+      title: 'Auditoria',
+      description:
+        'Es el historial inmutable de cambios del sistema: quien creo, edito o elimino cada registro, y cuando.',
+      detail:
+        'Cada fila se expande y muestra el diff campo a campo, mas el origen de la escritura (IP, ruta y usuario).',
     },
     {
       id: 'reports',

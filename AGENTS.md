@@ -1073,6 +1073,32 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-17 — Tutorial guiado actualizado a los módulos consolidados
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** se reescribieron los pasos de `GuidedTour`
+  (`frontend/src/app/components/tutorial/guided-tour/guided-tour.ts`). El tour seguía apuntando a
+  rutas y módulos que ya no existen como tales: `/facturas` y `/pagos` por separado (hoy es
+  `/facturacion`, un solo módulo "Facturas y pagos" con pestañas), `/items` (hoy `/inventario`) y
+  `/tareas-limpieza` (hoy `/limpieza-mantenimiento`). Se fusionó el paso de facturación y pagos en
+  uno solo, se actualizaron las rutas y descripciones de inventario y operación, y se agregaron
+  pasos nuevos para los módulos que no existían cuando se escribió el tour original: Catálogo
+  comercial (`/catalogo-comercial`), Finanzas (`/finanzas`), Control financiero
+  (`/control-financiero`) y Auditoría (`/auditoria`).
+- **Por qué:** desde que se creó el tour, varios módulos se consolidaron en vistas con pestañas
+  (facturación+pagos, inventario, limpieza y mantenimiento) y se agregaron módulos nuevos
+  (catálogo comercial, finanzas, control financiero, auditoría). El paso `targetRoute` del tour
+  compara contra el `data-tour-route` real que pinta el menú lateral (`aside.html`, alimentado por
+  `MENU` en `backend/accounts/management/commands/seed_rbac.py`); con la ruta vieja no encontraba
+  el elemento del menú y el resaltado caía al *fallback* genérico de todo el panel de contenido en
+  vez de señalar el ítem correcto.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/tutorial/guided-tour/guided-tour.ts`.
+- **Impacto:** ninguno (solo copy y rutas del tour; no toca rutas de la app, RBAC ni backend).
+
+---
+
 ### 2026-08-17 — `backend/fix_resources.py`: script para corregir recursos RBAC tras combinar vistas
 
 - **Autor:** Claude Code, a solicitud del usuario
