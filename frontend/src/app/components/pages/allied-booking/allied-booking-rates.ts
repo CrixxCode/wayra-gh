@@ -60,6 +60,7 @@ export class AlliedBookingRatesPage implements OnInit {
   loadingHotels = true;
   hotelsLoadError = '';
   hotelsLoadErrorContext: 'initial' | 'availability' = 'initial';
+  selectingRateId: string | null = null;
 
   private hotelSlug = '';
   private requestId = 0;
@@ -222,20 +223,49 @@ export class AlliedBookingRatesPage implements OnInit {
 
   selectRoomRate(rate: AlliedRoomRate): void {
 
-    if (!this.selectedHotel || !this.criteriaReady) {
+    if (
+      !this.selectedHotel ||
+      !this.criteriaReady ||
+      this.selectingRateId !== null
+    ) {
       return;
     }
 
-    this.router.navigate(
-      [
-        '/reservar/solicitud',
-        this.selectedHotel.slug,
-        rate.id,
-      ],
-      {
-        queryParams: this.queryParams,
-      }
-    );
+    this.selectingRateId = rate.id;
+
+    this.router
+      .navigate(
+        [
+          '/reservar/solicitud',
+          this.selectedHotel.slug,
+          rate.id,
+        ],
+        {
+          queryParams: this.queryParams,
+        }
+      )
+      // A rejected navigation (e.g. the lazy chunk for the next step fails
+      // to load over a bad connection) must not leave selectingRateId stuck
+      // forever, which would leave every "Elegir tarifa" button disabled
+      // with no way to retry short of a full reload. Converting the
+      // rejection to `false` here keeps it from surfacing as an unhandled
+      // promise rejection while still logging it for diagnostics.
+      .catch((error: unknown) => {
+        console.error(
+          'No fue posible abrir la solicitud de reserva.',
+          error
+        );
+
+        return false;
+      })
+      // finally() runs on every outcome (navigated, blocked by a guard, or
+      // the caught failure above), so the button state always recovers. On
+      // a successful navigation this component is already being destroyed
+      // by the router by the time the promise settles, so clearing the flag
+      // here is a harmless no-op rather than a visible flicker.
+      .finally(() => {
+        this.selectingRateId = null;
+      });
   }
 
   getAvailableRoomRateCount(rate: AlliedRoomRate): number {

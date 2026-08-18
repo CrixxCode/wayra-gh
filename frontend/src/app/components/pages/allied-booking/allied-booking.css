@@ -249,6 +249,16 @@
   gap: 1.25rem;
 }
 
+/* .booking-rates is exclusive to this page (unlike .booking-empty and
+   .booking-results-header, which are shared with the other booking routes),
+   so scoping through it keeps this fade-in from touching those other
+   templates. Covers loading/retry/error/empty states and the rate-count
+   badge. */
+.booking-rates .booking-empty,
+.booking-rates .booking-results-header > span {
+  animation: booking-fade-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 /* Rate selection cards ($impeccable bolder) */
 
 .booking-rate-select-card {
@@ -260,13 +270,18 @@
   border-radius: var(--radius);
   background: var(--background);
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  /* trackByIndex remounts every card whenever the rate list changes (a new
+     search or a retry), so this plays each time rates first appear, not on
+     every unrelated re-render. Reuses .booking-search-results' entrance
+     keyframe/duration for a consistent feel across both booking steps; the
+     card animates as one unit, not its title/meta/price separately. */
+  animation: booking-result-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.booking-rate-select-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--primary-border-strong);
-  box-shadow: var(--shadow-elevated);
-}
+.booking-rate-select-card:nth-child(2) { animation-delay: 35ms; }
+.booking-rate-select-card:nth-child(3) { animation-delay: 70ms; }
+.booking-rate-select-card:nth-child(4) { animation-delay: 105ms; }
+.booking-rate-select-card:nth-child(n+5) { animation-delay: 140ms; }
 
 .booking-rate-select-media {
   position: relative;
@@ -279,6 +294,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .booking-rate-select-media-fallback {
@@ -398,6 +414,10 @@
   width: 100%;
   justify-content: center;
   margin-top: 0.35rem;
+  /* The generic .booking-primary transition (shared with other booking
+     routes) doesn't include opacity, so its :disabled dim would otherwise
+     snap instantly while a rate selection is opening the next step. */
+  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
 }
 
 /* Search results — hotel cards ($impeccable bolder) */
@@ -411,13 +431,17 @@
   border-radius: var(--radius);
   background: var(--background);
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  /* trackByHotel keeps matching cards mounted across searches that return the
+     same hotel, so this only replays when a card is actually new: the first
+     results after a search, not on unrelated re-renders. One entrance per
+     card, not per piece of content inside it. */
+  animation: booking-result-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.booking-result-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--primary-border-strong);
-  box-shadow: var(--shadow-elevated);
-}
+.booking-result-card:nth-child(2) { animation-delay: 35ms; }
+.booking-result-card:nth-child(3) { animation-delay: 70ms; }
+.booking-result-card:nth-child(4) { animation-delay: 105ms; }
+.booking-result-card:nth-child(n+5) { animation-delay: 140ms; }
 
 .booking-result-media {
   position: relative;
@@ -430,6 +454,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .booking-result-media-fallback {
@@ -583,6 +608,22 @@
   margin-top: 1.25rem;
 }
 
+/* Scoped to the search step's results wrapper (.booking-empty and
+   .booking-results-header are shared with the request step's CSS file), so
+   loading/error/empty state swaps and the result-count badge fade in here
+   without touching that other route. */
+.booking-search-results .booking-empty,
+.booking-search-results .booking-results-header > span {
+  animation: booking-fade-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Same reasoning, scoped to the request step's own results wrapper class
+   (.booking-results/.booking-empty are also shared with the search and
+   rates steps' CSS) for its loading/error/incomplete states. */
+.booking-request-results .booking-empty {
+  animation: booking-fade-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 .booking-layout {
   margin-top: 1.5rem;
   display: grid;
@@ -600,6 +641,11 @@
 .booking-hotel-card {
   align-self: start;
   padding: 1.35rem;
+  /* Mounted once when the hotel/rate/date/guest context first resolves
+     (the *ngIf on the parent <section> only toggles on load, not per
+     keystroke), so this plays once and never replays while the guest edits
+     the form fields below it. */
+  animation: booking-fade-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .booking-badge {
@@ -686,6 +732,15 @@
 
 .booking-form {
   padding: clamp(1rem, 3vw, 1.5rem);
+}
+
+/* Scoped to .booking-form (exclusive to this page — .booking-hint-error
+   itself is shared with the search step's CSS) so field-level validation
+   messages fade in without touching that other route. Opacity only, no
+   translateY: aria-invalid/aria-describedby update immediately alongside
+   this, the animation just softens how the message *looks* appearing. */
+.booking-form .booking-hint-error {
+  animation: booking-hint-in 0.16s ease-out both;
 }
 
 .booking-form-header {
@@ -882,6 +937,10 @@
   border-radius: 0 0 10px 10px;
   background: var(--card);
   box-shadow: var(--shadow-card);
+  /* Mounted fresh by *ngIf every time it opens, so this plays on open without
+     any extra state. Options are interactive immediately: opacity/transform
+     don't gate pointer-events or focus. */
+  animation: booking-destination-panel-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .booking-destination-panel > p {
@@ -990,6 +1049,14 @@
   color: var(--danger);
 }
 
+/* Scoped to the search form only (.booking-hint-error is shared with the
+   request step's CSS file) so validation feedback here doesn't replay a fade
+   on that other route. Opacity-only, no translateY, so the message stays
+   immediately readable while it's easing in. */
+.booking-search .booking-hint-error {
+  animation: booking-hint-in 0.16s ease-out both;
+}
+
 .booking-form-reassurance {
   display: flex;
   align-items: flex-start;
@@ -1017,6 +1084,11 @@
   color: var(--danger);
   font-size: 0.84rem;
   font-weight: 800;
+  /* Submit error banner: same short fade used for the other booking steps'
+     error/empty states. No shake, no horizontal movement, and the message
+     is present in the accessibility tree immediately via role="alert" —
+     the animation only affects how it looks, not when it's announced. */
+  animation: booking-fade-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .input-error {
@@ -1048,6 +1120,10 @@
   margin-top: 1rem;
   padding-bottom: 1.25rem;
   border-bottom: 1px solid var(--border);
+  /* Same reasoning as .booking-hotel-card above: mounted once with the rest
+     of the form, not re-created while unrelated fields are edited, so this
+     entrance plays exactly once per visit to this step. */
+  animation: booking-fade-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .booking-summary span,
@@ -1099,12 +1175,6 @@
   color: var(--primary-foreground);
 }
 
-.booking-primary:hover {
-  transform: translateY(-1px);
-  border-color: var(--primary-hover);
-  background: var(--primary-hover);
-}
-
 .booking-primary:active {
   transform: translateY(0);
 }
@@ -1116,16 +1186,19 @@
   cursor: not-allowed;
 }
 
+/* The generic .booking-primary transition (shared with other booking routes)
+   doesn't include opacity, so its :disabled dim snaps instantly. Scoped to
+   the search button only, so starting a search reads as an immediate but
+   smoothed state change instead of a hard cut. */
+.booking-search-submit,
+.booking-request-submit {
+  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+
 .booking-secondary {
   border: 1px solid var(--input);
   background: var(--background);
   color: var(--foreground);
-}
-
-.booking-secondary:hover {
-  transform: translateY(-1px);
-  border-color: rgba(var(--primary-rgb), 0.34);
-  background: var(--accent);
 }
 
 .booking-secondary:active {
@@ -1163,11 +1236,19 @@
   color: var(--primary-foreground);
   font-size: 1.35rem;
   box-shadow: 0 16px 32px rgba(var(--primary-rgb), 0.22);
+  /* One-time reveal on load: the icon is purely decorative
+     (aria-hidden on the <i> inside), so this never gates anything a screen
+     reader needs. First step of the icon -> heading -> details sequence. */
+  animation: booking-confirmation-icon-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .booking-confirmation-copy {
   display: grid;
   gap: 0.65rem;
+  /* Second step of the sequence. Reuses the same fade+translateY(8px)
+     signature already used for details/empty/error blocks across the
+     booking flow, just with its own delay here. */
+  animation: booking-fade-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) 50ms both;
 }
 
 .booking-confirmation-copy .booking-kicker {
@@ -1194,6 +1275,12 @@
   flex-wrap: wrap;
   gap: 0.7rem;
   margin-top: 0.4rem;
+  /* Third and last step of the sequence (icon -> heading -> details), capped
+     at 100ms so the whole reveal stays under the ~120ms stagger budget. The
+     chips fade in together as one group — the reference number inside isn't
+     animated on its own, and nothing here delays it becoming readable; the
+     region is already focused and in the accessibility tree by this point. */
+  animation: booking-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
 }
 
 .booking-confirmation-details span {
@@ -1211,6 +1298,41 @@
   font-weight: 800;
   line-height: 1.3;
   overflow-wrap: anywhere;
+}
+
+.booking-copy-reference {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--primary-text);
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.12s ease;
+}
+
+.booking-copy-reference i {
+  font-size: 0.78rem;
+}
+
+.booking-copy-reference:active {
+  transform: scale(0.92);
+}
+
+/* Reserves a fixed slot so "Referencia copiada." appearing/disappearing
+   doesn't nudge the actions below — no transition needed since the text
+   swap itself is the whole point, not something to animate. */
+.booking-copy-status {
+  display: block;
+  min-height: 1.15rem;
+  color: var(--primary-text);
+  font-size: 0.8rem;
+  font-weight: 750;
 }
 
 .booking-page :focus-visible {
@@ -1372,6 +1494,50 @@
   }
 }
 
+/* Hover-only polish, gated so a tap on iOS/iPadOS Safari can't leave a
+   result/rate card — or a primary/secondary button — visibly "stuck" lifted,
+   zoomed or recolored until the next tap elsewhere. Keyboard focus uses the
+   separate, always-on .booking-page :focus-visible rule above, and
+   :disabled/:active below, both independent of this hover motion. */
+@media (hover: hover) and (pointer: fine) {
+  .booking-result-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--primary-border-strong);
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .booking-result-card:hover .booking-result-media img {
+    transform: scale(1.03);
+  }
+
+  .booking-rate-select-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--primary-border-strong);
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .booking-rate-select-card:hover .booking-rate-select-media img {
+    transform: scale(1.03);
+  }
+
+  .booking-primary:hover {
+    transform: translateY(-1px);
+    border-color: var(--primary-hover);
+    background: var(--primary-hover);
+  }
+
+  .booking-secondary:hover {
+    transform: translateY(-1px);
+    border-color: rgba(var(--primary-rgb), 0.34);
+    background: var(--accent);
+  }
+
+  .booking-copy-reference:hover {
+    background: rgba(var(--primary-rgb), 0.14);
+    color: var(--primary-hover);
+  }
+}
+
 @media (max-width: 640px) {
   .booking-header-inner {
     min-height: auto;
@@ -1423,11 +1589,78 @@
   }
 }
 
+@keyframes booking-destination-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes booking-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes booking-confirmation-icon-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes booking-hint-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes booking-result-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .booking-result-card:hover,
   .booking-rate-select-card:hover,
   .booking-primary:hover,
   .booking-secondary:hover {
     transform: none;
+  }
+
+  .booking-page *,
+  .booking-page *::before,
+  .booking-page *::after {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
   }
 }

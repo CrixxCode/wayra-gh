@@ -57,7 +57,52 @@ export class AlliedBookingConfirmationPage implements AfterViewInit {
     );
   }
 
+  get clipboardSupported(): boolean {
+
+    return Boolean(
+      typeof navigator !== 'undefined' &&
+      navigator.clipboard
+    );
+  }
+
+  copyFeedback = '';
+
+  private copyFeedbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
   ngAfterViewInit(): void {
     this.confirmationRegion?.nativeElement.focus();
+  }
+
+  async copyReservationReference(): Promise<void> {
+
+    if (
+      !this.reservationId ||
+      !this.clipboardSupported
+    ) {
+      return;
+    }
+
+    try {
+
+      await navigator.clipboard.writeText(
+        this.reservationId
+      );
+    } catch {
+      // Clipboard write can fail (permission denied, insecure context,
+      // etc.). The reference stays visible as plain text either way, so
+      // there is nothing to recover from here — just skip the feedback.
+      return;
+    }
+
+    this.copyFeedback = 'Referencia copiada.';
+
+    if (this.copyFeedbackTimeoutId !== null) {
+      clearTimeout(this.copyFeedbackTimeoutId);
+    }
+
+    this.copyFeedbackTimeoutId = setTimeout(() => {
+      this.copyFeedback = '';
+      this.copyFeedbackTimeoutId = null;
+    }, 2500);
   }
 }

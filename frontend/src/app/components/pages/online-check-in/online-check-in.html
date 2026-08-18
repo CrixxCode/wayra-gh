@@ -666,8 +666,8 @@
             tabindex="-1"
             aria-live="polite">
 
-            <div>
-              <i class="pi pi-check"></i>
+            <div class="online-confirmation-icon">
+              <i class="pi pi-check" aria-hidden="true"></i>
             </div>
 
             <h2>
@@ -682,6 +682,80 @@
               recepcionista verificará la identidad de cada huésped y
               confirmará el check-in a su llegada.
             </p>
+
+            <div class="online-confirmation-reminder">
+
+              <p class="online-confirmation-reminder-title">
+                Ten a la mano
+              </p>
+
+              <div class="online-confirmation-reminder-details">
+
+                <div class="online-reminder-row">
+
+                  <span class="online-reminder-label">
+                    Referencia
+                  </span>
+
+                  <div class="online-reminder-reference-value">
+
+                    <span class="online-reminder-value">
+                      <i class="pi pi-ticket" aria-hidden="true"></i>
+                      {{ reservationCodeLabel }}
+                    </span>
+
+                    <button
+                      *ngIf="clipboardSupported"
+                      type="button"
+                      class="online-copy-reference"
+                      (click)="copyReservationCode()"
+                      [attr.aria-label]="'Copiar código ' + reservationCodeLabel">
+
+                      <i class="pi pi-copy" aria-hidden="true"></i>
+                      Copiar
+
+                    </button>
+
+                  </div>
+
+                </div>
+
+                <div
+                  *ngIf="
+                    confirmation?.hotel_name ||
+                    (confirmation?.expected_check_in && confirmation?.expected_check_out)
+                  "
+                  class="online-reminder-context">
+
+                  <span
+                    *ngIf="confirmation?.hotel_name as hotelName"
+                    class="online-reminder-context-item">
+                    <i class="pi pi-building" aria-hidden="true"></i>
+                    {{ hotelName }}
+                  </span>
+
+                  <span
+                    *ngIf="
+                      confirmation?.expected_check_in &&
+                      confirmation?.expected_check_out
+                    "
+                    class="online-reminder-context-item">
+                    <i class="pi pi-calendar" aria-hidden="true"></i>
+                    {{ confirmation?.expected_check_in }} – {{ confirmation?.expected_check_out }}
+                  </span>
+
+                </div>
+
+              </div>
+
+              <span
+                class="online-copy-status"
+                role="status"
+                aria-live="polite">
+                {{ copyFeedback }}
+              </span>
+
+            </div>
 
             <a
               class="online-primary"

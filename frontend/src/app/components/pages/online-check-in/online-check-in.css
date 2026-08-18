@@ -241,6 +241,15 @@
   gap: 1rem;
 }
 
+.online-guest-card {
+  /* *ngIf="codeConfirmed" mounts this once per successful lookup, so this
+     entrance plays exactly when the guest-data section becomes available —
+     never while the guest is editing fields inside it (they don't remount).
+     Everything inside (fieldsets, guest cards, fields) rides along as one
+     unit; nothing inside gets its own separate entrance or stagger. */
+  animation: online-fade-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 .online-field {
   display: grid;
   gap: 0.5rem;
@@ -304,6 +313,17 @@
   font-weight: 750;
 }
 
+/* Field-level errors, the consent checkbox error, and the two form-level
+   banners (#online-check-in-lookup-error, #online-check-in-error) all reuse
+   this: opacity only, no translateY, no shake. aria-invalid/aria-describedby
+   are already wired synchronously in the template — this only softens how
+   the message looks appearing, never when it's announced. Hints (excluded
+   above) never animate; they're always present. */
+.online-field small:not([id$="-hint"]),
+.online-consent-error {
+  animation: online-hint-in 0.16s ease-out both;
+}
+
 .online-code-actions {
   display: grid;
   gap: 0.5rem;
@@ -330,7 +350,9 @@
   font-weight: 800;
   text-decoration: none;
   cursor: pointer;
-  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+  /* opacity added so the :disabled dim below (used while a lookup or submit
+     is in flight) reads as a smoothed state change instead of a hard cut. */
+  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
 }
 
 .online-primary {
@@ -345,23 +367,6 @@
   border: 1px solid var(--border);
   background: var(--secondary);
   color: var(--foreground);
-}
-
-.online-primary:hover,
-.online-secondary:hover {
-  transform: translateY(-1px);
-}
-
-.online-primary:hover {
-  border-color: var(--primary-hover);
-  background: var(--primary-hover);
-  filter: brightness(0.92);
-}
-
-.online-secondary:hover {
-  border-color: rgba(44, 123, 229, 0.28);
-  background: var(--accent);
-  color: var(--primary-hover);
 }
 
 .online-primary:disabled,
@@ -387,6 +392,12 @@
   color: var(--primary);
   font-size: 0.85rem;
   font-weight: 800;
+  /* Mounted once alongside .online-guest-card (same *ngIf), so this never
+     replays while the guest edits fields below it. A slightly later delay
+     than the section it sits in gives the "verified" status its own small
+     callout without turning into a separate multi-step sequence. Hotel name
+     and dates inside are plain text, not animated individually. */
+  animation: online-fade-in 0.26s cubic-bezier(0.16, 1, 0.3, 1) 40ms both;
 }
 
 .online-reservation-chip strong {
@@ -543,7 +554,12 @@
   text-align: center;
 }
 
-.online-confirmation > div {
+/* Dedicated class rather than ".online-confirmation > div": the reminder
+   block below is also a direct-child <div> of .online-confirmation, and a
+   bare child-combinator selector here would incorrectly restyle it too
+   (46px icon sizing, inline-grid, blue background) — exactly what caused
+   the earlier layout regression. */
+.online-confirmation-icon {
   width: 46px;
   height: 46px;
   display: inline-grid;
@@ -551,6 +567,9 @@
   border-radius: 14px;
   background: var(--primary);
   color: var(--primary-foreground);
+  /* Step 1 of the confirmation's one-time reveal (status -> heading/copy ->
+     action), opacity + a small scale rather than a bounce/spring/pulse. */
+  animation: online-confirmation-icon-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .online-confirmation h2 {
@@ -559,6 +578,8 @@
   font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
   font-size: 1.25rem;
   font-weight: 800;
+  /* Step 2. */
+  animation: online-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) 50ms both;
 }
 
 .online-confirmation p {
@@ -567,11 +588,188 @@
   color: var(--muted);
   font-size: 0.92rem;
   line-height: 1.7;
+  /* Same step as the heading (2) — same delay, so they read as one group. */
+  animation: online-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) 50ms both;
+}
+
+/* Step 3, scoped to inside .online-confirmation only: .online-primary is
+   also the lookup and guest-form submit buttons elsewhere on this page,
+   which must stay fully visible on load, not tied to this sequence. Total
+   stagger across all three steps is 100ms, within the ~100-120ms budget. */
+.online-confirmation a {
+  animation: online-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
+}
+
+/* Intentionally not part of the icon -> heading/copy -> action entrance
+   sequence above: no animation-delay, no fade, no transform. It renders
+   with the rest of the already-settled confirmation, not as a fourth step. */
+.online-confirmation-reminder {
+  max-width: 520px;
+  margin: 0 auto 1.2rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border);
+  text-align: left;
+}
+
+.online-confirmation-reminder-title {
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* Stacked rows (reference, then hotel/dates context) instead of a single
+   flex-wrap row of equal-weight chips: a fixed-format reference code and a
+   free-length hotel name don't share a sensible common width, and forcing
+   them into one row is what caused the earlier collapse. */
+.online-confirmation-reminder-details {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.online-reminder-row {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.online-reminder-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* flex-wrap so the copy button can drop to its own line on narrow widths
+   instead of squeezing the reference text. */
+.online-reminder-reference-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.online-reminder-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--foreground);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.4;
+  /* Safety net only, not the layout mechanism: wraps at word boundaries and
+     only breaks mid-word if a single token is wider than the row. */
+  overflow-wrap: break-word;
+}
+
+.online-reminder-value i {
+  flex: 0 0 auto;
+  color: var(--primary);
+}
+
+.online-reminder-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.35rem;
+}
+
+.online-reminder-context-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--foreground);
+  font-size: 0.9rem;
+  font-weight: 750;
+  overflow-wrap: break-word;
+}
+
+.online-reminder-context-item i {
+  flex: 0 0 auto;
+  color: var(--primary);
+}
+
+.online-copy-reference {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 34px;
+  padding: 0 0.75rem;
+  border: 1px solid rgba(44, 123, 229, 0.22);
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.12s ease;
+}
+
+.online-copy-reference i {
+  font-size: 0.74rem;
+}
+
+.online-copy-reference:active {
+  transform: scale(0.96);
+}
+
+/* Reserves a fixed slot so "Código copiado." appearing/disappearing doesn't
+   nudge the "Volver al inicio" action below it — no transition, the text
+   swap itself is the feedback, not something to animate. */
+.online-copy-status {
+  display: block;
+  min-height: 1.1rem;
+  margin-top: 0.7rem;
+  color: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 750;
 }
 
 .online-checkin-page :focus-visible {
   outline: 3px solid rgba(44, 123, 229, 0.28);
   outline-offset: 2px;
+}
+
+@keyframes online-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes online-hint-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes online-confirmation-icon-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @media (min-width: 720px) {
@@ -617,6 +815,38 @@
   }
 }
 
+/* Hover-only polish, gated so a tap on iOS/iPadOS Safari can't leave a
+   primary/secondary button visibly "stuck" lifted or recolored until the
+   next tap elsewhere. :disabled/:disabled:hover above and :focus-visible
+   below both stay active regardless of hover capability. */
+@media (hover: hover) and (pointer: fine) {
+  .online-primary:hover,
+  .online-secondary:hover {
+    transform: translateY(-1px);
+  }
+
+  .online-primary:hover {
+    /* Same WCAG-AA contrast fix as the resting state: --primary-hover is
+       already the base background/border (see the comment on .online-primary
+       above), so brightness(0.92) is what actually reads as "hovered" here. */
+    border-color: var(--primary-hover);
+    background: var(--primary-hover);
+    filter: brightness(0.92);
+  }
+
+  .online-secondary:hover {
+    border-color: rgba(44, 123, 229, 0.28);
+    background: var(--accent);
+    color: var(--primary-hover);
+  }
+
+  .online-copy-reference:hover {
+    border-color: rgba(44, 123, 229, 0.4);
+    background: rgba(44, 123, 229, 0.18);
+    color: var(--primary-hover);
+  }
+}
+
 @media (max-width: 640px) {
   .online-header-inner {
     min-height: auto;
@@ -653,5 +883,16 @@
   .online-primary,
   .online-secondary {
     width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .online-checkin-page *,
+  .online-checkin-page *::before,
+  .online-checkin-page *::after {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
   }
 }

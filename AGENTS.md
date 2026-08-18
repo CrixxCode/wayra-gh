@@ -1073,6 +1073,820 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-18 — Pulido final: ícono de check-in decorativo y fade de errores del modal de demo
+
+- **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `polish`, cerrando
+  las dos notas P3 restantes de la auditoría de motion)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:**
+  1. **`online-check-in.html`:** se agregó `aria-hidden="true"` al ícono decorativo
+     `<i class="pi pi-check">` dentro de `.online-confirmation > div` (estado final de
+     "Check-in preparado"). El encabezado y el párrafo adyacentes ya comunican el mismo mensaje de
+     éxito en texto, así que el ícono era redundante para lectores de pantalla — igual al patrón ya
+     usado en el ícono equivalente de `/reservar/confirmacion/:reservationId`
+     (`allied-booking-confirmation.html`), que ya lo tenía. No se tocó su animación
+     (`online-confirmation-icon-enter`, opacity + scale), tamaño, color ni ningún otro atributo.
+  2. **`landing.css`:** los mensajes de error de campo (`.field-error`) dentro del formulario de
+     "Solicitar demo" aparecían de forma instantánea, a diferencia del mismo tipo de mensaje en el
+     flujo de reserva (`.booking-hint-error`) y en check-in online (`.online-field small`), que ya
+     tenían un fade de solo opacidad. Se agregó `animation: wayra-modal-fade 0.16s ease-out both;`
+     a `.field-error` — reutilizando el keyframe `wayra-modal-fade` (`opacity: 0 → 1`, sin
+     `transform`) que ya existía en este mismo archivo para el fondo del modal de demo, en vez de
+     declarar uno nuevo. 160ms, dentro del rango de ~150-180ms pedido; sin traslado, sin shake, sin
+     animación de layout. `*ngIf`, `[attr.aria-invalid]` y `[attr.aria-describedby]` en el formulario
+     de demo no se tocaron — siguen actualizándose de forma síncrona en el template, así que la
+     disponibilidad del error para tecnología de asistencia no depende de que la animación termine.
+     Bajo `prefers-reduced-motion`, la regla ya existente y sin cambios `.wayra-landing *,
+     .wayra-landing *::before, .wayra-landing *::after { animation: none !important; ... }` cubre
+     `.field-error` automáticamente por ser un selector universal descendiente — no hizo falta
+     tocar el bloque de reduced-motion.
+- **Qué NO se tocó, deliberadamente:** el cierre del FAQ vía Web Animations API con `height`, los
+  spinners preexistentes (`pi-spin`) que quedan estáticos bajo reduced-motion, y los fondos de líneas
+  decorativos del hero en `landing.css`/`allied-hotels.css`/`online-check-in.css` — los tres son
+  advisories ya documentados y aceptados en la auditoría de motion previa, y el brief de este pase
+  pidió explícitamente no tocarlos.
+- **Por qué:** cerrar las dos notas P3 restantes de la auditoría de motion (`2026-08-17`) para dejar
+  el sistema de motion público sin inconsistencias pendientes conocidas.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/online-check-in/online-check-in.html`,
+  `frontend/src/app/components/pages/landing/landing.css`.
+- **Impacto:** sin migraciones, sin cambios de API/RBAC, sin cambios de color, tipografía, copy,
+  routing, validación, manejo de foco, tokens compartidos ni dark mode. No se tocaron las otras rutas
+  públicas ni ninguna animación existente fuera de este fade puntual. Validado con `tsc --noEmit`
+  limpio, `ng build --configuration=development` exitoso, y el detector mecánico de la skill sin
+  hallazgos en los dos archivos tocados. Con esto quedan cerrados todos los hallazgos accionables (P2
+  y P3) de la auditoría de motion del `2026-08-17`.
+
+---
+
+### 2026-08-18 — Fix de regresión de layout en la confirmación de /check-in-online
+
+- **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `polish`, corrigiendo
+  una regresión visual real reportada tras la entrada anterior de `delight`)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** el bloque "Ten a la mano" agregado en la entrada anterior rompía visualmente el
+  estado final de confirmación: el título se solapaba con el botón "Volver al inicio", y la
+  referencia/hotel/fechas colapsaban en una columna angosta con el texto partido letra por letra,
+  desbordando fuera de la tarjeta. Investigado con capturas reales (Chrome headless local,
+  `--screenshot` + `--virtual-time-budget` para dejar correr las animaciones antes de capturar, ya
+  que no hay `chromium-cli`/Playwright en este entorno) contra un harness HTML aislado que carga los
+  mismos `online-check-in.css`/`public-tokens.css` — permitió ver el bug real en vez de adivinar por
+  el código.
+  - **Causa raíz confirmada:** `.online-confirmation > div` (el ícono de éxito) era un selector por
+    combinador de hijo directo, no una clase dedicada. El nuevo `<div class="online-confirmation-
+    reminder">` que agregó la entrada anterior **también** es un hijo directo `<div>` de
+    `.online-confirmation`, así que ese selector lo capturaba a él también — heredaba el tamaño fijo
+    de 46×46px, `display: inline-grid` y el fondo azul sólido del ícono. Eso explica cada síntoma
+    reportado: el ancho de 46px forzaba el colapso/wrap letra por letra de todo su contenido, y
+    `inline-grid` (en vez de `block`) hacía que ya no forzara un salto de línea, dejando que
+    "Volver al inicio" (el siguiente hermano, también inline) se acomodara en la misma fila.
+  - **Fix:** se agregó la clase dedicada `.online-confirmation-icon` al `<div>` del ícono en
+    `online-check-in.html`, y se renombró el selector en `online-check-in.css` de
+    `.online-confirmation > div` a `.online-confirmation-icon` — mismo patrón que ya usaba
+    correctamente `/reservar/confirmacion` (`.booking-confirmation-icon`), que nunca tuvo este
+    problema porque ya usaba una clase dedicada desde el principio.
+  - Aprovechando que ya estaba diagnosticando con capturas reales, se rehizo la estructura interna
+    del bloque "Ten a la mano" según el layout que pidió el usuario explícitamente: en vez de tres
+    "chips" de igual peso en una sola fila `flex-wrap` (que fue lo que originalmente colapsaba), ahora
+    es una pila de filas (`display: grid; gap:...`): una fila "Referencia" (etiqueta arriba, valor +
+    botón "Copiar" abajo, con texto visible en el botón en vez de solo ícono) y una fila de contexto
+    con hotel/fechas que se envuelven lado a lado cuando hay espacio y se apilan en móvil. Se
+    reemplazó `overflow-wrap: anywhere` (que permite cortar entre cualquier par de caracteres) por
+    `overflow-wrap: break-word` (corta solo como último recurso, respetando límites de palabra) en
+    todos los elementos de texto nuevos, y se agregó `flex: 0 0 auto` a los íconos y al botón de
+    copiar para que nunca se encojan. `min-width: 0` se usó donde correspondía (en los contenedores
+    flex que necesitan poder encoger para envolver texto), no como sustituto del layout.
+  - El bloque sigue **deliberadamente fuera** de la secuencia de animación de entrada (sin
+    `animation`, sin delay) — eso no cambió respecto a la entrada anterior.
+- **Verificación real, no solo de código:** con el fix aplicado, se volvió a capturar el mismo harness
+  HTML con un código de referencia artificialmente largo (`WYR-2458-EXTRALONGCODE`) y un nombre de
+  hotel largo (`Hotel Casa Aurora Cartagena Centro Historico`) a 1440px (desktop) y 834px (tablet):
+  en ambos, todo el contenido queda contenido dentro de la tarjeta, la referencia se lee completa en
+  una línea junto al botón "Copiar", el hotel y las fechas se muestran como filas legibles (no pills
+  angostas), "Ten a la mano" es un rótulo horizontal separado con claridad de "Volver al inicio", y
+  el CTA queda en su propia zona sin solaparse con nada. A 390px (móvil) apareció un desbordamiento
+  horizontal, pero se confirmó reproduciéndolo en un harness de control **sin** el bloque nuevo (solo
+  el párrafo y el botón que ya existían antes de la entrada de `delight`) — el mismo desbordamiento
+  aparece igual, lo que descarta que lo haya introducido este cambio; es una limitación del harness
+  de prueba aislado (le faltan resets/estilos base globales de `styles.css` que la app real sí carga
+  siempre), no una regresión real de esta página. No se investigó más a fondo por quedar fuera del
+  alcance de esta corrección puntual.
+- **Por qué:** corregir una regresión visual real y bloqueante reportada explícitamente por el
+  usuario tras la entrada anterior, sin retirar la funcionalidad útil de copiar código que ya se
+  había agregado.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/online-check-in/online-check-in.html`,
+  `online-check-in.css`. `online-check-in.ts` no cambió en este pase.
+- **Impacto:** sin migraciones, sin cambios de API/RBAC, sin cambios de routing ni de las etapas de
+  búsqueda/formulario (no tocadas). Se preservó la funcionalidad de copiar código, el feedback
+  accesible (`role="status" aria-live="polite"`, siempre presente en el DOM), el manejo de foco, el
+  ícono de éxito `aria-hidden`, la animación de entrada existente y el comportamiento de
+  `prefers-reduced-motion` (sin cambios en el bloque `@media` correspondiente). Validado con
+  `tsc --noEmit` limpio, `ng build --configuration=development` exitoso, el detector mecánico de la
+  skill sin hallazgos nuevos, y verificación visual real con capturas de Chrome headless local (no
+  solo lectura de código) en desktop y tablet — primera vez en esta serie de tareas que se logró
+  verificación visual real, aprovechando un Chrome ya instalado en la máquina que no se había
+  detectado como opción hasta ahora.
+
+---
+
+### 2026-08-18 — "Ten a la mano" con copiar código en /check-in-online
+
+- **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `delight`, acotado a
+  1-2 mejoras útiles, no decorativas)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** en el estado final de "Check-in preparado" (después de que
+  `OnlineCheckInService.submitOnlineCheckIn` responde con éxito), se agregó un bloque compacto "Ten a
+  la mano" con el código de reserva (copiable), el hotel y las fechas — todos datos ya devueltos por
+  el propio backend en `this.confirmation` (`OnlineCheckInResponse`: `hotel_name`,
+  `expected_check_in`, `expected_check_out`), sin inventar número de habitación, hora de check-in ni
+  ningún estado de disponibilidad que el backend no devolvió. Se implementó como un único elemento
+  cohesivo (no como dos mejoras separadas) para no duplicar la reafirmación de "próximos pasos" que
+  ya existe en el párrafo de arriba, y para no exceder el límite de "máximo 1-2 mejoras" del brief.
+  - `online-check-in.ts`: `clipboardSupported` (getter, igual patrón que la entrada anterior de
+    `/reservar/confirmacion`), `copyFeedback` y `copyReservationCode()` — copia
+    `this.reservationCodeLabel` (el código ya normalizado que el propio párrafo de confirmación ya
+    muestra) vía `navigator.clipboard.writeText()`. Éxito → `copyFeedback = 'Código copiado.'`, se
+    limpia solo a los 2.5s. Fallo o Clipboard API no disponible → no pasa nada visible, el código
+    sigue siendo texto plano seleccionable a mano.
+  - `online-check-in.html`: nuevo bloque `.online-confirmation-reminder` dentro de
+    `#online-check-in-confirmation` (después del párrafo existente, antes de "Volver al inicio"), con
+    tres chips (código + botón copiar, hotel, fechas) y un `<span role="status" aria-live="polite">`
+    **siempre presente en el DOM** para el feedback — mismo patrón de accesibilidad ya usado en
+    `/reservar/confirmacion` (la región debe existir antes de que cambie su texto para que los
+    lectores de pantalla la anuncien de forma confiable). El botón de copiar solo se renderiza si
+    `clipboardSupported` es verdadero. El párrafo de reafirmación existente
+    ("...Un recepcionista verificará la identidad de cada huésped y confirmará el check-in a su
+    llegada.") no se tocó ni una palabra.
+  - `online-check-in.css`: el nuevo bloque queda **deliberadamente fuera** de la secuencia de entrada
+    de tres pasos ya implementada (ícono → encabezado/copy → acción) — sin `animation`, sin delay,
+    aparece junto con el resto del contenido ya asentado, en vez de sumar un cuarto paso a la
+    secuencia. El botón de copiar tiene su propio press-feedback (`:active { transform: scale(0.92)
+    }`, ya que no hereda nada del sistema compartido `.online-primary`/`.online-secondary`) y su
+    hover se agregó al mismo `@media (hover: hover) and (pointer: fine)` ya usado por esos botones en
+    esta página. El `<i class="pi pi-check">` del ícono de éxito no se tocó — sigue `aria-hidden`,
+    sin anillos, destellos ni efectos repetidos.
+- **Por qué:** pedido explícito del usuario de reafirmación útil y específica para el momento en que
+  el huésped termina de enviar su check-in online — poder guardar el código con un clic, y ver de un
+  vistazo el hotel/fechas ya verificados, es justo el tipo de detalle "considerado" que pedía el
+  brief, sin decoración ni animación adicional, y sin implicar que el check-in físico ya quedó hecho.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/online-check-in/online-check-in.html`,
+  `online-check-in.ts`, `online-check-in.css` (archivo exclusivo de esta página, sin necesidad de
+  scoping entre rutas).
+- **Impacto:** sin migraciones, sin variables de entorno, sin cambios de API/RBAC, sin cambios de
+  routing, validadores, prellenado de huéspedes ni del payload/manejo de respuesta del backend. No se
+  agregó ninguna librería (Clipboard API nativa). Validado con `tsc --noEmit` limpio, `ng build
+  --configuration=development` exitoso (tras corregir un error real de AOT: el compilador de plantillas
+  de Angular sí requiere `confirmation?.` incluso dentro de un `*ngIf` compuesto con `&&` sobre el
+  mismo campo — el hint del editor que sugería quitar el `?.` era válido solo como diagnóstico
+  extendido, no como lo que el compilador de build exige; se revirtió esa simplificación), y el
+  detector mecánico de la skill sin hallazgos nuevos (mismo advisory preexistente del fondo del hero,
+  sin relación). No se verificó visualmente en navegador: no hay `chromium-cli`/Playwright
+  disponibles en este entorno.
+
+---
+
+### 2026-08-18 — Copiar referencia de reserva en /reservar/confirmacion/:reservationId
+
+- **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `delight`, acotado a
+  1 mejora útil, no decorativa)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** se agregó un botón "Copiar referencia" junto al chip de referencia
+  (`Referencia #{{ reservationId }}`) en el estado final de confirmación de la solicitud de reserva.
+  - `allied-booking-confirmation.ts`: nuevo método `copyReservationReference()` que escribe
+    `this.reservationId` (el id crudo, sin el prefijo `#` que se muestra en pantalla, para que se
+    pueda pegar directamente en un correo o formulario) vía `navigator.clipboard.writeText()`. Si
+    tiene éxito, `copyFeedback` se llena con "Referencia copiada." y se limpia solo a los 2.5s
+    (`setTimeout` con limpieza del temporizador anterior si se hace clic varias veces seguidas). Si
+    falla (permiso denegado, contexto no seguro, etc.) no se muestra nada — no hay nada que recuperar
+    porque la referencia ya está visible como texto plano de todas formas. Nuevo getter
+    `clipboardSupported` que verifica `navigator.clipboard` antes de intentar cualquier cosa.
+  - `allied-booking-confirmation.html`: el botón (`<button class="booking-copy-reference"
+    [attr.aria-label]="'Copiar referencia ' + reservationId">`) solo se renderiza si
+    `clipboardSupported` es verdadero (`*ngIf`) — en navegadores sin la Clipboard API, o en un
+    contexto no seguro, el botón simplemente no aparece y la referencia sigue siendo texto plano
+    seleccionable a mano, sin depender de JavaScript para seguir siendo útil. El feedback vive en un
+    `<span role="status" aria-live="polite">` **siempre presente en el DOM** (nunca envuelto en
+    `*ngIf`) con solo su texto interpolado (`{{ copyFeedback }}`) cambiando — necesario para que los
+    lectores de pantalla anuncien el cambio de forma confiable, ya que muchos no anuncian una región
+    `aria-live` que se inserta en el DOM al mismo tiempo que ya trae contenido. El foco nunca se
+    mueve: el botón permanece enfocado después del clic, el `aria-live` solo anuncia, no roba foco.
+  - `allied-booking.css`: `.booking-copy-reference` (28×28px, transparente, ícono `pi-copy`
+    `aria-hidden`, con press-feedback propio `:active { transform: scale(0.92) }` ya que no hereda
+    nada del sistema compartido de botones `.booking-primary`/`.booking-secondary`) y
+    `.booking-copy-status` (reserva `min-height: 1.15rem` siempre, para que el texto de feedback no
+    empuje las acciones de abajo al aparecer/desaparecer — sin transición, el cambio de texto no se
+    anima, tal como pedía el brief). El hover de `.booking-copy-reference` se agregó al mismo
+    `@media (hover: hover) and (pointer: fine)` ya usado por el resto de la página. `.booking-page
+    *` (reduced-motion, sin cambios) neutraliza su `transition` de la misma forma que el resto de
+    la página.
+  - No se agregó ninguna secuencia de entrada nueva, ni se tocó la animación existente del ícono de
+    éxito, el encabezado, los chips de detalle ni las acciones — la única entrada visible sigue
+    siendo la misma de tres pasos (ícono → encabezado/copy → detalles) ya implementada.
+- **Por qué:** pedido explícito del usuario de un único detalle de "micro-delight" genuinamente útil
+  para el momento de confirmación — copiar la referencia es lo que un huésped haría de inmediato
+  para guardarla o reenviarla, y hacerlo un clic en vez de seleccionar texto a mano es justo el tipo
+  de detalle "considerado" que pedía el brief, sin decoración ni animación adicional.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-confirmation.html`,
+  `allied-booking-confirmation.ts`, `allied-booking.css` (compartido; las tres clases nuevas —
+  `.booking-reference-chip`, `.booking-copy-reference`, `.booking-copy-status` — son exclusivas de
+  esta página, verificado con `grep` contra las otras 3 plantillas del flujo).
+- **Impacto:** sin migraciones, sin variables de entorno, sin cambios de API/RBAC, sin cambios de
+  routing ni de copy existente. No se agregó ninguna librería ni dependencia (usa la Clipboard API
+  nativa del navegador). El nombre del hotel, la referencia y las fechas siguen siendo exactamente
+  los mismos datos ya mostrados — no se inventó ningún estado de disponibilidad, precio ni
+  confirmación por parte del hotel. Las otras 3 rutas del flujo no se vieron afectadas (verificado
+  con `grep` y por diff — sus archivos no cambiaron en este pase). Validado con `tsc --noEmit`
+  limpio, `ng build --configuration=development` exitoso, y el detector mecánico de la skill sin
+  hallazgos. No se verificó visualmente en navegador: no hay `chromium-cli`/Playwright disponibles en
+  este entorno (mismo motivo que entradas anteriores).
+
+---
+
+### 2026-08-18 — Hover guards pendientes en /hoteles-aliados, el flujo de reserva y /check-in-online
+
+- **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `animate`, pase
+  correctivo puntual sobre los hallazgos P2 de "hover sin proteger" de la auditoría de motion previa)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** tres reglas `:hover` con `transform`/color que ya existían antes de esta serie de
+  sesiones de `animate` no estaban protegidas con `@media (hover: hover) and (pointer: fine)`, a
+  diferencia del patrón que la landing ya seguía correctamente. Sin ese guard, tocar la tarjeta o el
+  botón en iOS/iPadOS Safari puede dejarlo visualmente "pegado" en su estado de hover (elevado,
+  recoloreado) hasta el siguiente toque en otro lugar. Se movieron las tres, sin cambiar ninguna
+  propiedad, duración ni color — solo el lugar donde vive la regla:
+  - `.allied-card:hover` (`allied-hotels.css`, antes en la línea 347 suelta): la elevación
+    `translateY(-3px)` + `border-color` + `box-shadow` ahora vive junto al zoom de imagen que ya
+    estaba protegido (`.allied-card:hover .allied-card-media img`), dentro del mismo
+    `@media (hover: hover) and (pointer: fine)`.
+  - `.booking-primary:hover`/`.booking-secondary:hover` (`allied-booking.css`, compartida por las 4
+    rutas del flujo de reserva): se movieron al `@media (hover: hover) and (pointer: fine)` que ya
+    existía para `.booking-result-card`/`.booking-rate-select-card`. `:active`
+    (`translateY(0)` al soltar) y `:disabled`/`:disabled:hover` (dim + `cursor: not-allowed`) se
+    dejaron exactamente donde estaban, sin guard, porque deben aplicar sin importar el tipo de
+    puntero.
+  - `.online-primary:hover`/`.online-secondary:hover` (`online-check-in.css`, que no tenía ningún
+    bloque `hover: hover` todavía): se creó el bloque y se movieron las tres reglas relacionadas
+    (`transform` compartido + los colores/`filter` propios de cada botón) tal cual estaban. El fix de
+    contraste WCAG-AA documentado en `.online-primary` (usa `--primary-hover` como color base, no
+    `--primary`, para superar 4.5:1) sigue intacto: el hover sigue usando el mismo
+    `background: var(--primary-hover)` de base más `filter: brightness(0.92)` para leerse como
+    "hovered" pese a que el color base ya es el token "hover".
+  - No se tocó ninguna animación de entrada/reveal ya implementada en las 4 rutas del flujo de
+    reserva, la landing (que ya seguía el patrón correcto) ni `/check-in-online`; tampoco se tocó
+    `prefers-reduced-motion` en ningún archivo — el bloque `@media (prefers-reduced-motion: reduce)`
+    de cada hoja ya neutraliza `transition-duration`/`transform` globalmente (`.booking-page *`,
+    `.online-checkin-page *`), así que sigue cubriendo estas reglas relocalizadas sin cambios.
+  - No se tocó ningún `.html`/`.ts` — fue exclusivamente una corrección de scoping en CSS.
+- **Por qué:** hallazgo P2 de la auditoría de motion (`2026-08-17`): `.allied-card:hover` sin
+  proteger era una regresión relativa al propio precedente sentado por esta sesión (las tarjetas
+  equivalentes del flujo de reserva sí quedaron protegidas), y los botones primarios/secundarios de 3
+  de las 4 hojas de estilo públicas repetían el mismo patrón sin proteger, mientras que
+  `landing.css` ya lo hacía bien.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/allied-hotels/allied-hotels.css`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.css`,
+  `frontend/src/app/components/pages/online-check-in/online-check-in.css`.
+- **Impacto:** sin migraciones, sin cambios de API/RBAC, sin cambios de color, tipografía, layout,
+  routing, copy ni tokens compartidos. `:focus-visible` (regla global de cada página, no tocada),
+  `:disabled`/`:disabled:hover` y `:active` siguen activos independientemente de la capacidad de
+  hover del dispositivo. Validado con `tsc --noEmit` limpio, `ng build --configuration=development`
+  exitoso, el detector mecánico de la skill sin hallazgos nuevos (los dos advisories preexistentes
+  del fondo decorativo del hero siguen ahí, sin relación con este cambio), y una barrida final por
+  `grep` confirmando que no queda ninguna copia sin proteger de las tres reglas movidas en ninguno de
+  los tres archivos.
+
+---
+
+### 2026-08-18 — Recuperación de navegación fallida al elegir tarifa en /reservar/tarifas/:slug
+
+- **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `harden`, siguiendo
+  el hallazgo P2 de la auditoría de motion de la sesión anterior)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** `selectRoomRate()` en `allied-booking-rates.ts` marca `selectingRateId` con el id
+  de la tarifa elegida (para mostrar "Abriendo..." y deshabilitar todos los botones "Elegir tarifa"
+  mientras se navega a `/reservar/solicitud/:slug/:rateId`) y antes solo lo limpiaba dentro de un
+  `.then((navigated) => { if (!navigated) ... })`. Si la promesa de `Router.navigate()` se
+  **rechazaba** en vez de resolver en `false` — caso real: el chunk lazy de la siguiente ruta falla
+  al descargarse por una caída de red — ese `.then()` nunca corría, `selectingRateId` quedaba fijo
+  para siempre, y como `selectRoomRate()` bloquea cualquier clic mientras ese valor no es `null`,
+  **todos** los botones "Elegir tarifa" quedaban deshabilitados sin mensaje y sin forma de
+  recuperarse salvo recargar la página completa. Se reemplazó la cadena por
+  `.catch((error) => { console.error(...); return false; }).finally(() => { this.selectingRateId =
+  null; })`: el `catch` evita que el rechazo quede como "unhandled promise rejection" (y lo deja
+  registrado en consola para diagnóstico) sin inventar un mensaje visible que le eche la culpa al
+  backend o al hotel — es una falla de navegación del cliente, no de datos — y el `finally` garantiza
+  que el estado se libere en los tres desenlaces posibles (navegación exitosa, bloqueada por un
+  guard, o la falla capturada arriba), así que el usuario siempre puede volver a intentar sin
+  recargar. En una navegación exitosa, limpiar la bandera es inofensivo: el router ya está destruyendo
+  este componente para cuando la promesa se resuelve, así que no hay parpadeo visible.
+- **Por qué:** hallazgo P2 de la auditoría de motion (`2026-08-17`, sección BOOKING FLOW /
+  STATE TRANSITIONS): el guard de estado `selectingRateId` agregado durante el pase de animate de
+  esta ruta introdujo un punto de fallo silencioso que no existía antes (el código previo a esa
+  sesión no tenía ningún guard de estado en este botón).
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-rates.ts` únicamente.
+- **Impacto:** sin migraciones, sin variables de entorno, sin cambios de API. No se tocó la ruta de
+  destino, los query params, la lógica de selección de tarifa, los datos/precios/disponibilidad, la
+  secuencia de requests, ninguna animación, el comportamiento de `prefers-reduced-motion`, ni el
+  hover de las tarjetas (explícitamente fuera de alcance de este pase). No se agregó ningún estado de
+  error visible nuevo: el único patrón de error ya existente en este componente
+  (`hotelsLoadError`/`hotelsLoadErrorContext`) reemplaza toda la grilla de tarifas, lo cual no encaja
+  para una falla de navegación puntual de una tarjeta — forzarlo habría ocultado el resto de tarifas
+  ya cargadas que el usuario sí puede seguir eligiendo. Validado con `tsc --noEmit` limpio y
+  `ng build --configuration=development` exitoso.
+
+---
+
+### 2026-08-17 — Animación funcional en /check-in-online
+
+- **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `animate`, brief
+  detallado enfocado en motion funcional para búsqueda de reserva, progresión del formulario de
+  huéspedes, validación, envío y confirmación)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** el flujo público de check-in online
+  (`frontend/src/app/components/pages/online-check-in/online-check-in.{html,ts,css}`) no tenía
+  ninguna transición: la sección de datos de huéspedes aparecía de golpe tras verificar la reserva,
+  los mensajes de validación por campo y los errores de búsqueda/envío aparecían sin transición, y la
+  confirmación final no tenía ninguna jerarquía visual. A diferencia de las cinco entradas
+  anteriores de esta sesión, `online-check-in.css` **no es un archivo compartido** (solo lo usa este
+  componente), así que no hizo falta ningún scoping especial ni clases nuevas para evitar tocar otras
+  rutas. Cambios:
+  - Sección de datos de huésped (`.online-guest-card`, ya tenía esa clase en el `<form
+    *ngIf="codeConfirmed">`): entrada única (opacity + `translateY(8px)`, 280ms
+    `cubic-bezier(0.16,1,0.3,1)`) cuando la búsqueda de reserva tiene éxito. Todo lo de adentro
+    (fieldsets "Datos personales", "Documento de identidad", "Contacto", "Llegada", "Contacto de
+    emergencia", "Consentimiento", y cada tarjeta de huésped cuando la reserva tiene varios) viaja
+    junto con esa única animación del contenedor — nada se anima individualmente ni con su propio
+    delay, tal como pedía explícitamente el brief ("no stagger guest controls/fieldsets/legends/
+    hints", "guest cards must never have to wait"). El `scrollIntoView` + `focus({preventScroll:
+    true})` ya existentes en `continueWithCode()` siguen disparándose de forma síncrona, sin depender
+    de que la animación termine — el contenido es focuseable y queda en el árbol de accesibilidad de
+    inmediato porque la animación es solo opacity/transform, nunca `visibility`/`display`.
+  - Chip "Reserva verificada" (`.online-reservation-chip`, hotel + fechas): su propio fade sutil
+    (mismo keyframe, 260ms, 40ms de delay sobre el contenedor) ya que se monta una sola vez junto con
+    el formulario y no se re-anima mientras el huésped edita campos. Las fechas y el nombre del hotel
+    son texto plano dentro del chip, no se animan por separado.
+  - Errores de campo, de casilla de consentimiento y los dos banners de nivel de formulario
+    (`#online-check-in-lookup-error`, `#online-check-in-error`): un solo fade de **solo opacidad**
+    (160ms) para los tres casos — es el tratamiento más restringido pedido por la sección de
+    VALIDACIÓN del brief (campo por campo), y como "short fade-in"/"fade in quickly" (búsqueda y
+    envío) no exigían movimiento, aplicar el mismo tratamiento en todos lados mantiene el flujo
+    consistente sin fragmentar el comportamiento entre mensajes de apariencia similar. Los hints
+    estáticos (`id` termina en `-hint`) quedaron explícitamente excluidos y siguen sin animar, como
+    ya lo distinguía el CSS existente por color/peso. `aria-invalid`/`aria-describedby` se siguen
+    actualizando de forma síncrona vía los bindings de Angular ya existentes.
+  - Botones "Buscar reserva"/"Enviar check-in"/"Limpiar" (`.online-primary`, `.online-secondary`,
+    compartidos solo dentro de esta página): se agregó `opacity` a su `transition` ya existente para
+    que el dim de `:disabled` durante una búsqueda o un envío se sienta suavizado en vez de
+    instantáneo. Se preservó intacto el fix de contraste ya documentado en el CSS
+    (`--primary-hover` en vez de `--primary` para el texto blanco del botón primario). Sin spinner
+    nuevo (no existía uno).
+  - Confirmación final (`#online-check-in-confirmation`, `*ngIf="submitted"`): secuencia de tres
+    pasos igual a la ya usada en `/reservar/confirmacion` — (1) el ícono de check: opacity +
+    `scale(0.94→1)`, 280ms, sin delay; (2) encabezado "Check-in preparado" + párrafo, como un grupo:
+    mismo fade+`translateY(8px)`, 300ms, delay 50ms; (3) el enlace "Volver al inicio": mismo fade,
+    delay 100ms (tope total de stagger en 100ms, dentro del límite de ~100-120ms pedido). Sin
+    confeti, bounce, pulso ni loop. El selector del paso 3 se escribió como `.online-confirmation a`
+    (no `.online-primary` a secas) porque esa misma clase también es el botón de "Buscar reserva" y
+    el de "Enviar check-in" en otras partes de esta página — deben quedar siempre visibles desde la
+    carga, sin heredar el delay de esta secuencia.
+  - Se agregó el bloque `@media (prefers-reduced-motion: reduce)` que faltaba por completo en este
+    archivo (`animation: none`, `transition-duration/delay: 0s`, `scroll-behavior: auto` para todo
+    `.online-checkin-page *`), y se hicieron los tres `scrollIntoView({behavior:'smooth'})` ya
+    existentes en `online-check-in.ts` (guest section, confirmación, error de envío) sensibles a
+    `prefers-reduced-motion` (nuevo método privado `prefersReducedMotion()`), mismo patrón ya usado
+    en `landing.ts` y `allied-hotels.ts`.
+- **Por qué:** pedido explícito del usuario de motion puramente funcional para este flujo —
+  progreso y cambios de estado, nunca decoración — con instrucciones detalladas por zona y la
+  restricción explícita de no convertir el formulario en un wizard ni animar campos/fieldsets
+  individualmente.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/online-check-in/online-check-in.css`, `online-check-in.ts`.
+  `online-check-in.html` no cambió (la clase `.online-guest-card` que se usó para el scoping ya
+  existía en el template).
+- **Impacto:** sin migraciones, sin variables de entorno, sin cambios de API/RBAC. No cambia la
+  lógica de `OnlineCheckInService` (lookup/submit), el payload al backend, la verificación de
+  reserva, el prellenado de huéspedes, el comportamiento del `FormArray`, la semántica de
+  fieldset/legend, ningún validador, el wiring ARIA, el manejo de foco, el copy en español, ni el
+  comportamiento de confirmación-antes-de-reset de `resetFlow()` (que sigue sin animarse, tal como
+  pedía el brief). Validado con `tsc --noEmit` limpio, `ng build --configuration=development`
+  exitoso, y el detector mecánico de la skill (`detect.mjs`): un único hallazgo advisory
+  pre-existente y fuera de alcance (el fondo de líneas decorativo del hero, igual al de las otras
+  páginas públicas, no tocado). No se verificó visualmente en navegador: no hay
+  `chromium-cli`/Playwright disponibles en este entorno (mismo motivo que entradas anteriores). Con
+  esto quedan animadas las 6 rutas públicas de Wayra (landing, hoteles aliados, y las 4 del flujo de
+  reserva) más este flujo de check-in online, todas compartiendo el mismo lenguaje visual
+  (`fade-in` con `translateY(8px)`, easing `cubic-bezier(0.16,1,0.3,1)`, fades opacity-only para
+  errores de campo) sin haberlas tocado en un mismo pase salvo cuando compartían archivo CSS.
+
+---
+
+### 2026-08-17 — Transición de confirmación en /reservar/confirmacion/:reservationId
+
+- **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `animate`, brief
+  detallado pidiendo una transición de cierre restringida y tranquilizadora, explícitamente no
+  celebratoria)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** el paso final del flujo (confirmación de que la solicitud de reserva se envió,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-confirmation.{html,ts}`, que
+  comparte `allied-booking.css` con las otras 3 rutas del flujo) no tenía ninguna transición: el
+  ícono de check, el encabezado/copy y los chips de hotel/referencia/fechas aparecían todos a la vez
+  sin ninguna jerarquía visual. A diferencia de las cuatro entradas anteriores, esta vez **no hizo
+  falta tocar ni el HTML ni el TS** de la página: `.booking-confirmation-icon`,
+  `.booking-confirmation-copy` y `.booking-confirmation-details` ya son clases exclusivas de esta
+  página (verificado con `grep` contra los otros 3 templates), así que toda la animación se escribió
+  directamente sobre esas reglas ya existentes en `allied-booking.css`, sin necesidad de scoping ni
+  de clases nuevas. Cambios:
+  - Secuencia de tres pasos (ícono → encabezado/copy → chips de detalle), tal como pedía
+    explícitamente la sección "MESSAGE HIERARCHY" del brief, con el delay del último paso en 100ms
+    (dentro del tope de ~100-120ms pedido):
+    1. `.booking-confirmation-icon`: reveal de una sola vez, opacity 0→1 + `scale(0.94→1)` (nuevo
+       keyframe `booking-confirmation-icon-enter`), 280ms, sin delay. Sin bounce, spring, pulso,
+       confeti ni loop. El ícono (`<i class="pi pi-check" aria-hidden="true">`) sigue siendo
+       puramente decorativo y `aria-hidden`, sin cambios ahí.
+    2. `.booking-confirmation-copy` (kicker "Próximos pasos" + encabezado "El hotel revisará tu
+       solicitud" + párrafo explicativo, como un solo bloque — representan juntos el "encabezado
+       principal" del brief): reutiliza el keyframe `booking-fade-in` ya definido para el resto del
+       flujo (opacity + `translateY(8px)`), 320ms, delay 50ms.
+    3. `.booking-confirmation-details` (chips de hotel/referencia/fechas, `*ngIf="hasConfirmation
+       Details"`): mismo `booking-fade-in`, 300ms, delay 100ms. Los chips se animan como **un solo
+       grupo**, no individualmente; el número de referencia dentro del chip no se anima por
+       separado (sin count-up ni efecto de tipeo).
+  - No se tocó `.booking-confirmation-page` (la tarjeta contenedora) en sí: queda visible de
+    inmediato con su borde/sombra/fondo — solo su contenido hace el cascade de tres pasos descrito
+    arriba, que ya cumple con "la región principal entra con un fade + translateY pequeño" sin
+    duplicar la animación en dos capas (tarjeta completa + contenido) ni arriesgar el efecto de
+    opacidad compuesta que eso generaría.
+  - No se tocaron `.booking-primary`/`.booking-secondary` (botones "Buscar otro alojamiento"/"Ver
+    hoteles aliados"): el brief pedía el mismo feedback de hover/focus/press "ya establecido en otras
+    partes", y esas reglas compartidas ya lo tienen (hover con elevación, active, foco visible vía
+    `.booking-page :focus-visible`, min-height 48px ≥ 44px) — no había nada que agregar sin tocar
+    las otras 3 rutas que también usan esas clases.
+  - No se tocó `ngAfterViewInit()` (el foco programático en `#confirmationRegion`) ni el
+    `aria-live="polite"` del `<section>`: el foco y el anuncio al lector de pantalla ocurren de
+    inmediato como antes, independientes de que el contenido visual todavía esté a mitad de su
+    fade — las animaciones son puramente de opacidad/transform en CSS, nunca `visibility:hidden` ni
+    `display:none`, así que nunca ocultan el contenido del árbol de accesibilidad.
+  - No se tocó el bloque `@media (prefers-reduced-motion: reduce)`: ya cubre todo `.booking-page *`
+    desde dos entradas atrás, así que neutraliza automáticamente el scale del ícono, los `translateY`
+    y los tres delays de esta entrada sin cambios adicionales.
+- **Por qué:** pedido explícito del usuario de una transición de cierre profesional y tranquilizadora
+  que refuerce que la SOLICITUD fue enviada (sin insinuar que el hotel ya confirmó la reserva), sin
+  nada celebratorio/gamificado, y con la restricción explícita de no modificar `/reservar`,
+  `/reservar/tarifas` ni `/reservar/solicitud` en este pase.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/allied-booking/allied-booking.css`
+  (compartido; las tres clases tocadas son exclusivas de esta página, ver nota arriba).
+  `allied-booking-confirmation.html` y `.ts` no cambiaron.
+- **Impacto:** sin migraciones, sin variables de entorno, sin cambios de API/RBAC. No cambia el copy
+  ("Solicitud enviada" / "El hotel revisará tu solicitud"), el nombre del hotel, la referencia de la
+  solicitud, las fechas, el manejo de foco, las acciones ni su routing. Las otras 3 rutas del flujo
+  no deberían verse afectadas: se verificó con `grep` que `.booking-confirmation-icon`,
+  `.booking-confirmation-copy` y `.booking-confirmation-details` no aparecen en ninguna otra
+  plantilla, y que `allied-booking.html`, `allied-booking-rates.*` y `allied-booking-request.*`
+  quedaron intactos en este pase. Validado con `tsc --noEmit` limpio, `ng build
+  --configuration=development` exitoso, y el detector mecánico de la skill (`detect.mjs`) sin
+  hallazgos. No se verificó visualmente en navegador: no hay `chromium-cli`/Playwright disponibles en
+  este entorno (mismo motivo que entradas anteriores). Con esto quedan animadas las 4 rutas del flujo
+  completo de reserva de hoteles aliados (`/reservar`, `/reservar/tarifas/:slug`,
+  `/reservar/solicitud/:slug/:rateId`, `/reservar/confirmacion/:reservationId`), todas compartiendo
+  el mismo lenguaje visual (`booking-fade-in`, `booking-hint-in`, easing
+  `cubic-bezier(0.16,1,0.3,1)`, mismo bloque de `prefers-reduced-motion`) sin haberse modificado dos
+  rutas en el mismo pase.
+
+---
+
+### 2026-08-17 — Animación funcional en /reservar/solicitud/:slug/:rateId
+
+- **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `animate`, brief
+  detallado enfocado en motion funcional para feedback de formulario, validación, resumen de
+  contexto y envío)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** el paso 3 del flujo de reserva (formulario de solicitud,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.{html,ts}`, que comparte
+  `allied-booking.css` con las otras 3 rutas del flujo) no tenía transición en los mensajes de
+  validación por campo, en el resumen de contexto (hotel/tarifa/fechas/huéspedes), en los estados de
+  carga/error, ni en el error de envío del formulario. A diferencia de las dos entradas anteriores, el
+  brief fue explícito en que el formulario en sí **no** debía animarse: nada de entrada por campo,
+  nada de stagger, foco de teclado siempre inmediato e independiente de cualquier motion. Se aplicó el
+  mismo criterio de scoping ya usado dos veces en esta sesión: `.booking-context-summary`,
+  `.booking-hotel-card`, `.booking-form`, `.booking-inline-warning` son exclusivas de esta página
+  (verificado con `grep` contra los otros 3 templates) y se tocaron directo; `.booking-empty`,
+  `.booking-hint-error` y `.booking-primary` son compartidas, así que sus reglas nuevas se anidaron
+  bajo un ancestro exclusivo (`.booking-form`) o detrás de una clase nueva agregada solo aquí
+  (`booking-request-results`, `booking-request-submit`). Todos los keyframes reutilizan los ya
+  definidos en las dos entradas anteriores (`booking-fade-in`, `booking-hint-in`) — mismo lenguaje
+  visual en los tres pasos del flujo, cero CSS nuevo duplicado. Cambios:
+  - Mensajes de validación por campo (`.booking-form .booking-hint-error`, nombre/correo/teléfono/
+    tipo y número de documento): fade-in de **solo opacidad** (`booking-hint-in`, 160ms) — sin
+    `translateY`, sin shake, sin movimiento horizontal, tal como pedía el brief para esta zona
+    específicamente. `aria-invalid` y `aria-describedby` siguen actualizándose de forma síncrona vía
+    los bindings de Angular ya existentes (`isInvalid()`); la animación es puramente visual sobre el
+    `<small>`, no retrasa nada de accesibilidad.
+  - Resumen de contexto: tanto los chips móviles/tablet (`.booking-context-summary`) como la tarjeta
+    sticky de escritorio (`.booking-hotel-card`) — ambos representan el mismo "hotel/rate/date/guest
+    context" que menciona el brief, solo en breakpoints distintos — usan `booking-fade-in` (opacity +
+    `translateY(8px)`, 240ms). Ninguno de los dos se re-crea mientras el huésped edita campos
+    posteriores del formulario (el `*ngIf` del `<section>` padre solo cambia cuando cargan los datos,
+    no por cada tecla), así que la entrada se reproduce una sola vez por visita a este paso, nunca en
+    cada edición.
+  - Estados de carga/error/solicitud-incompleta (`.booking-request-results .booking-empty`, nueva
+    clase agregada solo en los 3 wrappers `*ngIf` de esta página): mismo `booking-fade-in`.
+  - Error de envío (`.booking-inline-warning`, ya tenía `role="alert"`): mismo `booking-fade-in`. Sin
+    shake del formulario. El mensaje sigue siendo anunciado de inmediato por el lector de pantalla vía
+    `role="alert"`, sin depender de que la animación termine.
+  - Botón "Enviar solicitud de reserva" (nueva clase `booking-request-submit`, además de
+    `booking-primary`): se le agregó `opacity` a su `transition` (mismo arreglo aplicado en las dos
+    entradas anteriores a `.booking-search-submit`/`.booking-rate-select-cta`), para que el paso a
+    `[disabled]="saving"` se sienta suavizado en vez de instantáneo. No se tocó `allied-booking-
+    request.ts`: el estado `saving` que gatea el botón y el texto ("Enviando solicitud..." /
+    "Enviar solicitud de reserva") ya existían y ya envuelven la petición HTTP real
+    (`webReservationService.createWebReservation`), así que no hizo falta agregar lógica nueva. Sin
+    spinner (no existía uno en este botón). No se agregó ningún retraso artificial: la navegación a
+    `/reservar/confirmacion/:reservationId` en el `next` del `subscribe` sigue disparándose en cuanto
+    la petición real resuelve, sin tocar esa rama de código.
+  - No se tocó el bloque `@media (prefers-reduced-motion: reduce)`: ya quedó ampliado a todo
+    `.booking-page *` dos entradas atrás, y esta página comparte esa misma raíz, así que ya cubre
+    todas las animaciones nuevas de esta entrada sin cambios adicionales.
+- **Por qué:** pedido explícito del usuario de motion puramente funcional para este paso —
+  explicación de validación, envío y cambios de estado, nunca decoración — con instrucciones
+  detalladas por zona del formulario y la restricción explícita de no modificar `/reservar`,
+  `/reservar/tarifas` ni `/reservar/confirmacion` en este pase.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.html`,
+  `allied-booking.css` (compartido; ver nota de scoping arriba). `allied-booking-request.ts` no
+  cambió.
+- **Impacto:** sin migraciones, sin variables de entorno, sin cambios de API/RBAC. No cambia
+  validadores de teléfono/documento, la validación dependiente del tipo de documento, los ids/
+  bindings de `aria-invalid`/`aria-describedby`, el contexto de hotel/tarifa/fechas/huéspedes, el
+  comportamiento sticky de escritorio, la lógica de envío, ni el routing a
+  `/reservar/confirmacion/:reservationId`. Las otras 3 rutas del flujo no deberían verse afectadas: se
+  verificó con `grep` que `booking-request-results` y `booking-request-submit` no aparecen en ninguna
+  otra plantilla, que `.booking-context-summary`/`.booking-hotel-card`/`.booking-form`/
+  `.booking-inline-warning` son exclusivas de esta página, y que `allied-booking.html`,
+  `allied-booking-rates.*` y `allied-booking-confirmation.*` quedaron intactos en este pase (solo
+  cambiaron en las dos entradas anteriores de esta misma sesión). Validado con `tsc --noEmit` limpio,
+  `ng build --configuration=development` exitoso, y el detector mecánico de la skill (`detect.mjs`)
+  sobre los archivos tocados sin hallazgos. No se verificó visualmente en navegador: no hay
+  `chromium-cli`/Playwright disponibles en este entorno (mismo motivo que entradas anteriores).
+
+---
+
+### 2026-08-17 — Animación funcional en /reservar/tarifas/:slug
+
+- **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `animate`, brief
+  detallado enfocado en motion funcional, no decorativo)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** el paso 2 del flujo de reserva (elegir habitación/tarifa,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-rates.{html,ts}`, que comparte
+  `allied-booking.css` con las otras 3 rutas del flujo) tenía las mismas carencias que ya se habían
+  corregido en el paso de búsqueda (ver entrada anterior): tarjetas de tarifa sin animación de
+  entrada, hover sin proteger contra iOS/Safari, estados de carga/error sin transición, y el CTA de
+  selección sin feedback de "en curso". Se aplicó el mismo criterio de scoping que en la entrada
+  anterior: `.booking-rate-select-card`, `.booking-rate-select-cta` y `.booking-rates` son clases
+  exclusivas de esta página (verificado con `grep` contra los otros 3 templates del flujo) y se
+  pudieron tocar directamente; `.booking-empty` y `.booking-results-header > span` sí son
+  compartidas, así que su fade-in se anidó bajo el ancestro exclusivo `.booking-rates` en vez de
+  escribirse contra la clase compartida directamente. Cambios:
+  - Tarjetas de tarifa (`.booking-rate-select-card`): entrada reutilizando el mismo keyframe
+    `booking-result-enter` (opacity + `translateY(14px)`, 300ms `cubic-bezier(0.16,1,0.3,1)`) que ya
+    se había definido para las tarjetas de hotel del paso 1 — mismo lenguaje visual entre los dos
+    pasos del flujo — con el mismo stagger por `nth-child` (0/35/70/105/140ms, tope 140ms). Como
+    `trackByIndex` remonta la lista completa cada vez que cambian las tarifas (nueva búsqueda o
+    reintento), la entrada se reproduce en cada aparición real de resultados, no en renders menores.
+  - Hover de tarjeta: `.booking-rate-select-card:hover` (elevación +3px, ya existía) estaba sin
+    proteger — se movió, junto al mismo arreglo ya hecho para `.booking-result-card` en la entrada
+    anterior, dentro de `@media (hover: hover) and (pointer: fine)`, y se agregó zoom sutil de imagen
+    (`scale(1.03)`, 400ms) en el mismo hover, contenido por el `overflow: hidden` ya existente del
+    contenedor (sin overflow ni layout shift). El ícono de fallback (cuando no hay foto de la
+    habitación) no se tocó — sigue estático, sin loop.
+  - CTA "Elegir tarifa" (`.booking-rate-select-cta`): se agregó `opacity` a su `transition` (la regla
+    compartida `.booking-primary` no la incluye) para que el estado deshabilitado se sienta suave. Se
+    agregó un campo nuevo `selectingRateId` en el componente: al hacer clic, se marca la tarifa en
+    curso, se deshabilitan todos los botones del grid (evita una segunda navegación mientras la
+    primera está en camino — la carga del chunk lazy de `/reservar/solicitud` no es instantánea) y el
+    botón clickeado cambia su texto a "Abriendo..." hasta que `Router.navigate` resuelve; si la
+    promesa resuelve en `false` (navegación cancelada, p. ej. por un guard) se libera el estado para
+    permitir reintentar. Sin spinner: se mantiene el mismo criterio del paso 1 de preferir una
+    transición de texto/opacidad corta en vez de motion continuo. La ruta de destino
+    (`/reservar/solicitud/:slug/:rateId`) y sus query params no cambiaron.
+  - Estados de carga/reintento/error/vacío y el contador de tarifas
+    (`.booking-rates .booking-empty`, `.booking-rates .booking-results-header > span`): fade-in
+    `booking-fade-in` (reutilizado del paso 1, opacity + `translateY(8px)`, 240ms) en cada cambio de
+    estado. Ningún "shake" en los contenedores de error.
+  - No se tocó el bloque `@media (prefers-reduced-motion: reduce)`: ya quedó ampliado a todo
+    `.booking-page *` en la entrada anterior, y esta página comparte esa misma raíz `.booking-page`,
+    así que ya cubre estas animaciones nuevas sin cambios adicionales.
+- **Por qué:** pedido explícito del usuario de motion funcional para este paso, con instrucciones
+  detalladas de duración/easing/stagger por zona y la restricción explícita de no modificar
+  `/reservar`, `/reservar/solicitud` ni `/reservar/confirmacion` en este pase.
+- **Archivos/áreas afectadas:**
+  `frontend/src/app/components/pages/allied-booking/allied-booking-rates.html`,
+  `allied-booking-rates.ts`, `allied-booking.css` (compartido; ver nota de scoping arriba).
+- **Impacto:** sin migraciones, sin variables de entorno, sin cambios de API/RBAC. No cambia los
+  datos de hotel/tarifa, la lógica de disponibilidad/precio, el fallback honesto de disponibilidad,
+  ni el routing a `/reservar/solicitud/:slug/:rateId` (mismo destino y query params, solo se agregó
+  un guard contra doble clic). Las otras 3 rutas del flujo no deberían verse afectadas: se verificó
+  con `grep` que `.booking-rate-select-card`, `.booking-rate-select-cta` y `.booking-rates` no
+  aparecen en ninguna otra plantilla, y que ninguna otra plantilla ni componente fue tocado en este
+  pase (`allied-booking.html`/`.ts`, `allied-booking-request.*` y `allied-booking-confirmation.*`
+  quedaron intactos). Validado con `tsc --noEmit` limpio, `ng build --configuration=development`
+  exitoso, y el detector mecánico de la skill (`detect.mjs`) sobre los archivos tocados sin
+  hallazgos. No se verificó visualmente en navegador: no hay `chromium-cli`/Playwright disponibles en
+  este entorno (mismo motivo que entradas anteriores).
+
+---
+
+### 2026-08-17 — Animación funcional en el paso de búsqueda de /reservar
+
+- **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `animate`, brief
+  detallado enfocado en motion funcional, no decorativo)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** el paso de búsqueda de hoteles aliados (`/reservar`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.{html,ts}`) no tenía transición
+  en el panel de destino, en los estados de carga/error/vacío de resultados, ni en la aparición de
+  las tarjetas de resultado, y su hover de tarjeta no estaba protegido contra iOS/Safari.
+  **Complicación clave de esta página:** `allied-booking.css` es un archivo compartido — lo
+  referencian también `allied-booking-rates.ts`, `allied-booking-request.ts` y
+  `allied-booking-confirmation.ts` (las otras rutas del flujo de reserva), y varias clases
+  (`.booking-empty`, `.booking-results`, `.booking-results-header`, `.booking-primary`,
+  `.booking-hint-error`, `.booking-field`) se reutilizan literalmente en esas otras plantillas. El
+  pedido del usuario fue explícito en no tocar esas otras rutas en este pase, así que cualquier
+  regla nueva sobre una clase compartida se escribió anidada bajo un ancestro exclusivo de esta
+  página (`.booking-search`, o una clase nueva agregada solo aquí,
+  `.booking-search-results`/`.booking-search-submit`) en vez de modificar la regla compartida
+  directamente; las clases que ya eran exclusivas de esta página (`.booking-destination-panel`,
+  `.booking-result-card` y sus hijos, los selectores `:host ::ng-deep .booking-date-range-*` del
+  datepicker) se pudieron tocar sin anidar porque ningún otro componente de la carpeta las renderiza.
+  Cambios (todos en `allied-booking.css`, más dos clases nuevas agregadas en `allied-booking.html`):
+  - Panel de destino (`.booking-destination-panel`, montado por `*ngIf` en cada apertura): entrada
+    con `animation: booking-destination-panel-enter` (opacity + `translateY(-6px)`, 180ms
+    `cubic-bezier(0.16,1,0.3,1)`). Sin cierre animado — el brief lo dejaba condicionado a no romper
+    accesibilidad/teclado, y una salida animada habría requerido retrasar el `*ngIf`/`destinationPanelOpen`
+    con temporizadores nuevos en el componente, con riesgo real sobre el manejo de foco de
+    `onDestinationFocusOut`/Escape; se optó por no tocar esa lógica. Las opciones son interactivas
+    de inmediato: la animación no bloquea `pointer-events` ni el foco.
+  - Mensajes de validación (`.booking-search .booking-hint-error`, destino y rango de fechas):
+    fade-in de solo opacidad (`booking-hint-in`, 160ms) — sin `translateY`, para que el mensaje de
+    error sea legible de inmediato en vez de "entrar deslizándose".
+  - Botón de búsqueda (nueva clase `booking-search-submit` en el `<button type="submit">`, además
+    de `booking-primary`): se agregó `opacity` a su lista de `transition` (la regla compartida
+    `.booking-primary` no la incluye), así que pasar a `[disabled]` cuando arranca la búsqueda se ve
+    como un cambio de estado suavizado en vez de un corte instantáneo. Sin spinner nuevo: ya existe
+    uno (`pi-spin pi-spinner`) en el botón "Mi ubicación", pero el brief pedía preferir una
+    transición de estado corta para el botón principal en vez de motion continuo.
+  - Tarjetas de resultado (`.booking-result-card`, exclusiva de esta página): entrada
+    `booking-result-enter` (opacity + `translateY(14px)`, 300ms) con stagger por `nth-child` (0/35/
+    70/105/140ms, tope en 140ms — dentro del rango ~120–150ms pedido). Como `*ngFor` usa
+    `trackByHotel` (por `slug`), solo se anima una tarjeta cuando su nodo DOM se crea de nuevo
+    (primeros resultados de una búsqueda), no en cada re-render menor. Se anima la tarjeta completa
+    como una unidad, no cada pieza de contenido por separado.
+  - Hover de tarjeta de resultado: la regla `.booking-result-card:hover` (elevación +3px) ya
+    existía pero sin proteger contra hover "pegado" en touch — se movió dentro de
+    `@media (hover: hover) and (pointer: fine)`, junto con un zoom sutil nuevo de la imagen
+    (`scale(1.03)`, 400ms) en el mismo hover. El foco por teclado sigue usando la regla ya existente
+    y siempre activa `.booking-page :focus-visible`, independiente de este hover.
+  - Estados de carga/error/vacío de resultados y el contador de resultados
+    (`.booking-search-results .booking-empty`, `.booking-search-results .booking-results-header >
+    span` — nueva clase `booking-search-results` agregada solo en la `<section>` de resultados de
+    esta página): fade-in `booking-fade-in` (opacity + `translateY(8px)`, 240ms) en cada cambio de
+    estado. Nada de "shake" en los contenedores de error.
+  - Se extendió el bloque `@media (prefers-reduced-motion: reduce)` ya existente (antes solo
+    neutralizaba el `transform` de cuatro hovers) para desactivar `animation`, `transition-duration`,
+    `transition-delay` y `scroll-behavior` en todo `.booking-page *`. Como los overlays internos del
+    `p-datepicker` de PrimeNG se montan fuera del DOM de `.booking-page` (vía overlay/CDK), este
+    bloque no toca sus animaciones internas — se preserva el comportamiento nativo del date-picker
+    tal como pedía el brief, sin necesidad de una excepción manual.
+- **Por qué:** pedido explícito del usuario de una animación puramente funcional para este paso —
+  feedback de estado, no decoración — con instrucciones detalladas de duración/easing/alcance por
+  cada zona del formulario y del resultado de búsqueda, y la restricción explícita de no modificar
+  las otras rutas del flujo de reserva pese a que comparten el mismo archivo CSS.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/allied-booking/allied-booking.css`,
+  `allied-booking.html`. `allied-booking.ts` no cambió (ninguna animación nueva requirió lógica de
+  componente).
+- **Impacto:** sin migraciones, sin variables de entorno, sin cambios de API/RBAC. No cambia la
+  lógica de búsqueda, la validación del formulario, el manejo de ARIA del combobox de destino, el
+  comportamiento del date-picker, ni el routing a `/reservar/tarifas/:slug`. Las otras tres rutas
+  del flujo (`/reservar/tarifas/:slug`, `/reservar/solicitud/:slug/:rateId`,
+  `/reservar/confirmacion/:id`) no deberían verse afectadas visualmente: se verificó con `grep` que
+  ninguna de sus plantillas usa las clases nuevas (`booking-search-submit`, `booking-search-results`)
+  y que toda regla nueva sobre una clase compartida quedó anidada bajo un ancestro exclusivo de esta
+  página. Validado con `tsc --noEmit` limpio, `ng build --configuration=development` exitoso, y el
+  detector mecánico de la skill (`detect.mjs`) sobre los archivos tocados sin hallazgos. No se
+  verificó visualmente en navegador: no hay `chromium-cli`/Playwright disponibles en este entorno
+  (mismo motivo que entradas anteriores).
+
+---
+
+### 2026-08-17 — Animación sutil en /hoteles-aliados
+
+- **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `animate`)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** la página pública de directorio de hoteles aliados
+  (`frontend/src/app/components/pages/allied-hotels/`) no tenía ningún movimiento (ni siquiera un
+  bloque `prefers-reduced-motion`, a diferencia de la landing), pese a que ya tenía transiciones de
+  hover en tarjetas/botones/enlaces. Se trató como directorio de búsqueda (modo Operate: la motion
+  debe explicar feedback y cambios de estado, no ser una entrada coreografiada), así que el foco fue
+  distinto al de la landing (modo Persuade): menos "momento autoral" y más continuidad de estado.
+  Cambios:
+  - Se agregó una animación de entrada por CSS (`allied-card-enter`, 300ms
+    `cubic-bezier(0.16,1,0.3,1)`, fade + `translateY(14px)`) directamente en `.allied-card`, con un
+    stagger acotado vía `nth-child` (0/35/70/105ms, tope en el quinto ítem en adelante). Como el
+    `*ngFor` de la grilla usa `trackByHotel` (por `slug`), Angular solo crea un nodo DOM nuevo para
+    una tarjeta cuando aparece por primera vez o cuando vuelve a calzar con el filtro después de
+    haber sido excluida — así que la animación de CSS (que se dispara al insertarse el elemento, no
+    por JS/IntersectionObserver) cubre tanto la carga inicial como cada cambio de búsqueda/tipo sin
+    re-disparar en tarjetas que ya estaban visibles y sin necesitar lógica adicional en el
+    componente.
+  - Se agregó un fade-in sutil (`allied-fade-in`, 220–280ms) a `.allied-result-count` (texto de
+    "Cargando..." / conteo de resultados), `.allied-error-state` y `.allied-empty`, que ya aparecían
+    y desaparecían por `*ngIf` pero sin transición.
+  - Se agregó zoom sutil de imagen en hover de tarjeta (`.allied-card:hover .allied-card-media img
+    { transform: scale(1.03) }`, 400ms), igual al patrón ya usado en `wayra-image-card` de la
+    landing, protegido con `@media (hover: hover) and (pointer: fine)` para que un tap en iOS/
+    iPadOS Safari no deje la imagen "pegada" en zoom.
+  - Se agregó el bloque `@media (prefers-reduced-motion: reduce)` que faltaba en esta página
+    (desactiva `animation`/`transition`/`scroll-behavior` para todo `.allied-hotels-page *`), y se
+    corrigió `scrollToFragment()` en `allied-hotels.ts` para usar `behavior: 'auto'` en vez de
+    `'smooth'` cuando el usuario tiene movimiento reducido activado (mismo patrón que
+    `scrollToSection` en `landing.ts`).
+- **Por qué:** pedido explícito del usuario de animar esta ruta; el comando `animate` de la skill
+  `impeccable` exige que toda animación tenga una ruta de `prefers-reduced-motion`, y esta página no
+  tenía ninguna, a diferencia de la landing (ver entrada anterior).
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/allied-hotels/allied-hotels.css`,
+  `allied-hotels.ts`.
+- **Impacto:** sin migraciones, sin variables de entorno, sin cambios de API/RBAC. No cambia el
+  comportamiento funcional de la búsqueda, el filtro ni la navegación por fragmento. Validado con
+  `tsc --noEmit` limpio, `ng build --configuration=development` exitoso, y el detector mecánico de la
+  skill (`detect.mjs`) sobre los archivos tocados: un único hallazgo advisory pre-existente y fuera de
+  alcance (el fondo de líneas decorativo del hero, ya presente antes de este cambio, igual al de la
+  landing). No se verificó visualmente en navegador: no hay `chromium-cli`/Playwright disponibles en
+  este entorno (mismo motivo que entradas anteriores).
+
+---
+
+### 2026-08-17 — Animación sutil en la landing pública
+
+- **Autor:** Claude Code, a solicitud del usuario (skill `impeccable` / comando `animate`)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** la landing pública (`frontend/src/app/components/pages/landing/`) ya tenía un
+  sistema de scroll-reveal (`.wayra-reveal` + `IntersectionObserver`, con fallback estático y
+  `prefers-reduced-motion`) y transiciones de hover en botones/tarjetas, pero varios encabezados de
+  sección no estaban envueltos en él, los grupos de tarjetas/ítems (pasos del flujo operativo,
+  tarjetas de audiencia, preguntas del FAQ) aparecían todos a la vez en vez de con un stagger
+  pequeño, el FAQ (`<details>`/`<summary>`) abría/cerraba de forma instantánea (comportamiento nativo
+  del navegador, sin transición), y el menú móvil aparecía sin transición de entrada. Cambios:
+  - Se agregó la clase `wayra-reveal` a los encabezados de las secciones "Operación", "Evidencia de
+    producto", "Para quién" y "FAQ", y al bloque de copy del hero (no a la imagen de producto del
+    hero, que tiene `fetchpriority="high"` y es candidata a LCP, para no retrasar su pintado).
+  - Se movió `wayra-reveal` del `<ol>` de pasos operativos a cada `<li>` individual, y se agregó un
+    método `revealDelay(index)` (`Math.min(index, 3) * 50` ms, tope de 150ms) usado como
+    `transition-delay` inline en los pasos del flujo, las tarjetas de audiencia y los ítems del FAQ,
+    para que cada grupo entre con un stagger pequeño y acotado en vez de simultáneo.
+  - Se reemplazó el toggle nativo del FAQ (`[open]`/`(toggle)`) por un manejador de click en
+    `<summary>` (`onFaqSummaryClick`) que hace `preventDefault()` y anima la altura del `<details>`
+    con la Web Animations API (`expandFaqItem`/`collapseFaqItem`, 260ms abrir / 220ms cerrar,
+    `cubic-bezier(0.16, 1, 0.3, 1)`, mismo easing que el resto de la página), cerrando también el
+    ítem previamente abierto cuando se abre uno nuevo (acordeón exclusivo). Con
+    `prefers-reduced-motion: reduce` se salta la animación y solo se alterna el atributo `open`.
+  - Se agregó una animación de entrada (`wayra-mobile-panel-enter`, 0.2s) al panel del menú móvil, y
+    un estado `:hover` para los botones del stepper del modal de demo (`.wayra-demo-step`), que no lo
+    tenían.
+  - Se bajó la duración de `.wayra-reveal` de 0.55s a 0.5s para respetar el tope de "hasta ~500ms
+    para reveals de sección" pedido, y se agregó `transition-delay: 0s !important` al bloque
+    `prefers-reduced-motion` existente (el `transition-duration: 0s` ya presente no anulaba el delay
+    del stagger nuevo, lo que habría dejado una pausa perceptible antes de mostrar contenido con
+    movimiento reducido activado).
+- **Por qué:** pedido explícito del usuario de agregar movimiento sutil y con propósito a la landing
+  pública (jerarquía, orientación y feedback), sin rediseñar secciones, cambiar copy/colores/
+  tipografía ni tokens públicos, respetando `prefers-reduced-motion` y sin depender de librerías de
+  animación nuevas (el proyecto no usa `@angular/animations`, así que todo se hizo con CSS
+  transitions/keyframes y la Web Animations API nativa del navegador).
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/landing.html`, `.ts`,
+  `.css`.
+- **Impacto:** sin migraciones, sin variables de entorno nuevas, sin cambios de API ni de recursos
+  RBAC. No cambia el comportamiento funcional del FAQ (sigue siendo un acordeón exclusivo,
+  navegable por teclado vía `<summary>`, con el atributo `open` reflejado correctamente para
+  lectores de pantalla) ni el de ningún CTA. Validado con `tsc --noEmit` limpio y `ng build
+  --configuration=development` exitoso. No se verificó visualmente en navegador: no hay
+  `chromium-cli`/Playwright disponibles en este entorno (mismo motivo que entradas anteriores) y no
+  se instalaron por ser una verificación puntual, no una necesidad recurrente del proyecto.
+
+---
+
 ### 2026-08-17 — Check-in online publico pide los datos de todos los huespedes de la reserva
 
 - **Autor:** Claude Code, a solicitud del usuario

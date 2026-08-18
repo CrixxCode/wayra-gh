@@ -362,9 +362,14 @@
                 <button
                   type="button"
                   class="booking-primary booking-rate-select-cta"
+                  [disabled]="selectingRateId !== null"
                   (click)="selectRoomRate(rate)">
 
-                  Elegir tarifa
+                  {{
+                    selectingRateId === rate.id
+                      ? 'Abriendo...'
+                      : 'Elegir tarifa'
+                  }}
 
                   <i class="pi pi-arrow-right text-xs"></i>
 

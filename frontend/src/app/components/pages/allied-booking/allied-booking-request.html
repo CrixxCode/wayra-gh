@@ -81,7 +81,7 @@
 
         <div
           *ngIf="loadingHotels"
-          class="booking-results">
+          class="booking-results booking-request-results">
 
           <div class="booking-empty">
             <i class="pi pi-calendar"></i>
@@ -100,7 +100,7 @@
 
         <div
           *ngIf="!loadingHotels && hotelsLoadError"
-          class="booking-results">
+          class="booking-results booking-request-results">
 
           <div class="booking-empty">
             <i class="pi pi-search"></i>
@@ -123,7 +123,7 @@
             !hotelsLoadError &&
             !canShowRequestForm
           "
-          class="booking-results">
+          class="booking-results booking-request-results">
 
           <div class="booking-empty">
             <i class="pi pi-search"></i>
@@ -445,7 +445,7 @@
 
               <button
                 type="submit"
-                class="booking-primary"
+                class="booking-primary booking-request-submit"
                 [disabled]="saving">
 
                 {{ saving ? 'Enviando solicitud...' : 'Enviar solicitud de reserva' }}

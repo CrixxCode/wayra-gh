@@ -672,24 +672,157 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
   // FAQ
   // =========================================================
 
-  onFaqToggle(
+  onFaqSummaryClick(
     event: Event,
     index: number
   ): void {
 
+    event.preventDefault();
+
+    const summary =
+      event.currentTarget as HTMLElement;
+
     const details =
-      event.target as HTMLDetailsElement | null;
+      summary.closest('details') as HTMLDetailsElement | null;
 
-    if (!details?.open) {
-
-      if (this.openFaqIndex === index) {
-        this.openFaqIndex = null;
-      }
-
+    if (!details) {
       return;
     }
 
-    this.openFaqIndex = index;
+    const container = details.parentElement;
+    const previousIndex = this.openFaqIndex;
+    const opening = previousIndex !== index;
+
+    const previousDetails =
+      previousIndex !== null && container
+        ? (
+            Array.from(container.children)[previousIndex] as
+              HTMLDetailsElement
+          )
+        : null;
+
+    this.openFaqIndex = opening
+      ? index
+      : null;
+
+    const prefersReducedMotion =
+      window.matchMedia(
+        '(prefers-reduced-motion: reduce)'
+      ).matches;
+
+    if (prefersReducedMotion) {
+
+      if (previousDetails && previousDetails !== details) {
+        previousDetails.open = false;
+      }
+
+      details.open = opening;
+      return;
+    }
+
+    if (previousDetails && previousDetails !== details) {
+      this.collapseFaqItem(previousDetails);
+    }
+
+    if (opening) {
+      this.expandFaqItem(details);
+    } else {
+      this.collapseFaqItem(details);
+    }
+  }
+
+
+  private expandFaqItem(
+    details: HTMLDetailsElement
+  ): void {
+
+    const startHeight =
+      `${details.offsetHeight}px`;
+
+    details.style.overflow = 'hidden';
+    details.style.willChange = 'height';
+    details.open = true;
+
+    window.requestAnimationFrame(() => {
+
+      const endHeight =
+        `${details.scrollHeight}px`;
+
+      const animation =
+        details.animate(
+          {
+            height: [
+              startHeight,
+              endHeight,
+            ],
+          },
+          {
+            duration: 260,
+            easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          }
+        );
+
+      animation.onfinish = () =>
+        this.finishFaqAnimation(details);
+
+      animation.oncancel = () =>
+        this.finishFaqAnimation(details);
+    });
+  }
+
+
+  private collapseFaqItem(
+    details: HTMLDetailsElement
+  ): void {
+
+    if (!details.open) {
+      return;
+    }
+
+    const startHeight =
+      `${details.offsetHeight}px`;
+
+    const summaryHeight =
+      details.querySelector('summary')?.offsetHeight ?? 0;
+
+    details.style.overflow = 'hidden';
+    details.style.willChange = 'height';
+
+    const animation =
+      details.animate(
+        {
+          height: [
+            startHeight,
+            `${summaryHeight}px`,
+          ],
+        },
+        {
+          duration: 220,
+          easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+        }
+      );
+
+    animation.onfinish = () => {
+      details.open = false;
+      this.finishFaqAnimation(details);
+    };
+
+    animation.oncancel = () =>
+      this.finishFaqAnimation(details);
+  }
+
+
+  private finishFaqAnimation(
+    details: HTMLDetailsElement
+  ): void {
+
+    details.style.overflow = '';
+    details.style.willChange = '';
+  }
+
+
+  revealDelay(index: number): number {
+    return Math.min(index, 3) * 50;
   }
 
 

@@ -297,6 +297,7 @@
   color: var(--muted);
   font-size: 0.88rem;
   font-weight: 750;
+  animation: allied-fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .allied-error {
@@ -308,6 +309,7 @@
   display: grid;
   gap: 0.85rem;
   justify-items: start;
+  animation: allied-fade-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .allied-error-state .allied-result-count {
@@ -330,13 +332,17 @@
   background: var(--card);
   box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  animation: allied-card-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.allied-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(44, 123, 229, 0.28);
-  box-shadow: var(--shadow-card);
-}
+/* trackBy keeps matching cards mounted across filter changes, so this only
+   plays for cards that are newly inserted: first load, or re-appearing after
+   a search/type filter change. Delay stays capped so a large result set
+   doesn't stretch the reveal out. */
+.allied-card:nth-child(2) { animation-delay: 35ms; }
+.allied-card:nth-child(3) { animation-delay: 70ms; }
+.allied-card:nth-child(4) { animation-delay: 105ms; }
+.allied-card:nth-child(n+5) { animation-delay: 140ms; }
 
 .allied-card-media {
   position: relative;
@@ -351,6 +357,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .allied-card-media-fallback {
@@ -499,6 +506,7 @@
   border-radius: var(--radius);
   background: var(--card);
   text-align: center;
+  animation: allied-fade-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .allied-empty i {
@@ -515,6 +523,30 @@
 .allied-hotels-page :focus-visible {
   outline: 3px solid rgba(44, 123, 229, 0.28);
   outline-offset: 2px;
+}
+
+@keyframes allied-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes allied-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (min-width: 760px) {
@@ -538,6 +570,18 @@
 
   .allied-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .allied-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(44, 123, 229, 0.28);
+    box-shadow: var(--shadow-card);
+  }
+
+  .allied-card:hover .allied-card-media img {
+    transform: scale(1.03);
   }
 }
 
@@ -583,5 +627,16 @@
 
   .allied-card-footer a {
     width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .allied-hotels-page *,
+  .allied-hotels-page *::before,
+  .allied-hotels-page *::after {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
   }
 }

@@ -117,12 +117,19 @@ export class AlliedHotelsPage implements OnInit, AfterViewInit {
       return;
     }
 
+    const prefersReducedMotion =
+      window.matchMedia(
+        '(prefers-reduced-motion: reduce)'
+      ).matches;
+
     window.setTimeout(() => {
       document
         .getElementById(fragment)
         ?.scrollIntoView({
           block: 'start',
-          behavior: 'smooth',
+          behavior: prefersReducedMotion
+            ? 'auto'
+            : 'smooth',
         });
     });
   }

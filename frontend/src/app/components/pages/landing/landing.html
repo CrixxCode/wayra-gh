@@ -234,7 +234,7 @@
         <!-- COPY -->
 
         <article
-          class="lg:col-span-5">
+          class="wayra-reveal lg:col-span-5">
 
           <h1
             class="wayra-heading text-4xl font-extrabold leading-[1.08] text-slate-950 sm:text-5xl lg:text-6xl">
@@ -527,7 +527,7 @@
         class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         <div
-          class="mx-auto max-w-3xl text-center py-10">
+          class="wayra-reveal mx-auto max-w-3xl text-center py-10">
 
           <h2
             class="wayra-heading text-3xl font-extrabold leading-tight sm:text-4xl">
@@ -553,7 +553,7 @@
         </div>
 
         <ol
-          class="wayra-flow-steps wayra-reveal mt-24 sm:mt-28 lg:mt-32">
+          class="wayra-flow-steps mt-24 sm:mt-28 lg:mt-32">
 
           <li
             *ngFor="
@@ -561,7 +561,8 @@
               let i = index;
               trackBy: trackByIndex
             "
-            class="wayra-flow-step">
+            class="wayra-flow-step wayra-reveal"
+            [style.transitionDelay.ms]="revealDelay(i)">
 
             <div
               class="wayra-flow-top">
@@ -619,7 +620,7 @@
         class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         <div
-          class="mx-auto max-w-3xl text-center">
+          class="wayra-reveal mx-auto max-w-3xl text-center">
 
           <h2
             class="wayra-heading text-3xl font-extrabold text-slate-900 sm:text-4xl">
@@ -785,7 +786,7 @@
         class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         <div
-          class="mx-auto max-w-3xl text-center">
+          class="wayra-reveal mx-auto max-w-3xl text-center">
 
           <h2
             class="wayra-heading text-3xl font-extrabold text-slate-900 sm:text-4xl">
@@ -812,9 +813,11 @@
           <article
             *ngFor="
               let audience of audiences;
+              let i = index;
               trackBy: trackByIndex
             "
-            class="wayra-audience-card wayra-reveal">
+            class="wayra-audience-card wayra-reveal"
+            [style.transitionDelay.ms]="revealDelay(i)">
 
             <div
               class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
@@ -862,7 +865,7 @@
         class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
 
         <div
-          class="mx-auto max-w-3xl text-center">
+          class="wayra-reveal mx-auto max-w-3xl text-center">
 
           <h2
             class="wayra-heading text-3xl font-extrabold text-slate-900 sm:text-4xl">
@@ -884,10 +887,10 @@
               trackBy: trackByIndex
             "
             class="wayra-faq-item wayra-reveal"
-            [open]="openFaqIndex === index"
-            (toggle)="onFaqToggle($event, index)">
+            [style.transitionDelay.ms]="revealDelay(index)">
 
-            <summary>
+            <summary
+              (click)="onFaqSummaryClick($event, index)">
               {{ faq.question }}
             </summary>
 

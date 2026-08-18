@@ -101,9 +101,24 @@
                 {{ hotelName }}
               </span>
 
-              <span *ngIf="reservationId">
+              <span
+                *ngIf="reservationId"
+                class="booking-reference-chip">
+
                 <i class="pi pi-ticket"></i>
                 Referencia #{{ reservationId }}
+
+                <button
+                  *ngIf="clipboardSupported"
+                  type="button"
+                  class="booking-copy-reference"
+                  (click)="copyReservationReference()"
+                  [attr.aria-label]="'Copiar referencia ' + reservationId">
+
+                  <i class="pi pi-copy" aria-hidden="true"></i>
+
+                </button>
+
               </span>
 
               <span *ngIf="hasStayDates">
@@ -112,6 +127,13 @@
               </span>
 
             </div>
+
+            <span
+              class="booking-copy-status"
+              role="status"
+              aria-live="polite">
+              {{ copyFeedback }}
+            </span>
           </div>
 
           <div class="booking-confirmation-actions">

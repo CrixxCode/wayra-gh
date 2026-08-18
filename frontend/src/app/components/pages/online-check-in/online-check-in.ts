@@ -206,10 +206,22 @@ export class OnlineCheckInPage {
   reservationSummary: OnlineCheckInLookupResponse | null = null;
   confirmation: OnlineCheckInResponse | null = null;
 
+  copyFeedback = '';
+
+  private copyFeedbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
   get reservationCodeLabel(): string {
 
     return this.normalizeReservationCode(
       this.reservationForm.controls.reservationCode.value
+    );
+  }
+
+  get clipboardSupported(): boolean {
+
+    return Boolean(
+      typeof navigator !== 'undefined' &&
+      navigator.clipboard
     );
   }
 
@@ -257,12 +269,15 @@ export class OnlineCheckInPage {
           this.codeConfirmed = true;
           this.submitted = false;
 
+          const prefersReducedMotion =
+            this.prefersReducedMotion();
+
           window.setTimeout(() => {
             const guestSection =
               document.getElementById('guest-check-in-data');
 
             guestSection?.scrollIntoView({
-              behavior: 'smooth',
+              behavior: prefersReducedMotion ? 'auto' : 'smooth',
               block: 'start',
             });
 
@@ -321,11 +336,14 @@ export class OnlineCheckInPage {
           this.submitted = true;
           this.confirmation = response;
 
+          const prefersReducedMotion =
+            this.prefersReducedMotion();
+
           window.setTimeout(() => {
             document
               .getElementById('online-check-in-confirmation')
               ?.scrollIntoView({
-                behavior: 'smooth',
+                behavior: prefersReducedMotion ? 'auto' : 'smooth',
                 block: 'center',
               });
           });
@@ -334,16 +352,53 @@ export class OnlineCheckInPage {
           this.submitting = false;
           this.submitError = this.extractErrorMessage(error);
 
+          const prefersReducedMotion =
+            this.prefersReducedMotion();
+
           window.setTimeout(() => {
             document
               .getElementById('online-check-in-error')
               ?.scrollIntoView({
-                behavior: 'smooth',
+                behavior: prefersReducedMotion ? 'auto' : 'smooth',
                 block: 'center',
               });
           });
         },
       });
+  }
+
+  async copyReservationCode(): Promise<void> {
+
+    const code =
+      this.reservationCodeLabel;
+
+    if (
+      !code ||
+      !this.clipboardSupported
+    ) {
+      return;
+    }
+
+    try {
+
+      await navigator.clipboard.writeText(code);
+    } catch {
+      // Clipboard write can fail (permission denied, insecure context,
+      // etc.). The code stays visible as plain text either way, so there is
+      // nothing to recover from here — just skip the feedback.
+      return;
+    }
+
+    this.copyFeedback = 'Código copiado.';
+
+    if (this.copyFeedbackTimeoutId !== null) {
+      clearTimeout(this.copyFeedbackTimeoutId);
+    }
+
+    this.copyFeedbackTimeoutId = setTimeout(() => {
+      this.copyFeedback = '';
+      this.copyFeedbackTimeoutId = null;
+    }, 2500);
   }
 
   resetFlow(): void {
@@ -711,6 +766,13 @@ export class OnlineCheckInPage {
     };
 
     return messages[controlName] ?? 'El dato ingresado es demasiado corto.';
+  }
+
+  private prefersReducedMotion(): boolean {
+
+    return window.matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    ).matches;
   }
 
   private normalizeReservationCode(value: string): string {
