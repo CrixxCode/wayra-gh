@@ -12,6 +12,7 @@ from apps.clients.models import Client
 from apps.clients.serializers import normalize_document_type
 from apps.hotel_settings.models import HotelSettings
 from apps.master_data.models import MasterData
+from apps.reservations.emails import send_reservation_registered_email
 from apps.reservations.models import Reservation, ReservationGuest, ReservationRoom
 from apps.reservations.services import (
     RESERVATION_STATUS_PENDING_CODES,
@@ -69,11 +70,13 @@ def create_web_reservation(*, data: dict[str, Any], request=None) -> Reservation
             data=data,
         )
 
-    return (
+    reservation = (
         Reservation.objects.select_related("hotel_settings", "client", "status", "origin")
         .prefetch_related("rooms_detail__room__room_type", "rooms_detail__meal_plan")
         .get(pk=reservation.pk)
     )
+    send_reservation_registered_email(reservation, request=request)
+    return reservation
 
 
 def _resolve_hotel(hotel_slug: str) -> HotelSettings:

@@ -374,8 +374,14 @@ alternativa comentada.
 Resend funciona en cualquier plan. Es la corrección del commit `b340bddd` ("envío de correo
 arreglado").
 
-**Usos del correo:** recuperación de contraseña (`templates/email/password_reset.html`) y
-notificaciones del flujo de solicitud de demo.
+**Usos del correo:** recuperación de contraseña (`templates/email/password_reset.html`),
+notificaciones del flujo de solicitud de demo, y el ciclo de vida de una reserva web pública
+(`backend/apps/reservations/emails.py`): al crearse (`reservation_registered.html`, "tu solicitud
+quedó registrada") y al confirmarla el hotel (`reservation_confirmed.html`, "tu reserva quedó
+confirmada" + aviso de que el check-in online se habilita 48 horas antes de la llegada). Estos dos
+correos de reserva solo se disparan para `source_channel == "WEB"` con `client.email` presente, no
+para reservas creadas por el hotel (walk-in, teléfono) — ver la entrada del 2026-08-18 en el
+Registro de cambios.
 
 ### 5.11 Throttling diferenciado por endpoint sensible
 
@@ -1076,6 +1082,51 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > originales eran breves, por lo que el campo "Por qué" de esas entradas es una reconstrucción
 > razonada, no una cita textual del autor. A partir de la creación de esta bitácora, cada entrada
 > debe escribirse en el momento del cambio.
+
+---
+
+### 2026-08-18 — Correos transaccionales de reserva registrada y reserva confirmada (booking web)
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** se agregó `backend/apps/reservations/emails.py` con
+  `send_reservation_registered_email()` y `send_reservation_confirmed_email()`, siguiendo el mismo
+  patrón que `send_demo_temporary_password_email()` de `apps/demo_requests/views.py`
+  (`EmailMultiAlternatives` + `render_to_string` + logo inline por CID como último recurso, sin
+  romper el flujo de reserva si el correo falla: la excepción se captura y se registra en logs, no
+  se propaga). Se crearon dos plantillas nuevas que extienden `templates/email/base_email.html`:
+  `reservation_registered.html` (se dispara al final de `create_web_reservation()` en
+  `apps/reservations/public_booking.py`, justo después de crear la reserva pública) y
+  `reservation_confirmed.html` (se dispara en `ReservationViewSet.confirm()` de
+  `apps/reservations/views.py`, después de que el estado pasa a `CONFIRMADA`). El segundo correo
+  informa que el check-in online se habilita 48 horas antes de la llegada, calculando esa hora con
+  la función ya existente `get_reservation_check_in_start_datetime()` de `apps/reservations/
+  services.py` (la misma que usa el check-in presencial para resolver la hora de check-in del
+  hotel) menos `timedelta(hours=48)` — es solo texto informativo en el correo, no se agregó
+  ninguna restricción nueva a la elegibilidad real del check-in online en
+  `online_check_in.get_online_check_in_eligibility()`, que hoy no exige esa ventana. El correo de
+  confirmación solo se envía cuando `reservation.source_channel == "WEB"`, para no notificar por
+  correo reservas hechas por el hotel (walk-in, teléfono); el de registro solo aplica a
+  `create_web_reservation()`, que únicamente se usa desde el booking público. Ambos se omiten en
+  silencio (sin lanzar error) si la reserva no tiene `client.email`.
+- **Por qué:** pedido explícito del usuario: avisar por correo al huésped cuando su solicitud de
+  reserva web queda registrada, y de nuevo cuando el hotel la confirma, incluyendo el aviso de que
+  puede adelantar su llegada con el check-in online 48 horas antes.
+- **Archivos/áreas afectadas:** `backend/apps/reservations/emails.py` (nuevo),
+  `backend/templates/email/reservation_registered.html` (nuevo),
+  `backend/templates/email/reservation_confirmed.html` (nuevo),
+  `backend/apps/reservations/public_booking.py`, `backend/apps/reservations/views.py`,
+  `backend/apps/reservations/tests.py`, sección 5.10 de este archivo.
+- **Impacto:** ninguna migración ni variable de entorno nueva (reutiliza `RESEND_API_KEY` /
+  `DEFAULT_FROM_EMAIL` ya configurados). Sin cambios de API pública ni recursos RBAC nuevos — los
+  dos endpoints que disparan estos correos (`POST /api/web-reservations/` y
+  `POST /api/reservations/{id}/confirm/`) ya existían y no cambiaron su contrato de
+  entrada/salida. Se agregaron pruebas en `apps/reservations/tests.py` que mockean
+  `EmailMultiAlternatives.send` (mismo enfoque que `apps/demo_requests/tests.py`) para verificar
+  que el correo se dispara al crear una reserva web y al confirmarla, y que **no** se dispara al
+  confirmar una reserva que no vino del canal web. `python manage.py check` y la suite completa de
+  `apps.reservations` pasan.
 
 ---
 

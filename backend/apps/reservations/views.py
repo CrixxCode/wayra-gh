@@ -41,7 +41,8 @@ from apps.reservations.serializers import (
     OnlineCheckInLookupSerializer,
     OnlineCheckInLookupResponseSerializer,
 )
-from apps.reservations.public_booking import create_web_reservation
+from apps.reservations.emails import send_reservation_confirmed_email
+from apps.reservations.public_booking import WEB_RESERVATION_SOURCE_CHANNEL, create_web_reservation
 from apps.reservations.online_check_in import submit_online_check_in, lookup_online_check_in
 from apps.reservations.services import (
     ROOM_STATUS_AVAILABLE,
@@ -385,6 +386,9 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
                 reservation = self._set_status(reservation, status_code=RESERVATION_STATUS_CONFIRMED)
             except ValueError as exc:
                 return self._error(str(exc))
+
+        if reservation.source_channel == WEB_RESERVATION_SOURCE_CHANNEL:
+            send_reservation_confirmed_email(reservation, request=request)
 
         serializer = ReservationDetailSerializer(reservation, context=self.get_serializer_context())
         return Response(serializer.data, status=status.HTTP_200_OK)

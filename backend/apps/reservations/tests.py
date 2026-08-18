@@ -1,8 +1,9 @@
 from datetime import time, timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient, APITestCase
 
@@ -1107,6 +1108,40 @@ class ReservationApiFlowTestCase(APITestCase):
         self.assertEqual(confirm.data["status_code"], "CONFIRMADA")
         self.assertTrue(confirm.data["can_check_in"])
 
+    @override_settings(
+        EMAIL_BACKEND="anymail.backends.resend.EmailBackend",
+        RESEND_API_KEY="re_test_key",
+        ANYMAIL={"RESEND_API_KEY": "re_test_key"},
+        DEFAULT_FROM_EMAIL="Wayra <notificaciones@example.com>",
+    )
+    @patch("apps.reservations.emails.EmailMultiAlternatives.send", return_value=1)
+    def test_confirming_web_reservation_sends_confirmation_email(self, send_mock):
+        reservation = self._create_reservation(status=self.reservation_status_pending)
+        reservation.source_channel = "WEB"
+        reservation.save(update_fields=["source_channel"])
+        self._create_room_line(reservation)
+
+        confirm = self.client.post(f"/api/reservations/{reservation.id}/confirm/", data={}, format="json")
+
+        self.assertEqual(confirm.status_code, 200)
+        send_mock.assert_called_once()
+
+    @override_settings(
+        EMAIL_BACKEND="anymail.backends.resend.EmailBackend",
+        RESEND_API_KEY="re_test_key",
+        ANYMAIL={"RESEND_API_KEY": "re_test_key"},
+        DEFAULT_FROM_EMAIL="Wayra <notificaciones@example.com>",
+    )
+    @patch("apps.reservations.emails.EmailMultiAlternatives.send", return_value=1)
+    def test_confirming_non_web_reservation_does_not_send_email(self, send_mock):
+        reservation = self._create_reservation(status=self.reservation_status_pending)
+        self._create_room_line(reservation)
+
+        confirm = self.client.post(f"/api/reservations/{reservation.id}/confirm/", data={}, format="json")
+
+        self.assertEqual(confirm.status_code, 200)
+        send_mock.assert_not_called()
+
         check_in = self.client.post(f"/api/reservations/{reservation.id}/check-in/", data={}, format="json")
         self.assertEqual(check_in.status_code, 200)
         self.assertEqual(check_in.data["status_code"], "EN_CURSO")
@@ -1754,6 +1789,23 @@ class WebReservationPublicApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Reservation.objects.count(), 0)
+
+    @override_settings(
+        EMAIL_BACKEND="anymail.backends.resend.EmailBackend",
+        RESEND_API_KEY="re_test_key",
+        ANYMAIL={"RESEND_API_KEY": "re_test_key"},
+        DEFAULT_FROM_EMAIL="Wayra <notificaciones@example.com>",
+    )
+    @patch("apps.reservations.emails.EmailMultiAlternatives.send", return_value=1)
+    def test_public_web_reservation_sends_registered_email(self, send_mock):
+        response = self.client.post(
+            "/api/web-reservations/",
+            data=self._payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        send_mock.assert_called_once()
 
 
 class OnlineCheckInPublicApiTests(APITestCase):

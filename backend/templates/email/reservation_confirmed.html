@@ -1,0 +1,97 @@
+{% extends "email/base_email.html" %}
+
+{% block title %}Reserva confirmada{% endblock %}
+
+{% block preheader %}Tu reserva en {{ hotel_name }} quedo confirmada.{% endblock %}
+
+{% block badge_label %}Reserva confirmada{% endblock %}
+
+{% block brand_subtitle %}{{ hotel_name }}{% endblock %}
+
+{% block content %}
+              <h1 style="margin:0 0 12px 0;color:#111c3f;font-size:28px;line-height:1.2;font-weight:800;">
+                Tu reserva quedo confirmada
+              </h1>
+              <p style="margin:0 0 12px 0;color:#334b72;font-size:15px;line-height:1.65;">
+                Hola {{ guest_name }},
+              </p>
+              <p style="margin:0 0 18px 0;color:#334b72;font-size:15px;line-height:1.65;">
+                <strong style="color:#0f1f41;">{{ hotel_name }}</strong> confirmo tu reserva. Te esperamos.
+              </p>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;margin-bottom:20px;">
+                <tr>
+                  <td style="padding:18px 20px;border:1px solid #d7e0ef;border-radius:14px;background:#f7faff;">
+                    <p style="margin:0 0 10px 0;color:#42557f;font-size:12px;font-weight:700;line-height:1.4;text-transform:uppercase;letter-spacing:0.06em;">
+                      Detalle de la reserva
+                    </p>
+                    <p style="margin:0 0 6px 0;color:#334b72;font-size:14px;line-height:1.6;">
+                      Referencia: <strong style="color:#0f1f41;">{{ reservation_reference }}</strong>
+                    </p>
+                    {% if room_type_name %}
+                    <p style="margin:0 0 6px 0;color:#334b72;font-size:14px;line-height:1.6;">
+                      Habitacion: <strong style="color:#0f1f41;">{{ room_type_name }}</strong>
+                    </p>
+                    {% endif %}
+                    <p style="margin:0 0 6px 0;color:#334b72;font-size:14px;line-height:1.6;">
+                      Llegada: <strong style="color:#0f1f41;">{{ check_in_date|date:"d/m/Y" }}</strong>
+                      &nbsp;&middot;&nbsp;
+                      Salida: <strong style="color:#0f1f41;">{{ check_out_date|date:"d/m/Y" }}</strong>
+                    </p>
+                    <p style="margin:0;color:#334b72;font-size:14px;line-height:1.6;">
+                      {{ total_nights }} noche{{ total_nights|pluralize }}
+                      &nbsp;&middot;&nbsp;
+                      {{ total_rooms }} habitacion{{ total_rooms|pluralize }}
+                      &nbsp;&middot;&nbsp;
+                      {{ total_guests }} huesped{{ total_guests|pluralize }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;margin-bottom:20px;">
+                <tr>
+                  <td style="padding:16px 18px;border:1px dashed {{ primary_color|default:'#0f1f41' }};border-radius:14px;background:#f7faff;">
+                    <p style="margin:0 0 8px 0;color:#111c3f;font-size:14px;font-weight:700;line-height:1.5;">
+                      Adelanta tu llegada con el check-in online
+                    </p>
+                    <p style="margin:0;color:#334b72;font-size:13px;line-height:1.6;">
+                      Podras completarlo desde 48 horas antes de tu llegada
+                      {% if online_check_in_available_from %}
+                      &mdash; a partir del <strong style="color:#0f1f41;">{{ online_check_in_available_from|date:"d/m/Y" }}</strong>
+                      desde las <strong style="color:#0f1f41;">{{ online_check_in_available_from|date:"H:i" }}</strong>
+                      {% endif %}.
+                      Ten a la mano tu numero de referencia
+                      (<strong style="color:#0f1f41;">{{ reservation_reference }}</strong>) y tu documento de identidad.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                <tr>
+                  <td align="center" style="padding:2px 0 22px 0;">
+                    <a href="{{ check_in_online_url }}" target="_blank" rel="noopener" class="wy-cta-reset" style="display:inline-block;padding:14px 28px;border-radius:12px;border:1px solid {{ primary_color|default:'#0f1f41' }};background:{{ primary_color|default:'#0f1f41' }};color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;line-height:1.2;text-align:center;">
+                      Hacer check-in online
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                <tr>
+                  <td style="padding:12px 14px;border:1px dashed #d7e0ef;border-radius:12px;background:#f7faff;">
+                    <p style="margin:0 0 6px 0;color:#42557f;font-size:12px;font-weight:700;line-height:1.4;">
+                      Si el boton no abre el enlace, copia esta URL:
+                    </p>
+                    <p style="margin:0;color:#2f4672;font-size:12px;line-height:1.55;word-break:break-all;">
+                      <a href="{{ check_in_online_url }}" target="_blank" rel="noopener" style="color:{{ primary_color|default:'#0f1f41' }};text-decoration:underline;">
+                        {{ check_in_online_url }}
+                      </a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+{% endblock %}
+
+{% block outer_caption %}Correo automatico de reservas de {{ hotel_name }}.{% endblock %}
