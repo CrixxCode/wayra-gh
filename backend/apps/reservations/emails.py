@@ -146,7 +146,7 @@ def send_reservation_registered_email(
         client = reservation.client
         guest_name = str(getattr(client, "full_name", "") or getattr(client, "first_name", "")).strip()
         hotel_name = str(getattr(reservation.hotel_settings, "hotel_name", "") or "tu hotel").strip()
-        reservation_reference = f"#{reservation.pk}"
+        reservation_reference = reservation.code or f"#{reservation.pk}"
         confirmation_url = _build_public_url(
             f"/reservar/confirmacion/{reservation.pk}", request=request, base_url=base_url
         )
@@ -205,7 +205,7 @@ def send_reservation_confirmed_email(
         client = reservation.client
         guest_name = str(getattr(client, "full_name", "") or getattr(client, "first_name", "")).strip()
         hotel_name = str(getattr(reservation.hotel_settings, "hotel_name", "") or "tu hotel").strip()
-        reservation_reference = f"#{reservation.pk}"
+        reservation_reference = reservation.code or f"#{reservation.pk}"
 
         check_in_start = get_reservation_check_in_start_datetime(reservation)
         online_check_in_available_from = check_in_start - timedelta(hours=48) if check_in_start else None

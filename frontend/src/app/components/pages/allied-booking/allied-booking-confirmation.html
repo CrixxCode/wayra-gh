@@ -74,18 +74,18 @@
               </span>
 
               <span
-                *ngIf="reservationId"
+                *ngIf="reservationReference"
                 class="booking-reference-chip">
 
                 <i class="pi pi-ticket"></i>
-                Referencia #{{ reservationId }}
+                Referencia {{ reservationReference }}
 
                 <button
                   *ngIf="clipboardSupported"
                   type="button"
                   class="booking-copy-reference"
                   (click)="copyReservationReference()"
-                  [attr.aria-label]="'Copiar referencia ' + reservationId">
+                  [attr.aria-label]="'Copiar referencia ' + reservationReference">
 
                   <i class="pi pi-copy" aria-hidden="true"></i>
 

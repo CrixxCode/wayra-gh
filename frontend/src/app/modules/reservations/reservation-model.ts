@@ -46,6 +46,7 @@ export interface ReservationPolicyPayloadI {
 
 export interface ReservationI {
   id: number;
+  code?: string;
   client: number;
   client_full_name?: string;
   client_document_number?: string;

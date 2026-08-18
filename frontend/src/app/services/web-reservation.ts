@@ -26,6 +26,7 @@ export interface WebReservationPayload {
 
 export interface WebReservationResponse {
   id: number;
+  code: string;
   hotel_settings: number;
   hotel_name: string;
   client: number;

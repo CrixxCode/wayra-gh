@@ -878,6 +878,39 @@ justo lo que una auditoría no quiere; si algún día el volumen molesta, se dec
 **`activity-log.view` no se borra:** se desactiva y pierde su enlace, y quien lo tenía recibe
 `audit.read`. Borrarlo dejaría huérfanas las asignaciones de rol y el rastro de que existió.
 
+### 5.24 Código público de reserva: prefijo del hotel + año + id, generado una sola vez
+
+**Decisión:** `Reservation.code` (ej. `WAY2026045`) es el identificador que se le muestra al huésped
+y al staff, y el único que el check-in online acepta para buscar una reserva. Se arma con
+`Reservation.build_code(hotel_name, year, reservation_id)`: las 3 primeras letras del nombre del
+hotel (sin tildes, sin separadores), el año de `created_at` y el `id` real de la reserva con relleno
+mínimo de 3 dígitos (crece sin truncar si el id pasa de 999). Se calcula una sola vez, en el primer
+`save()` de la reserva —no puede calcularse antes porque depende del `id` autoincremental, así que la
+creación hace dos `INSERT`/`UPDATE` en vez de uno— y nunca vuelve a cambiar.
+
+**Qué había antes:** no existía ningún campo de código. El frontend (`detail-reservation.ts`,
+`list-reservations.ts`, `list-bill.ts`, `list-payments.ts`) *inventaba* uno al vuelo con
+`RES-{año}-{id}` solo para mostrarlo, y el backend de check-in online (`online_check_in.py`) aceptaba
+cualquier texto que terminara en dígitos después del último guion y los interpretaba como el `id`
+crudo (mismo truco que `hotel_slug` en `public_booking.py`). No había ninguna columna real: dos
+lugares distintos reconstruían el mismo `id` con formatos parecidos pero no idénticos.
+
+**Por qué el id sigue siendo parte del código, en vez de una secuencia propia por hotel:** usar el
+`id` como sufijo numérico garantiza unicidad global sin necesidad de un contador propio por hotel (que
+exigiría bloqueo para evitar carreras) ni de reintentos por colisión. Dos hoteles con el mismo prefijo
+de 3 letras (`"Hotel Wayra"` y `"Hotel Waynabe"` → ambos `WAY`) igual generan códigos distintos porque
+el `id` que le sigue nunca se repite en toda la base.
+
+**Impacto en el check-in online:** `online_check_in.py` dejó de parsear el código para extraer un
+`id` y ahora busca por coincidencia exacta contra `Reservation.code` (normalizado: sin espacios ni
+guiones, en mayúsculas). Esto es más robusto que el truco anterior y ya no depende de que el código
+termine en dígitos. El código real también reemplazó al `#{reservation.pk}` que se enviaba como
+"número de referencia" en los correos de reserva registrada/confirmada
+(`apps/reservations/emails.py`) y en la página pública de confirmación
+(`allied-booking-confirmation.ts`, vía el query param `code` que ahora manda
+`allied-booking-request.ts`) — es el mismo dato que el huésped necesita para el check-in online, así
+que tenía que ser el mismo código, no el id crudo.
+
 ## 6. Módulos funcionales
 
 Mapa backend ↔ frontend ↔ rutas. Los recursos RBAC siguen el patrón `<clave>.read` / `<clave>.write`.
@@ -1090,6 +1123,70 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > originales eran breves, por lo que el campo "Por qué" de esas entradas es una reconstrucción
 > razonada, no una cita textual del autor. A partir de la creación de esta bitácora, cada entrada
 > debe escribirse en el momento del cambio.
+
+---
+
+### 2026-08-18 — Código público de reserva real (`Reservation.code`), en vez de un id disfrazado
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** hasta ahora "el código de reserva" no existía como dato: el frontend lo inventaba
+  al vuelo con `RES-{año}-{id}` solo para mostrarlo, y el check-in online interpretaba cualquier texto
+  que terminara en dígitos tras el último guion como el `id` crudo. Se agregó un campo real:
+  - `apps/reservations/models.py`: nuevo campo `Reservation.code` (`CharField`, único, `editable=False`).
+    `Reservation.build_code(hotel_name, year, reservation_id)` arma `WAY2026045` (3 letras del nombre
+    del hotel sin tildes + año de `created_at` + `id` con relleno mínimo de 3 dígitos, sin truncar si
+    el id crece). El `id` como sufijo garantiza unicidad global aunque dos hoteles compartan las
+    mismas 3 letras iniciales, sin necesitar un contador propio por hotel. `save()` lo calcula una
+    sola vez, en el primer guardado (no se puede antes: depende del `id` autoincremental), con un
+    segundo `save(update_fields=["code"])` solo en la creación.
+  - Migraciones `0013`-`0015`: agregar columna nullable, backfill de las reservas existentes con la
+    misma lógica de `build_code`, y luego `AlterField` a `unique=True` sin nulos.
+  - `apps/reservations/online_check_in.py`: `_resolve_reservation_id` (parseaba el sufijo numérico)
+    se reemplazó por `_normalize_reservation_code` + búsqueda exacta `Reservation.objects.filter(code=...)`.
+    Ya no depende de que el código termine en dígitos ni de ningún separador.
+  - `apps/reservations/emails.py`: el "número de referencia" de los correos de reserva
+    registrada/confirmada pasó de `f"#{reservation.pk}"` a `reservation.code` — es el mismo dato que
+    el huésped necesita para el check-in online, así que tenía que ser el código real, no el id.
+  - `apps/reservations/serializers.py`: se expuso `code` (solo lectura) en `ReservationListSerializer`,
+    `ReservationDetailSerializer`, `ReservationWriteSerializer` y `WebReservationResponseSerializer`.
+  - Frontend: `reservation-model.ts` y `web-reservation.ts` ganaron el campo `code`. Los cálculos
+    locales de `RES-{año}-{id}` en `detail-reservation.ts`, `list-reservations.ts`, `list-bill.ts` y
+    `list-payments.ts` se reemplazaron por el valor real del backend (con un fallback textual solo
+    para el caso defensivo de que la reserva referenciada no venga cargada). La página pública
+    `allied-booking-confirmation.ts` mostraba `Referencia #{{ reservationId }}` (el id crudo del route
+    param) con un botón de copiar pensado para pegarlo en el check-in online; como ese id crudo ya no
+    es un código válido para buscar la reserva, `allied-booking-request.ts` ahora manda el `code` real
+    como query param `code` al navegar a la confirmación, y la página lo usa como
+    `reservationReference` (con fallback a `#{id}` solo si el query param no llega, ej. un enlace
+    viejo).
+- **Por qué:** pedido explícito del usuario de una lógica real de generación de código (prefijo del
+  hotel + numeración) en vez del id disfrazado que había. Al ser el mismo dato que el check-in online
+  exige para ubicar la reserva, todos los lugares que se lo comunican al huésped (correos, página de
+  confirmación pública) tenían que actualizarse junto con el campo para no quedar mostrando un
+  identificador que el propio sistema ya no aceptaría.
+- **Archivos/áreas afectadas:** `backend/apps/reservations/models.py`,
+  `backend/apps/reservations/migrations/0013_reservation_code.py` a `0015_alter_reservation_code.py`,
+  `backend/apps/reservations/online_check_in.py`, `backend/apps/reservations/emails.py`,
+  `backend/apps/reservations/serializers.py`, `backend/apps/reservations/tests.py`,
+  `frontend/src/app/modules/reservations/reservation-model.ts`,
+  `frontend/src/app/modules/reservations/detail-reservation/detail-reservation.ts`,
+  `frontend/src/app/modules/reservations/list-reservations/list-reservations.ts`,
+  `frontend/src/app/modules/billing/list-bill/list-bill.ts`,
+  `frontend/src/app/modules/payments/list-payments/list-payments.ts`,
+  `frontend/src/app/services/web-reservation.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.ts`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-confirmation.ts`, `.html`.
+- **Impacto:** requiere migrar (`0013`-`0015`, con backfill de todas las reservas existentes). Sin
+  variables de entorno nuevas, sin recursos RBAC nuevos. Cambia la forma del campo `reservation_code`
+  que el check-in online acepta (antes: cualquier prefijo + id al final; ahora: el código exacto
+  generado por el sistema) — no rompe a huéspedes reales porque ese código siempre lo entregó el
+  sistema (correo o pantalla de confirmación), nunca lo inventaba el huésped. Documentado en la
+  sección 5.24. Validado con `python manage.py test apps.reservations apps.billing apps.finance
+  apps.notifications apps.rooms apps.hotel_settings` (192 tests, todo verde),
+  `makemigrations --check` sin cambios pendientes, `tsc --noEmit` limpio y `ng build
+  --configuration=development` exitoso.
 
 ---
 

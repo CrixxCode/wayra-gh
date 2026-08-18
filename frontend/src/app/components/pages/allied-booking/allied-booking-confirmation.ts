@@ -36,6 +36,10 @@ export class AlliedBookingConfirmationPage implements AfterViewInit {
   readonly reservationId =
     this.route.snapshot.paramMap.get('reservationId') ?? '';
 
+  readonly reservationReference =
+    this.route.snapshot.queryParamMap.get('code') ||
+    (this.reservationId ? `#${this.reservationId}` : '');
+
   readonly hotelName =
     this.route.snapshot.queryParamMap.get('hotel') ?? '';
 
@@ -57,7 +61,7 @@ export class AlliedBookingConfirmationPage implements AfterViewInit {
 
     return Boolean(
       this.hotelName ||
-      this.reservationId ||
+      this.reservationReference ||
       this.hasStayDates
     );
   }
@@ -81,7 +85,7 @@ export class AlliedBookingConfirmationPage implements AfterViewInit {
   async copyReservationReference(): Promise<void> {
 
     if (
-      !this.reservationId ||
+      !this.reservationReference ||
       !this.clipboardSupported
     ) {
       return;
@@ -90,7 +94,7 @@ export class AlliedBookingConfirmationPage implements AfterViewInit {
     try {
 
       await navigator.clipboard.writeText(
-        this.reservationId
+        this.reservationReference
       );
     } catch {
       // Clipboard write can fail (permission denied, insecure context,

@@ -354,6 +354,7 @@ export class AlliedBookingRequestPage implements OnInit {
             {
               queryParams: {
                 hotel: reservation.hotel_name,
+                code: reservation.code,
                 checkIn: reservation.expected_check_in,
                 checkOut: reservation.expected_check_out,
               },

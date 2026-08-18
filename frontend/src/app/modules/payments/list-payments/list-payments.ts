@@ -338,16 +338,8 @@ export class ListPayments implements OnInit {
   getReservationCode(payment: PaymentI): string {
     const invoice = this.invoicesMap.get(payment.invoice) || null;
     const reservation = invoice ? this.reservationsMap.get(invoice.reservation) || null : null;
-    if (reservation?.id) {
-      const createdDate = reservation.created_at ? new Date(reservation.created_at) : null;
-      const year =
-        createdDate && !Number.isNaN(createdDate.getTime()) ? createdDate.getFullYear() : new Date().getFullYear();
-      return `RES-${year}-${String(reservation.id).padStart(4, '0')}`;
-    }
-
-    if (invoice?.reservation) {
-      return `RES-${String(invoice.reservation).padStart(4, '0')}`;
-    }
+    if (reservation?.code) return reservation.code;
+    if (invoice?.reservation) return `RES-${invoice.reservation}`;
 
     return 'Reserva sin identificar';
   }

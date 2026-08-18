@@ -43,29 +43,32 @@ def _normalize_document_number(value: str) -> str:
     return re.sub(r"[\s.-]", "", str(value or "")).strip().upper()
 
 
-def _resolve_reservation_id(reservation_code: str) -> int:
-    # El "codigo" publico reutiliza el mismo patron que hotel_slug en
-    # public_booking.py: un identificador estable al final, con prefijo libre.
-    normalized = str(reservation_code or "").strip()
-    raw_id = normalized.rsplit("-", 1)[-1]
-    if not raw_id.isdigit():
-        raise ValidationError({"reservation_code": RESERVATION_LOOKUP_ERROR_MESSAGE})
-    return int(raw_id)
+def _normalize_reservation_code(reservation_code: str) -> str:
+    # Tolerante a espacios/guiones que el huesped pueda agregar al copiar el
+    # codigo (ej. del correo o de la ficha de recepcion); Reservation.code se
+    # guarda siempre sin separadores y en mayusculas.
+    return re.sub(r"[^A-Za-z0-9]", "", str(reservation_code or "")).upper()
 
 
 def _reservation_queryset() -> QuerySet[Reservation]:
     return Reservation.objects.select_related("client", "status", "hotel_settings")
 
 
-def _get_reservation(reservation_id: int) -> Reservation:
-    reservation = _reservation_queryset().filter(id=reservation_id).first()
+def _get_reservation(reservation_code: str) -> Reservation:
+    normalized = _normalize_reservation_code(reservation_code)
+    reservation = _reservation_queryset().filter(code=normalized).first() if normalized else None
     if not reservation:
         raise ValidationError({"reservation_code": RESERVATION_LOOKUP_ERROR_MESSAGE})
     return reservation
 
 
-def _get_locked_reservation(reservation_id: int) -> Reservation:
-    reservation = _reservation_queryset().select_for_update().filter(id=reservation_id).first()
+def _get_locked_reservation(reservation_code: str) -> Reservation:
+    normalized = _normalize_reservation_code(reservation_code)
+    reservation = (
+        _reservation_queryset().select_for_update().filter(code=normalized).first()
+        if normalized
+        else None
+    )
     if not reservation:
         raise ValidationError({"reservation_code": RESERVATION_LOOKUP_ERROR_MESSAGE})
     return reservation
@@ -156,8 +159,7 @@ def _full_clean_or_validation_error(instance) -> None:
 
 
 def lookup_online_check_in(*, data: dict[str, Any]) -> dict[str, Any]:
-    reservation_id = _resolve_reservation_id(data["reservation_code"])
-    reservation = _get_reservation(reservation_id)
+    reservation = _get_reservation(data["reservation_code"])
     _verify_titular_document(reservation, data["guest_document_number"])
 
     eligibility = get_online_check_in_eligibility(reservation)
@@ -175,11 +177,10 @@ def lookup_online_check_in(*, data: dict[str, Any]) -> dict[str, Any]:
 
 
 def submit_online_check_in(*, data: dict[str, Any]) -> dict[str, Any]:
-    reservation_id = _resolve_reservation_id(data["reservation_code"])
     guests_payload = data["guests"]
 
     with transaction.atomic():
-        reservation = _get_locked_reservation(reservation_id)
+        reservation = _get_locked_reservation(data["reservation_code"])
         _verify_titular_present(reservation, guests_payload)
 
         eligibility = get_online_check_in_eligibility(reservation)

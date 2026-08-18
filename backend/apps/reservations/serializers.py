@@ -852,6 +852,7 @@ class ReservationListSerializer(ReservationBusinessRulesMixin, serializers.Model
         model = Reservation
         fields = [
             "id",
+            "code",
             "client",
             "client_full_name",
             "client_document_number",
@@ -900,6 +901,7 @@ class ReservationListSerializer(ReservationBusinessRulesMixin, serializers.Model
         ]
         read_only_fields = (
             "id",
+            "code",
             "client_full_name",
             "client_document_number",
             "status_name",
@@ -969,6 +971,7 @@ class ReservationDetailSerializer(ReservationBusinessRulesMixin, serializers.Mod
         model = Reservation
         fields = [
             "id",
+            "code",
             "client",
             "client_full_name",
             "client_document_number",
@@ -1022,6 +1025,7 @@ class ReservationDetailSerializer(ReservationBusinessRulesMixin, serializers.Mod
         ]
         read_only_fields = (
             "id",
+            "code",
             "client_full_name",
             "client_document_number",
             "client_email",
@@ -1103,6 +1107,7 @@ class ReservationWriteSerializer(TenantSerializerMixin, serializers.ModelSeriali
         model = Reservation
         fields = [
             "id",
+            "code",
             "hotel_settings",
             "client",
             "status",
@@ -1127,6 +1132,7 @@ class ReservationWriteSerializer(TenantSerializerMixin, serializers.ModelSeriali
         ]
         read_only_fields = (
             "id",
+            "code",
             "created_at",
             "status",
             "real_check_in",
@@ -1647,6 +1653,7 @@ class WebReservationResponseSerializer(serializers.ModelSerializer):
         model = Reservation
         fields = [
             "id",
+            "code",
             "hotel_settings",
             "hotel_name",
             "client",

@@ -1921,7 +1921,7 @@ class OnlineCheckInPublicApiTests(APITestCase):
 
     def _payload(self, guests=None, **overrides):
         payload = {
-            "reservationCode": f"WYR-{self.reservation.id}",
+            "reservationCode": self.reservation.code,
             "guests": guests
             if guests is not None
             else [
@@ -2124,7 +2124,7 @@ class OnlineCheckInPublicApiTests(APITestCase):
 
     def _lookup_payload(self, **overrides):
         payload = {
-            "reservationCode": f"WYR-{self.reservation.id}",
+            "reservationCode": self.reservation.code,
             "documentType": "CC",
             "documentNumber": "1234567890",
         }

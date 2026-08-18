@@ -115,14 +115,7 @@ export class DetailReservation implements OnChanges {
   }
 
   get reservationCodeLabel(): string {
-    if (!this.reservation) return 'RES';
-
-    const createdDate = this.reservation.created_at ? new Date(this.reservation.created_at) : null;
-    const year =
-      createdDate && !Number.isNaN(createdDate.getTime())
-        ? createdDate.getFullYear()
-        : new Date().getFullYear();
-    return `RES-${year}-${String(this.reservation.id).padStart(3, '0')}`;
+    return this.reservation?.code || 'RES';
   }
 
   get guestInitials(): string {

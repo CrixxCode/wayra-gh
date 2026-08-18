@@ -318,14 +318,8 @@ export class ListBill implements OnInit {
   }
 
   getReservationCode(invoice: InvoiceI, reservation?: ReservationI | null): string {
-    if (reservation?.id) {
-      const createdDate = reservation.created_at ? new Date(reservation.created_at) : null;
-      const year =
-        createdDate && !Number.isNaN(createdDate.getTime()) ? createdDate.getFullYear() : new Date().getFullYear();
-      return `RES-${year}-${String(reservation.id).padStart(4, '0')}`;
-    }
-
-    return `RES-${String(invoice.reservation).padStart(4, '0')}`;
+    if (reservation?.code) return reservation.code;
+    return `RES-${invoice.reservation}`;
   }
 
   getGuestLabel(invoice: InvoiceI): string {

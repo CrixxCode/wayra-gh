@@ -1,3 +1,6 @@
+import re
+import unicodedata
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -75,9 +78,35 @@ class Reservation(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Codigo publico de la reserva (ej. "WAY2026045"): 3 letras del hotel + año +
+    # el id real de la reserva. El id garantiza unicidad global aunque dos hoteles
+    # compartan las mismas 3 letras iniciales. Se genera una sola vez en el primer
+    # save() (no puede calcularse antes porque depende del id autoincremental) y
+    # nunca vuelve a cambiar. Es el codigo que el huesped usa en el check-in online
+    # y el que se le comunica por correo (ver apps/reservations/emails.py).
+    code = models.CharField(max_length=20, unique=True, editable=False, blank=True)
+
     class Meta:
         db_table = "reservation"
         ordering = ["-id"]
+
+    @staticmethod
+    def build_code(hotel_name: str, year: int, reservation_id: int) -> str:
+        """`Hotel Wayra`, 2026, 45 -> `WAY2026045`."""
+        normalized = unicodedata.normalize("NFD", str(hotel_name or ""))
+        without_accents = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+        letters = re.sub(r"[^A-Za-z]", "", without_accents).upper()
+        prefix = (letters[:3] or "HTL").ljust(3, "X")
+        return f"{prefix}{year}{reservation_id:03d}"
+
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        if is_new and not self.code:
+            self.code = self.build_code(
+                self.hotel_settings.hotel_name, self.created_at.year, self.id
+            )
+            super().save(update_fields=["code"])
 
     @property
     def status_code(self):

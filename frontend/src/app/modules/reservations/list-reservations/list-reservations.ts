@@ -586,9 +586,7 @@ export class ListReservations implements OnInit {
   }
 
   getReservationCode(reservation: ReservationI): string {
-    const createdDate = reservation.created_at ? new Date(reservation.created_at) : null;
-    const year = createdDate && !Number.isNaN(createdDate.getTime()) ? createdDate.getFullYear() : new Date().getFullYear();
-    return `RES-${year}-${String(reservation.id).padStart(4, '0')}`;
+    return reservation.code || `RES-${reservation.id}`;
   }
 
   getRoomSummary(reservation: ReservationI): string {
