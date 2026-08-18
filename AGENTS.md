@@ -1073,6 +1073,39 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-17 — `backend/fix_resources.py`: script para corregir recursos RBAC tras combinar vistas
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** chore
+- **Qué se hizo:** se agregó `backend/fix_resources.py`, un wrapper (con el mismo arranque
+  que `manage.py`) sobre `python manage.py seed_rbac` para correrlo con un solo archivo —
+  `python fix_resources.py`, local o `railway ssh --service wayra-gh -- python
+  fix_resources.py` — cada vez que se eliminan o combinan vistas del frontend y los
+  `Resource` de la base quedan desactualizados. Se probó primero como `.sh`; el usuario
+  pidió la versión `.py`. Se corrió contra la base local: desactivó 2 recursos heredados
+  (`packages`, `security`, grupos de menú reemplazados por vistas únicas) y dejó los 126
+  recursos y 4 roles base al día.
+- **Por qué:** el usuario reportó que varias vistas que antes estaban sueltas se
+  eliminaron y combinaron (p.ej. `commercial_catalog`, `billing_center`,
+  `inventory_center`, `operations_center`, `finance_center`), y pidió un script que
+  corrigiera todos los recursos del sistema. `seed_rbac` ya cubre exactamente ese caso
+  (`LEGACY_KEYS` desactiva las claves de las vistas viejas), pero solo corre a mano; no
+  existía un atajo de un solo archivo para invocarlo en Railway, a diferencia del paso de
+  despliegue ya documentado para `seed_extra_roles`. Al intentar correrlo contra
+  producción vía `railway run` se descubrió que el `DATABASE_URL` de Railway usa el
+  hostname interno `postgres.railway.internal`, solo resoluble dentro de la red privada
+  de Railway: hay que ejecutar el script dentro del contenedor (`railway ssh` o la
+  consola web del servicio `wayra-gh`), no desde una máquina local.
+- **Archivos/áreas afectadas:** `backend/fix_resources.py` (nuevo).
+- **Impacto:** Ninguno en esquema ni API; no se tocó `seed_rbac.py`. **Paso manual de
+  despliegue:** en Railway, dentro del contenedor del servicio `wayra-gh` (vía `railway
+  ssh` o la consola web), correr `python fix_resources.py` (o `python manage.py
+  seed_rbac` directamente) cuando el menú o los permisos queden desactualizados tras
+  combinar o eliminar vistas.
+
+---
+
 ### 2026-08-17 — Comando `seed_extra_roles`: seis roles operativos adicionales
 
 - **Autor:** Claude Code, a solicitud del usuario (para correr en el servicio de Railway)
