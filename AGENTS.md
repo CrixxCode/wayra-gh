@@ -306,6 +306,14 @@ trata distinto.
 **Detalle técnico:** el filtrado castea la PK a texto (`Cast("pk", CharField())`) para que funcione
 tanto con PKs enteras como con UUID.
 
+**Caso especial — `HotelSettings.is_active`:** desde el 2026-08-18, `is_active=False` en el hotel
+tiene una consecuencia real de acceso: bloquea el login y toda petición API de **todos** los usuarios
+de ese hotel (`SessionLoginView` + `accounts.middleware.HotelActiveMiddleware`; ver la entrada del
+2026-08-18 en la sección 12). Sigue sin ser borrado lógico — el hotel y sus datos permanecen intactos,
+solo se le niega el acceso a la plataforma — pero es la única entidad del sistema donde el estado
+operativo (`is_active`) determina si sus usuarios pueden operar. Los administradores de plataforma
+(`hotel_settings is None`, 5.4) no se ven afectados por ningún hotel.
+
 ### 5.6 Menú lateral dinámico desde la base de datos
 
 **Decisión:** el modelo `Resource` no solo define permisos: también define el menú. Campos
@@ -1082,6 +1090,85 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > originales eran breves, por lo que el campo "Por qué" de esas entradas es una reconstrucción
 > razonada, no una cita textual del autor. A partir de la creación de esta bitácora, cada entrada
 > debe escribirse en el momento del cambio.
+
+---
+
+### 2026-08-18 — Hoteles aliados/reservas solo muestran hoteles activos y con configuracion completa
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** `build_active_allied_hotels()` (`apps/hotel_settings/services.py`) ya filtraba
+  `is_active=True`; ahora además excluye cualquier hotel cuya configuración esté incompleta. Se
+  agregó `is_hotel_setup_complete(hotel)`, que exige los mismos campos que ya usaba
+  `buildHotelSetupStatus()` en el frontend (`hotel-setup-status.ts`, hasta ahora solo para avisarle
+  al admin del hotel que le falta terminar su configuración): `hotel_name`, `legal_name`, `address`,
+  `country`, `state`, `city`, `primary_phone`, `general_email`, `reservations_email`,
+  `check_in_time`, `check_out_time`, coordenadas de mapa (`latitude`/`longitude`) y al menos una
+  habitación registrada (`floor.room_count > 0` en algún piso). No se creó un endpoint ni un campo
+  compartido entre frontend y backend para esta lista — es una réplica intencional, documentada con
+  comentario en el código, del mismo criterio que ya existía solo del lado del cliente.
+  `GET /api/allied-hotels/` es el único endpoint que alimenta tanto `/hoteles-aliados` (directorio
+  público) como todo el flujo `/reservar/*` (`AlliedHotelService.listActiveAlliedHotels()`), así que
+  un solo cambio en el backend cubre ambas vistas sin tocar el frontend.
+- **Por qué:** el usuario pidió que un hotel activo pero a medio configurar (sin dirección, sin
+  horarios de check-in/check-out, sin habitaciones registradas, etc.) no apareciera como reservable
+  al público — mostrarlo llevaría a un huésped a intentar reservar un hotel que en la práctica no
+  puede operar la reserva.
+- **Archivos/áreas afectadas:** `backend/apps/hotel_settings/services.py`,
+  `backend/apps/hotel_settings/tests.py` (helper `_hotel()` ahora acepta `complete=`, más 2 pruebas
+  nuevas: oculta hoteles incompletos y hoteles sin habitaciones registradas).
+- **Impacto:** ninguna migración ni cambio de contrato de API (el shape de la respuesta no cambió,
+  solo qué filas se incluyen). La suite completa del backend (312 pruebas) sigue en verde. Un hotel
+  que deja de cumplir estos requisitos (por ejemplo, si un admin borra su dirección) desaparece del
+  directorio público automáticamente en la siguiente consulta, sin acción manual.
+
+---
+
+### 2026-08-18 — Un hotel desactivado (`HotelSettings.is_active=False`) bloquea a todos sus usuarios
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat | security
+- **Qué se hizo:** `HotelSettings.is_active` ya existía (5.5, migración `0008_hotelsettings_is_active`,
+  2026-08-14) como estado operativo de negocio, pero hasta ahora no tenía ningún efecto sobre el
+  acceso a la plataforma — un usuario de un hotel desactivado seguía pudiendo iniciar sesión y operar
+  con total normalidad. Se agregaron tres capas de bloqueo, todas basadas en `user.hotel_settings.is_active`:
+  1. **Login (`SessionLoginView.post`, `accounts/views.py`):** si el hotel del usuario está
+     desactivado, la autenticación se rechaza con `403` y `code: "hotel_inactive"` antes de crear la
+     sesión, igual que ya pasaba con `user.is_active=False`.
+  2. **`HotelActiveMiddleware` nuevo (`accounts/middleware.py`), registrado justo después de
+     `ForcePasswordChangeMiddleware` en `MIDDLEWARE`:** bloquea cualquier petición `/api/` de un
+     usuario ya autenticado cuyo hotel se desactivó *después* de que iniciara sesión (una sesión de
+     Django puede durar hasta 14 días con `remember_me`). Mismo formato de respuesta que el login. Se
+     extrajo `_normalize_api_path()` como función de módulo compartida entre ambos middlewares
+     (antes vivía como `staticmethod` solo dentro de `ForcePasswordChangeMiddleware`) para no duplicar
+     la normalización de path. Los administradores de plataforma (`hotel_settings is None`, ver 5.4)
+     quedan exentos porque no pertenecen a un hotel. Las mismas rutas de auth
+     (`csrf/login/logout/me/schema/docs`) quedan siempre alcanzables, igual que en el middleware de
+     cambio de contraseña, para no dejar al usuario sin forma de ver el estado de su cuenta o salir.
+  3. **Frontend (`auth.guard.ts`):** `UserHotelSettingsSerializer` ahora expone `is_active` en
+     `hotel_settings`, y `/api/auth/me/` lo devuelve dentro de `MeResponse`. `validateSession()` (el
+     guard que ya corre en cada navegación para forzar el cambio de contraseña) revisa
+     `hotel_settings.is_active` con la misma prioridad: si es `false`, muestra un toast explicativo,
+     cierra la sesión (`authService.logout()`) y redirige a `/login` — mantener la sesión "viva" en el
+     navegador no tiene sentido porque el backend ya rechaza cualquier petición API. `login.ts` también
+     reconoce `code: "hotel_inactive"` en el error del login para mostrar el mismo mensaje ahí.
+- **Por qué:** el usuario pidió explícitamente que desactivar un hotel bloqueara el acceso de **todos**
+  sus usuarios, no solo que dejara de aparecer en el directorio público de hoteles aliados (que era el
+  único efecto que tenía `is_active` hasta ahora, ver entrada del 2026-08-14).
+- **Archivos/áreas afectadas:** `backend/accounts/middleware.py`, `backend/accounts/views.py`
+  (`SessionLoginView`), `backend/accounts/serializers.py` (`UserHotelSettingsSerializer`),
+  `backend/backend/settings.py` (`MIDDLEWARE`), `backend/accounts/tests.py`
+  (`HotelInactiveBlockTests`, 4 pruebas nuevas), `frontend/src/app/guards/auth.guard.ts`,
+  `frontend/src/app/services/auth/auth.ts` (`MeResponse.hotel_settings.is_active`),
+  `frontend/src/app/components/auth/login/login.ts`.
+- **Impacto:** ninguna migración nueva (`is_active` ya existía). Sin recursos RBAC nuevos: el bloqueo
+  corre en middleware, antes de que `HasResourcePermission` se evalúe. Cambio de contrato de API: la
+  respuesta de `/api/auth/me/` y de `UserSerializer` ahora incluye `hotel_settings.is_active`. La
+  suite completa del backend (310 pruebas) y el type-check de Angular siguen en verde; no se probó
+  manualmente en navegador. Un administrador de plataforma sin hotel asignado nunca queda bloqueado,
+  por diseño (5.4).
 
 ---
 

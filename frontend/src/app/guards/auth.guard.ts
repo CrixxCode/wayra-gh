@@ -1,6 +1,6 @@
 ﻿import { inject } from '@angular/core';
 import { CanActivateFn, CanActivateChildFn, Router } from '@angular/router';
-import { catchError, map, of } from 'rxjs';
+import { catchError, map, of, switchMap } from 'rxjs';
 import { MessageService } from 'primeng/api';
 import { AuthService, MeResponse } from '../services/auth/auth';
 
@@ -57,24 +57,48 @@ const showPasswordChangeRequiredToast = (messageService: MessageService) => {
   });
 };
 
+const showHotelInactiveToast = (messageService: MessageService) => {
+  messageService.add({
+    key: 'auth',
+    severity: 'warn',
+    summary: 'Hotel desactivado',
+    detail: 'El hotel de tu cuenta esta desactivado. Contacta al administrador de la plataforma.',
+    life: 4000,
+  });
+};
+
+const isHotelInactive = (user: MeResponse): boolean =>
+  Boolean(user?.hotel_settings) && user.hotel_settings?.is_active === false;
+
 const validateSession = (targetUrl: string) => {
   const authService = inject(AuthService);
   const router = inject(Router);
   const messageService = inject(MessageService);
 
   return authService.getUserInfo().pipe(
-    map((user: MeResponse) => {
+    switchMap((user: MeResponse) => {
       if (!user?.username) {
         showAuthRequiredToast(messageService);
-        return buildLoginRedirect(router, targetUrl);
+        return of(buildLoginRedirect(router, targetUrl));
+      }
+
+      if (isHotelInactive(user)) {
+        showHotelInactiveToast(messageService);
+        // El backend ya bloquea toda peticion API para este usuario (ver
+        // accounts.middleware.HotelActiveMiddleware); mantener la sesion viva en el
+        // navegador no sirve de nada, asi que se cierra y se vuelve a login.
+        return authService.logout().pipe(
+          catchError(() => of(null)),
+          map(() => buildLoginRedirect(router, targetUrl))
+        );
       }
 
       if (user.must_change_password && !isPasswordChangeRoute(targetUrl)) {
         showPasswordChangeRequiredToast(messageService);
-        return buildForcedPasswordRedirect(router, targetUrl);
+        return of(buildForcedPasswordRedirect(router, targetUrl));
       }
 
-      return true;
+      return of(true);
     }),
     catchError(() => {
       showAuthRequiredToast(messageService);

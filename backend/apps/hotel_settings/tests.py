@@ -51,14 +51,23 @@ class AlliedHotelDirectoryTests(APITestCase):
             defaults={"name": "Web", "sort_order": 1, "is_active": True},
         )[0]
 
-    def _hotel(self, name, *, active=True):
+    def _hotel(self, name, *, active=True, complete=True):
+        slug = name.lower().replace(' ', '')
         hotel = HotelSettings.objects.create(
             hotel_name=name,
             description="Creado desde solicitud de demo. Tipo de alojamiento: Hostal.",
+            legal_name=f"{name} S.A.S." if complete else "",
+            address="Calle 1 # 2-3" if complete else "",
             city="Bogota",
             state="Cundinamarca",
             country="Colombia",
-            reservations_email=f"{name.lower().replace(' ', '')}@example.com",
+            primary_phone="3000000000" if complete else "",
+            general_email=f"{slug}-general@example.com" if complete else "",
+            reservations_email=f"{slug}@example.com",
+            check_in_time="15:00" if complete else None,
+            check_out_time="12:00" if complete else None,
+            latitude="4.710989" if complete else None,
+            longitude="-74.072092" if complete else None,
             is_active=active,
         )
         floor = HotelFloor.objects.create(
@@ -116,6 +125,26 @@ class AlliedHotelDirectoryTests(APITestCase):
         self.assertNotIn(inactive_hotel.hotel_name, names)
         self.assertEqual(response.data[0]["rooms"], 2)
         self.assertEqual(response.data[0]["roomRates"][0]["nightlyRate"], 150000)
+
+    def test_public_directory_hides_hotels_with_incomplete_setup(self):
+        complete_hotel = self._hotel("Hotel Completo", active=True, complete=True)
+        incomplete_hotel = self._hotel("Hotel Incompleto", active=True, complete=False)
+
+        response = self.client.get("/api/allied-hotels/")
+
+        self.assertEqual(response.status_code, 200)
+        names = [row["name"] for row in response.data]
+        self.assertEqual(names, [complete_hotel.hotel_name])
+        self.assertNotIn(incomplete_hotel.hotel_name, names)
+
+    def test_public_directory_hides_hotels_without_rooms_registered(self):
+        hotel = self._hotel("Hotel Sin Estructura", active=True, complete=True)
+        HotelFloor.objects.filter(hotel_settings=hotel).update(room_count=0)
+
+        response = self.client.get("/api/allied-hotels/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
 
     def test_public_directory_hides_inactive_rates(self):
         hotel = self._hotel("Hotel Solo Activo", active=True)

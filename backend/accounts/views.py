@@ -120,6 +120,15 @@ class SessionLoginView(APIView):
             return Response({"detail": "Credenciales inválidas."}, status=status.HTTP_401_UNAUTHORIZED)
         if not user.is_active:
             return Response({"detail": "Usuario inactivo."}, status=status.HTTP_403_FORBIDDEN)
+        hotel = getattr(user, "hotel_settings", None)
+        if hotel is not None and not hotel.is_active:
+            return Response(
+                {
+                    "detail": "El hotel asociado a tu cuenta está desactivado. Contacta al administrador de la plataforma.",
+                    "code": "hotel_inactive",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         is_first_login = user.last_login is None
 
         # Django rota la sesión en login (mitiga session fixation)

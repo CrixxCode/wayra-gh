@@ -18,6 +18,44 @@ class AlliedHotelAvailabilityCriteria:
     guests: int
 
 
+# Espejo de los campos requeridos por `buildHotelSetupStatus()`
+# (`frontend/src/app/services/hotel-setup-status.ts`), que ya usa esta misma lista para decidir
+# si avisarle al administrador del hotel que falta completar su configuracion. Un hotel que no
+# cumple estos requisitos no esta listo para mostrarse a huespedes ni para recibir reservas.
+REQUIRED_HOTEL_SETUP_FIELDS = (
+    "hotel_name",
+    "legal_name",
+    "address",
+    "country",
+    "state",
+    "city",
+    "primary_phone",
+    "general_email",
+    "reservations_email",
+    "check_in_time",
+    "check_out_time",
+)
+
+
+def _has_value(value) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value.strip() != ""
+    return True
+
+
+def is_hotel_setup_complete(hotel: HotelSettings) -> bool:
+    if not all(_has_value(getattr(hotel, field)) for field in REQUIRED_HOTEL_SETUP_FIELDS):
+        return False
+
+    if not _has_value(hotel.latitude) or not _has_value(hotel.longitude):
+        return False
+
+    has_rooms = any(int(floor.room_count or 0) > 0 for floor in hotel.floors.all())
+    return has_rooms
+
+
 def build_active_allied_hotels(
     *,
     availability: AlliedHotelAvailabilityCriteria | None = None,
@@ -34,6 +72,8 @@ def build_active_allied_hotels(
 
     payloads = []
     for hotel in hotels:
+        if not is_hotel_setup_complete(hotel):
+            continue
         payload = build_allied_hotel_payload(hotel, availability=availability)
         if availability and not payload["roomRates"]:
             continue

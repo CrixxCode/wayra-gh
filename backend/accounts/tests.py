@@ -328,6 +328,87 @@ class ForcedPasswordChangeTests(APITestCase):
         self.assertTrue(response.data.get("must_change_password"))
 
 
+class HotelInactiveBlockTests(APITestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Bloqueado")
+
+        self.hotel_user = User.objects.create_user(
+            username="hotel_user",
+            email="hotel_user@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel,
+        )
+
+        self.global_admin = User.objects.create_superuser(
+            username="global_admin",
+            email="global_admin@example.com",
+            password="pass12345",
+        )
+        self.global_admin.hotel_settings = None
+        self.global_admin.save()
+
+    def test_login_is_rejected_for_deactivated_hotel(self):
+        self.hotel.is_active = False
+        self.hotel.save()
+
+        self.client.get("/api/auth/csrf/")
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": "hotel_user", "password": "pass12345"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data.get("code"), "hotel_inactive")
+
+    def test_existing_session_is_blocked_once_hotel_is_deactivated(self):
+        self.client.force_login(self.hotel_user)
+
+        still_active = self.client.get("/api/auth/me/")
+        self.assertEqual(still_active.status_code, 200)
+
+        self.hotel.is_active = False
+        self.hotel.save()
+
+        # /api/auth/me/ stays reachable so the frontend can read hotel_settings.is_active,
+        # but any other endpoint must be blocked.
+        blocked = self.client.get("/api/users/")
+        self.assertEqual(blocked.status_code, 403)
+        blocked_payload = getattr(blocked, "data", None) or blocked.json()
+        self.assertEqual(blocked_payload.get("code"), "hotel_inactive")
+
+        me = self.client.get("/api/auth/me/")
+        self.assertEqual(me.status_code, 200)
+        self.assertFalse(me.data["hotel_settings"]["is_active"])
+
+    def test_global_admin_without_hotel_is_never_blocked(self):
+        self.hotel.is_active = False
+        self.hotel.save()
+
+        self.client.force_login(self.global_admin)
+
+        response = self.client.get("/api/users/")
+        self.assertNotEqual(response.status_code, 403)
+
+    def test_reactivating_the_hotel_unblocks_the_session(self):
+        self.client.force_login(self.hotel_user)
+
+        self.hotel.is_active = False
+        self.hotel.save()
+        blocked = self.client.get("/api/users/")
+        self.assertEqual(blocked.status_code, 403)
+        blocked_payload = getattr(blocked, "data", None) or blocked.json()
+        self.assertEqual(blocked_payload.get("code"), "hotel_inactive")
+
+        self.hotel.is_active = True
+        self.hotel.save()
+        unblocked = self.client.get("/api/users/")
+        if unblocked.status_code == 403:
+            unblocked_payload = getattr(unblocked, "data", None) or unblocked.json()
+            self.assertNotEqual(unblocked_payload.get("code"), "hotel_inactive")
+
+
 class UserHotelAssignmentByRoleTests(APITestCase):
     def setUp(self):
         self.client = APIClient()

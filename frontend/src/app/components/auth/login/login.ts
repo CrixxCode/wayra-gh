@@ -130,6 +130,9 @@ export class LoginComponent {
         } else if (msg.includes('Usuario inactivo')) {
           this.errorMessage = 'Tu cuenta esta inactiva. Contacta al administrador.';
           this.errorType = 'warn';
+        } else if (err.error?.code === 'hotel_inactive') {
+          this.errorMessage = 'El hotel de tu cuenta esta desactivado. Contacta al administrador de la plataforma.';
+          this.errorType = 'warn';
         } else if (
           msg.includes('Debes cambiar tu contrasena antes de continuar') ||
           msg.includes('Debes cambiar tu contraseña antes de continuar')

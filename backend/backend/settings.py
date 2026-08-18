@@ -144,6 +144,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "accounts.middleware.ForcePasswordChangeMiddleware",
+    "accounts.middleware.HotelActiveMiddleware",
     # Despues de la autenticacion: necesita el usuario ya resuelto para poder decir
     # quien hizo cada escritura.
     "accounts.audit.AuditContextMiddleware",

@@ -29,6 +29,7 @@ export interface MeResponse {
     country?: string;
     timezone?: string;
     currency?: string;
+    is_active?: boolean;
   } | null;
   roles?: any[];
   resource_keys?: string[];
