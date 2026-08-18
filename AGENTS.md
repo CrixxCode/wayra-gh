@@ -1085,6 +1085,39 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-18 — Fix: excepción sin capturar al armar el correo de confirmación rompía `POST .../confirm/`
+
+- **Autor:** Claude Code, a solicitud del usuario (reportó 500 en deploy al confirmar una reserva)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** `send_reservation_registered_email()` y `send_reservation_confirmed_email()`
+  (agregadas en la entrada anterior de este mismo día) solo envolvían en try/except la llamada a
+  `msg.send()`, dentro de `_send_reservation_email()`. Todo el código previo a eso —resolver
+  `client`/`hotel_settings`, construir el contexto de la plantilla, calcular
+  `get_reservation_check_in_start_datetime()`, y sobre todo `render_to_string()` de la plantilla
+  HTML— quedaba fuera de cualquier protección. Cualquier excepción ahí (por ejemplo, una plantilla
+  que falla al renderizar, o datos de la reserva en un estado inesperado) se propagaba sin capturar
+  hasta `ReservationViewSet.confirm()` / `create_web_reservation()`, devolviendo un 500 al cliente
+  **aunque la reserva ya se hubiera confirmado/creado correctamente en la base de datos**. Se envolvió
+  el cuerpo completo de ambas funciones en un try/except que registra el error con `logger.exception`
+  y devuelve `{"sent": False, "error_detail": ...}`, igual que ya hacía el camino de error de
+  `msg.send()`. Un fallo al preparar o enviar el correo de notificación nunca debe hacer fallar la
+  acción principal (confirmar o crear la reserva).
+- **Por qué:** el usuario reportó que en producción, al presionar "Confirmar reserva", la API
+  devolvía 500 Internal Server Error. La consola del navegador solo mostraba el stack de RxJS/
+  polyfills del lado del cliente, sin el traceback real de Django. Revisando el código se encontró
+  este hueco de manejo de excepciones, introducido en el mismo commit que agregó el envío de estos
+  correos; es la causa más probable dado que es el cambio más reciente en ese endpoint y el único
+  camino no cubierto por pruebas con una plantilla/contexto real "hostil".
+- **Archivos/áreas afectadas:** `backend/apps/reservations/emails.py`.
+- **Impacto:** ninguna migración ni variable de entorno nueva. Sin cambios de contrato de API. La
+  suite completa de `apps.reservations` (63 pruebas) sigue en verde. Pendiente: revisar los logs de
+  Railway para confirmar cuál era la excepción real de la reserva #29 (no se tuvo acceso a los logs
+  de producción en esta sesión), por si además del gap de manejo de errores hay que corregir un dato
+  o plantilla específica.
+
+---
+
 ### 2026-08-18 — Correos transaccionales de reserva registrada y reserva confirmada (booking web)
 
 - **Autor:** Claude Code, a solicitud del usuario

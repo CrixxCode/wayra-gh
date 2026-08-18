@@ -142,46 +142,54 @@ def send_reservation_registered_email(
     """Avisa al huesped que su solicitud de reserva web quedo registrada y a la espera
     de confirmacion del hotel."""
 
-    client = reservation.client
-    guest_name = str(getattr(client, "full_name", "") or getattr(client, "first_name", "")).strip()
-    hotel_name = str(getattr(reservation.hotel_settings, "hotel_name", "") or "tu hotel").strip()
-    reservation_reference = f"#{reservation.pk}"
-    confirmation_url = _build_public_url(
-        f"/reservar/confirmacion/{reservation.pk}", request=request, base_url=base_url
-    )
+    try:
+        client = reservation.client
+        guest_name = str(getattr(client, "full_name", "") or getattr(client, "first_name", "")).strip()
+        hotel_name = str(getattr(reservation.hotel_settings, "hotel_name", "") or "tu hotel").strip()
+        reservation_reference = f"#{reservation.pk}"
+        confirmation_url = _build_public_url(
+            f"/reservar/confirmacion/{reservation.pk}", request=request, base_url=base_url
+        )
 
-    context = {
-        "reservation": reservation,
-        "guest_name": guest_name or "huesped",
-        "reservation_reference": reservation_reference,
-        "check_in_date": reservation.expected_check_in,
-        "check_out_date": reservation.expected_check_out,
-        "total_nights": reservation.total_nights,
-        "total_rooms": reservation.total_rooms,
-        "total_guests": reservation.total_guests,
-        "room_type_name": _resolve_room_type_name(reservation),
-        "confirmation_url": confirmation_url,
-    }
+        context = {
+            "reservation": reservation,
+            "guest_name": guest_name or "huesped",
+            "reservation_reference": reservation_reference,
+            "check_in_date": reservation.expected_check_in,
+            "check_out_date": reservation.expected_check_out,
+            "total_nights": reservation.total_nights,
+            "total_rooms": reservation.total_rooms,
+            "total_guests": reservation.total_guests,
+            "room_type_name": _resolve_room_type_name(reservation),
+            "confirmation_url": confirmation_url,
+        }
 
-    subject = f"Recibimos tu solicitud de reserva en {hotel_name}"
-    text_body = (
-        f"Hola {context['guest_name']},\n\n"
-        f"Registramos tu solicitud de reserva en {hotel_name} para el "
-        f"{reservation.expected_check_in:%d/%m/%Y} - {reservation.expected_check_out:%d/%m/%Y}.\n"
-        f"Numero de referencia: {reservation_reference}.\n\n"
-        "El hotel va a revisar la disponibilidad y te avisaremos a este correo en cuanto la "
-        "reserva quede confirmada.\n\n"
-        f"Puedes ver el detalle aqui: {confirmation_url}\n\n"
-        f"Equipo {hotel_name}\n"
-    )
+        subject = f"Recibimos tu solicitud de reserva en {hotel_name}"
+        text_body = (
+            f"Hola {context['guest_name']},\n\n"
+            f"Registramos tu solicitud de reserva en {hotel_name} para el "
+            f"{reservation.expected_check_in:%d/%m/%Y} - {reservation.expected_check_out:%d/%m/%Y}.\n"
+            f"Numero de referencia: {reservation_reference}.\n\n"
+            "El hotel va a revisar la disponibilidad y te avisaremos a este correo en cuanto la "
+            "reserva quede confirmada.\n\n"
+            f"Puedes ver el detalle aqui: {confirmation_url}\n\n"
+            f"Equipo {hotel_name}\n"
+        )
 
-    return _send_reservation_email(
-        reservation=reservation,
-        template_name="email/reservation_registered.html",
-        subject=subject,
-        text_body=text_body,
-        extra_context=context,
-    )
+        return _send_reservation_email(
+            reservation=reservation,
+            template_name="email/reservation_registered.html",
+            subject=subject,
+            text_body=text_body,
+            extra_context=context,
+        )
+    except Exception as exc:
+        logger.exception(
+            "Unexpected error building reservation_registered email for reservation_id=%s: %s",
+            reservation.pk,
+            exc,
+        )
+        return {"sent": False, "error_detail": "No fue posible preparar el correo de la reserva."}
 
 
 def send_reservation_confirmed_email(
@@ -193,59 +201,67 @@ def send_reservation_confirmed_email(
     """Avisa al huesped que el hotel confirmo su reserva y le explica que puede hacer
     check-in online desde 48 horas antes de la llegada."""
 
-    client = reservation.client
-    guest_name = str(getattr(client, "full_name", "") or getattr(client, "first_name", "")).strip()
-    hotel_name = str(getattr(reservation.hotel_settings, "hotel_name", "") or "tu hotel").strip()
-    reservation_reference = f"#{reservation.pk}"
+    try:
+        client = reservation.client
+        guest_name = str(getattr(client, "full_name", "") or getattr(client, "first_name", "")).strip()
+        hotel_name = str(getattr(reservation.hotel_settings, "hotel_name", "") or "tu hotel").strip()
+        reservation_reference = f"#{reservation.pk}"
 
-    check_in_start = get_reservation_check_in_start_datetime(reservation)
-    online_check_in_available_from = check_in_start - timedelta(hours=48) if check_in_start else None
-    check_in_online_url = _build_public_url("/check-in-online", request=request, base_url=base_url)
+        check_in_start = get_reservation_check_in_start_datetime(reservation)
+        online_check_in_available_from = check_in_start - timedelta(hours=48) if check_in_start else None
+        check_in_online_url = _build_public_url("/check-in-online", request=request, base_url=base_url)
 
-    context = {
-        "reservation": reservation,
-        "guest_name": guest_name or "huesped",
-        "reservation_reference": reservation_reference,
-        "check_in_date": reservation.expected_check_in,
-        "check_out_date": reservation.expected_check_out,
-        "total_nights": reservation.total_nights,
-        "total_rooms": reservation.total_rooms,
-        "total_guests": reservation.total_guests,
-        "room_type_name": _resolve_room_type_name(reservation),
-        "online_check_in_available_from": online_check_in_available_from,
-        "check_in_online_url": check_in_online_url,
-    }
+        context = {
+            "reservation": reservation,
+            "guest_name": guest_name or "huesped",
+            "reservation_reference": reservation_reference,
+            "check_in_date": reservation.expected_check_in,
+            "check_out_date": reservation.expected_check_out,
+            "total_nights": reservation.total_nights,
+            "total_rooms": reservation.total_rooms,
+            "total_guests": reservation.total_guests,
+            "room_type_name": _resolve_room_type_name(reservation),
+            "online_check_in_available_from": online_check_in_available_from,
+            "check_in_online_url": check_in_online_url,
+        }
 
-    subject = f"Tu reserva en {hotel_name} quedo confirmada"
-    text_body_lines = [
-        f"Hola {context['guest_name']},",
-        "",
-        f"Tu reserva en {hotel_name} para el "
-        f"{reservation.expected_check_in:%d/%m/%Y} - {reservation.expected_check_out:%d/%m/%Y} "
-        "quedo confirmada.",
-        f"Numero de referencia: {reservation_reference}.",
-        "",
-        "Puedes adelantar tu llegada haciendo el check-in online desde 48 horas antes de tu "
-        "fecha de llegada.",
-    ]
-    if online_check_in_available_from:
-        text_body_lines.append(
-            f"Estara disponible desde el {online_check_in_available_from:%d/%m/%Y} a las "
-            f"{online_check_in_available_from:%H:%M}."
-        )
-    text_body_lines.extend(
-        [
-            f"Ingresa aqui cuando llegue el momento: {check_in_online_url}",
+        subject = f"Tu reserva en {hotel_name} quedo confirmada"
+        text_body_lines = [
+            f"Hola {context['guest_name']},",
             "",
-            f"Equipo {hotel_name}",
+            f"Tu reserva en {hotel_name} para el "
+            f"{reservation.expected_check_in:%d/%m/%Y} - {reservation.expected_check_out:%d/%m/%Y} "
+            "quedo confirmada.",
+            f"Numero de referencia: {reservation_reference}.",
             "",
+            "Puedes adelantar tu llegada haciendo el check-in online desde 48 horas antes de tu "
+            "fecha de llegada.",
         ]
-    )
+        if online_check_in_available_from:
+            text_body_lines.append(
+                f"Estara disponible desde el {online_check_in_available_from:%d/%m/%Y} a las "
+                f"{online_check_in_available_from:%H:%M}."
+            )
+        text_body_lines.extend(
+            [
+                f"Ingresa aqui cuando llegue el momento: {check_in_online_url}",
+                "",
+                f"Equipo {hotel_name}",
+                "",
+            ]
+        )
 
-    return _send_reservation_email(
-        reservation=reservation,
-        template_name="email/reservation_confirmed.html",
-        subject=subject,
-        text_body="\n".join(text_body_lines),
-        extra_context=context,
-    )
+        return _send_reservation_email(
+            reservation=reservation,
+            template_name="email/reservation_confirmed.html",
+            subject=subject,
+            text_body="\n".join(text_body_lines),
+            extra_context=context,
+        )
+    except Exception as exc:
+        logger.exception(
+            "Unexpected error building reservation_confirmed email for reservation_id=%s: %s",
+            reservation.pk,
+            exc,
+        )
+        return {"sent": False, "error_detail": "No fue posible preparar el correo de la reserva."}
