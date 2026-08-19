@@ -314,6 +314,27 @@ class HotelSettingsTenantIsolationTests(APITestCase):
         self.assertEqual(self.hotel_a.hotel_name, "Hotel A")
         self.assertEqual(self.hotel_b.hotel_name, "Hotel B Modificado")
 
+    def test_update_hotel_color_persists_normalized_and_lowercase(self):
+        response = self.client.patch(
+            f"/api/hotel-settings/{self.hotel_b.id}/",
+            {"primary_color": "#ABC123", "secondary_color": "#654CBA"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        self.hotel_b.refresh_from_db()
+        self.assertEqual(self.hotel_b.primary_color, "#abc123")
+        self.assertEqual(self.hotel_b.secondary_color, "#654cba")
+
+    def test_update_hotel_color_rejects_invalid_hex(self):
+        response = self.client.patch(
+            f"/api/hotel-settings/{self.hotel_b.id}/",
+            {"primary_color": "blue"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("primary_color", response.data["errors"])
+
     def test_create_hotel_settings_is_rejected_when_user_is_already_assigned(self):
         response = self.client.post(
             "/api/hotel-settings/",
@@ -532,6 +553,10 @@ class HotelSettingsSuperAdminClearTests(APITestCase):
         self.assertEqual(len(list_response.data), 2)
 
     def test_clear_keeps_hotel_settings_and_soft_deletes_floors_and_rooms(self):
+        self.hotel_b.primary_color = "#ff0000"
+        self.hotel_b.secondary_color = "#00ff00"
+        self.hotel_b.save(update_fields=["primary_color", "secondary_color"])
+
         floor = HotelFloor.objects.create(
             hotel_settings=self.hotel_b,
             floor_number=1,
@@ -558,6 +583,8 @@ class HotelSettingsSuperAdminClearTests(APITestCase):
         self.assertIsNone(self.hotel_b.legal_name)
         self.assertIsNone(self.hotel_b.check_in_time)
         self.assertEqual(self.hotel_b.currency, "COP")
+        self.assertEqual(self.hotel_b.primary_color, "#0f1f41")
+        self.assertEqual(self.hotel_b.secondary_color, "#112853")
 
         floor_ct = ContentType.objects.get_for_model(HotelFloor)
         room_ct = ContentType.objects.get_for_model(Room)

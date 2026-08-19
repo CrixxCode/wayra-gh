@@ -30,6 +30,8 @@ export interface MeResponse {
     timezone?: string;
     currency?: string;
     is_active?: boolean;
+    primary_color?: string;
+    secondary_color?: string;
   } | null;
   roles?: any[];
   resource_keys?: string[];

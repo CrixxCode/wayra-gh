@@ -80,7 +80,17 @@ class JobTitleSerializer(serializers.ModelSerializer):
 class UserHotelSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = HotelSettings
-        fields = ["id", "hotel_name", "city", "country", "timezone", "currency", "is_active"]
+        fields = [
+            "id",
+            "hotel_name",
+            "city",
+            "country",
+            "timezone",
+            "currency",
+            "is_active",
+            "primary_color",
+            "secondary_color",
+        ]
 
 
 class UserMiniSerializer(serializers.ModelSerializer):

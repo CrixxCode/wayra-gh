@@ -7,6 +7,7 @@ import { AuthService, isEffectivePlatformAdmin } from '../../../services/auth/au
 import { NotificationI, NotificationService } from '../../../services/notification';
 import { HotelSettingsService } from '../../../services/hotel-settings';
 import { HotelContextService } from '../../../services/hotel-context';
+import { HotelThemeService } from '../../../services/hotel-theme';
 import { HotelSettings } from '../../pages/hotel-settings/hotel-setting-model';
 import { LogoutScreen } from '../../pages/logout-screen/logout-screen';
 
@@ -54,18 +55,15 @@ export class Header implements OnInit {
 
   private readonly defaultAvatar = 'avatar/default-avatar.png';
   private readonly logoutAnimationDuration = 1000;
-  private readonly themePrimaryStorageKey = 'gh_theme_primary';
-  private readonly themeSecondaryStorageKey = 'gh_theme_secondary';
   private readonly darkModeStorageKey = 'gh_dark_mode';
-  private readonly defaultThemePrimaryColor = '#0f1f41';
-  private readonly defaultThemeSecondaryColor = '#112853';
 
   constructor(
     private authService: AuthService,
     private router: Router,
     private notificationsService: NotificationService,
     private hotelSettingsService: HotelSettingsService,
-    private hotelContextService: HotelContextService
+    private hotelContextService: HotelContextService,
+    private hotelTheme: HotelThemeService
   ) {}
 
   get unreadCount(): number {
@@ -102,9 +100,18 @@ export class Header implements OnInit {
   ngOnInit(): void {
     this.darkMode = this.resolveStoredDarkMode();
     this.applyDarkModeClass();
-    this.applyStoredThemeCustomization();
     this.loadUserInfo();
     this.loadUnreadCount();
+  }
+
+  /**
+   * Los colores de marca cambian en Configuracion del Hotel y aqui solo se reflejan:
+   * al guardar, esa pantalla dispara `gh-hotel-brand-updated` y este listener vuelve a
+   * pedir `/api/auth/me/` para que el header quede al dia sin recargar la pagina.
+   */
+  @HostListener('window:gh-hotel-brand-updated')
+  onHotelBrandUpdated(): void {
+    this.loadUserInfo();
   }
 
   loadUserInfo(): void {
@@ -114,6 +121,10 @@ export class Header implements OnInit {
         this.userRole = this.resolveUserRole(res);
         const resolvedAvatar = this.authService.buildMediaUrl(res.avatar);
         this.userAvatar = resolvedAvatar || this.defaultAvatar;
+        this.hotelTheme.applyBrandColors(
+          res.hotel_settings?.primary_color,
+          res.hotel_settings?.secondary_color
+        );
         this.initializeHotelSelector(res);
         this.loadUnreadCount();
       },
@@ -295,36 +306,6 @@ export class Header implements OnInit {
           window.location.reload();
         }
       });
-  }
-
-  private applyStoredThemeCustomization(): void {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return;
-
-    const normalizeColor = (value: string | null, fallback: string): string => {
-      const candidate = String(value || '').trim();
-      return /^#[\da-fA-F]{6}$/.test(candidate) ? candidate.toLowerCase() : fallback;
-    };
-
-    const resolveOnBrandColor = (hexColor: string): string => {
-      const normalized = normalizeColor(hexColor, this.defaultThemePrimaryColor).slice(1);
-      const red = parseInt(normalized.slice(0, 2), 16) / 255;
-      const green = parseInt(normalized.slice(2, 4), 16) / 255;
-      const blue = parseInt(normalized.slice(4, 6), 16) / 255;
-      const linearize = (channel: number): number =>
-        channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
-
-      const luminance = 0.2126 * linearize(red) + 0.7152 * linearize(green) + 0.0722 * linearize(blue);
-      return luminance > 0.45 ? '#0f172a' : '#ffffff';
-    };
-
-    const primary = normalizeColor(localStorage.getItem(this.themePrimaryStorageKey), this.defaultThemePrimaryColor);
-    const secondary = normalizeColor(localStorage.getItem(this.themeSecondaryStorageKey), this.defaultThemeSecondaryColor);
-
-    const root = document.documentElement;
-    root.style.setProperty('--gh-brand', primary);
-    root.style.setProperty('--gh-brand-hover', secondary);
-    root.style.setProperty('--gh-brand-secondary', secondary);
-    root.style.setProperty('--gh-on-brand', resolveOnBrandColor(primary));
   }
 
   private loadNotifications(): void {

@@ -78,6 +78,38 @@ describe('HotelSettings', () => {
     });
   });
 
+  describe('personalizacion de colores', () => {
+    // Antes vivian en localStorage (por navegador); ahora son parte de `form` y viajan
+    // con el resto de la configuracion general al guardar (ver AGENTS.md 5.4).
+    it('restablecer vuelve a los colores por defecto de Wayra', () => {
+      component.form.primary_color = '#ff0000';
+      component.form.secondary_color = '#00ff00';
+
+      component.resetThemeColors();
+
+      expect(component.form.primary_color).toBe('#0f1f41');
+      expect(component.form.secondary_color).toBe('#112853');
+    });
+
+    it('normaliza un hex invalido al color por defecto', () => {
+      component.form.primary_color = 'no-es-un-color';
+      component.form.secondary_color = '#ABCDEF';
+
+      component.onThemeColorsChanged();
+
+      expect(component.form.primary_color).toBe('#0f1f41');
+      expect(component.form.secondary_color).toBe('#abcdef');
+    });
+
+    it('el color de texto sobre la marca cambia segun que tan claro es el color principal', () => {
+      component.form.primary_color = '#ffffff';
+      expect(component.themeOnPrimaryColor).toBe('#0f172a');
+
+      component.form.primary_color = '#000000';
+      expect(component.themeOnPrimaryColor).toBe('#ffffff');
+    });
+  });
+
   describe('la ubicacion del hotel', () => {
     it('sabe cuando falta el punto exacto', () => {
       component.form.latitude = null;

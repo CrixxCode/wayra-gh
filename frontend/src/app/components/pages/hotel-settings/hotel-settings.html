@@ -263,11 +263,11 @@
                   <div class="flex items-center gap-3">
                     <input
                       type="color"
-                      [(ngModel)]="themePrimaryColor"
+                      [(ngModel)]="form.primary_color"
                       (input)="onThemeColorsChanged()"
                       class="theme-color-input rounded-xl border border-gray-300"
                     />
-                    <span class="text-sm font-mono text-slate-700">{{ themePrimaryColor }}</span>
+                    <span class="text-sm font-mono text-slate-700">{{ form.primary_color }}</span>
                   </div>
                 </label>
 
@@ -276,11 +276,11 @@
                   <div class="flex items-center gap-3">
                     <input
                       type="color"
-                      [(ngModel)]="themeSecondaryColor"
+                      [(ngModel)]="form.secondary_color"
                       (input)="onThemeColorsChanged()"
                       class="theme-color-input rounded-xl border border-gray-300"
                     />
-                    <span class="text-sm font-mono text-slate-700">{{ themeSecondaryColor }}</span>
+                    <span class="text-sm font-mono text-slate-700">{{ form.secondary_color }}</span>
                   </div>
                 </label>
               </div>
@@ -290,8 +290,8 @@
                   type="button"
                   class="rounded-xl px-4 py-2.5 text-sm font-semibold border"
                   [ngStyle]="{
-                    'background-color': themePrimaryColor,
-                    'border-color': themeSecondaryColor,
+                    'background-color': form.primary_color,
+                    'border-color': form.secondary_color,
                     'color': themeOnPrimaryColor
                   }"
                 >
@@ -308,7 +308,8 @@
               </div>
 
               <p class="mt-3 text-xs text-gray-500">
-                Los colores se guardan en este navegador (localStorage) y se aplican al instante.
+                Se aplican al instante como vista previa. Para que todo el personal del hotel los vea,
+                guarda los cambios con "Guardar Configuración".
               </p>
             </div>
           </article>

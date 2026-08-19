@@ -130,6 +130,13 @@
           <i class="fa-solid fa-file-export"></i>
           Exportar
         </button>
+
+        <!-- En modo embebido (pestaña Items del modulo Inventario) el encabezado con el
+             boton de alta no se muestra, asi que la accion vive aqui. -->
+        <button type="button" class="btn btn-dark" *ngIf="embedded" (click)="openCreateDrawer()" [disabled]="!canCreateItem">
+          <i class="fa-solid fa-plus"></i>
+          Nuevo item
+        </button>
       </div>
     </div>
   </section>

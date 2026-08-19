@@ -1126,6 +1126,212 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-19 — Refactor: se elimina el wrapper `.aside-scroll`, redundante con `.menu-scroll`
+
+- **Autor:** Claude Code, a solicitud del usuario ("puedes quitar ese elemento")
+- **Commit(s):** _(pendiente)_
+- **Tipo:** refactor
+- **Qué se hizo:** en vez de seguir sincronizando el color de `.aside-scroll` (fix anterior) con el
+  del sidebar, se quitó ese `<div>` de `layout-main.html` por completo. Era una capa de scroll
+  redundante: `.aside-container` (`aside.css`) ya reparte su contenido en `.aside-brand` (fijo
+  arriba), `.menu-scroll` (`flex:1; overflow-y:auto` — el que de verdad scrollea) y
+  `.aside-footer-clock` (fijo abajo), así que el `overflow-y-auto` del wrapper nunca llegaba a
+  activarse: su contenido (`.aside-container`, `height:100%`) nunca era más alto que él mismo. Ahora
+  `<app-aside>` cuelga directo de `<aside class="layout-aside ... h-screen ...">`; su propio
+  `:host { display: block; height: 100%; }` (ya existía en `aside.css`) resuelve igual contra el
+  `h-screen` del `<aside>`. Se movió `overscroll-behavior: contain` (que traía el wrapper, para que
+  scrollear el menú hasta el final no arrastre la página) a `.menu-scroll`, el contenedor que
+  realmente scrollea. Se borró el bloque `.aside-scroll` completo (fondo + estilos de scrollbar) de
+  `styles.css`: ya no lo usa nadie, y `.menu-scroll` tiene su propia barra de scroll desde antes.
+- **Por qué:** tras tres rondas corrigiendo un color "de otro tono" en el sidebar (borde, sombra,
+  fondo del wrapper) el usuario pidió directamente quitar el elemento redundante en vez de seguir
+  manteniendo su color sincronizado con el resto — cierra la puerta a una cuarta capa con el mismo
+  problema.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/layout/layout-main/layout-main.html`,
+  `frontend/src/app/components/layout/aside/aside.css`, `frontend/src/styles.css`.
+- **Impacto:** ninguna migración ni cambio de API. Visualmente sin cambio (el wrapper no aportaba
+  nada que `.aside-container`/`.menu-scroll` no hicieran ya); menos DOM y menos CSS que mantener
+  sincronizado con el color de marca.
+
+---
+
+### 2026-08-19 — Fix: la franja de `scrollbar-gutter` del sidebar (`.aside-scroll` global) seguía fija
+
+- **Autor:** Claude Code, a solicitud del usuario (inspeccionó el DOM y señaló el `div.aside-scroll`)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** el usuario inspeccionó el elemento con las herramientas del navegador y señaló
+  `<div class="flex flex-col h-full overflow-y-auto aside-scroll">` — el wrapper que
+  `layout-main.html` pone alrededor de `<app-aside>` para controlar el scroll. Esa clase
+  (`.aside-scroll`) esta definida en `styles.css` **global**, no en `aside.css`, con
+  `background: #111827` fijo. Como este `div` queda detras de `.aside-container` (que ya usa el color
+  de marca desde el fix anterior) y tiene `scrollbar-gutter: stable` -que reserva unos pixeles para la
+  barra de scroll exista o no-, esa franja reservada mostraba siempre el fondo fijo de
+  `.aside-scroll`, no el de `.aside-container`: la tercera fuente distinta del mismo "borde de otro
+  color", esta vez ni border ni box-shadow sino un `background` de un div ancestro/hermano en otro
+  archivo. Se cambió a `background: var(--gh-brand, #111827)`.
+- **Por qué:** tras los dos fixes anteriores (border en `aside.css`, shadow en `layout-main.css`) el
+  usuario seguía viendo una franja de otro color y esta vez trajo la captura del inspector señalando
+  exactamente el elemento responsable.
+- **Archivos/áreas afectadas:** `frontend/src/styles.css` (`.aside-scroll`).
+- **Impacto:** ninguno mas alla de CSS. Con colores por defecto, sin cambio visible (`#111827` y el
+  navy por defecto `#0f1f41` son ambos oscuros y casi indistinguibles en una franja de pocos pixeles).
+
+---
+
+### 2026-08-19 — Fix: la sombra del sidebar (no el borde de `aside.css`) seguía en un slate fijo
+
+- **Autor:** Claude Code, a solicitud del usuario (con captura: seguía viendo un borde distinto)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** el fix anterior corrigió `--aside-border` en `aside.css`, pero el usuario mandó una
+  captura mostrando que el filo derecho del sidebar seguía viéndose de otro color. La causa era otra
+  regla, en otro archivo: `layout-main.css` le pone al `<aside>` que envuelve a `<app-aside>` una
+  sombra fija — `box-shadow: 4px 0 14px rgba(15, 23, 42, 0.16)`, un slate oscuro sin relación con la
+  marca — y por especificidad (selector con scope de Angular) esa sombra gana sobre la utilidad
+  `shadow-2xl` de Tailwind que trae el mismo elemento. Como es una sombra, no un borde, quedaba fuera
+  del área que se revisó en el fix anterior. Se cambió a
+  `color-mix(in srgb, var(--gh-brand, #0f172a) 16%, transparent)`. Aquí no sirven los tokens locales
+  de `aside.css` (`--aside-bg` etc.): esas variables viven en `.aside-container`, un descendiente
+  dentro de `<app-aside>`, y CSS solo hereda variables hacia abajo — `.layout-aside` es ancestro de
+  ese elemento, así que solo puede leer variables globales como `--gh-brand` (`:root`).
+- **Por qué:** el usuario adjuntó una captura del sidebar mostrando el borde derecho todavía
+  desentonado después del fix de `--aside-border`.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/layout/layout-main/layout-main.css`.
+- **Impacto:** ninguno mas alla de CSS. Con colores por defecto el resultado es pixel-a-pixel casi
+  identico (el slate fijo `rgba(15, 23, 42, 0.16)` y el navy por defecto `#0f1f41` al 16% son
+  practicamente el mismo tono).
+
+---
+
+### 2026-08-19 — Fix: el borde del sidebar quedó fijo en negro-azulado tras el fix anterior
+
+- **Autor:** Claude Code, a solicitud del usuario (revisó el fix anterior y el borde desentonaba)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** al conectar `aside.css` a los colores de marca (ver la entrada de abajo, misma
+  fecha) se dejó `--aside-border: #0b1220` sin tocar a propósito, por parecer un detalle menor de 1px.
+  No lo era: con cualquier color principal que no fuera un azul oscuro cercano a ese literal, el borde
+  derecho del sidebar quedaba de un color claramente distinto al resto del sidebar (p. ej. un sidebar
+  rojo con un filo negro-azulado). Se cambió a `color-mix(in srgb, var(--aside-bg) 65%, black 35%)`:
+  el borde ahora es siempre una version mas oscura del mismo color de fondo, nunca un tono ajeno,
+  sin importar que color principal elija el hotel.
+- **Por qué:** el usuario probó el fix del sidebar y reportó que el borde seguía "de otro color".
+- **Archivos/áreas afectadas:** `frontend/src/app/components/layout/aside/aside.css`.
+- **Impacto:** ninguno mas alla de CSS. En el caso por defecto (sin personalizar) el borde pasa de
+  `#0b1220` fijo a un navy oscuro derivado de `#0f1f41` — visualmente casi identico.
+
+---
+
+### 2026-08-19 — Fix: el sidebar seguía con colores fijos tras guardar el color de marca
+
+- **Autor:** Claude Code, a solicitud del usuario (probó el fix anterior y los colores no se veían)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** el fix anterior (ver la entrada de abajo, misma fecha) dejó `primary_color`/
+  `secondary_color` guardados en `HotelSettings` y aplicándose correctamente a las variables CSS
+  `--gh-brand`/`--gh-brand-hover`/`--gh-brand-secondary`/`--gh-on-brand`. El problema real era otro:
+  `frontend/src/app/components/layout/aside/aside.css` (el sidebar — la superficie de marca mas
+  grande y persistente de toda la app, visible en cada pantalla) nunca leía esas variables. Definía
+  sus propios tokens fijos (`--aside-bg: #111827`, `--aside-active: #2c7be5`, `--aside-text: #f8fafc`,
+  etc.) sin relación alguna con `--gh-brand`, así que cambiar el color principal/secundario en
+  Configuración del Hotel no movía un solo píxel del elemento que un administrador de hotel mira
+  primero para comprobar "¿esto es mi color?". Se conectaron esos tokens a las variables globales:
+  `--aside-bg: var(--gh-brand, ...)`, `--aside-active: var(--gh-brand-hover, ...)`, y
+  `--aside-text: var(--gh-on-brand, ...)` (el blanco/negro legible que ya calcula
+  `HotelThemeService` contra el color principal, para que el texto del menú siga siendo legible sin
+  importar si el hotel elige un color claro u oscuro). `--aside-muted`/`--aside-icon` y el fondo de la
+  tarjeta del reloj (`.aside-footer-clock`) pasaron de grises fijos a `color-mix(in srgb,
+  var(--aside-text) N%, transparent)` — un patrón que ya existía en `header.css` — para que también se
+  adapten al contraste correcto en vez de quedar ilegibles sobre un color de marca claro. El texto del
+  ítem de menú activo (`.menu-link.active`) se dejó en blanco fijo a propósito, igual que en el resto
+  de la app (todos los botones con `background: var(--gh-brand)` asumen texto blanco encima), para no
+  sumar una segunda formula de contraste solo para el color secundario.
+- **Por qué:** el usuario probó el fix de persistencia en base de datos y reportó que, aun así, "de
+  verdad" no cambiaba nada visible — con razón: el elemento mas visible de todos (el sidebar) ignoraba
+  por completo las variables de marca.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/layout/aside/aside.css`.
+- **Impacto:** ninguna migración, variable de entorno ni cambio de API — cambio puramente de CSS. El
+  look **por defecto** (hotel sin colores personalizados) cambia levemente: el sidebar pasa del gris
+  `#111827`/azul `#2c7be5` fijos al navy `#0f1f41`/`#112853` que ya son los valores por defecto de
+  `HotelSettings.primary_color`/`secondary_color` — mismo tono general (oscuro, profesional), ahora
+  consistente con el color que ya usaba el botón de login.
+
+---
+
+### 2026-08-19 — Fix: los colores de marca del hotel se guardan en `HotelSettings`, no en `localStorage`
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** el selector "Color principal / Color secundario" de la pestaña **Información
+  General** de Configuración del Hotel escribía en `localStorage` (`gh_theme_primary` /
+  `gh_theme_secondary`) y `header.ts` releía esas mismas claves en cada carga de pantalla — es decir,
+  el color era **por navegador**, no por hotel: dos usuarios del mismo hotel en dos equipos distintos
+  veían colores distintos (el suyo local o el default), y el color elegido no sobrevivía a limpiar el
+  navegador. Se agregaron `primary_color`/`secondary_color` (`CharField`, hex `#rrggbb`) a
+  `HotelSettings`, con su migración, validación de formato en `HotelSettingsSerializer`
+  (`validate_primary_color`/`validate_secondary_color`, normaliza a minúsculas) y reseteo a los
+  valores por defecto en la acción `clear/`. En el frontend, `themePrimaryColor`/`themeSecondaryColor`
+  dejaron de ser propiedades sueltas del componente y pasaron a ser `form.primary_color` /
+  `form.secondary_color`: viajan con el resto del formulario general y solo quedan disponibles para
+  todo el hotel al pulsar "Guardar Configuración" (antes se persistían solas, al vuelo, sin pasar por
+  el botón de guardado). El picker sigue aplicando una vista previa instantánea a `--gh-brand`/
+  `--gh-brand-hover`/`--gh-brand-secondary`/`--gh-on-brand` mientras se elige el color, para no perder
+  esa retroalimentación inmediata. La lógica de normalizar hex, calcular el color de texto legible
+  (contraste WCAG) y pintar esas variables CSS estaba duplicada en `header.ts` y en
+  `hotel-settings.ts`; se extrajo a `HotelThemeService` (`services/hotel-theme.ts`), inyectado en
+  ambos. `header.ts` ya no lee `localStorage`: aplica los colores desde `hotel_settings.primary_color`/
+  `secondary_color`, que ahora viajan en `UserHotelSettingsSerializer` (el mismo serializer anidado que
+  ya exponía `hotel_name`/`city`/`is_active` en `/api/auth/me/` a **cualquier** usuario autenticado del
+  hotel, sin depender del scope `hotel_settings.read` — igual que ya ocurría con el candado de hotel
+  inactivo, ver 5.4). Al guardar en Configuración del Hotel se dispara `gh-hotel-brand-updated` (evento
+  que ya existía para refrescar el logo del sidebar); `header.ts` ahora también escucha ese evento y
+  vuelve a pedir `/api/auth/me/` para refrescarse sin recargar la página.
+- **Por qué:** el usuario reportó el selector de colores como no funcional y pidió explícitamente que
+  el color quedara guardado en base de datos para que todos los usuarios del mismo hotel vean la misma
+  interfaz, sin importar el navegador o el equipo desde el que entren.
+- **Archivos/áreas afectadas:** `backend/apps/hotel_settings/{models,serializers,views}.py` y su
+  migración `0010_hotelsettings_primary_color_and_more.py`; `backend/accounts/serializers.py`
+  (`UserHotelSettingsSerializer`); `frontend/src/app/services/hotel-theme.ts` (nuevo);
+  `frontend/src/app/services/auth/auth.ts` (`MeResponse.hotel_settings`);
+  `frontend/src/app/components/layout/header/header.ts`;
+  `frontend/src/app/components/pages/hotel-settings/{hotel-settings.ts,hotel-settings.html,
+  hotel-setting-model.ts}`. Tests nuevos en `backend/apps/hotel_settings/tests.py` (validación de hex,
+  normalización, reseteo en `clear/`) y `backend/accounts/tests.py`
+  (`HotelBrandColorSharedViaMeTests`, prueba que dos usuarios del mismo hotel ven el mismo color por
+  `/api/auth/me/` y que un hotel distinto conserva el suyo).
+- **Impacto:** una migración aditiva (dos columnas con default, sin tocar filas existentes de forma
+  destructiva). Sin variables de entorno nuevas. Sin recursos RBAC nuevos: reutiliza
+  `hotel_settings.write` para editar y el acceso ya-libre-de-scope de `/api/auth/me/` para leer. Cambio
+  de contrato de API: `HotelSettingsSerializer` y `UserHotelSettingsSerializer` ahora incluyen
+  `primary_color`/`secondary_color`.
+
+---
+
+### 2026-08-19 — Feat: botón "Nuevo item" visible en la pestaña Items del módulo Inventario
+
+- **Autor:** Claude Code, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** `ListItems` (`list-items.html`) tiene dos modos de uso: standalone (con su propio
+  encabezado y el botón "Nuevo item") y embebido (`[embedded]="true"`), que es como lo monta
+  `InventoryPage` en la pestaña "Items" del módulo Inventario. El encabezado completo, botón incluido,
+  está detrás de `*ngIf="!embedded"`, así que en la pestaña Items del módulo Inventario no había forma
+  de dar de alta un item nuevo. Se agregó un botón "Nuevo item" (mismo `openCreateDrawer()`, mismo
+  guard `[disabled]="!canCreateItem"`) dentro de la barra de filtros (`gh-filters-actions` /
+  `gh-action-group`), que sí se renderiza en modo embebido, visible solo con `*ngIf="embedded"` para no
+  duplicar el botón en la vista standalone.
+- **Por qué:** el usuario pidió el botón de alta en la vista de items de inventario; la vista embebida
+  (la que realmente se usa dentro del módulo Inventario) no lo mostraba porque todo el encabezado
+  standalone quedaba oculto por la condición `!embedded`.
+- **Archivos/áreas afectadas:** `frontend/src/app/modules/items/list-items/list-items.html`.
+- **Impacto:** ninguna migración ni variable de entorno nueva. Sin cambios de contrato de API. Cambio
+  puramente de plantilla (reutiliza `openCreateDrawer()` y `canCreateItem` ya existentes en
+  `list-items.ts`); no se tocó lógica.
+
+---
+
 ### 2026-08-19 — Fix: 500 real en confirmar/check-in/check-out — `FOR UPDATE` sobre un outer join nullable en Postgres
 
 - **Autor:** Claude Code, a solicitud del usuario (confirmó que el error solo pasaba en producción,

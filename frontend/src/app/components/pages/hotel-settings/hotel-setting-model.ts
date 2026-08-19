@@ -23,6 +23,10 @@ export interface HotelSettings {
     instagram?: string;
     twitter_x?: string;
 
+    // Colores de marca (hex "#rrggbb"), compartidos por todos los usuarios del hotel.
+    primary_color?: string;
+    secondary_color?: string;
+
     // Ubicación
     address?: string;
     city?: string;

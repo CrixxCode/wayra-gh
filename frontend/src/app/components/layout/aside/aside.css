@@ -4,12 +4,22 @@
 }
 
 .aside-container {
-  --aside-bg: #111827;
-  --aside-border: #0b1220;
-  --aside-text: #f8fafc;
-  --aside-muted: #8d98ad;
-  --aside-icon: #8b95aa;
-  --aside-active: #2c7be5;
+  /* El sidebar es la superficie de marca mas grande y persistente de la app: usa el
+     color principal/secundario del hotel (HotelSettings, ver AGENTS.md 5.4) en vez de
+     un tono fijo, para que elegir un color en Configuracion del Hotel de verdad se vea.
+     `--gh-on-brand` ya trae el blanco/negro legible calculado contra el color principal
+     (HotelThemeService), asi que el texto se adapta sin importar que tan claro u oscuro
+     sea el color elegido. Los literales tras la coma son el mismo look de siempre y solo
+     aplican si por algun motivo las variables globales de marca no llegaran a cargar. */
+  --aside-bg: var(--gh-brand, #111827);
+  /* Un tono fijo (antes #0b1220) desentonaba contra cualquier color principal que no
+     fuera ese mismo azul oscuro. Se deriva del propio fondo -mas negro mezclado- para
+     que el borde sea siempre "el mismo color, un poco mas oscuro", nunca un color distinto. */
+  --aside-border: color-mix(in srgb, var(--aside-bg) 65%, black 35%);
+  --aside-text: var(--gh-on-brand, #f8fafc);
+  --aside-muted: color-mix(in srgb, var(--aside-text) 62%, transparent);
+  --aside-icon: color-mix(in srgb, var(--aside-text) 58%, transparent);
+  --aside-active: var(--gh-brand-hover, #2c7be5);
 
   height: 100%;
   min-height: 100%;
@@ -42,7 +52,7 @@
 
 .brand-title {
   max-width: 100%;
-  color: #ffffff;
+  color: var(--aside-text);
   font-size: 1.18rem;
   line-height: 1;
   font-weight: 600;
@@ -55,6 +65,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0 0 10px;
 }
 
@@ -142,7 +153,7 @@
 }
 
 .chevron {
-  color: #7d89a0;
+  color: var(--aside-muted);
   font-size: 0.74rem;
   transition: transform 0.18s ease, color 0.16s ease;
 }
@@ -154,14 +165,14 @@
 .menu-parent:hover,
 .menu-link:hover,
 .menu-parent.is-open {
-  background: rgba(255, 255, 255, 0.04);
-  color: #d9e0ec;
+  background: color-mix(in srgb, var(--aside-text) 4%, transparent);
+  color: var(--aside-text);
 }
 
 .menu-parent:hover .icon-pill i,
 .menu-link:hover .icon-pill i,
 .menu-parent.is-open .icon-pill i {
-  color: #d9e0ec;
+  color: var(--aside-text);
 }
 
 .menu-link.active {
@@ -201,14 +212,14 @@
   padding: 6px 10px;
   border-radius: 8px;
   text-decoration: none;
-  color: #8d98ad;
+  color: var(--aside-muted);
   transition: background-color 0.16s ease, color 0.16s ease;
 }
 
 .submenu-item:hover,
 .submenu-item.active {
-  background: rgba(255, 255, 255, 0.06);
-  color: #ffffff;
+  background: color-mix(in srgb, var(--aside-text) 6%, transparent);
+  color: var(--aside-text);
 }
 
 .submenu-label {
@@ -221,13 +232,13 @@
   margin-top: 12px;
   padding: 12px 14px;
   border-radius: 8px;
-  background: #121827;
+  background: color-mix(in srgb, var(--aside-text) 8%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .clock-label {
   margin: 0 0 6px;
-  color: #5e6a80;
+  color: color-mix(in srgb, var(--aside-text) 45%, transparent);
   font-size: 0.66rem;
   line-height: 1;
   text-transform: uppercase;
@@ -236,7 +247,7 @@
 
 .clock-time {
   margin: 0;
-  color: #f8fafc;
+  color: var(--aside-text);
   font-size: 0.82rem;
   line-height: 1.15;
   font-weight: 600;
@@ -244,7 +255,7 @@
 
 .clock-date {
   margin: 4px 0 0;
-  color: #8d98ad;
+  color: var(--aside-muted);
   font-size: 0.68rem;
   line-height: 1.35;
   font-weight: 500;

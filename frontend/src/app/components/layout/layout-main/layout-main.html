@@ -19,10 +19,7 @@
     [class.-translate-x-full]="!isAsideOpen() && isMobile"
     [class.translate-x-0]="isAsideOpen() && isMobile"
   >
-    <!-- 👇 ESTE es el contenedor que scrollea -->
-    <div class="flex flex-col h-full overflow-y-auto aside-scroll">
-      <app-aside></app-aside>
-    </div>
+    <app-aside></app-aside>
   </aside>
 
   <!-- HEADER + CONTENT -->

@@ -180,6 +180,8 @@ class HotelSettingsViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
             "facebook": None,
             "instagram": None,
             "twitter_x": None,
+            "primary_color": HotelSettings._meta.get_field("primary_color").default,
+            "secondary_color": HotelSettings._meta.get_field("secondary_color").default,
             "address": None,
             "city": None,
             "state": None,

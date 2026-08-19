@@ -10,6 +10,11 @@ import { AuthService } from '../../../services/auth/auth';
 import { errorActionAlert, successActionAlert } from '../../../services/action-alerts';
 import { openActionConfirmation } from '../../../services/action-confirmations';
 import { HotelSettingsService } from '../../../services/hotel-settings';
+import {
+  DEFAULT_PRIMARY_COLOR,
+  DEFAULT_SECONDARY_COLOR,
+  HotelThemeService
+} from '../../../services/hotel-theme';
 import { MasterDataService } from '../../../services/master-data.service';
 import {
   PaymentMethodI,
@@ -46,6 +51,8 @@ type SettingsForm = {
   facebook: string;
   instagram: string;
   twitter_x: string;
+  primary_color: string;
+  secondary_color: string;
   address: string;
   city: string;
   state: string;
@@ -97,10 +104,6 @@ type FinancialConfigForm = {
 export class HotelSettings implements OnInit {
   private readonly apiBase = environment.API_URI.replace(/\/$/, '');
   private readonly floorsUrl = `${this.apiBase}/api/hotel-floors/`;
-  private readonly themePrimaryStorageKey = 'gh_theme_primary';
-  private readonly themeSecondaryStorageKey = 'gh_theme_secondary';
-  private readonly defaultThemePrimaryColor = '#0f1f41';
-  private readonly defaultThemeSecondaryColor = '#112853';
 
   loading = true;
   saving = false;
@@ -150,8 +153,6 @@ export class HotelSettings implements OnInit {
 
   private initialSnapshot = '';
   private persistedFloorIdByNumber = new Map<number, number>();
-  themePrimaryColor = this.defaultThemePrimaryColor;
-  themeSecondaryColor = this.defaultThemeSecondaryColor;
   locationCountries: HotelLocationCountry[] = [];
   locationDepartments: HotelLocationDepartment[] = [];
   locationCities: string[] = [];
@@ -187,11 +188,11 @@ export class HotelSettings implements OnInit {
     private reservationService: ReservationService,
     private financialControlService: FinancialControlService,
     private paymentMethodService: PaymentMethodService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    private hotelTheme: HotelThemeService
   ) {}
 
   ngOnInit(): void {
-    this.loadThemeCustomization();
     this.loadCountries();
     this.resolvePermissions();
   }
@@ -593,22 +594,26 @@ export class HotelSettings implements OnInit {
     this.locationCities = await loadCitiesForDepartment(this.form.country, this.form.state);
   }
 
+  /**
+   * Vista previa instantanea mientras se elige el color: pinta la app entera con el
+   * candidato. Los colores solo quedan disponibles para el resto del hotel al pulsar
+   * "Guardar Configuración" (`saveSettings()`), igual que cualquier otro campo del
+   * formulario general.
+   */
   onThemeColorsChanged(): void {
-    this.themePrimaryColor = this.normalizeThemeColor(this.themePrimaryColor, this.defaultThemePrimaryColor);
-    this.themeSecondaryColor = this.normalizeThemeColor(this.themeSecondaryColor, this.defaultThemeSecondaryColor);
-    this.persistThemeCustomization();
-    this.applyThemeCustomization();
+    this.form.primary_color = this.hotelTheme.normalizeColor(this.form.primary_color, DEFAULT_PRIMARY_COLOR);
+    this.form.secondary_color = this.hotelTheme.normalizeColor(this.form.secondary_color, DEFAULT_SECONDARY_COLOR);
+    this.hotelTheme.applyBrandColors(this.form.primary_color, this.form.secondary_color);
   }
 
   resetThemeColors(): void {
-    this.themePrimaryColor = this.defaultThemePrimaryColor;
-    this.themeSecondaryColor = this.defaultThemeSecondaryColor;
-    this.persistThemeCustomization();
-    this.applyThemeCustomization();
+    this.form.primary_color = DEFAULT_PRIMARY_COLOR;
+    this.form.secondary_color = DEFAULT_SECONDARY_COLOR;
+    this.hotelTheme.applyBrandColors(this.form.primary_color, this.form.secondary_color);
   }
 
   get themeOnPrimaryColor(): string {
-    return this.resolveOnBrandColor(this.themePrimaryColor);
+    return this.hotelTheme.resolveOnBrandColor(this.form.primary_color);
   }
 
   resetFinancialConfigForm(): void {
@@ -1022,6 +1027,7 @@ export class HotelSettings implements OnInit {
       this.settingsId = null;
       this.updatedAt = null;
       this.form = this.buildDefaultForm();
+      this.hotelTheme.applyBrandColors(this.form.primary_color, this.form.secondary_color);
       this.locationDepartments = [];
       this.locationCities = [];
       this.floors = [];
@@ -1046,7 +1052,10 @@ export class HotelSettings implements OnInit {
       // "11.544400" donde espera un numero y no sabria centrarse.
       latitude: this.toCoordinate(settings.latitude),
       longitude: this.toCoordinate(settings.longitude),
+      primary_color: this.hotelTheme.normalizeColor(settings.primary_color, DEFAULT_PRIMARY_COLOR),
+      secondary_color: this.hotelTheme.normalizeColor(settings.secondary_color, DEFAULT_SECONDARY_COLOR),
     };
+    this.hotelTheme.applyBrandColors(this.form.primary_color, this.form.secondary_color);
     this.syncLocationOptions();
 
     this.floors = (settings.floors ?? []).map((floor) => ({
@@ -1579,6 +1588,8 @@ export class HotelSettings implements OnInit {
       facebook: this.emptyAsUndefined(this.form.facebook),
       instagram: this.emptyAsUndefined(this.form.instagram),
       twitter_x: this.emptyAsUndefined(this.form.twitter_x),
+      primary_color: this.hotelTheme.normalizeColor(this.form.primary_color, DEFAULT_PRIMARY_COLOR),
+      secondary_color: this.hotelTheme.normalizeColor(this.form.secondary_color, DEFAULT_SECONDARY_COLOR),
       address: this.emptyAsUndefined(this.form.address),
       city: this.emptyAsUndefined(this.form.city),
       state: this.emptyAsUndefined(this.form.state),
@@ -1791,61 +1802,6 @@ export class HotelSettings implements OnInit {
     return fallback;
   }
 
-  private loadThemeCustomization(): void {
-    if (typeof window === 'undefined') return;
-
-    try {
-      const storedPrimary = localStorage.getItem(this.themePrimaryStorageKey);
-      const storedSecondary = localStorage.getItem(this.themeSecondaryStorageKey);
-
-      this.themePrimaryColor = this.normalizeThemeColor(storedPrimary, this.defaultThemePrimaryColor);
-      this.themeSecondaryColor = this.normalizeThemeColor(storedSecondary, this.defaultThemeSecondaryColor);
-      this.applyThemeCustomization();
-    } catch {
-      this.themePrimaryColor = this.defaultThemePrimaryColor;
-      this.themeSecondaryColor = this.defaultThemeSecondaryColor;
-    }
-  }
-
-  private persistThemeCustomization(): void {
-    if (typeof window === 'undefined') return;
-
-    try {
-      localStorage.setItem(this.themePrimaryStorageKey, this.themePrimaryColor);
-      localStorage.setItem(this.themeSecondaryStorageKey, this.themeSecondaryColor);
-    } catch {
-      // Ignore write errors for restricted browser contexts.
-    }
-  }
-
-  private applyThemeCustomization(): void {
-    if (typeof document === 'undefined') return;
-
-    const root = document.documentElement;
-    root.style.setProperty('--gh-brand', this.themePrimaryColor);
-    root.style.setProperty('--gh-brand-hover', this.themeSecondaryColor);
-    root.style.setProperty('--gh-brand-secondary', this.themeSecondaryColor);
-    root.style.setProperty('--gh-on-brand', this.resolveOnBrandColor(this.themePrimaryColor));
-  }
-
-  private normalizeThemeColor(value: string | null | undefined, fallback: string): string {
-    const candidate = String(value || '').trim();
-    return /^#[\da-fA-F]{6}$/.test(candidate) ? candidate.toLowerCase() : fallback;
-  }
-
-  private resolveOnBrandColor(hexColor: string): string {
-    const normalized = this.normalizeThemeColor(hexColor, this.defaultThemePrimaryColor).slice(1);
-    const red = parseInt(normalized.slice(0, 2), 16) / 255;
-    const green = parseInt(normalized.slice(2, 4), 16) / 255;
-    const blue = parseInt(normalized.slice(4, 6), 16) / 255;
-
-    const linearize = (channel: number): number =>
-      channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
-
-    const luminance = 0.2126 * linearize(red) + 0.7152 * linearize(green) + 0.0722 * linearize(blue);
-    return luminance > 0.45 ? '#0f172a' : '#ffffff';
-  }
-
   private buildDefaultForm(): SettingsForm {
     return {
       hotel_name: '',
@@ -1857,6 +1813,8 @@ export class HotelSettings implements OnInit {
       facebook: '',
       instagram: '',
       twitter_x: '',
+      primary_color: DEFAULT_PRIMARY_COLOR,
+      secondary_color: DEFAULT_SECONDARY_COLOR,
       address: '',
       city: '',
       state: '',

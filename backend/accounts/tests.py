@@ -409,6 +409,65 @@ class HotelInactiveBlockTests(APITestCase):
             self.assertNotEqual(unblocked_payload.get("code"), "hotel_inactive")
 
 
+class HotelBrandColorSharedViaMeTests(APITestCase):
+    """Los colores de marca viven en `HotelSettings`, no en el navegador (ver
+    AGENTS.md 5.4): cualquier usuario del hotel debe verlos igual por `/api/auth/me/`,
+    sin necesitar el scope `hotel_settings.read`."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.hotel = HotelSettings.objects.create(
+            hotel_name="Hotel Colores",
+            primary_color="#123456",
+            secondary_color="#abcdef",
+        )
+        self.other_hotel = HotelSettings.objects.create(
+            hotel_name="Otro Hotel",
+            primary_color="#000000",
+            secondary_color="#111111",
+        )
+
+        # Sin roles asignados a proposito: ver el color de marca no depende de RBAC.
+        self.receptionist = User.objects.create_user(
+            username="receptionist",
+            email="receptionist@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel,
+        )
+        self.housekeeper = User.objects.create_user(
+            username="housekeeper",
+            email="housekeeper@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel,
+        )
+        self.other_hotel_user = User.objects.create_user(
+            username="other_hotel_user",
+            email="other_hotel_user@example.com",
+            password="pass12345",
+            hotel_settings=self.other_hotel,
+        )
+
+    def test_every_user_of_the_hotel_sees_the_same_brand_colors(self):
+        self.client.force_login(self.receptionist)
+        receptionist_me = self.client.get("/api/auth/me/")
+
+        self.client.force_login(self.housekeeper)
+        housekeeper_me = self.client.get("/api/auth/me/")
+
+        for response in (receptionist_me, housekeeper_me):
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.data["hotel_settings"]["primary_color"], "#123456")
+            self.assertEqual(response.data["hotel_settings"]["secondary_color"], "#abcdef")
+
+    def test_a_different_hotel_keeps_its_own_colors(self):
+        self.client.force_login(self.other_hotel_user)
+        response = self.client.get("/api/auth/me/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["hotel_settings"]["primary_color"], "#000000")
+        self.assertEqual(response.data["hotel_settings"]["secondary_color"], "#111111")
+
+
 class UserHotelAssignmentByRoleTests(APITestCase):
     def setUp(self):
         self.client = APIClient()

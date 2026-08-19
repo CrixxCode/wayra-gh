@@ -33,6 +33,12 @@ class HotelSettings(models.Model):
     instagram = models.CharField(max_length=180, blank=True, null=True)
     twitter_x = models.CharField(max_length=180, blank=True, null=True)
 
+    # Colores de marca (hex, "#rrggbb"). Se guardan en el hotel -y no en el navegador de
+    # cada usuario- para que todo el personal del hotel vea la misma interfaz coloreada,
+    # sin importar desde que dispositivo entre.
+    primary_color = models.CharField(max_length=7, default="#0f1f41")
+    secondary_color = models.CharField(max_length=7, default="#112853")
+
     # ====== Contacto y ubicación ======
 
     # Dirección física

@@ -1,8 +1,12 @@
+import re
+
 from rest_framework import serializers
 
 from accounts.tenancy import TenantSerializerMixin
 
 from .models import HotelFloor, HotelSettings, PaymentMethod, ReservationPolicy
+
+HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
 class HotelFloorSerializer(TenantSerializerMixin, serializers.ModelSerializer):
@@ -92,6 +96,8 @@ class HotelSettingsSerializer(serializers.ModelSerializer):
             "facebook",
             "instagram",
             "twitter_x",
+            "primary_color",
+            "secondary_color",
             "address",
             "city",
             "state",
@@ -156,6 +162,21 @@ class HotelSettingsSerializer(serializers.ModelSerializer):
         if value < 1:
             raise serializers.ValidationError("Max guests per room must be greater than 0.")
         return value
+
+    def validate_primary_color(self, value):
+        return self._validate_hex_color(value)
+
+    def validate_secondary_color(self, value):
+        return self._validate_hex_color(value)
+
+    @staticmethod
+    def _validate_hex_color(value):
+        candidate = str(value or "").strip()
+        if not HEX_COLOR_RE.match(candidate):
+            raise serializers.ValidationError(
+                "El color debe ser hexadecimal de 6 digitos, por ejemplo #0f1f41."
+            )
+        return candidate.lower()
 
     def validate(self, attrs):
         check_in_time = attrs.get("check_in_time")

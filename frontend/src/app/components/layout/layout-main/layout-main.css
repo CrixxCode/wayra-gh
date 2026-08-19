@@ -9,7 +9,11 @@
 }
 
 .layout-aside {
-  box-shadow: 4px 0 14px rgba(15, 23, 42, 0.16);
+  /* Un slate fijo (antes rgba(15, 23, 42, 0.16)) desentonaba igual que el borde de
+     aside.css: siempre el mismo tono oscuro sin importar el color principal elegido.
+     `--gh-brand` es global (:root, ver HotelThemeService) y sí llega hasta aqui, aunque
+     los tokens propios de aside.css no (son locales a .aside-container, un descendiente). */
+  box-shadow: 4px 0 14px color-mix(in srgb, var(--gh-brand, #0f172a) 16%, transparent);
 }
 
 .layout-header {
