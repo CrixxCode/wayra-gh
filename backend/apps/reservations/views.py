@@ -1,5 +1,3 @@
-import logging
-import traceback
 from datetime import timedelta
 
 from django.conf import settings
@@ -76,8 +74,6 @@ from apps.reservations.services import (
     validate_reservation_status_transition,
     validate_checkout_inventory_review_payload,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class ReservationPagination(PageNumberPagination):
@@ -359,22 +355,15 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
         return str(error)
 
     def _get_locked_reservation(self, reservation_id: int | str):
-        return self.get_queryset().select_for_update().get(pk=reservation_id)
+        # `of=("self",)` limita el FOR UPDATE a la tabla reservation. Sin esto, Postgres
+        # rechaza el lock porque get_queryset() hace select_related de FKs nullable
+        # (package, created_by) y "FOR UPDATE cannot be applied to the nullable side of
+        # an outer join". SQLite ignora FOR UPDATE en silencio, por eso el bug solo se
+        # veia en produccion y no en local.
+        return self.get_queryset().select_for_update(of=("self",)).get(pk=reservation_id)
 
     @action(detail=True, methods=["post"], url_path="confirm")
     def confirm(self, request, pk=None):
-        try:
-            return self._confirm(request, pk)
-        except Exception as exc:
-            logger.error(
-                "TRACEBACK_DIAGNOSTICO confirm() reservation_id=%s: %s\n%s",
-                pk,
-                exc,
-                traceback.format_exc(),
-            )
-            raise
-
-    def _confirm(self, request, pk):
         with transaction.atomic():
             reservation = self._get_locked_reservation(pk)
             code = self._normalize_code(reservation.status_code)

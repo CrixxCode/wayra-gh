@@ -1126,6 +1126,58 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-19 — Fix: 500 real en confirmar/check-in/check-out — `FOR UPDATE` sobre un outer join nullable en Postgres
+
+- **Autor:** Claude Code, a solicitud del usuario (confirmó que el error solo pasaba en producción,
+  no en local)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** el logging de diagnóstico agregado en las dos entradas anteriores de hoy capturó
+  por fin el traceback real al reproducir el 500 en producción:
+  `django.db.utils.NotSupportedError: FOR UPDATE cannot be applied to the nullable side of an outer
+  join`, lanzada desde `_get_locked_reservation()`
+  (`self.get_queryset().select_for_update().get(pk=reservation_id)`). `get_queryset()` hace
+  `select_related("package", "created_by", ...)`, y ambas son FK nullable (`package` es
+  `SET_NULL`/`null=True`, `created_by` también) — Django las traduce a `LEFT OUTER JOIN`, y Postgres
+  rechaza explícitamente un `SELECT ... FOR UPDATE` cuando hay un outer join del lado nullable, porque
+  no hay una fila determinada que bloquear si el join no encuentra coincidencia. SQLite (la base de
+  datos local) ignora `FOR UPDATE` en silencio y nunca aplica esta validación, por eso el mismo código
+  "funcionaba en local" y fallaba siempre en producción (Postgres) — esto explica por qué el fix de
+  ayer sobre los correos no resolvió nada: la causa nunca tuvo que ver con el envío de correos, ya
+  fallaba antes, al bloquear la fila. Se corrigió pasando `of=("self",)` a `select_for_update()`, que
+  le dice a Postgres que bloquee únicamente la fila de `reservation` y no intente bloquear el lado de
+  los joins nullable — el `select_related` se conserva (sigue evitando queries extra para
+  `package`/`created_by`/etc.), solo cambia el alcance del lock. `_get_locked_reservation()` es
+  compartido por `confirm()`, `check_in()`, `check_out()` y `cancel()`, así que las cuatro acciones
+  tenían este mismo bug latente (no solo "confirmar"); todas quedan corregidas con este único cambio.
+  Se revirtió todo el logging de diagnóstico agregado hoy (el wrapper de `confirm()`/`_confirm()`, el
+  `logger` de módulo, los imports de `logging`/`traceback`) una vez identificada la causa raíz, para
+  no dejar código de depuración en el árbol.
+- **Por qué:** el usuario confirmó explícitamente "funciona local, pero en producción no", el dato
+  clave que apuntó a una diferencia de backend de base de datos (SQLite vs Postgres) en vez de a un
+  problema de datos de una reserva puntual, que es justo el patrón de este bug de Postgres con
+  `select_for_update()` + outer join nullable.
+  Aprovechando el hallazgo, se auditaron todos los `select_for_update()` del backend
+  (`grep -rn "select_for_update()"`) buscando el mismo patrón (combinado con `select_related` sobre
+  una FK nullable). Se encontró un segundo caso real: `_select_available_rooms()` en
+  `apps/reservations/public_booking.py` (usada por `create_web_reservation()`, el flujo de reserva
+  público del sitio) hace `Room.objects.select_for_update().select_related("floor", "status",
+  "room_type")`, y `Room.room_type` es `on_delete=SET_NULL, null=True` — el mismo riesgo de outer join
+  nullable. Se corrigió igual, con `of=("self",)`. El resto de los `select_for_update()` del proyecto
+  (`inventory/services.py`, `inventory/serializers.py`, `finance/services.py`, `rooms/recurring.py`,
+  `demo_requests/views.py`, `billing/views.py`) no combinan `select_related` en el mismo queryset, así
+  que no tienen este riesgo.
+- **Archivos/áreas afectadas:** `backend/apps/reservations/views.py`
+  (`ReservationViewSet._get_locked_reservation()`), `backend/apps/reservations/public_booking.py`
+  (`_select_available_rooms()`).
+- **Impacto:** ninguna migración ni variable de entorno nueva. Sin cambios de contrato de API. La
+  suite completa de `apps.reservations` (63 pruebas) corre sobre SQLite y por eso nunca habría
+  detectado este bug (SQLite no aplica la restricción que sí aplica Postgres) — quedó verificado
+  manualmente pidiéndole al usuario que reintente confirmar en producción tras el deploy.
+  `python manage.py check` en verde.
+
+---
+
 ### 2026-08-19 — Diagnóstico (v2): el try/except del intento anterior no envolvía la excepción real
 
 - **Autor:** Claude Code, a solicitud del usuario (probó confirmar la reserva `HOT2026026` y volvió

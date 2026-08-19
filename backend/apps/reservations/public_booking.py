@@ -157,7 +157,7 @@ def _select_available_rooms(
         )
 
     candidates = (
-        Room.objects.select_for_update()
+        Room.objects.select_for_update(of=("self",))
         .select_related("floor", "status", "room_type")
         .filter(
             floor__hotel_settings=hotel,
