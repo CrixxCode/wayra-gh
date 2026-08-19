@@ -1126,6 +1126,46 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-19 — Diagnóstico: `ReservationViewSet.confirm()` sigue devolviendo 500 tras el fix de correos
+
+- **Autor:** Claude Code, a solicitud del usuario (reportó de nuevo 500 al presionar "Confirmar
+  reserva")
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix (diagnóstico, sin resolver la causa raíz todavía)
+- **Qué se hizo:** se revisaron los logs de producción en Railway (`railway logs`) y se confirmó que
+  el fix del 2026-08-18 (envolver `send_reservation_confirmed_email()` completa en try/except) **no
+  resolvió el problema**: hay 4 errores `Internal Server Error: /api/reservations/31/confirm/` a las
+  16:51–16:53 (hora local) del 2026-08-18, todos posteriores al deploy que incluyó ese fix (el
+  contenedor arrancó a las 19:29 UTC / 14:29 local con el commit `49b6c85`). Django no registra el
+  traceback de estos errores en los logs (el formatter de `LOGGING` solo captura la línea de resumen
+  `django.request: Internal Server Error: ...`, sin `exc_info`), así que la excepción real seguía sin
+  identificarse. Se descartó ejecutar un script de diagnóstico contra la base de datos de producción
+  (el clasificador de auto-mode lo bloqueó por ser una acción sobre producción); en su lugar, y con
+  autorización explícita del usuario, se envolvió en try/except la parte de `confirm()` que corre
+  **después** de que la transacción que cambia el estado a `CONFIRMADA` ya hizo commit (el envío del
+  correo de confirmación y la construcción de `ReservationDetailSerializer(reservation).data`). El
+  except registra el traceback completo con `logger.exception()` y vuelve a lanzar la excepción (el
+  cliente sigue viendo 500 por ahora), para que el próximo intento de confirmar dicha reserva quede
+  con el traceback real en los logs de Railway y se pueda identificar y corregir la causa raíz.
+  También se detectó que `check_in()` y `check_out()` tienen el mismo patrón (construyen
+  `ReservationDetailSerializer` después de que el `with transaction.atomic()` ya cerró) y podrían
+  sufrir el mismo problema si la causa raíz está en la serialización; no se tocaron todavía porque no
+  hay reporte de error ahí.
+- **Por qué:** el usuario reportó el mismo síntoma (500 al confirmar una reserva) que ya se había
+  intentado corregir el día anterior; había que confirmar si el fix anterior fue insuficiente antes de
+  intentar otro arreglo a ciegas, y dejar instrumentación para no depender de nuevo de logs sin
+  traceback.
+- **Archivos/áreas afectadas:** `backend/apps/reservations/views.py` (`ReservationViewSet.confirm()`,
+  import de `logging` y `logger` de módulo nuevos).
+- **Impacto:** ninguna migración ni variable de entorno nueva. Sin cambios de contrato de API (sigue
+  devolviendo 500 en el mismo caso, ahora con logging). La suite completa de `apps.reservations` (63
+  pruebas) y `python manage.py check` siguen en verde. **Pendiente:** pedirle al usuario que reintente
+  confirmar la reserva #31 (o la que esté fallando) tras el despliegue, revisar
+  `railway logs --service wayra-gh` para obtener el traceback real, y aplicar la corrección
+  definitiva (posiblemente replicarla en `check_in()`/`check_out()` si comparten la causa).
+
+---
+
 ### 2026-08-18 — Código público de reserva real (`Reservation.code`), en vez de un id disfrazado
 
 - **Autor:** Claude Code, a solicitud del usuario

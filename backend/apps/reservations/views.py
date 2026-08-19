@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -74,6 +75,8 @@ from apps.reservations.services import (
     validate_reservation_status_transition,
     validate_checkout_inventory_review_payload,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ReservationPagination(PageNumberPagination):
@@ -387,11 +390,20 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
             except ValueError as exc:
                 return self._error(str(exc))
 
-        if reservation.source_channel == WEB_RESERVATION_SOURCE_CHANNEL:
-            send_reservation_confirmed_email(reservation, request=request)
+        try:
+            if reservation.source_channel == WEB_RESERVATION_SOURCE_CHANNEL:
+                send_reservation_confirmed_email(reservation, request=request)
 
-        serializer = ReservationDetailSerializer(reservation, context=self.get_serializer_context())
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            serializer = ReservationDetailSerializer(reservation, context=self.get_serializer_context())
+            data = serializer.data
+        except Exception:
+            logger.exception(
+                "La reserva %s quedo confirmada pero fallo al preparar la respuesta.",
+                reservation.pk,
+            )
+            raise
+
+        return Response(data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="check-in")
     def check_in(self, request, pk=None):
