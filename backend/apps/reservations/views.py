@@ -1,4 +1,5 @@
 import logging
+import traceback
 from datetime import timedelta
 
 from django.conf import settings
@@ -362,6 +363,18 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="confirm")
     def confirm(self, request, pk=None):
+        try:
+            return self._confirm(request, pk)
+        except Exception as exc:
+            logger.error(
+                "TRACEBACK_DIAGNOSTICO confirm() reservation_id=%s: %s\n%s",
+                pk,
+                exc,
+                traceback.format_exc(),
+            )
+            raise
+
+    def _confirm(self, request, pk):
         with transaction.atomic():
             reservation = self._get_locked_reservation(pk)
             code = self._normalize_code(reservation.status_code)
@@ -390,20 +403,11 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
             except ValueError as exc:
                 return self._error(str(exc))
 
-        try:
-            if reservation.source_channel == WEB_RESERVATION_SOURCE_CHANNEL:
-                send_reservation_confirmed_email(reservation, request=request)
+        if reservation.source_channel == WEB_RESERVATION_SOURCE_CHANNEL:
+            send_reservation_confirmed_email(reservation, request=request)
 
-            serializer = ReservationDetailSerializer(reservation, context=self.get_serializer_context())
-            data = serializer.data
-        except Exception:
-            logger.exception(
-                "La reserva %s quedo confirmada pero fallo al preparar la respuesta.",
-                reservation.pk,
-            )
-            raise
-
-        return Response(data, status=status.HTTP_200_OK)
+        serializer = ReservationDetailSerializer(reservation, context=self.get_serializer_context())
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="check-in")
     def check_in(self, request, pk=None):

@@ -1126,6 +1126,43 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-19 — Diagnóstico (v2): el try/except del intento anterior no envolvía la excepción real
+
+- **Autor:** Claude Code, a solicitud del usuario (probó confirmar la reserva `HOT2026026` y volvió
+  a dar 500)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix (diagnóstico, sin resolver la causa raíz todavía)
+- **Qué se hizo:** el try/except agregado en la entrada anterior de hoy solo cubría el tramo
+  posterior al `with transaction.atomic()` (correo + serializer final), asumiendo que el fallo estaba
+  ahí. El log de la reserva `HOT2026026` (id 26) volvió a mostrar únicamente la línea de resumen
+  `django.request: Internal Server Error: /api/reservations/26/confirm/`, **sin** el mensaje propio
+  que ese try/except debía emitir — es decir, la excepción real ocurre en otro punto de `confirm()`
+  (dentro del bloque atómico: validaciones de estado, `_set_status()`, o la rama de
+  "ya está confirmada" que serializa dentro del `with`). También se confirmó que Django no está
+  volcando el traceback de `exc_info` a los logs de Railway en este entorno (se probó con
+  `logger.exception()` y no aparece), así que confiar en el logging estándar de Django no sirve aquí.
+  Se refactorizó `confirm()`: la lógica original se movió a `_confirm()` y el método público `confirm()`
+  ahora es un wrapper que llama a `_confirm()` dentro de un try/except que captura **cualquier**
+  excepción en **todo** el método (no solo el tramo final) y la registra con
+  `logger.error(..., traceback.format_exc())`, formateando el traceback como texto plano en el mensaje
+  en vez de depender de `exc_info` (que el pipeline de logs actual no está mostrando). El mensaje
+  incluye el marcador `TRACEBACK_DIAGNOSTICO` para ubicarlo fácil en los logs. Sigue relanzando la
+  excepción, así que el cliente sigue viendo 500 por ahora.
+- **Por qué:** el diagnóstico anterior (mismo día) resultó insuficiente — cubría la ubicación
+  equivocada del código y además dependía de un mecanismo de logging (`exc_info`) que no está
+  funcionando en este entorno de Railway. Había que ampliar la cobertura y cambiar la forma de
+  registrar el error antes de poder identificar la causa raíz.
+- **Archivos/áreas afectadas:** `backend/apps/reservations/views.py`
+  (`ReservationViewSet.confirm()`/`_confirm()`, import de `traceback`).
+- **Impacto:** ninguna migración ni variable de entorno nueva. Sin cambios de contrato de API (sigue
+  devolviendo 500 en el mismo caso, ahora con logging por texto plano). La suite completa de
+  `apps.reservations` (63 pruebas) y `python manage.py check` siguen en verde. **Pendiente:** pedirle
+  al usuario que reintente confirmar una reserva pendiente tras este despliegue, buscar
+  `TRACEBACK_DIAGNOSTICO` en `railway logs --service wayra-gh`, identificar la causa raíz real y
+  revertir este logging de diagnóstico una vez aplicado el fix definitivo.
+
+---
+
 ### 2026-08-19 — Diagnóstico: `ReservationViewSet.confirm()` sigue devolviendo 500 tras el fix de correos
 
 - **Autor:** Claude Code, a solicitud del usuario (reportó de nuevo 500 al presionar "Confirmar
