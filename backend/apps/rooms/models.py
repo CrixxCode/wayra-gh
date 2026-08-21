@@ -5,6 +5,12 @@ from apps.hotel_settings.models import HotelFloor
 from apps.master_data.models import MasterData
 
 
+def room_photo_upload_to(instance, filename):
+    hotel_id = instance.room.floor.hotel_settings_id if instance.room_id else "pending"
+    room_id = instance.room_id or "pending"
+    return f"hotel/rooms/{hotel_id}/{room_id}/{filename}"
+
+
 class RoomType(models.Model):
     hotel_settings = models.ForeignKey(
         "hotel_settings.HotelSettings",
@@ -143,6 +149,30 @@ class Room(models.Model):
 
     def __str__(self):
         return self.number
+
+
+class RoomPhoto(models.Model):
+    room = models.ForeignKey(
+        Room,
+        on_delete=models.CASCADE,
+        related_name="photos",
+    )
+    image = models.ImageField(upload_to=room_photo_upload_to)
+    alt_text = models.CharField(max_length=160, blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "room_photo"
+        ordering = ["sort_order", "id"]
+
+    def delete(self, *args, **kwargs):
+        storage = self.image.storage if self.image else None
+        name = self.image.name if self.image else None
+        result = super().delete(*args, **kwargs)
+        if storage and name:
+            storage.delete(name)
+        return result
 
 
 class MaintenanceOrder(models.Model):

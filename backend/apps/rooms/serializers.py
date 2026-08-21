@@ -13,6 +13,7 @@ from .models import (
     Rate,
     Amenity,
     Room,
+    RoomPhoto,
     MaintenanceOrder,
     CleaningTask,
     RecurringWork,
@@ -268,6 +269,24 @@ class RateSerializer(TenantSerializerMixin, serializers.ModelSerializer):
         self.assign_target_tenant(validated_data)
         return super().update(instance, validated_data)
 
+
+class RoomPhotoSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RoomPhoto
+        fields = ("id", "image", "url", "alt_text", "sort_order", "created_at")
+        read_only_fields = ("id", "image", "url", "created_at")
+
+    def get_url(self, obj) -> str:
+        if not obj.image:
+            return ""
+
+        request = self.context.get("request")
+        url = obj.image.url
+        return request.build_absolute_uri(url) if request else url
+
+
 class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
     tenant_field_name = "hotel_settings"
 
@@ -306,6 +325,7 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
     operations = serializers.SerializerMethodField()
 
     amenities = AmenitySerializer(many=True, read_only=True)
+    photos = RoomPhotoSerializer(many=True, read_only=True)
     amenity_ids = serializers.PrimaryKeyRelatedField(
         queryset=Amenity.objects.all(),
         source="amenities",
@@ -336,6 +356,7 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             "operations",
             "notes",
             "amenities",
+            "photos",
             "amenity_ids",
             "created_at",
         )
@@ -740,6 +761,7 @@ class RateMiniSerializer(serializers.ModelSerializer):
 class RoomPanelSerializer(serializers.ModelSerializer):
     room_type = RoomTypeMiniSerializer(read_only=True)
     amenities = RoomAmenityMiniSerializer(many=True, read_only=True)
+    photos = RoomPhotoSerializer(many=True, read_only=True)
 
     floor_name = serializers.CharField(source="floor.name", read_only=True)
     floor_number = serializers.IntegerField(source="floor.floor_number", read_only=True)
@@ -765,6 +787,7 @@ class RoomPanelSerializer(serializers.ModelSerializer):
             "room_type",
             "rate",
             "amenities",
+            "photos",
             "current_guest",
             "active_reservation",
             "active_maintenance",

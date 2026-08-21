@@ -7,6 +7,13 @@ from django.db import IntegrityError, models, transaction
 from apps.master_data.models import MasterData
 
 
+MAX_GALLERY_IMAGE_SIZE = 2 * 1024 * 1024
+
+
+def hotel_photo_upload_to(instance, filename):
+    return f"hotel/photos/{instance.hotel_settings_id}/{filename}"
+
+
 class HotelSettings(models.Model):
     RESERVATION_PREFIX_MAX_LENGTH = 5
     RESERVATION_PREFIX_GENERATION_ATTEMPTS = 1000
@@ -226,6 +233,30 @@ class HotelSettings(models.Model):
                 self.reservation_code_prefix = self.build_unique_reservation_code_prefix(
                     self.hotel_name
                 )
+
+
+class HotelPhoto(models.Model):
+    hotel_settings = models.ForeignKey(
+        HotelSettings,
+        on_delete=models.CASCADE,
+        related_name="photos",
+    )
+    image = models.ImageField(upload_to=hotel_photo_upload_to)
+    alt_text = models.CharField(max_length=160, blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "hotel_photo"
+        ordering = ["sort_order", "id"]
+
+    def delete(self, *args, **kwargs):
+        storage = self.image.storage if self.image else None
+        name = self.image.name if self.image else None
+        result = super().delete(*args, **kwargs)
+        if storage and name:
+            storage.delete(name)
+        return result
 
 
 class HotelFloor(models.Model):

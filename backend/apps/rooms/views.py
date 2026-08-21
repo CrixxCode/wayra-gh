@@ -2,6 +2,8 @@ from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 
 from accounts.pagination import OptionalPageNumberPagination
 from accounts.permissions import HasResourcePermission
@@ -12,6 +14,7 @@ from .models import (
     Rate,
     Amenity,
     Room,
+    RoomPhoto,
     MaintenanceOrder,
     CleaningTask,
     RecurringWork,
@@ -29,6 +32,7 @@ from .serializers import (
     RecurringWorkSerializer,
     RoomPanelSerializer,
 )
+from apps.hotel_settings.serializers import validate_gallery_image
 
 
 class RoomTypeViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
@@ -131,6 +135,7 @@ class RoomViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
         )
         .prefetch_related(
             "amenities",
+            "photos",
             "maintenance_orders",
             "reservation_details__reservation__status",
             "reservation_details__reservation__client",
@@ -142,6 +147,7 @@ class RoomViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
     permission_classes = [HasResourcePermission]
     required_scopes = ["rooms.read"]
     tenant_filter = "floor__hotel_settings"
+    max_photos = 3
 
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
@@ -205,6 +211,16 @@ class RoomViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
 
         return queryset.order_by("number")
 
+    @staticmethod
+    def _uploaded_photos(request):
+        return request.FILES.getlist("photos") or request.FILES.getlist("photo")
+
+    def _serialize_room(self, room):
+        return Response(
+            self.get_serializer(room).data,
+            status=200,
+        )
+
     @action(detail=True, methods=["GET"], name="panel")
     def panel(self, request, pk=None):
         room = self.get_object()
@@ -222,6 +238,63 @@ class RoomViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+    @action(detail=True, methods=["POST"], url_path="photos")
+    def upload_photos(self, request, pk=None):
+        room = self.get_object()
+        files = self._uploaded_photos(request)
+
+        if not files:
+            return Response({"photos": "Debes adjuntar al menos una foto."}, status=400)
+
+        existing_count = room.photos.count()
+        if existing_count + len(files) > self.max_photos:
+            return Response(
+                {
+                    "photos": (
+                        f"Cada habitacion puede tener maximo {self.max_photos} fotos. "
+                        f"Actualmente tiene {existing_count}."
+                    )
+                },
+                status=400,
+            )
+
+        for uploaded_file in files:
+            validate_gallery_image(uploaded_file)
+
+        next_order = existing_count
+        for uploaded_file in files:
+            next_order += 1
+            RoomPhoto.objects.create(
+                room=room,
+                image=uploaded_file,
+                sort_order=next_order,
+                alt_text=f"Foto {next_order} de habitacion {room.number}",
+            )
+
+        room = self.get_queryset().get(pk=room.pk)
+        return self._serialize_room(room)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="photo_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+            )
+        ]
+    )
+    @action(detail=True, methods=["delete"], url_path=r"photos/(?P<photo_id>[^/.]+)")
+    def delete_photo(self, request, pk=None, photo_id=None):
+        room = self.get_object()
+        photo = room.photos.filter(pk=photo_id).first()
+        if not photo:
+            return Response({"detail": "Foto no encontrada."}, status=404)
+
+        photo.delete()
+        room = self.get_queryset().get(pk=room.pk)
+        return self._serialize_room(room)
 
 
 

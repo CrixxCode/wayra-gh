@@ -65,8 +65,11 @@ def build_active_allied_hotels(
         HotelSettings.objects.filter(is_active=True)
         .prefetch_related(
             "floors",
+            "photos",
             "rates",
             "rates__room_type",
+            "floors__rooms",
+            "floors__rooms__photos",
         )
         .order_by("hotel_name", "id")
     )
@@ -140,6 +143,7 @@ def build_allied_hotel_payload(
         "country": hotel.country or "",
         "description": hotel.description or "",
         "highlights": build_allied_hotel_highlights(hotel, rooms, max_guests),
+        "imageUrl": first_hotel_photo_url(hotel),
         "rooms": rooms,
         "availableRooms": available_rooms_total,
         "maxGuestsPerRoom": max_guests,
@@ -160,10 +164,31 @@ def build_allied_room_rate_payload(
         "roomType": room_type.name,
         "rateName": rate.name,
         "description": room_type.description or rate.name,
+        "imageUrl": first_room_photo_url_for_type(rate.hotel_settings, rate.room_type_id),
         "maxGuests": int(room_type.capacity or 1),
         "nightlyRate": int(rate.price or 0),
         "availableRooms": available_rooms,
     }
+
+
+def first_hotel_photo_url(hotel: HotelSettings) -> str:
+    photo = next(iter(hotel.photos.all()), None)
+    return photo.image.url if photo and photo.image else ""
+
+
+def first_room_photo_url_for_type(hotel: HotelSettings, room_type_id: int | None) -> str:
+    if not room_type_id:
+        return ""
+
+    for floor in hotel.floors.all():
+        for room in floor.rooms.all():
+            if room.room_type_id != room_type_id:
+                continue
+            photo = next(iter(room.photos.all()), None)
+            if photo and photo.image:
+                return photo.image.url
+
+    return ""
 
 
 def rate_applies_to_allied_dates(

@@ -1,10 +1,16 @@
 from django.contrib import admin
-from .models import HotelSettings, HotelFloor, PaymentMethod, ReservationPolicy
+from .models import HotelSettings, HotelFloor, HotelPhoto, PaymentMethod, ReservationPolicy
 
 
 class HotelFloorInline(admin.TabularInline):
     model = HotelFloor
     extra = 1
+
+
+class HotelPhotoInline(admin.TabularInline):
+    model = HotelPhoto
+    extra = 0
+    readonly_fields = ("created_at",)
 
 
 @admin.register(HotelSettings)
@@ -24,7 +30,14 @@ class HotelSettingsAdmin(admin.ModelAdmin):
     )
     list_filter = ("is_active", "country", "city")
     readonly_fields = ("reservation_code_prefix",)
-    inlines = [HotelFloorInline]
+    inlines = [HotelFloorInline, HotelPhotoInline]
+
+
+@admin.register(HotelPhoto)
+class HotelPhotoAdmin(admin.ModelAdmin):
+    list_display = ("id", "hotel_settings", "sort_order", "created_at")
+    list_filter = ("hotel_settings",)
+    search_fields = ("hotel_settings__hotel_name", "alt_text")
 
 
 @admin.register(HotelFloor)

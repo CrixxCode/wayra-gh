@@ -32,7 +32,7 @@ import {
   loadDepartmentsForCountry,
   loadHotelCountries,
 } from '../../../shared/hotel-location-options';
-import { HotelFloor, HotelSettings as HotelSettingsModel } from './hotel-setting-model';
+import { HotelFloor, HotelPhoto, HotelSettings as HotelSettingsModel } from './hotel-setting-model';
 import {
   LocationPicker,
   LocationValue,
@@ -134,6 +134,9 @@ export class HotelSettings implements OnInit {
   superAdminHotelOptions: HotelSettingsModel[] = [];
 
   form: SettingsForm = this.buildDefaultForm();
+  hotelPhotos: HotelPhoto[] = [];
+  photoUploading = false;
+  deletingPhotoId: number | null = null;
   floors: HotelFloor[] = [];
   deletedFloorIds: number[] = [];
   reservationPolicies: ReservationPolicyI[] = [];
@@ -179,6 +182,10 @@ export class HotelSettings implements OnInit {
     'America/New_York',
     'Europe/Madrid',
   ];
+
+  readonly maxHotelPhotos = 5;
+  readonly maxGalleryImageSizeMb = 2;
+  readonly maxGalleryImageBytes = this.maxGalleryImageSizeMb * 1024 * 1024;
 
   constructor(
     private settingsSvc: HotelSettingsService,
@@ -262,6 +269,20 @@ export class HotelSettings implements OnInit {
     return this.reservationPolicies.filter((policy) => policy.is_active !== false).length;
   }
 
+  get hotelPhotoSlotsRemaining(): number {
+    return Math.max(0, this.maxHotelPhotos - this.hotelPhotos.length);
+  }
+
+  get canUploadHotelPhotos(): boolean {
+    return (
+      this.canEdit &&
+      !!this.settingsId &&
+      this.canManageSelectedHotel &&
+      !this.photoUploading &&
+      this.hotelPhotoSlotsRemaining > 0
+    );
+  }
+
   get isPercentagePenaltySelected(): boolean {
     return this.getPenaltyTypeCode(this.policyForm.penalty_type) === 'PERCENTAGE';
   }
@@ -277,6 +298,79 @@ export class HotelSettings implements OnInit {
 
   resolveLogoSrc(): string {
     return this.auth.buildMediaUrl(this.form.logo || '');
+  }
+
+  resolvePhotoSrc(photo: HotelPhoto): string {
+    return this.auth.buildMediaUrl(photo.url || photo.image || '');
+  }
+
+  onHotelPhotosSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files || []);
+    input.value = '';
+
+    if (!files.length || !this.canUploadHotelPhotos || !this.settingsId) return;
+
+    const validation = this.validatePhotoSelection(
+      files,
+      this.hotelPhotos.length,
+      this.maxHotelPhotos
+    );
+    if (validation) {
+      this.errorMessage = validation;
+      this.successMessage = '';
+      return;
+    }
+
+    this.photoUploading = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    this.settingsSvc.uploadPhotos(this.settingsId, files).subscribe({
+      next: (updated) => {
+        this.photoUploading = false;
+        this.applySettings(updated);
+        this.initialSnapshot = this.currentSnapshot();
+        this.successMessage = successActionAlert('save', 'fotos del hotel');
+      },
+      error: (error) => {
+        this.photoUploading = false;
+        this.errorMessage = this.extractApiErrorMessage(
+          error,
+          errorActionAlert('save', 'fotos del hotel')
+        );
+      }
+    });
+  }
+
+  deleteHotelPhoto(photo: HotelPhoto): void {
+    if (!this.settingsId || !photo.id || !this.canEdit) return;
+
+    openActionConfirmation(this.confirmationService, {
+      action: 'delete',
+      target: 'foto del hotel',
+      onAccept: () => {
+        this.deletingPhotoId = photo.id;
+        this.errorMessage = '';
+        this.successMessage = '';
+
+        this.settingsSvc.deletePhoto(this.settingsId as number, photo.id).subscribe({
+          next: (updated) => {
+            this.deletingPhotoId = null;
+            this.applySettings(updated);
+            this.initialSnapshot = this.currentSnapshot();
+            this.successMessage = successActionAlert('delete', 'foto del hotel');
+          },
+          error: (error) => {
+            this.deletingPhotoId = null;
+            this.errorMessage = this.extractApiErrorMessage(
+              error,
+              errorActionAlert('delete', 'foto del hotel')
+            );
+          }
+        });
+      }
+    });
   }
 
   addFloor(): void {
@@ -1031,6 +1125,9 @@ export class HotelSettings implements OnInit {
       this.locationDepartments = [];
       this.locationCities = [];
       this.floors = [];
+      this.hotelPhotos = [];
+      this.photoUploading = false;
+      this.deletingPhotoId = null;
       this.deletedFloorIds = [];
       this.persistedFloorIdByNumber.clear();
       this.clearPoliciesCollection();
@@ -1057,6 +1154,11 @@ export class HotelSettings implements OnInit {
     };
     this.hotelTheme.applyBrandColors(this.form.primary_color, this.form.secondary_color);
     this.syncLocationOptions();
+    this.hotelPhotos = [...(settings.photos ?? [])].sort(
+      (a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)
+    );
+    this.photoUploading = false;
+    this.deletingPhotoId = null;
 
     this.floors = (settings.floors ?? []).map((floor) => ({
       ...floor,
@@ -1725,6 +1827,24 @@ export class HotelSettings implements OnInit {
       floors: normalizedFloors,
       deletedFloorIds: [...this.deletedFloorIds].sort((a, b) => a - b),
     });
+  }
+
+  private validatePhotoSelection(files: File[], currentCount: number, maxCount: number): string | null {
+    if (currentCount + files.length > maxCount) {
+      return `Solo puedes guardar ${maxCount} fotos. Te quedan ${Math.max(0, maxCount - currentCount)} cupos.`;
+    }
+
+    const oversized = files.find((file) => file.size > this.maxGalleryImageBytes);
+    if (oversized) {
+      return `La imagen "${oversized.name}" supera ${this.maxGalleryImageSizeMb} MB.`;
+    }
+
+    const invalid = files.find((file) => !/^image\/(jpeg|png|webp)$/i.test(file.type || ''));
+    if (invalid) {
+      return `La imagen "${invalid.name}" debe ser JPG, PNG o WebP.`;
+    }
+
+    return null;
   }
 
   private toOptionalPositiveInt(value: unknown): number | null {

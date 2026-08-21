@@ -78,6 +78,24 @@ export class HotelSettingsService {
     ).pipe(tap(() => this.invalidateSettings()));
   }
 
+  uploadPhotos(id: number, files: File[]): Observable<HotelSettings> {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('photos', file));
+
+    return this.http.post<HotelSettings>(
+      `${this.settingsUrl}${id}/photos/`,
+      formData,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateSettings()));
+  }
+
+  deletePhoto(id: number, photoId: number): Observable<HotelSettings> {
+    return this.http.delete<HotelSettings>(
+      `${this.settingsUrl}${id}/photos/${photoId}/`,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateSettings()));
+  }
+
   /**
    * Borrar completamente la configuración
    */

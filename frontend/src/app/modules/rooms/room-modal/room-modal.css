@@ -967,8 +967,73 @@
   grid-column: 1 / -1;
 }
 
+.room-photo-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.room-photo-upload {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.room-photo-upload.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.room-photo-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.room-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.room-photo-card {
+  overflow: hidden;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 12px;
+  background: var(--gh-surface);
+}
+
+.room-photo-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--gh-surface-soft);
+}
+
+.room-photo-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+}
+
+.room-photo-card-foot span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--gh-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 980px) {
   .operation-history {
+    grid-template-columns: 1fr;
+  }
+
+  .room-photo-grid {
     grid-template-columns: 1fr;
   }
 }

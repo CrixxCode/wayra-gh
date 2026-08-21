@@ -7,6 +7,15 @@ export interface HotelFloor {
     range_display?: string;
 }
 
+export interface HotelPhoto {
+    id: number;
+    image?: string;
+    url?: string;
+    alt_text?: string;
+    sort_order?: number;
+    created_at?: string;
+}
+
 export interface HotelSettings {
     id?: number;
 
@@ -58,6 +67,7 @@ export interface HotelSettings {
 
     // Estructura del hotel
     floors?: HotelFloor[];
+    photos?: HotelPhoto[];
 
     // Estadísticas calculadas
     total_floors?: number;

@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-08-20
+**Última actualización:** 2026-08-21
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -390,6 +390,10 @@ confirmada" + aviso de que el check-in online se habilita 48 horas antes de la l
 correos de reserva solo se disparan para `source_channel == "WEB"` con `client.email` presente, no
 para reservas creadas por el hotel (walk-in, teléfono) — ver la entrada del 2026-08-18 en el
 Registro de cambios.
+
+El check-in online público valida esa misma ventana en backend: solo es elegible desde 48 horas
+antes de la fecha/hora de llegada (`expected_check_in` + `HotelSettings.check_in_time`, o 00:00 si
+el hotel no configuró hora) y deja de ser elegible después de la fecha de llegada.
 
 ### 5.11 Throttling diferenciado por endpoint sensible
 
@@ -1116,6 +1120,26 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > debe escribirse en el momento del cambio.
 
 ---
+
+### 2026-08-21 — Galerías de fotos por hotel y habitación
+
+- **Autor:** Codex, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** se agregaron galerías de archivos de imagen para hoteles y habitaciones: cada hotel puede cargar hasta 5 fotos y cada habitación hasta 3. Las imágenes se guardan como archivos en `media/`; la base de datos guarda solo la ruta, orden y metadatos. El backend valida que cada archivo sea JPG, PNG o WebP y que no supere 2 MB. Configuración del Hotel y el modal de habitación ahora permiten subir, previsualizar y eliminar fotos. El directorio público de hoteles aliados usa la primera foto del hotel como `imageUrl` y la primera foto de una habitación del tipo tarifado como imagen de la tarifa.
+- **Por qué:** el flujo de hoteles aliados y la operación interna necesitaban fotos reales cargadas por archivo, no URLs externas, con límites para evitar archivos excesivos.
+- **Archivos/áreas afectadas:** `backend/apps/hotel_settings/`, `backend/apps/rooms/`, `frontend/src/app/components/pages/hotel-settings/`, `frontend/src/app/modules/rooms/room-modal/`, `frontend/src/app/services/{hotel-settings,room}.ts`, `frontend/src/app/modules/rooms/room-model.ts`.
+- **Impacto:** requiere migraciones nuevas `hotel_settings.0012_hotelphoto` y `rooms.0014_roomphoto`. No agrega recursos RBAC nuevos: las acciones usan `hotel_settings.write` y `rooms.write`. Los archivos se almacenan bajo `MEDIA_ROOT`.
+
+### 2026-08-21 — Ventana real de 48 horas para el check-in online
+
+- **Autor:** Codex, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** el backend del check-in online ahora calcula la elegibilidad con una ventana real: desde 48 horas antes de la fecha/hora de llegada hasta la fecha exacta de llegada. Tanto el lookup público como el envío final devuelven no elegible antes de esa ventana, y el envío también bloquea si la llegada ya pasó.
+- **Por qué:** el sistema ya informaba al huésped que el check-in online se habilitaba 48 horas antes, pero la elegibilidad real permitía completarlo apenas la reserva estuviera confirmada.
+- **Archivos/áreas afectadas:** `backend/apps/reservations/online_check_in.py`, `backend/apps/reservations/tests.py`, `AGENTS.md`.
+- **Impacto:** sin migraciones ni variables nuevas. Cambio de comportamiento público: reservas confirmadas con llegada a más de 48 horas ya no permiten pre-check-in hasta que abra la ventana. Validado con `python manage.py test apps.reservations.tests.OnlineCheckInPublicApiTests`.
 
 ### 2026-08-20 — CSRF local acepta el puerto alterno del dev server Angular
 

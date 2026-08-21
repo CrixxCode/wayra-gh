@@ -21,6 +21,11 @@
         <i class="fa-solid fa-sliders"></i>
         General
       </button>
+      <button type="button" class="gh-tab" [class.is-active]="activeTab === 'photos'" (click)="selectTab('photos')">
+        <i class="fa-solid fa-images"></i>
+        Fotos
+        <span class="gh-tab-count" *ngIf="roomPhotos.length">{{ roomPhotos.length }}</span>
+      </button>
       <button type="button" class="gh-tab" [class.is-active]="activeTab === 'amenities'" (click)="selectTab('amenities')">
         <i class="fa-solid fa-star"></i>
         Amenidades
@@ -107,6 +112,57 @@
           <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="saveGeneral()" [disabled]="saving || !isDirtyGeneral">
             {{ saving ? 'Guardando...' : 'Guardar cambios' }}
           </button>
+        </div>
+      </ng-container>
+
+      <!-- ================= FOTOS ================= -->
+      <ng-container *ngIf="activeTab === 'photos'">
+        <div class="gh-panel room-photo-panel">
+          <div class="panel-title-row">
+            <div>
+              <p class="gh-panel-title">Fotos de habitacion</p>
+              <p class="panel-text">
+                {{ roomPhotos.length }} de {{ maxRoomPhotos }} fotos. Maximo {{ maxGalleryImageSizeMb }} MB por imagen.
+              </p>
+            </div>
+
+            <label class="gh-mbtn gh-mbtn-dark room-photo-upload" [class.is-disabled]="!canUploadRoomPhotos">
+              <i class="fa-solid fa-upload"></i>
+              {{ photoUploading ? 'Subiendo...' : 'Subir fotos' }}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                [disabled]="!canUploadRoomPhotos"
+                (change)="onRoomPhotosSelected($event)" />
+            </label>
+          </div>
+
+          <p class="hint" *ngIf="roomPhotoSlotsRemaining === 0">
+            <i class="fa-solid fa-circle-info"></i>
+            Esta habitacion ya tiene el maximo de {{ maxRoomPhotos }} fotos.
+          </p>
+
+          <p class="gh-empty" *ngIf="!roomPhotos.length">
+            Aun no hay fotos cargadas para esta habitacion.
+          </p>
+
+          <div class="room-photo-grid" *ngIf="roomPhotos.length">
+            <article class="room-photo-card" *ngFor="let photo of roomPhotos; let index = index; trackBy: trackById">
+              <img [src]="resolveRoomPhotoSrc(photo)" [alt]="photo.alt_text || 'Foto de habitacion'" />
+              <div class="room-photo-card-foot">
+                <span>Foto {{ photo.sort_order || index + 1 }}</span>
+                <button
+                  type="button"
+                  class="gh-icon-btn"
+                  title="Eliminar foto"
+                  [disabled]="deletingPhotoId === photo.id || photoUploading"
+                  (click)="deleteRoomPhoto(photo)">
+                  <i [class]="deletingPhotoId === photo.id ? 'fa-solid fa-spinner fa-spin' : 'fa-regular fa-trash-can'"></i>
+                </button>
+              </div>
+            </article>
+          </div>
         </div>
       </ng-container>
 
@@ -739,7 +795,7 @@
 
     <footer class="gh-modal-foot">
       <span class="gh-foot-note" *ngIf="isDirtyGeneral || isDirtyAmenities">Tienes cambios sin guardar.</span>
-      <button type="button" class="gh-mbtn gh-mbtn-light" (click)="close()" [disabled]="saving || actionLoading">
+      <button type="button" class="gh-mbtn gh-mbtn-light" (click)="close()" [disabled]="saving || actionLoading || photoUploading || deletingPhotoId">
         Cerrar
       </button>
     </footer>

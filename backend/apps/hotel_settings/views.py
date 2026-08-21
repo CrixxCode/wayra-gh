@@ -20,13 +20,14 @@ from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
 from apps.master_data.models import MasterData
 from apps.rooms.models import Room
 
-from .models import HotelFloor, HotelSettings, PaymentMethod, ReservationPolicy
+from .models import HotelFloor, HotelPhoto, HotelSettings, PaymentMethod, ReservationPolicy
 from .serializers import (
     AlliedHotelSerializer,
     PaymentMethodSerializer,
     HotelFloorSerializer,
     HotelSettingsSerializer,
     ReservationPolicySerializer,
+    validate_gallery_image,
 )
 from .services import AlliedHotelAvailabilityCriteria, build_active_allied_hotels
 
@@ -109,13 +110,14 @@ class AlliedHotelViewSet(viewsets.ViewSet):
 
 
 class HotelSettingsViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
-    queryset = HotelSettings.objects.all().order_by("-id")
+    queryset = HotelSettings.objects.prefetch_related("photos").all().order_by("-id")
     serializer_class = HotelSettingsSerializer
     pagination_class = OptionalPageNumberPagination
     permission_classes = [HasResourcePermission]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     required_scopes = ["hotel_settings.read"]
+    max_photos = 5
 
     def get_required_scopes(self):
         if self.request.method in ("POST", "PUT", "PATCH", "DELETE"):
@@ -201,6 +203,16 @@ class HotelSettingsViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
             "timezone": "America/Bogota",
         }
 
+    @staticmethod
+    def _uploaded_photos(request):
+        return request.FILES.getlist("photos") or request.FILES.getlist("photo")
+
+    def _serialize_settings(self, settings_obj):
+        return Response(
+            self.get_serializer(settings_obj).data,
+            status=status.HTTP_200_OK,
+        )
+
     def create(self, request, *args, **kwargs):
         """
         Usuarios de hotel solo pueden administrar su hotel asignado.
@@ -285,6 +297,8 @@ class HotelSettingsViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
                     self.perform_destroy(room)
                 for floor in floors:
                     self.perform_destroy(floor)
+            for photo in settings_obj.photos.all():
+                photo.delete()
 
             reset_payload = self._clear_settings_payload(settings_obj)
             for field, value in reset_payload.items():
@@ -295,6 +309,65 @@ class HotelSettingsViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
             {"detail": "Hotel settings cleared successfully."},
             status=status.HTTP_200_OK,
         )
+
+    @action(detail=True, methods=["post"], url_path="photos")
+    def upload_photos(self, request, pk=None):
+        settings_obj = self.get_object()
+        files = self._uploaded_photos(request)
+
+        if not files:
+            raise ValidationError({"photos": "Debes adjuntar al menos una foto."})
+
+        existing_count = settings_obj.photos.count()
+        if existing_count + len(files) > self.max_photos:
+            raise ValidationError(
+                {
+                    "photos": (
+                        f"Cada hotel puede tener maximo {self.max_photos} fotos. "
+                        f"Actualmente tiene {existing_count}."
+                    )
+                }
+            )
+
+        for uploaded_file in files:
+            validate_gallery_image(uploaded_file)
+
+        next_order = existing_count
+        for uploaded_file in files:
+            next_order += 1
+            HotelPhoto.objects.create(
+                hotel_settings=settings_obj,
+                image=uploaded_file,
+                sort_order=next_order,
+                alt_text=f"Foto {next_order} de {settings_obj.hotel_name}",
+            )
+
+        settings_obj = self.get_queryset().get(pk=settings_obj.pk)
+        return self._serialize_settings(settings_obj)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="photo_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+            )
+        ]
+    )
+    @action(detail=True, methods=["delete"], url_path=r"photos/(?P<photo_id>[^/.]+)")
+    def delete_photo(self, request, pk=None, photo_id=None):
+        settings_obj = self.get_object()
+        photo = settings_obj.photos.filter(pk=photo_id).first()
+        if not photo:
+            return Response(
+                {"detail": "Foto no encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        photo.delete()
+        settings_obj = self.get_queryset().get(pk=settings_obj.pk)
+        return self._serialize_settings(settings_obj)
 
 
 class HotelFloorViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):

@@ -1,19 +1,27 @@
 from datetime import date, timedelta
-from io import StringIO
+from io import BytesIO, StringIO
 from decimal import Decimal
+import shutil
+import tempfile
 
 from django.core.management import call_command
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from rest_framework.test import APIRequestFactory, force_authenticate
+from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 
 from accounts.models import Resource, Role
 from apps.billing.models import Charge, Invoice, Payment
 from apps.clients.models import Client
-from apps.hotel_settings.models import HotelFloor, HotelSettings, PaymentMethod
+from apps.hotel_settings.models import (
+    HotelFloor,
+    HotelSettings,
+    MAX_GALLERY_IMAGE_SIZE,
+    PaymentMethod,
+)
 from apps.inventory.models import InventoryMovement, Item, RoomInventory
 from apps.master_data.models import MasterData
 from apps.reservations.models import Reservation, ReservationRoom
@@ -25,6 +33,7 @@ from apps.rooms.models import (
     Rate,
     RecurringWork,
     Room,
+    RoomPhoto,
     RoomType,
 )
 from apps.rooms.recurrence import advance, first_run_on, is_finished, next_run_after
@@ -33,6 +42,13 @@ from apps.rooms.views import CleaningTaskViewSet
 User = get_user_model()
 from apps.rooms.serializers import AmenitySerializer
 from apps.rooms.views import AmenityViewSet, RoomTypeViewSet, RoomViewSet
+from PIL import Image
+
+
+def uploaded_png(name="photo.png", size=(8, 8)):
+    buffer = BytesIO()
+    Image.new("RGB", size, color=(32, 88, 120)).save(buffer, format="PNG")
+    return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/png")
 
 
 class RoomOperationInventoryAutomationTestCase(TestCase):
@@ -451,6 +467,95 @@ class RoomRateSelectionTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.room.refresh_from_db()
         self.assertEqual(self.room.rate_id, self.standard_low.id)
+
+
+class RoomPhotoUploadTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.media_root = tempfile.mkdtemp()
+        cls.settings_override = override_settings(MEDIA_ROOT=cls.media_root)
+        cls.settings_override.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.settings_override.disable()
+        shutil.rmtree(cls.media_root, ignore_errors=True)
+        super().tearDownClass()
+
+    def setUp(self):
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Fotos Habitacion")
+        self.floor = HotelFloor.objects.create(
+            hotel_settings=self.hotel,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=1,
+        )
+        self.status = MasterData.objects.update_or_create(
+            group=MasterData.Group.ROOM_STATUS,
+            code="DISPONIBLE",
+            defaults={"name": "Disponible", "is_active": True},
+        )[0]
+        self.room = Room.objects.create(number="101", floor=self.floor, status=self.status)
+
+        self.user = User.objects.create_user(
+            username="room_photo_writer",
+            password="test-pass-123",
+            hotel_settings=self.hotel,
+        )
+        role = Role.objects.create(name="Room Photo Writer", slug="room-photo-writer")
+        for key in ("rooms.read", "rooms.write"):
+            resource, _ = Resource.objects.get_or_create(key=key, defaults={"name": key})
+            role.resources.add(resource)
+        self.user.roles.add(role)
+
+        self.client = APIClient()
+        self.client.force_login(self.user)
+
+    def test_uploads_up_to_three_room_photos(self):
+        response = self.client.post(
+            f"/api/rooms/{self.room.id}/photos/",
+            {"photos": [uploaded_png(f"room-{index}.png") for index in range(3)]},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(RoomPhoto.objects.filter(room=self.room).count(), 3)
+        self.assertEqual(len(response.data["photos"]), 3)
+
+    def test_rejects_more_than_three_room_photos(self):
+        for index in range(3):
+            RoomPhoto.objects.create(
+                room=self.room,
+                image=uploaded_png(f"existing-room-{index}.png"),
+                sort_order=index + 1,
+            )
+
+        response = self.client.post(
+            f"/api/rooms/{self.room.id}/photos/",
+            {"photos": [uploaded_png("extra-room.png")]},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(RoomPhoto.objects.filter(room=self.room).count(), 3)
+
+    def test_rejects_oversized_room_photo(self):
+        oversized = SimpleUploadedFile(
+            "huge-room.png",
+            b"0" * (MAX_GALLERY_IMAGE_SIZE + 1),
+            content_type="image/png",
+        )
+
+        response = self.client.post(
+            f"/api/rooms/{self.room.id}/photos/",
+            {"photos": [oversized]},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(RoomPhoto.objects.filter(room=self.room).exists())
 
 
 class RoomOperationalSignalsTests(TestCase):

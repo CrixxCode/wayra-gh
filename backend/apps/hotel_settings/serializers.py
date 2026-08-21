@@ -4,9 +4,53 @@ from rest_framework import serializers
 
 from accounts.tenancy import TenantSerializerMixin
 
-from .models import HotelFloor, HotelSettings, PaymentMethod, ReservationPolicy
+from .models import (
+    HotelFloor,
+    HotelPhoto,
+    HotelSettings,
+    MAX_GALLERY_IMAGE_SIZE,
+    PaymentMethod,
+    ReservationPolicy,
+)
 
 HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+ALLOWED_GALLERY_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+def validate_gallery_image(uploaded_file):
+    if uploaded_file.size > MAX_GALLERY_IMAGE_SIZE:
+        raise serializers.ValidationError(
+            f"La imagen no puede superar {MAX_GALLERY_IMAGE_SIZE // (1024 * 1024)} MB."
+        )
+
+    content_type = (getattr(uploaded_file, "content_type", "") or "").lower()
+    if content_type and content_type not in ALLOWED_GALLERY_IMAGE_CONTENT_TYPES:
+        raise serializers.ValidationError("Solo se permiten imagenes JPG, PNG o WebP.")
+
+    serializers.ImageField(allow_empty_file=False).run_validation(uploaded_file)
+    try:
+        uploaded_file.seek(0)
+    except (AttributeError, OSError):
+        pass
+
+    return uploaded_file
+
+
+class HotelPhotoSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HotelPhoto
+        fields = ("id", "image", "url", "alt_text", "sort_order", "created_at")
+        read_only_fields = ("id", "image", "url", "created_at")
+
+    def get_url(self, obj) -> str:
+        if not obj.image:
+            return ""
+
+        request = self.context.get("request")
+        url = obj.image.url
+        return request.build_absolute_uri(url) if request else url
 
 
 class HotelFloorSerializer(TenantSerializerMixin, serializers.ModelSerializer):
@@ -78,6 +122,7 @@ class HotelFloorSerializer(TenantSerializerMixin, serializers.ModelSerializer):
 
 class HotelSettingsSerializer(serializers.ModelSerializer):
     floors = HotelFloorSerializer(many=True, read_only=True)
+    photos = HotelPhotoSerializer(many=True, read_only=True)
 
     total_floors = serializers.SerializerMethodField()
     total_rooms = serializers.SerializerMethodField()
@@ -122,6 +167,7 @@ class HotelSettingsSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "floors",
+            "photos",
             "total_floors",
             "total_rooms",
             "average_rooms_per_floor",
@@ -197,6 +243,7 @@ class AlliedRoomRateSerializer(serializers.Serializer):
     roomType = serializers.CharField()
     rateName = serializers.CharField()
     description = serializers.CharField(allow_blank=True)
+    imageUrl = serializers.CharField(allow_blank=True, required=False)
     maxGuests = serializers.IntegerField()
     nightlyRate = serializers.IntegerField()
     availableRooms = serializers.IntegerField(allow_null=True)
@@ -211,6 +258,7 @@ class AlliedHotelSerializer(serializers.Serializer):
     country = serializers.CharField(allow_blank=True)
     description = serializers.CharField(allow_blank=True)
     highlights = serializers.ListField(child=serializers.CharField())
+    imageUrl = serializers.CharField(allow_blank=True, required=False)
     rooms = serializers.IntegerField()
     availableRooms = serializers.IntegerField(allow_null=True)
     maxGuestsPerRoom = serializers.IntegerField()

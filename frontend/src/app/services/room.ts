@@ -180,6 +180,24 @@ export class RoomService {
     );
   }
 
+  uploadRoomPhotos(id: number, files: File[]): Observable<RoomI> {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('photos', file));
+
+    return this.http.post<RoomI>(
+      `${this.roomsUrl}${id}/photos/`,
+      formData,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateRooms()));
+  }
+
+  deleteRoomPhoto(id: number, photoId: number): Observable<RoomI> {
+    return this.http.delete<RoomI>(
+      `${this.roomsUrl}${id}/photos/${photoId}/`,
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(tap(() => this.invalidateRooms()));
+  }
+
   deleteRoom(id: number): Observable<void> {
     return this.http
       .delete<void>(`${this.roomsUrl}${id}/`, this.auth.buildCsrfRequestOptions())

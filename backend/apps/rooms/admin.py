@@ -1,5 +1,11 @@
 from django.contrib import admin
-from .models import RoomType, Rate, Amenity, Room, MaintenanceOrder, CleaningTask
+from .models import RoomType, Rate, Amenity, Room, RoomPhoto, MaintenanceOrder, CleaningTask
+
+
+class RoomPhotoInline(admin.TabularInline):
+    model = RoomPhoto
+    extra = 0
+    readonly_fields = ("created_at",)
 
 @admin.register(RoomType)
 class RoomTypeAdmin(admin.ModelAdmin):
@@ -24,6 +30,14 @@ class RoomAdmin(admin.ModelAdmin):
     list_display = ("id", "number", "room_type", "rate", "floor", "status")
     list_filter = ("status", "room_type", "rate", "floor")
     search_fields = ("number", "room_type__name", "rate__name", "status__code", "status__name")
+    inlines = [RoomPhotoInline]
+
+
+@admin.register(RoomPhoto)
+class RoomPhotoAdmin(admin.ModelAdmin):
+    list_display = ("id", "room", "sort_order", "created_at")
+    list_filter = ("room__floor__hotel_settings", "room__floor")
+    search_fields = ("room__number", "room__floor__hotel_settings__hotel_name", "alt_text")
 
 @admin.register(MaintenanceOrder)
 class MaintenanceOrderAdmin(admin.ModelAdmin):

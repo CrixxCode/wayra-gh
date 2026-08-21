@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { ConfirmationService } from 'primeng/api';
 import { Observable, catchError, forkJoin, of } from 'rxjs';
 import { RoomService } from '../../../services/room';
+import { AuthService } from '../../../services/auth/auth';
 import { ReservationService } from '../../../services/reservation';
 import { MasterDataService } from '../../../services/master-data.service';
 import { PaymentMethodI, PaymentMethodService } from '../../../services/payment-method';
@@ -34,6 +35,7 @@ import {
   RateI,
   RoomActiveReservationI,
   RoomI,
+  RoomPhotoI,
   RoomPanelI,
   RoomStatus,
   RoomVisualStatus,
@@ -43,6 +45,7 @@ import { extractApiErrorMessage } from '../api-error';
 
 export type RoomModalTab =
   | 'general'
+  | 'photos'
   | 'amenities'
   | 'rate'
   | 'reservation'
@@ -101,6 +104,8 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
   loadingOperationCatalogs = false;
   saving = false;
   actionLoading = false;
+  photoUploading = false;
+  deletingPhotoId: number | null = null;
 
   feedback = '';
   feedbackKind: 'error' | 'info' = 'info';
@@ -174,11 +179,16 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
 
   selectedAmenityIds: number[] = [];
 
+  readonly maxRoomPhotos = 3;
+  readonly maxGalleryImageSizeMb = 2;
+  readonly maxGalleryImageBytes = this.maxGalleryImageSizeMb * 1024 * 1024;
+
   private dirty = false;
   private countdownTimer: ReturnType<typeof setInterval> | null = null;
   currentTime = new Date();
 
   constructor(
+    private auth: AuthService,
     private paymentMethodService: PaymentMethodService,
     private roomService: RoomService,
     private reservationService: ReservationService,
@@ -401,6 +411,25 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
 
   get activeInventoryCount(): number {
     return this.inventory.filter((record) => record.is_active).length;
+  }
+
+  get roomPhotos(): RoomPhotoI[] {
+    return [...(this.room?.photos || [])].sort(
+      (a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)
+    );
+  }
+
+  get roomPhotoSlotsRemaining(): number {
+    return Math.max(0, this.maxRoomPhotos - this.roomPhotos.length);
+  }
+
+  get canUploadRoomPhotos(): boolean {
+    return (
+      !!this.room?.id &&
+      !this.photoUploading &&
+      !this.actionLoading &&
+      this.roomPhotoSlotsRemaining > 0
+    );
   }
 
   get activeReservationId(): number | null {
@@ -848,6 +877,76 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
       status: this.room.status,
       notes: this.room.notes || '',
       amenity_ids: this.selectedAmenityIds
+    });
+  }
+
+  // -------------------------------------------------------------- tab fotos
+
+  resolveRoomPhotoSrc(photo: RoomPhotoI): string {
+    return this.auth.buildMediaUrl(photo.url || photo.image || '');
+  }
+
+  onRoomPhotosSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files || []);
+    input.value = '';
+
+    if (!files.length || !this.canUploadRoomPhotos) return;
+
+    const validation = this.validatePhotoSelection(files, this.roomPhotos.length, this.maxRoomPhotos);
+    if (validation) {
+      this.setFeedback(validation, 'error');
+      return;
+    }
+
+    this.photoUploading = true;
+    this.feedback = '';
+
+    this.roomService.uploadRoomPhotos(this.room.id, files).subscribe({
+      next: (updated) => {
+        this.photoUploading = false;
+        this.dirty = true;
+        this.room = { ...this.room, ...updated };
+        this.setFeedback(successActionAlert('save', `fotos de habitacion ${this.roomNumber}`), 'info');
+        this.saved.emit(this.room);
+      },
+      error: (error) => {
+        this.photoUploading = false;
+        this.setFeedback(
+          extractApiErrorMessage(error, errorActionAlert('save', 'fotos de habitacion')),
+          'error'
+        );
+      }
+    });
+  }
+
+  deleteRoomPhoto(photo: RoomPhotoI): void {
+    if (!photo.id || !this.room?.id || this.actionLoading || this.photoUploading) return;
+
+    openActionConfirmation(this.confirmationService, {
+      action: 'delete',
+      target: 'foto de la habitacion',
+      onAccept: () => {
+        this.deletingPhotoId = photo.id;
+        this.feedback = '';
+
+        this.roomService.deleteRoomPhoto(this.room.id, photo.id).subscribe({
+          next: (updated) => {
+            this.deletingPhotoId = null;
+            this.dirty = true;
+            this.room = { ...this.room, ...updated };
+            this.setFeedback(successActionAlert('delete', 'foto de la habitacion'), 'info');
+            this.saved.emit(this.room);
+          },
+          error: (error) => {
+            this.deletingPhotoId = null;
+            this.setFeedback(
+              extractApiErrorMessage(error, errorActionAlert('delete', 'foto de la habitacion')),
+              'error'
+            );
+          }
+        });
+      }
     });
   }
 
@@ -1421,7 +1520,7 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
   }
 
   close(): void {
-    if (this.saving || this.actionLoading) return;
+    if (this.saving || this.actionLoading || this.photoUploading || this.deletingPhotoId) return;
     this.emitCloseState();
   }
 
@@ -1960,6 +2059,24 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
   private emitCloseState(): void {
     if (this.dirty) this.saved.emit(this.room);
     this.closed.emit();
+  }
+
+  private validatePhotoSelection(files: File[], currentCount: number, maxCount: number): string | null {
+    if (currentCount + files.length > maxCount) {
+      return `Solo puedes guardar ${maxCount} fotos. Te quedan ${Math.max(0, maxCount - currentCount)} cupos.`;
+    }
+
+    const oversized = files.find((file) => file.size > this.maxGalleryImageBytes);
+    if (oversized) {
+      return `La imagen "${oversized.name}" supera ${this.maxGalleryImageSizeMb} MB.`;
+    }
+
+    const invalid = files.find((file) => !/^image\/(jpeg|png|webp)$/i.test(file.type || ''));
+    if (invalid) {
+      return `La imagen "${invalid.name}" debe ser JPG, PNG o WebP.`;
+    }
+
+    return null;
   }
 
   private setFeedback(message: string, kind: 'error' | 'info'): void {

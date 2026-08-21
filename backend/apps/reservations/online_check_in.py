@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from datetime import timedelta
 from typing import Any
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -16,6 +17,7 @@ from apps.master_data.models import MasterData
 from apps.notifications.services import notify_online_check_in_submitted
 from apps.reservations.models import Reservation, ReservationGuest
 from apps.reservations.services import (
+    get_reservation_check_in_start_datetime,
     get_master_data_code,
     is_reservation_status_cancelled,
     is_reservation_status_confirmed,
@@ -33,6 +35,7 @@ ONLINE_CHECK_IN_ARRIVAL_WINDOWS = (
 )
 
 ONLINE_CHECK_IN_MAX_GUESTS = 8
+ONLINE_CHECK_IN_OPEN_HOURS_BEFORE_ARRIVAL = 48
 
 # Mensaje generico y unico para codigo inexistente o documento que no coincide,
 # asi evitamos que alguien enumere reservas ajenas probando solo el ID.
@@ -179,8 +182,24 @@ def get_online_check_in_eligibility(reservation: Reservation) -> dict[str, Any]:
             "reason": "Esta reserva no esta disponible para check-in online.",
         }
 
-    if reservation.expected_check_out and timezone.localdate() > reservation.expected_check_out:
+    if reservation.expected_check_in and timezone.localdate() > reservation.expected_check_in:
         return {"eligible": False, "reason": "El periodo de esta reserva ya vencio."}
+
+    check_in_start_datetime = get_reservation_check_in_start_datetime(reservation)
+    if check_in_start_datetime is not None:
+        online_check_in_start = check_in_start_datetime - timedelta(
+            hours=ONLINE_CHECK_IN_OPEN_HOURS_BEFORE_ARRIVAL
+        )
+        if timezone.now() < online_check_in_start:
+            online_check_in_start_local = timezone.localtime(online_check_in_start)
+            return {
+                "eligible": False,
+                "reason": (
+                    "El check-in online estara disponible desde el "
+                    f"{online_check_in_start_local:%Y-%m-%d} a las "
+                    f"{online_check_in_start_local:%H:%M}."
+                ),
+            }
 
     return {"eligible": True, "reason": None}
 

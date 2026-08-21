@@ -1,21 +1,39 @@
 from datetime import timedelta
+from io import BytesIO
+import shutil
+import tempfile
 
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
-from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory, APITestCase, force_authenticate
 
 from accounts.models import Resource, Role, SoftDeleteMarker
 from apps.clients.models import Client
-from apps.hotel_settings.models import HotelFloor, HotelSettings, PaymentMethod, ReservationPolicy
+from apps.hotel_settings.models import (
+    HotelFloor,
+    HotelPhoto,
+    HotelSettings,
+    MAX_GALLERY_IMAGE_SIZE,
+    PaymentMethod,
+    ReservationPolicy,
+)
 from apps.hotel_settings.views import PaymentMethodViewSet
 from apps.master_data.models import MasterData
 from apps.reservations.models import Reservation, ReservationRoom
 from apps.rooms.models import Room
-from apps.rooms.models import Rate, RoomType
+from apps.rooms.models import Rate, RoomPhoto, RoomType
+from PIL import Image
 
 User = get_user_model()
+
+
+def uploaded_png(name="photo.png", size=(8, 8)):
+    buffer = BytesIO()
+    Image.new("RGB", size, color=(32, 88, 120)).save(buffer, format="PNG")
+    return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/png")
 
 
 class AlliedHotelDirectoryTests(APITestCase):
@@ -161,6 +179,29 @@ class AlliedHotelDirectoryTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual([rate["rateName"] for rate in response.data[0]["roomRates"]], ["Flexible"])
+
+    def test_public_directory_uses_uploaded_gallery_photos(self):
+        hotel = self._hotel("Hotel Con Fotos", active=True)
+        room = Room.objects.get(floor__hotel_settings=hotel)
+        HotelPhoto.objects.create(
+            hotel_settings=hotel,
+            image="hotel/photos/1/hotel.png",
+            sort_order=1,
+        )
+        RoomPhoto.objects.create(
+            room=room,
+            image="hotel/rooms/1/1/room.png",
+            sort_order=1,
+        )
+
+        response = self.client.get("/api/allied-hotels/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data[0]["imageUrl"], "/media/hotel/photos/1/hotel.png")
+        self.assertEqual(
+            response.data[0]["roomRates"][0]["imageUrl"],
+            "/media/hotel/rooms/1/1/room.png",
+        )
 
     def test_public_directory_reports_available_rooms_for_search_dates(self):
         self._hotel("Hotel Con Cupo", active=True)
@@ -510,6 +551,82 @@ class HotelSettingsTenantIsolationTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["hotel_settings"], self.hotel_b.id)
+
+
+class HotelPhotoUploadTests(APITestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.media_root = tempfile.mkdtemp()
+        cls.settings_override = override_settings(MEDIA_ROOT=cls.media_root)
+        cls.settings_override.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.settings_override.disable()
+        shutil.rmtree(cls.media_root, ignore_errors=True)
+        super().tearDownClass()
+
+    def setUp(self):
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Fotos")
+        self.user = User.objects.create_user(
+            username="hotel_photo_writer",
+            email="hotel_photo_writer@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel,
+        )
+        role = Role.objects.create(name="Hotel Photo Writer", slug="hotel-photo-writer")
+        for key in ("hotel_settings.read", "hotel_settings.write"):
+            resource, _ = Resource.objects.get_or_create(key=key, defaults={"name": key})
+            role.resources.add(resource)
+        self.user.roles.add(role)
+
+        self.client = APIClient()
+        self.client.force_login(self.user)
+
+    def test_uploads_up_to_five_hotel_photos(self):
+        response = self.client.post(
+            f"/api/hotel-settings/{self.hotel.id}/photos/",
+            {"photos": [uploaded_png(f"hotel-{index}.png") for index in range(5)]},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(HotelPhoto.objects.filter(hotel_settings=self.hotel).count(), 5)
+        self.assertEqual(len(response.data["photos"]), 5)
+
+    def test_rejects_more_than_five_hotel_photos(self):
+        for index in range(5):
+            HotelPhoto.objects.create(
+                hotel_settings=self.hotel,
+                image=uploaded_png(f"existing-{index}.png"),
+                sort_order=index + 1,
+            )
+
+        response = self.client.post(
+            f"/api/hotel-settings/{self.hotel.id}/photos/",
+            {"photos": [uploaded_png("extra.png")]},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(HotelPhoto.objects.filter(hotel_settings=self.hotel).count(), 5)
+
+    def test_rejects_oversized_hotel_photo(self):
+        oversized = SimpleUploadedFile(
+            "huge.png",
+            b"0" * (MAX_GALLERY_IMAGE_SIZE + 1),
+            content_type="image/png",
+        )
+
+        response = self.client.post(
+            f"/api/hotel-settings/{self.hotel.id}/photos/",
+            {"photos": [oversized]},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(HotelPhoto.objects.filter(hotel_settings=self.hotel).exists())
 
 
 class HotelSettingsSuperAdminClearTests(APITestCase):

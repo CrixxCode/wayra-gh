@@ -170,6 +170,76 @@
             </div>
 
             <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div class="flex items-start gap-3">
+                  <span class="grid h-9 w-9 place-items-center rounded-full bg-blue-50 text-blue-600">
+                    <i class="fa-solid fa-images"></i>
+                  </span>
+                  <div>
+                    <h3 class="text-xl font-semibold text-slate-900">Fotos del Hotel</h3>
+                    <p class="text-sm text-gray-500">
+                      {{ hotelPhotos.length }} de {{ maxHotelPhotos }} fotos. Maximo {{ maxGalleryImageSizeMb }} MB por imagen.
+                    </p>
+                  </div>
+                </div>
+
+                <label
+                  class="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                  [class.cursor-not-allowed]="!canUploadHotelPhotos"
+                  [class.opacity-60]="!canUploadHotelPhotos"
+                >
+                  <i class="fa-solid fa-upload"></i>
+                  {{ photoUploading ? 'Subiendo...' : 'Subir fotos' }}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    class="sr-only"
+                    [disabled]="!canUploadHotelPhotos"
+                    (change)="onHotelPhotosSelected($event)"
+                  />
+                </label>
+              </div>
+
+              @if (!settingsId) {
+                <p class="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                  Guarda primero la configuracion del hotel para poder cargar fotos.
+                </p>
+              } @else if (!hotelPhotos.length) {
+                <div class="grid place-items-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center">
+                  <i class="fa-regular fa-image mb-2 text-3xl text-gray-400"></i>
+                  <p class="text-sm font-semibold text-slate-700">Sin fotos cargadas</p>
+                  <p class="text-xs text-gray-500">Agrega hasta {{ maxHotelPhotos }} imagenes para mostrar el hotel.</p>
+                </div>
+              } @else {
+                <div class="grid gap-3 sm:grid-cols-2">
+                  @for (photo of hotelPhotos; track photo.id) {
+                    <article class="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                      <img
+                        [src]="resolvePhotoSrc(photo)"
+                        [alt]="photo.alt_text || 'Foto del hotel'"
+                        class="h-36 w-full object-cover"
+                      />
+                      <div class="flex items-center justify-between gap-2 px-3 py-2">
+                        <span class="truncate text-xs font-medium text-gray-600">
+                          Foto {{ photo.sort_order || $index + 1 }}
+                        </span>
+                        <button
+                          type="button"
+                          class="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          [disabled]="deletingPhotoId === photo.id || isActiveTabReadOnly"
+                          (click)="deleteHotelPhoto(photo)"
+                        >
+                          {{ deletingPhotoId === photo.id ? 'Eliminando...' : 'Eliminar' }}
+                        </button>
+                      </div>
+                    </article>
+                  }
+                </div>
+              }
+            </div>
+
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <h4 class="mb-3 text-sm font-semibold text-slate-700">Categoría (Estrellas)</h4>
               <div class="mb-2 flex items-center gap-2 text-2xl">
                 @for (star of [1, 2, 3, 4, 5]; track star) {

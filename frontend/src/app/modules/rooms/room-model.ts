@@ -17,6 +17,15 @@ export interface AmenityI {
   created_at?: string;
 }
 
+export interface RoomPhotoI {
+  id: number;
+  image?: string;
+  url?: string;
+  alt_text?: string;
+  sort_order?: number;
+  created_at?: string;
+}
+
 export interface RoomTypeI {
   id: number;
   code: string;
@@ -112,6 +121,7 @@ export interface RoomI {
   status: RoomStatus;
   notes?: string | null;
   amenities: AmenityI[];
+  photos?: RoomPhotoI[];
   created_at?: string;
 
   room_type_name?: string;
@@ -178,6 +188,7 @@ export interface RoomPanelI {
   room_type: RoomTypeMiniI | null;
   rate: RoomRateMiniI | null;
   amenities: Array<Pick<AmenityI, 'id' | 'name' | 'icon'>>;
+  photos?: RoomPhotoI[];
   current_guest: unknown | null;
   active_reservation: RoomActiveReservationI | null;
   active_maintenance: RoomPanelMaintenanceI | null;

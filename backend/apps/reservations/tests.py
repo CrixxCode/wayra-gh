@@ -1901,7 +1901,7 @@ class OnlineCheckInPublicApiTests(APITestCase):
             client_type=self._md(MasterData.Group.CLIENT_TYPE, "REGULAR"),
             status=self._md(MasterData.Group.CLIENT_STATUS, "ACTIVO"),
         )
-        self.check_in_date = timezone.localdate() + timedelta(days=5)
+        self.check_in_date = timezone.localdate() + timedelta(days=1)
         self.check_out_date = self.check_in_date + timedelta(days=2)
         self.reservation = Reservation.objects.create(
             client=self.client_record,
@@ -2120,6 +2120,53 @@ class OnlineCheckInPublicApiTests(APITestCase):
         self.assertIn("confirmada", response.data["detail"])
         self.assertEqual(self.reservation.guests.count(), 0)
 
+    def test_online_check_in_is_not_eligible_before_48_hours(self):
+        self.reservation.expected_check_in = timezone.localdate() + timedelta(days=3)
+        self.reservation.expected_check_out = self.reservation.expected_check_in + timedelta(days=2)
+        self.reservation.save(update_fields=["expected_check_in", "expected_check_out"])
+
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("disponible desde", response.data["detail"])
+        self.assertEqual(self.reservation.guests.count(), 0)
+
+    def test_online_check_in_is_eligible_from_48_hours_before_arrival(self):
+        local_now = timezone.localtime()
+        self.hotel_settings.check_in_time = local_now.time()
+        self.hotel_settings.save(update_fields=["check_in_time"])
+        self.reservation.expected_check_in = local_now.date() + timedelta(days=2)
+        self.reservation.expected_check_out = self.reservation.expected_check_in + timedelta(days=2)
+        self.reservation.save(update_fields=["expected_check_in", "expected_check_out"])
+
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.reservation.guests.count(), 2)
+
+    def test_online_check_in_is_not_eligible_after_arrival_date(self):
+        self.reservation.expected_check_in = timezone.localdate() - timedelta(days=1)
+        self.reservation.expected_check_out = timezone.localdate() + timedelta(days=1)
+        self.reservation.save(update_fields=["expected_check_in", "expected_check_out"])
+
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("vencio", response.data["detail"])
+        self.assertEqual(self.reservation.guests.count(), 0)
+
     def test_cancelled_reservation_is_not_eligible(self):
         self.reservation.status = self.status_cancelled
         self.reservation.save(update_fields=["status"])
@@ -2254,6 +2301,21 @@ class OnlineCheckInPublicApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.data["eligible"])
         self.assertIn("confirmada", response.data["eligible_reason"])
+
+    def test_lookup_reports_not_eligible_before_48_hours(self):
+        self.reservation.expected_check_in = timezone.localdate() + timedelta(days=3)
+        self.reservation.expected_check_out = self.reservation.expected_check_in + timedelta(days=2)
+        self.reservation.save(update_fields=["expected_check_in", "expected_check_out"])
+
+        response = self.client.post(
+            "/api/online-check-in/lookup/",
+            data=self._lookup_payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["eligible"])
+        self.assertIn("disponible desde", response.data["eligible_reason"])
 
     def test_lookup_returns_existing_guests_after_submission(self):
         submit_response = self.client.post(
