@@ -2,16 +2,45 @@ import re
 import unicodedata
 
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import IntegrityError, models, transaction
 
 from apps.master_data.models import MasterData
 
 
 class HotelSettings(models.Model):
+    RESERVATION_PREFIX_MAX_LENGTH = 5
+    RESERVATION_PREFIX_GENERATION_ATTEMPTS = 1000
+    RESERVATION_PREFIX_STOP_WORDS = {
+        "APARTA",
+        "APARTAHOTEL",
+        "APARTAMENTO",
+        "CASA",
+        "EL",
+        "FINCA",
+        "HACIENDA",
+        "HOSTAL",
+        "HOSTEL",
+        "HOTEL",
+        "LA",
+        "LAS",
+        "LOS",
+        "POSADA",
+        "RESORT",
+    }
+    RESERVATION_PREFIX_HONORIFICS = {"DON", "DONA", "SAN", "SANTA"}
+
     # ====== Información general ======
 
     # Nombre comercial del hotel
     hotel_name = models.CharField(max_length=150)
+
+    # Prefijo estable y globalmente unico para codigos publicos de reserva.
+    reservation_code_prefix = models.CharField(
+        max_length=RESERVATION_PREFIX_MAX_LENGTH,
+        unique=True,
+        editable=False,
+        blank=True,
+    )
 
     # Razón social o nombre legal
     legal_name = models.CharField(max_length=180, blank=True, null=True)
@@ -121,6 +150,82 @@ class HotelSettings(models.Model):
 
     def __str__(self):
         return self.hotel_name
+
+    @classmethod
+    def build_reservation_code_prefix(cls, hotel_name: str) -> str:
+        normalized = unicodedata.normalize("NFD", str(hotel_name or ""))
+        without_accents = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+        raw_tokens = re.findall(r"[A-Za-z0-9]+", without_accents.upper())
+        tokens = [token for token in raw_tokens if token not in cls.RESERVATION_PREFIX_STOP_WORDS]
+        if not tokens:
+            tokens = raw_tokens
+
+        first = tokens[0] if tokens else "HTL"
+        second = tokens[1] if len(tokens) > 1 else ""
+
+        if first in cls.RESERVATION_PREFIX_HONORIFICS and second:
+            prefix = f"{first[0]}{second[0]}{second[-1]}"
+        elif len(first) >= 3:
+            prefix = first[:3]
+        elif second:
+            prefix = f"{first[:1]}{second[:1]}{second[-1:]}"
+        else:
+            prefix = first
+
+        return re.sub(r"[^A-Z0-9]", "", prefix).ljust(3, "X")[:3]
+
+    @classmethod
+    def build_unique_reservation_code_prefix(cls, hotel_name: str, exclude_pk=None) -> str:
+        base = cls.build_reservation_code_prefix(hotel_name)
+
+        for attempt in range(cls.RESERVATION_PREFIX_GENERATION_ATTEMPTS):
+            if attempt == 0:
+                candidate = base
+            else:
+                suffix = str(attempt + 1)
+                candidate = f"{base[: cls.RESERVATION_PREFIX_MAX_LENGTH - len(suffix)]}{suffix}"
+
+            qs = cls.objects.filter(reservation_code_prefix=candidate)
+            if exclude_pk:
+                qs = qs.exclude(pk=exclude_pk)
+
+            if not qs.exists():
+                return candidate
+
+        raise ValidationError(
+            {
+                "reservation_code_prefix": (
+                    "No fue posible generar un prefijo unico para codigos de reserva."
+                )
+            }
+        )
+
+    def save(self, *args, **kwargs):
+        if self.hotel_name:
+            self.hotel_name = str(self.hotel_name).strip()
+
+        if not self.reservation_code_prefix:
+            self.reservation_code_prefix = self.build_unique_reservation_code_prefix(
+                self.hotel_name,
+                exclude_pk=self.pk,
+            )
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"reservation_code_prefix"}
+
+        should_retry_prefix = self._state.adding
+        for attempt in range(5):
+            try:
+                with transaction.atomic():
+                    return super().save(*args, **kwargs)
+            except IntegrityError:
+                if not should_retry_prefix or attempt >= 4:
+                    raise
+                self.pk = None
+                self._state.adding = True
+                self.reservation_code_prefix = self.build_unique_reservation_code_prefix(
+                    self.hotel_name
+                )
 
 
 class HotelFloor(models.Model):

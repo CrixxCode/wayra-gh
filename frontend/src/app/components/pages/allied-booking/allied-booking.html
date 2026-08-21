@@ -1,4 +1,4 @@
-<div class="booking-page">
+<div class="booking-page booking-search-page">
 
   <app-public-header></app-public-header>
 
@@ -8,26 +8,17 @@
     <section class="booking-hero">
       <div class="booking-container">
 
-        <a
-          class="booking-view-back"
-          routerLink="/hoteles-aliados">
-
-          <i class="pi pi-arrow-left"></i>
-          Volver
-
-        </a>
-
         <p class="booking-kicker">
-          Paso 1 de 3
+          Reservar
         </p>
 
         <h1>
-          Busca y selecciona un hotel aliado
+          Reserva directo, sin intermediarios
         </h1>
 
         <p class="booking-lead">
-          Filtra por destino, fechas y ocupación para elegir el alojamiento
-          disponible que quieres reservar.
+          Elige fechas y confirma en el momento. El hotel recibe tu reserva en
+          su sistema al instante.
         </p>
 
       </div>
@@ -48,14 +39,14 @@
 
             <label>
               <span>
-                <i class="pi pi-map-marker"></i>
-                Destino
+                <i class="pi pi-map-marker" aria-hidden="true"></i>
+                Destino u hotel
               </span>
 
               <input
                 type="text"
                 formControlName="destination"
-                placeholder="Busca país o ciudad"
+                placeholder="Escribe ciudad u hotel"
                 autocomplete="off"
                 role="combobox"
                 aria-autocomplete="list"
@@ -155,49 +146,28 @@
 
           <label class="booking-field booking-field-dates">
             <span>
-              <i class="pi pi-calendar"></i>
+              <i class="pi pi-calendar" aria-hidden="true"></i>
               Fechas
             </span>
 
             <p-datepicker
-              #dateRangePicker
-              [formControl]="datePickerControl"
+              [formControl]="searchForm.controls.dateRange"
               selectionMode="range"
               rangeSeparator=" - "
               dateFormat="dd/mm/yy"
               placeholder="Llegada - Salida"
-              inputStyleClass="booking-date-range-input"
+              [inputStyleClass]="
+                isSearchInvalid('dateRange')
+                  ? 'booking-date-range-input input-error'
+                  : 'booking-date-range-input'
+              "
               styleClass="booking-date-range-picker"
               panelStyleClass="booking-date-range-panel"
               [minDate]="minDate"
               [numberOfMonths]="1"
               [readonlyInput]="true"
               [hideOnDateTimeSelect]="false"
-              (onShow)="openDateRangePicker()"
-              (onClose)="closeDateRangePicker()">
-
-              <ng-template pTemplate="footer">
-                <div class="booking-date-range-actions">
-                  <button
-                    type="button"
-                    class="booking-date-range-cancel"
-                    (click)="cancelDateRange()">
-
-                    Cancelar
-
-                  </button>
-
-                  <button
-                    type="button"
-                    class="booking-date-range-accept"
-                    [disabled]="!canConfirmDateRange"
-                    (click)="confirmDateRange()">
-
-                    Aceptar
-
-                  </button>
-                </div>
-              </ng-template>
+              (onSelect)="onDateRangeSelect()">
             </p-datepicker>
 
             <small
@@ -214,34 +184,55 @@
           </label>
 
 
-          <div class="booking-field-group">
-            <label class="booking-field">
-              <span>
-                <i class="pi pi-building"></i>
-                Habitaciones
-              </span>
+          <div class="booking-field-group booking-guest-picker">
+            <span class="booking-guest-label">
+              <i class="pi pi-users" aria-hidden="true"></i>
+              Huéspedes
+            </span>
 
-              <input
-                type="number"
-                min="1"
-                max="4"
-                formControlName="rooms"
-                aria-describedby="booking-rooms-hint" />
-            </label>
+            <button
+              type="button"
+              class="booking-guest-summary"
+              aria-controls="booking-guests-panel"
+              aria-label="Configurar huéspedes y habitaciones">
+              {{ guestSummary }}
+            </button>
 
-            <label class="booking-field">
-              <span>
-                <i class="pi pi-users"></i>
-                Huéspedes
-              </span>
+            <div
+              id="booking-guests-panel"
+              class="booking-guest-controls"
+              role="group"
+              aria-label="Controles de huéspedes">
 
-              <input
-                type="number"
-                min="1"
-                max="8"
-                formControlName="guests"
-                aria-describedby="booking-guests-hint" />
-            </label>
+              <label class="booking-field">
+                <span>
+                  <i class="pi pi-building" aria-hidden="true"></i>
+                  Habitaciones
+                </span>
+
+                <input
+                  type="number"
+                  min="1"
+                  max="4"
+                  formControlName="rooms"
+                  aria-describedby="booking-rooms-hint" />
+              </label>
+
+              <label class="booking-field">
+                <span>
+                  <i class="pi pi-users" aria-hidden="true"></i>
+                  Huéspedes
+                </span>
+
+                <input
+                  type="number"
+                  min="1"
+                  max="8"
+                  formControlName="guests"
+                  aria-describedby="booking-guests-hint" />
+              </label>
+
+            </div>
           </div>
 
 
@@ -250,9 +241,7 @@
             class="booking-primary booking-search-submit"
             [disabled]="loadingHotels || searchingAvailability">
 
-            {{ searchingAvailability ? 'Buscando...' : 'Buscar alojamiento' }}
-
-            <i class="pi pi-search text-xs"></i>
+            {{ searchingAvailability ? 'Buscando...' : 'Buscar' }}
 
           </button>
 
@@ -270,14 +259,33 @@
               </p>
 
               <h2>
-                Selecciona un hotel
+                {{ resultsTitle }}
               </h2>
             </div>
 
-            <span *ngIf="searchSubmitted && !searchingAvailability">
-              {{ availableHotels.length }}
-              {{ availableHotels.length === 1 ? 'resultado' : 'resultados' }}
-            </span>
+            <label class="booking-sort">
+              <span>
+                Ordenar por:
+              </span>
+
+              <select
+                [value]="sortMode"
+                aria-label="Ordenar alojamientos"
+                (change)="setSortMode($event)">
+
+                <option value="price-asc">
+                  precio
+                </option>
+
+                <option value="price-desc">
+                  precio mayor
+                </option>
+
+                <option value="name-asc">
+                  nombre
+                </option>
+              </select>
+            </label>
           </div>
 
 
@@ -419,12 +427,12 @@
 
 
           <div
-            *ngIf="availableHotels.length > 0"
+            *ngIf="sortedAvailableHotels.length > 0"
             class="booking-options">
 
             <article
               *ngFor="
-                let hotel of availableHotels;
+                let hotel of sortedAvailableHotels;
                 trackBy: trackByHotel
               "
               class="booking-result-card">
@@ -441,10 +449,8 @@
                   class="booking-result-media-fallback"
                   aria-hidden="true">
 
-                  <i [ngClass]="getHotelTypeIcon(hotel.type)"></i>
-
                   <span>
-                    {{ hotel.type }}
+                    foto - 720x450
                   </span>
 
                 </div>
@@ -462,9 +468,18 @@
                 </h3>
 
                 <p class="booking-result-location">
-                  <i class="pi pi-map-marker"></i>
-                  {{ hotel.city }} - {{ hotel.type }}
+                  {{ getHotelResultSummary(hotel) }}
                 </p>
+
+                <div class="booking-result-tags">
+                  <span
+                    *ngFor="
+                      let tag of getHotelResultTags(hotel);
+                      trackBy: trackByIndex
+                    ">
+                    {{ tag }}
+                  </span>
+                </div>
               </div>
 
 
@@ -484,21 +499,12 @@
 
                 <div class="booking-result-price">
                   <small>
-                    Desde
+                    {{ getNightsLabel() }}
                   </small>
 
                   <strong>
-                    {{ formatCurrency(getRateFrom(hotel)) }}
-                  </strong>
-
-                  <small>
-                    Por noche
-                  </small>
-
-                  <small>
-                    Total estimado:
                     {{ formatCurrency(getEstimatedTotal(hotel)) }}
-                  </small>
+                  </strong>
                 </div>
 
                 <button
@@ -506,9 +512,7 @@
                   class="booking-primary booking-result-cta"
                   (click)="selectHotel(hotel)">
 
-                  Ver tarifas
-
-                  <i class="pi pi-arrow-right text-xs"></i>
+                  Reservar
 
                 </button>
               </div>
@@ -524,6 +528,6 @@
 
   </main>
 
-  <app-public-footer variant="compact"></app-public-footer>
+  <app-public-footer></app-public-footer>
 
 </div>

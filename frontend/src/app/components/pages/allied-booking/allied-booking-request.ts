@@ -1,25 +1,10 @@
 import { CommonModule } from '@angular/common';
-import {
-  Component,
-  OnInit,
-  inject,
-} from '@angular/core';
-import {
-  FormBuilder,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
-import {
-  ActivatedRoute,
-  Router,
-  RouterLink,
-} from '@angular/router';
+import { Component, OnInit, inject } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, of } from 'rxjs';
 
-import {
-  AlliedHotel,
-  AlliedRoomRate,
-} from '../../../shared/allied-hotels';
+import { AlliedHotel, AlliedRoomRate } from '../../../shared/allied-hotels';
 import { AlliedHotelService } from '../../../services/allied-hotels';
 import { WebReservationService } from '../../../services/web-reservation';
 import {
@@ -40,14 +25,10 @@ import {
 } from './allied-booking-flow';
 import { PublicHeaderComponent } from '../../shared/public-header/public-header';
 import { PublicFooterComponent } from '../../shared/public-footer/public-footer';
+import { BookingStepperComponent } from './booking-stepper';
 
 type BookingControlName =
-  | 'guestName'
-  | 'guestEmail'
-  | 'guestPhone'
-  | 'guestDocumentType'
-  | 'guestDocumentNumber'
-  | 'notes';
+  'guestName' | 'guestEmail' | 'guestPhone' | 'guestDocumentType' | 'guestDocumentNumber' | 'notes';
 
 @Component({
   selector: 'app-allied-booking-request',
@@ -58,12 +39,12 @@ type BookingControlName =
     RouterLink,
     PublicHeaderComponent,
     PublicFooterComponent,
+    BookingStepperComponent,
   ],
   templateUrl: './allied-booking-request.html',
-  styleUrl: './allied-booking.css',
+  styleUrls: ['./allied-booking.css', './allied-booking-flow.css'],
 })
 export class AlliedBookingRequestPage implements OnInit {
-
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -85,51 +66,21 @@ export class AlliedBookingRequestPage implements OnInit {
   saving = false;
   submitError = '';
 
-  readonly requestForm =
-    this.formBuilder.nonNullable.group({
-      guestName: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(3),
-        ],
-      ],
-      guestEmail: [
-        '',
-        [
-          Validators.required,
-          Validators.email,
-        ],
-      ],
-      guestPhone: [
-        '',
-        [
-          Validators.required,
-          phoneFormatValidator,
-        ],
-      ],
-      guestDocumentType: [
-        'CC',
-        Validators.required,
-      ],
-      guestDocumentNumber: [
-        '',
-        [
-          Validators.required,
-          documentNumberFormatValidator,
-        ],
-      ],
-      notes: [''],
-    });
+  readonly requestForm = this.formBuilder.nonNullable.group({
+    guestName: ['', [Validators.required, Validators.minLength(3)]],
+    guestEmail: ['', [Validators.required, Validators.email]],
+    guestPhone: ['', [Validators.required, phoneFormatValidator]],
+    guestDocumentType: ['CC', Validators.required],
+    guestDocumentNumber: ['', [Validators.required, documentNumberFormatValidator]],
+    notes: [''],
+  });
 
   ngOnInit(): void {
     this.loadHotels();
 
-    this.requestForm.controls.guestDocumentType.valueChanges.subscribe(
-      () => {
-        this.requestForm.controls.guestDocumentNumber.updateValueAndValidity();
-      }
-    );
+    this.requestForm.controls.guestDocumentType.valueChanges.subscribe(() => {
+      this.requestForm.controls.guestDocumentNumber.updateValueAndValidity();
+    });
   }
 
   private loadHotels(): void {
@@ -142,32 +93,21 @@ export class AlliedBookingRequestPage implements OnInit {
         catchError(() => {
           this.hotelsLoadError = 'No fue posible cargar los hoteles aliados activos.';
           return of([] as AlliedHotel[]);
-        })
+        }),
       )
       .subscribe((hotels) => {
-        const hotelSlug =
-          this.route.snapshot.paramMap.get('hotelSlug') ?? '';
+        const hotelSlug = this.route.snapshot.paramMap.get('hotelSlug') ?? '';
 
-        const rateId =
-          this.route.snapshot.paramMap.get('rateId') ?? '';
+        const rateId = this.route.snapshot.paramMap.get('rateId') ?? '';
 
         this.hotels = hotels;
-        this.criteria =
-          parseBookingCriteriaFromQuery(
-            this.route.snapshot.queryParamMap,
-            hotels,
-            hotelSlug
-          );
-        this.selectedHotel =
-          findHotelBySlug(
-            hotels,
-            hotelSlug
-          );
-        this.selectedRoomRate =
-          findRoomRateById(
-            this.selectedHotel,
-            rateId
-          );
+        this.criteria = parseBookingCriteriaFromQuery(
+          this.route.snapshot.queryParamMap,
+          hotels,
+          hotelSlug,
+        );
+        this.selectedHotel = findHotelBySlug(hotels, hotelSlug);
+        this.selectedRoomRate = findRoomRateById(this.selectedHotel, rateId);
 
         if (!this.criteriaReady) {
           this.loadingHotels = false;
@@ -178,26 +118,17 @@ export class AlliedBookingRequestPage implements OnInit {
       });
   }
 
-  private loadAvailableSelection(
-    hotelSlug: string,
-    rateId: string
-  ): void {
+  private loadAvailableSelection(hotelSlug: string, rateId: string): void {
     this.alliedHotelService
-      .listActiveAlliedHotels(
-        buildAvailabilityQueryParams(this.criteria)
-      )
+      .listActiveAlliedHotels(buildAvailabilityQueryParams(this.criteria))
       .pipe(
         catchError(() => {
           this.hotelsLoadError = 'No fue posible consultar disponibilidad.';
           return of([] as AlliedHotel[]);
-        })
+        }),
       )
       .subscribe((hotels) => {
-        const availableHotel =
-          findHotelBySlug(
-            hotels,
-            hotelSlug
-          );
+        const availableHotel = findHotelBySlug(hotels, hotelSlug);
 
         if (availableHotel) {
           this.selectedHotel = availableHotel;
@@ -209,87 +140,58 @@ export class AlliedBookingRequestPage implements OnInit {
           };
         }
 
-        this.selectedRoomRate =
-          findRoomRateById(
-            this.selectedHotel,
-            rateId
-          );
+        this.selectedRoomRate = findRoomRateById(this.selectedHotel, rateId);
         this.loadingHotels = false;
       });
   }
 
   get queryParams() {
-
-    return buildBookingQueryParams(
-      this.criteria
-    );
+    return buildBookingQueryParams(this.criteria);
   }
 
   get criteriaReady(): boolean {
-
-    return isBookingCriteriaComplete(
-      this.hotels,
-      this.criteria
-    );
+    return isBookingCriteriaComplete(this.hotels, this.criteria);
   }
 
   get selectedRateAvailable(): boolean {
-
-    if (
-      !this.selectedHotel ||
-      !this.selectedRoomRate ||
-      !this.criteriaReady
-    ) {
+    if (!this.selectedHotel || !this.selectedRoomRate || !this.criteriaReady) {
       return false;
     }
 
-    return getAvailableRoomRates(
-      this.selectedHotel,
-      this.criteria
-    ).some(
-      (rate) => rate.id === this.selectedRoomRate?.id
+    return getAvailableRoomRates(this.selectedHotel, this.criteria).some(
+      (rate) => rate.id === this.selectedRoomRate?.id,
     );
   }
 
   get canShowRequestForm(): boolean {
-
     return Boolean(
       this.selectedHotel &&
       this.selectedRoomRate &&
       this.criteriaReady &&
-      this.selectedRateAvailable
+      this.selectedRateAvailable,
     );
   }
 
   get nights(): number {
-
-    return getNights(
-      this.criteria.dateRange
-    );
+    return getNights(this.criteria.dateRange);
   }
 
   get dateRangeLabel(): string {
-
-    const [
-      checkIn,
-      checkOut,
-    ] = this.criteria.dateRange;
+    const [checkIn, checkOut] = this.criteria.dateRange;
 
     if (!checkIn || !checkOut) {
       return '';
     }
 
-    const formatter =
-      new Intl.DateTimeFormat('es-CO', {
-        day: 'numeric',
-        month: 'short',
-      });
+    const formatter = new Intl.DateTimeFormat('es-CO', {
+      day: 'numeric',
+      month: 'short',
+    });
 
     return `${formatter.format(checkIn)} - ${formatter.format(checkOut)}`;
   }
 
   submitBooking(): void {
-
     if (this.saving) {
       return;
     }
@@ -306,18 +208,14 @@ export class AlliedBookingRequestPage implements OnInit {
       return;
     }
 
-    const [
-      checkIn,
-      checkOut,
-    ] = this.criteria.dateRange;
+    const [checkIn, checkOut] = this.criteria.dateRange;
 
     if (!checkIn || !checkOut) {
       this.submitError = 'Selecciona fechas validas para la reserva.';
       return;
     }
 
-    const formValues =
-      this.requestForm.getRawValue();
+    const formValues = this.requestForm.getRawValue();
 
     this.saving = true;
     this.webReservationService
@@ -346,20 +244,14 @@ export class AlliedBookingRequestPage implements OnInit {
       .subscribe({
         next: (reservation) => {
           this.saving = false;
-          this.router.navigate(
-            [
-              '/reservar/confirmacion',
-              reservation.id,
-            ],
-            {
-              queryParams: {
-                hotel: reservation.hotel_name,
-                code: reservation.code,
-                checkIn: reservation.expected_check_in,
-                checkOut: reservation.expected_check_out,
-              },
-            }
-          );
+          this.router.navigate(['/reservar/confirmacion', reservation.id], {
+            queryParams: {
+              hotel: reservation.hotel_name,
+              code: reservation.code,
+              checkIn: reservation.expected_check_in,
+              checkOut: reservation.expected_check_out,
+            },
+          });
         },
         error: (error) => {
           this.saving = false;
@@ -369,33 +261,20 @@ export class AlliedBookingRequestPage implements OnInit {
   }
 
   isInvalid(controlName: BookingControlName): boolean {
+    const control = this.requestForm.controls[controlName];
 
-    const control =
-      this.requestForm.controls[controlName];
-
-    return Boolean(
-      control.invalid &&
-      (
-        control.dirty ||
-        control.touched
-      )
-    );
+    return Boolean(control.invalid && (control.dirty || control.touched));
   }
 
   getRateEstimatedTotal(): number {
-
     if (!this.selectedRoomRate) {
       return 0;
     }
 
-    return getRateEstimatedTotal(
-      this.selectedRoomRate,
-      this.criteria
-    );
+    return getRateEstimatedTotal(this.selectedRoomRate, this.criteria);
   }
 
   formatCurrency(value: number): string {
-
     return formatBookingCurrency(value);
   }
 
@@ -404,7 +283,6 @@ export class AlliedBookingRequestPage implements OnInit {
   }
 
   private extractErrorMessage(error: unknown): string {
-
     const fallback =
       'No fue posible registrar la reserva. Verifica los datos e intenta nuevamente.';
 
@@ -412,26 +290,22 @@ export class AlliedBookingRequestPage implements OnInit {
       return fallback;
     }
 
-    const response =
-      (error as { error?: unknown }).error;
+    const response = (error as { error?: unknown }).error;
 
     if (!response || typeof response !== 'object') {
       return fallback;
     }
 
-    const detail =
-      (response as { detail?: unknown }).detail;
+    const detail = (response as { detail?: unknown }).detail;
 
     if (typeof detail === 'string' && detail.trim()) {
       return detail;
     }
 
-    const errors =
-      (response as { errors?: unknown }).errors ?? response;
+    const errors = (response as { errors?: unknown }).errors ?? response;
 
     if (errors && typeof errors === 'object') {
-      const firstValue =
-        Object.values(errors as Record<string, unknown>)[0];
+      const firstValue = Object.values(errors as Record<string, unknown>)[0];
 
       if (Array.isArray(firstValue) && firstValue.length > 0) {
         return String(firstValue[0]);

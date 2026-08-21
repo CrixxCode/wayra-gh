@@ -26,13 +26,28 @@ export interface OnlineCheckInExistingGuest {
   accepts_data_policy: boolean;
 }
 
+export interface OnlineCheckInHolder {
+  first_name: string;
+  last_name: string;
+  document_type: string;
+  document_number: string;
+  email: string;
+  phone: string | null;
+  nationality: string | null;
+}
+
 export interface OnlineCheckInLookupResponse {
   reservation_id: number;
   hotel_name: string;
   status_code: string;
+  status_label: string;
   expected_check_in: string;
   expected_check_out: string;
   total_guests: number;
+  room_summary: string;
+  payment_status_code: string;
+  payment_status_label: string;
+  holder: OnlineCheckInHolder;
   eligible: boolean;
   eligible_reason: string | null;
   existing_guests: OnlineCheckInExistingGuest[];
@@ -55,6 +70,7 @@ export interface OnlineCheckInPayload {
   arrivalTime: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
+  signature: string;
   notes?: string;
   acceptsDataPolicy: boolean;
 }

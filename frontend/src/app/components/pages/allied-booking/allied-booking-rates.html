@@ -1,60 +1,42 @@
-<div class="booking-page">
-
+<div class="booking-page booking-flow-page booking-rates-step-page">
   <app-public-header></app-public-header>
 
-
   <main>
-
     <section class="booking-hero">
       <div class="booking-container">
-
-        <a
-          class="booking-view-back"
-          routerLink="/reservar"
-          [queryParams]="queryParams">
-
+        <a class="booking-view-back" routerLink="/reservar" [queryParams]="queryParams">
           <i class="pi pi-arrow-left"></i>
-          Volver
-
+          Volver a resultados
         </a>
 
-        <p class="booking-kicker">
-          Paso 2 de 3
-        </p>
-
         <h1>
-          Elige habitación y tarifa
+          {{ selectedHotel ? selectedHotel.name : 'Elige habitación y tarifa' }}
         </h1>
 
         <p class="booking-lead">
-          Compara las tarifas disponibles del hotel seleccionado antes de
-          completar tus datos de reserva.
-        </p>
+          <ng-container *ngIf="selectedHotel; else ratesFallbackLead">
+            {{ selectedHotel.city }} - {{ selectedHotel.type }}
+            <ng-container *ngIf="dateRangeLabel"> · {{ dateRangeLabel }} </ng-container>
+            · {{ criteria.guests }}
+            {{ criteria.guests === 1 ? 'huésped' : 'huéspedes' }}
+          </ng-container>
 
+          <ng-template #ratesFallbackLead>
+            Compara las tarifas disponibles del hotel seleccionado antes de completar tus datos de
+            reserva.
+          </ng-template>
+        </p>
       </div>
     </section>
 
+    <app-booking-stepper [currentStep]="2"></app-booking-stepper>
 
     <section class="booking-section">
       <div class="booking-container">
-
-        <section
-          class="booking-rates"
-          aria-live="polite">
-
+        <section class="booking-rates" aria-live="polite">
           <div class="booking-results-header">
             <div>
-              <p class="booking-kicker">
-                Habitación y tarifa
-              </p>
-
-              <h2>
-                {{
-                  selectedHotel
-                    ? 'Opciones en ' + selectedHotel.name
-                    : 'Hotel no encontrado'
-                }}
-              </h2>
+              <h2>Elige tu habitación</h2>
             </div>
 
             <span *ngIf="selectedHotel && criteriaReady">
@@ -63,33 +45,94 @@
             </span>
           </div>
 
-
           <div
-            *ngIf="loadingHotels"
-            class="booking-empty">
+            *ngIf="!loadingHotels && !hotelsLoadError && selectedHotel && criteriaReady"
+            class="booking-gallery-card"
+          >
+            <img
+              *ngIf="selectedHotel.imageUrl"
+              [src]="selectedHotel.imageUrl"
+              [alt]="selectedHotel.name"
+              loading="eager"
+            />
 
-            <i class="pi pi-calendar"></i>
-
-            <h3>
-              Cargando tarifas
-            </h3>
-
-            <p>
-              Estamos consultando las opciones activas del hotel seleccionado.
-            </p>
-
+            <div
+              *ngIf="!selectedHotel.imageUrl"
+              class="booking-gallery-fallback"
+              aria-hidden="true"
+            >
+              <span> Galería del hotel </span>
+            </div>
           </div>
 
+          <aside
+            *ngIf="!loadingHotels && !hotelsLoadError && selectedHotel && criteriaReady"
+            class="booking-reservation-card"
+          >
+            <h2>Tu reserva</h2>
+
+            <dl>
+              <div>
+                <dt>Alojamiento</dt>
+                <dd>{{ selectedHotel.name }}</dd>
+              </div>
+
+              <div>
+                <dt>Fechas</dt>
+                <dd>{{ dateRangeLabel || 'Por definir' }}</dd>
+              </div>
+
+              <div>
+                <dt>Huéspedes</dt>
+                <dd>
+                  {{ criteria.guests }}
+                  {{ criteria.guests === 1 ? 'huésped' : 'huéspedes' }}
+                </dd>
+              </div>
+
+              <div>
+                <dt>Habitación</dt>
+                <dd>Sin elegir</dd>
+              </div>
+            </dl>
+
+            <div class="booking-reservation-total">
+              <span>
+                Total {{ nights || 0 }}
+                {{ nights === 1 ? 'noche' : 'noches' }}
+              </span>
+
+              <strong>
+                {{
+                  availableRoomRates.length > 0
+                    ? formatCurrency(getRateEstimatedTotal(availableRoomRates[0]))
+                    : 'Por confirmar'
+                }}
+              </strong>
+            </div>
+
+            <button type="button" class="booking-primary booking-reservation-submit" disabled>
+              Continuar con mis datos
+            </button>
+
+            <p class="booking-reservation-hint">Elige una habitación para continuar</p>
+          </aside>
+
+          <div *ngIf="loadingHotels" class="booking-empty">
+            <i class="pi pi-calendar"></i>
+
+            <h3>Cargando tarifas</h3>
+
+            <p>Estamos consultando las opciones activas del hotel seleccionado.</p>
+          </div>
 
           <div
             *ngIf="!loadingHotels && hotelsLoadError && hotelsLoadErrorContext === 'initial'"
-            class="booking-empty">
-
+            class="booking-empty"
+          >
             <i class="pi pi-search"></i>
 
-            <h3>
-              No fue posible cargar hoteles
-            </h3>
+            <h3>No fue posible cargar hoteles</h3>
 
             <p>
               {{ hotelsLoadError }}
@@ -99,26 +142,21 @@
               type="button"
               class="booking-secondary"
               [disabled]="loadingHotels"
-              (click)="retryLoadHotels()">
-
+              (click)="retryLoadHotels()"
+            >
               Reintentar
 
               <i class="pi pi-refresh text-xs"></i>
-
             </button>
-
           </div>
-
 
           <div
             *ngIf="!loadingHotels && hotelsLoadError && hotelsLoadErrorContext === 'availability'"
-            class="booking-empty">
-
+            class="booking-empty"
+          >
             <i class="pi pi-search"></i>
 
-            <h3>
-              No fue posible consultar disponibilidad
-            </h3>
+            <h3>No fue posible consultar disponibilidad</h3>
 
             <p>
               {{ hotelsLoadError }}
@@ -128,73 +166,38 @@
               type="button"
               class="booking-secondary"
               [disabled]="loadingHotels"
-              (click)="retrySearchAvailability()">
-
+              (click)="retrySearchAvailability()"
+            >
               Reintentar
 
               <i class="pi pi-refresh text-xs"></i>
-
             </button>
-
           </div>
 
-
-          <div
-            *ngIf="!loadingHotels && !hotelsLoadError && !selectedHotel"
-            class="booking-empty">
-
+          <div *ngIf="!loadingHotels && !hotelsLoadError && !selectedHotel" class="booking-empty">
             <i class="pi pi-search"></i>
 
-            <h3>
-              Hotel no disponible
-            </h3>
+            <h3>Hotel no disponible</h3>
 
-            <p>
-              El hotel seleccionado no está activo dentro de los aliados Wayra.
-            </p>
+            <p>El hotel seleccionado no está activo dentro de los aliados Wayra.</p>
 
-            <a
-              routerLink="/reservar"
-              class="booking-primary">
-
-              Buscar otro hotel
-
-            </a>
-
+            <a routerLink="/reservar" class="booking-primary"> Buscar otro hotel </a>
           </div>
-
 
           <div
-            *ngIf="
-              !loadingHotels &&
-              !hotelsLoadError &&
-              selectedHotel &&
-              !criteriaReady
-            "
-            class="booking-empty">
-
+            *ngIf="!loadingHotels && !hotelsLoadError && selectedHotel && !criteriaReady"
+            class="booking-empty"
+          >
             <i class="pi pi-calendar"></i>
 
-            <h3>
-              Completa la búsqueda
-            </h3>
+            <h3>Completa la búsqueda</h3>
 
-            <p>
-              Necesitas destino, fechas, habitaciones y huéspedes para ver
-              tarifas disponibles.
-            </p>
+            <p>Necesitas destino, fechas, habitaciones y huéspedes para ver tarifas disponibles.</p>
 
-            <a
-              routerLink="/reservar"
-              [queryParams]="queryParams"
-              class="booking-primary">
-
+            <a routerLink="/reservar" [queryParams]="queryParams" class="booking-primary">
               Editar búsqueda
-
             </a>
-
           </div>
-
 
           <div
             *ngIf="
@@ -204,30 +207,18 @@
               criteriaReady &&
               availableRoomRates.length === 0
             "
-            class="booking-empty">
-
+            class="booking-empty"
+          >
             <i class="pi pi-search"></i>
 
-            <h3>
-              No hay tarifas disponibles
-            </h3>
+            <h3>No hay tarifas disponibles</h3>
 
-            <p>
-              Ajusta fechas, habitaciones o huéspedes para consultar otras
-              opciones.
-            </p>
+            <p>Ajusta fechas, habitaciones o huéspedes para consultar otras opciones.</p>
 
-            <a
-              routerLink="/reservar"
-              [queryParams]="queryParams"
-              class="booking-primary">
-
+            <a routerLink="/reservar" [queryParams]="queryParams" class="booking-primary">
               Cambiar búsqueda
-
             </a>
-
           </div>
-
 
           <div
             *ngIf="
@@ -237,40 +228,36 @@
               criteriaReady &&
               availableRoomRates.length > 0
             "
-            class="booking-rate-grid">
-
+            class="booking-rate-grid"
+          >
             <article
-              *ngFor="
-                let rate of availableRoomRates;
-                trackBy: trackByIndex
-              "
-              class="booking-rate-select-card">
-
+              *ngFor="let rate of availableRoomRates; trackBy: trackByIndex"
+              class="booking-rate-select-card"
+            >
               <div class="booking-rate-select-media">
                 <img
                   *ngIf="rate.imageUrl"
                   [src]="rate.imageUrl"
                   [alt]="rate.roomType"
-                  loading="lazy" />
+                  loading="lazy"
+                />
 
                 <div
                   *ngIf="!rate.imageUrl"
                   class="booking-rate-select-media-fallback"
-                  aria-hidden="true">
-
+                  aria-hidden="true"
+                >
                   <i [ngClass]="getRoomTypeIcon(rate.roomType)"></i>
 
                   <span>
                     {{ rate.roomType }}
                   </span>
-
                 </div>
 
                 <span class="booking-badge booking-rate-select-badge">
                   {{ rate.rateName }}
                 </span>
               </div>
-
 
               <div class="booking-rate-select-body">
                 <h3>
@@ -314,16 +301,13 @@
                 </ul>
               </div>
 
-
               <div class="booking-rate-select-side">
                 <div class="booking-rate-select-price">
                   <strong>
                     {{ formatCurrency(rate.nightlyRate) }}
                   </strong>
 
-                  <small>
-                    Por noche
-                  </small>
+                  <small> Por noche </small>
 
                   <small>
                     Total estimado:
@@ -335,29 +319,19 @@
                   type="button"
                   class="booking-primary booking-rate-select-cta"
                   [disabled]="selectingRateId !== null"
-                  (click)="selectRoomRate(rate)">
-
-                  {{
-                    selectingRateId === rate.id
-                      ? 'Abriendo...'
-                      : 'Elegir tarifa'
-                  }}
+                  (click)="selectRoomRate(rate)"
+                >
+                  {{ selectingRateId === rate.id ? 'Abriendo...' : 'Elegir' }}
 
                   <i class="pi pi-arrow-right text-xs"></i>
-
                 </button>
               </div>
-
             </article>
           </div>
-
         </section>
-
       </div>
     </section>
-
   </main>
 
-  <app-public-footer variant="compact"></app-public-footer>
-
+  <app-public-footer></app-public-footer>
 </div>

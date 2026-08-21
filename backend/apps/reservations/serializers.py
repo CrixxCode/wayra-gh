@@ -1712,6 +1712,7 @@ class OnlineCheckInLookupResponseSerializer(serializers.Serializer):
         source="reservation.hotel_settings.hotel_name", read_only=True
     )
     status_code = serializers.CharField(source="reservation.status_code", read_only=True)
+    status_label = serializers.CharField(source="reservation.status.name", read_only=True)
     expected_check_in = serializers.DateField(
         source="reservation.expected_check_in", read_only=True
     )
@@ -1719,9 +1720,47 @@ class OnlineCheckInLookupResponseSerializer(serializers.Serializer):
         source="reservation.expected_check_out", read_only=True
     )
     total_guests = serializers.IntegerField(source="reservation.total_guests", read_only=True)
+    room_summary = serializers.SerializerMethodField()
+    payment_status_code = serializers.SerializerMethodField()
+    payment_status_label = serializers.SerializerMethodField()
+    holder = serializers.SerializerMethodField()
     eligible = serializers.SerializerMethodField()
     eligible_reason = serializers.SerializerMethodField()
     existing_guests = serializers.SerializerMethodField()
+
+    def get_room_summary(self, obj):
+        reservation = obj["reservation"]
+        rooms_detail = list(
+            reservation.rooms_detail.select_related("room", "room__room_type").order_by("id")
+        )
+        if not rooms_detail:
+            return ""
+
+        if len(rooms_detail) > 1:
+            return f"{len(rooms_detail)} habitaciones"
+
+        room = rooms_detail[0].room
+        room_type_name = getattr(getattr(room, "room_type", None), "name", "") or "Habitacion"
+        room_number = getattr(room, "number", "") or ""
+        return f"{room_type_name} - {room_number}".strip(" -")
+
+    def get_payment_status_code(self, obj):
+        return get_reservation_payment_status(obj["reservation"])["code"]
+
+    def get_payment_status_label(self, obj):
+        return get_reservation_payment_status(obj["reservation"])["label"]
+
+    def get_holder(self, obj):
+        client = obj["reservation"].client
+        return {
+            "first_name": client.first_name,
+            "last_name": client.last_name,
+            "document_type": client.document_type_code,
+            "document_number": client.document_number,
+            "email": client.email,
+            "phone": client.phone,
+            "nationality": client.country,
+        }
 
     def get_eligible(self, obj):
         return bool(obj["eligibility"]["eligible"])
@@ -1798,6 +1837,7 @@ class OnlineCheckInSerializer(serializers.Serializer):
     arrival_time_window = serializers.ChoiceField(choices=ONLINE_CHECK_IN_ARRIVAL_WINDOWS)
     emergency_contact_name = serializers.CharField(max_length=120, min_length=3)
     emergency_contact_phone = serializers.CharField(max_length=40, min_length=7)
+    signature = serializers.CharField(max_length=240, min_length=3)
     notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     accepts_data_policy = serializers.BooleanField()
 

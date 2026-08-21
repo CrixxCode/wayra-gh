@@ -40,6 +40,22 @@ def env_int(name: str, default: int) -> int:
         return default
 
 
+def local_frontend_origins() -> list[str]:
+    explicit_origins = env_list("DJANGO_LOCAL_FRONTEND_ORIGINS")
+    if explicit_origins:
+        return unique_list(explicit_origins)
+
+    origins: list[str] = []
+    for port in env_list("DJANGO_LOCAL_FRONTEND_PORTS", "4200,4201,63919"):
+        if not port.isdigit():
+            continue
+
+        for host in ("localhost", "127.0.0.1"):
+            origins.append(f"http://{host}:{port}")
+
+    return unique_list(origins)
+
+
 RESEND_EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
 LOCAL_EMAIL_BACKENDS = {
     "django.core.mail.backends.console.EmailBackend",
@@ -57,6 +73,7 @@ def resolve_email_backend(email_backend: str | None, resend_api_key: str | None)
 
 
 DEBUG = env_bool("DJANGO_DEBUG", default=False)
+LOCAL_FRONTEND_ORIGINS = local_frontend_origins() if DEBUG else []
 RAILWAY_PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
 RAILWAY_PRIVATE_DOMAIN = os.getenv("RAILWAY_PRIVATE_DOMAIN", "").strip()
 RAILWAY_PUBLIC_ORIGIN = (
@@ -270,10 +287,10 @@ if not DEBUG:
 
 CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:4200,http://127.0.0.1:4200,http://localhost:4201,http://127.0.0.1:4201"
-    if DEBUG
-    else RAILWAY_PUBLIC_ORIGIN,
+    ",".join(LOCAL_FRONTEND_ORIGINS) if DEBUG else RAILWAY_PUBLIC_ORIGIN,
 )
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = unique_list(CORS_ALLOWED_ORIGINS + LOCAL_FRONTEND_ORIGINS)
 if not DEBUG:
     CORS_ALLOWED_ORIGINS = unique_list(
         CORS_ALLOWED_ORIGINS + ([RAILWAY_PUBLIC_ORIGIN] if RAILWAY_PUBLIC_ORIGIN else [])
@@ -297,10 +314,10 @@ CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", default=not DEBUG)
 CSRF_COOKIE_SAMESITE = SESSION_COOKIE_SAMESITE
 CSRF_TRUSTED_ORIGINS = env_list(
     "CSRF_TRUSTED_ORIGINS",
-    "http://localhost:4200,http://127.0.0.1:4200,http://localhost:4201,http://127.0.0.1:4201"
-    if DEBUG
-    else RAILWAY_PUBLIC_ORIGIN,
+    ",".join(LOCAL_FRONTEND_ORIGINS) if DEBUG else RAILWAY_PUBLIC_ORIGIN,
 )
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS = unique_list(CSRF_TRUSTED_ORIGINS + LOCAL_FRONTEND_ORIGINS)
 if not DEBUG:
     CSRF_TRUSTED_ORIGINS = unique_list(
         CSRF_TRUSTED_ORIGINS + ([RAILWAY_PUBLIC_ORIGIN] if RAILWAY_PUBLIC_ORIGIN else [])

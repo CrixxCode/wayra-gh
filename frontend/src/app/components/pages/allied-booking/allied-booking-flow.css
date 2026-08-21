@@ -1,0 +1,731 @@
+﻿/* Reservation flow: compact checkout reference */
+
+.booking-flow-page {
+  --flow-bg: #f3f6fa;
+  --flow-ink: #071226;
+  --flow-muted: #66748a;
+  --flow-soft: #eef3f9;
+  --flow-line: #d9e1ec;
+  --flow-card: #ffffff;
+  --flow-success: #19a974;
+  --flow-success-soft: #dff8eb;
+  background: var(--flow-bg);
+}
+
+.booking-flow-page main {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--flow-bg);
+}
+
+.booking-flow-page app-booking-stepper {
+  order: 1;
+}
+
+.booking-flow-page .booking-container,
+.booking-flow-confirmation-page .booking-container {
+  width: min(100% - 2rem, 1408px);
+}
+
+.booking-flow-page .booking-hero {
+  order: 2;
+  overflow: visible;
+  padding: 2.35rem 0 1.25rem;
+  background: var(--flow-bg);
+  color: var(--flow-ink);
+}
+
+.booking-flow-page .booking-view-back {
+  position: static;
+  min-height: 26px;
+  margin-bottom: 1rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.booking-flow-page .booking-view-back:hover {
+  background: transparent;
+  color: var(--primary-hover);
+}
+
+.booking-flow-page .booking-hero h1 {
+  max-width: none;
+  margin: 0;
+  color: var(--flow-ink);
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: clamp(1.7rem, 3vw, 2.05rem);
+  line-height: 1.12;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.booking-flow-page .booking-lead {
+  max-width: none;
+  margin-top: 0.48rem;
+  color: var(--flow-muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.booking-flow-page .booking-section {
+  order: 3;
+  padding: 0 0 4.5rem;
+  background: var(--flow-bg);
+}
+
+.booking-flow-page .booking-rates {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.booking-flow-page .booking-results-header {
+  order: 3;
+  grid-column: 1;
+  padding: 0;
+  border: 0;
+}
+
+.booking-flow-page .booking-results-header h2 {
+  margin: 0;
+  color: var(--flow-ink);
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 1.28rem;
+  line-height: 1.2;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.booking-flow-page .booking-results-header > span {
+  display: none;
+}
+
+.booking-flow-page .booking-rates > .booking-empty {
+  order: 5;
+  grid-column: 1 / -1;
+}
+
+.booking-gallery-card {
+  order: 1;
+  grid-column: 1;
+  min-height: 252px;
+  overflow: hidden;
+  border: 1px solid var(--flow-line);
+  border-radius: 14px;
+  background: var(--flow-soft);
+}
+
+.booking-gallery-card img {
+  width: 100%;
+  height: 100%;
+  min-height: 252px;
+  display: block;
+  object-fit: cover;
+}
+
+.booking-gallery-fallback,
+.booking-rate-select-media-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(
+    -45deg,
+    #f7fbff 0,
+    #f7fbff 10px,
+    #edf3fb 10px,
+    #edf3fb 18px
+  );
+  color: #5f6d80;
+}
+
+.booking-gallery-fallback span,
+.booking-rate-select-media-fallback span {
+  color: #5f6d80;
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 0.66rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.booking-reservation-card {
+  order: 2;
+  grid-column: 2;
+  grid-row: 1 / span 4;
+  align-self: start;
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--flow-line);
+  border-radius: 14px;
+  background: var(--flow-card);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.07);
+}
+
+.booking-reservation-card h2,
+.booking-request-step-page .booking-hotel-card h2 {
+  margin: 0;
+  color: var(--flow-ink);
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.2;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.booking-reservation-card dl,
+.booking-request-step-page .booking-hotel-card dl {
+  display: grid;
+  gap: 0.78rem;
+  margin: 0;
+}
+
+.booking-reservation-card dl div,
+.booking-request-step-page .booking-hotel-card dl div {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.15fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.booking-reservation-card dt,
+.booking-request-step-page .booking-hotel-card dt {
+  color: var(--flow-muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.booking-reservation-card dd,
+.booking-request-step-page .booking-hotel-card dd {
+  margin: 0;
+  color: var(--flow-ink);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.booking-reservation-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--flow-line);
+}
+
+.booking-reservation-total span {
+  color: var(--flow-ink);
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+.booking-reservation-total strong {
+  color: var(--flow-ink);
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 1.42rem;
+  line-height: 1;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.booking-reservation-submit {
+  width: 100%;
+  min-height: 44px;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 0.86rem;
+}
+
+.booking-rates-step-page .booking-reservation-submit:disabled,
+.booking-rates-step-page .booking-reservation-submit:disabled:hover {
+  border-color: #aeb8c7;
+  background: #aeb8c7;
+  color: #ffffff;
+  opacity: 1;
+}
+
+.booking-reservation-hint {
+  margin: -0.15rem 0 0;
+  color: var(--flow-muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+.booking-flow-page .booking-rate-grid {
+  order: 4;
+  grid-column: 1;
+  gap: 0.85rem;
+  margin-top: 0;
+}
+
+.booking-flow-page .booking-rate-select-card {
+  grid-template-columns: 132px minmax(0, 1fr) 98px;
+  gap: 1rem;
+  align-items: center;
+  min-height: 112px;
+  padding: 1rem;
+  overflow: visible;
+  border-color: var(--flow-line);
+  border-radius: 14px;
+  background: var(--flow-card);
+  box-shadow: none;
+  animation: none;
+}
+
+.booking-flow-page .booking-rate-select-media {
+  grid-column: auto;
+  grid-row: auto;
+  width: 132px;
+  height: 82px;
+  aspect-ratio: auto;
+  border-radius: 12px;
+  background: var(--flow-soft);
+}
+
+.booking-flow-page .booking-rate-select-media img {
+  border-radius: inherit;
+}
+
+.booking-flow-page .booking-rate-select-media-fallback {
+  gap: 0;
+  padding: 0;
+  text-align: center;
+}
+
+.booking-flow-page .booking-rate-select-media-fallback i,
+.booking-flow-page .booking-rate-select-badge,
+.booking-flow-page .booking-rate-select-price small:last-child,
+.booking-flow-page .booking-rate-select-cta i {
+  display: none;
+}
+
+.booking-flow-page .booking-rate-select-body {
+  grid-column: auto;
+  grid-row: auto;
+  min-width: 0;
+  padding: 0;
+}
+
+.booking-flow-page .booking-rate-select-card h3 {
+  color: var(--flow-ink);
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 1rem;
+  line-height: 1.25;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.booking-flow-page .booking-rate-select-description {
+  margin-top: 0.25rem;
+  color: var(--flow-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.booking-flow-page .booking-rate-select-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+  margin-top: 0.65rem;
+}
+
+.booking-flow-page .booking-rate-select-meta li {
+  min-height: 24px;
+  display: inline-flex;
+  width: fit-content;
+  padding: 0 0.55rem;
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  border-radius: 999px;
+  background: rgba(var(--primary-rgb), 0.08);
+  color: #2369c5;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.booking-flow-page .booking-rate-select-meta li i {
+  display: none;
+}
+
+.booking-flow-page .booking-rate-select-side {
+  grid-column: auto;
+  grid-row: auto;
+  gap: 0.6rem;
+  justify-items: end;
+  margin-top: 0;
+  padding: 0;
+  padding-top: 0;
+  border-left: 0;
+  border-top: 0;
+  text-align: right;
+}
+
+.booking-flow-page .booking-rate-select-price strong {
+  color: var(--flow-ink);
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 950;
+}
+
+.booking-flow-page .booking-rate-select-price small {
+  color: var(--flow-muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+  text-transform: lowercase;
+}
+
+.booking-flow-page .booking-rate-select-cta {
+  width: 70px;
+  min-height: 36px;
+  margin-top: 0;
+  padding: 0 0.75rem;
+  border-radius: 10px;
+  font-size: 0.76rem;
+}
+
+.booking-request-step-page .booking-layout {
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 1.5rem;
+  margin-top: 1.2rem;
+}
+
+.booking-request-step-page .booking-form {
+  order: 1;
+  padding: 1.5rem;
+  border-color: var(--flow-line);
+  border-radius: 14px;
+  background: var(--flow-card);
+  box-shadow: none;
+}
+
+.booking-request-step-page .booking-hotel-card {
+  order: 2;
+  position: sticky;
+  top: 1rem;
+  max-height: none;
+  overflow: visible;
+  scrollbar-gutter: auto;
+  padding: 1.5rem;
+  border-color: var(--flow-line);
+  border-radius: 14px;
+  background: var(--flow-card);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.07);
+}
+
+.booking-request-step-page .booking-form-header,
+.booking-request-step-page .booking-context-summary,
+.booking-request-step-page .booking-confirm-group,
+.booking-request-step-page .booking-actions {
+  display: none;
+}
+
+.booking-request-step-page .booking-grid {
+  margin-top: 0;
+  gap: 1rem 0.9rem;
+}
+
+.booking-request-step-page .booking-field {
+  gap: 0.48rem;
+}
+
+.booking-request-step-page .booking-field > span {
+  color: #526178;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.booking-request-step-page .booking-field input,
+.booking-request-step-page .booking-field select,
+.booking-request-step-page .booking-field textarea {
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border-color: var(--flow-line);
+  border-radius: 10px;
+  color: var(--flow-ink);
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.booking-request-step-page .booking-field input::placeholder,
+.booking-request-step-page .booking-field textarea::placeholder {
+  color: #7a8799;
+  font-weight: 600;
+}
+
+.booking-request-step-page .booking-field textarea {
+  min-height: 72px;
+  padding-top: 0.8rem;
+  resize: vertical;
+}
+
+.booking-request-step-page .booking-field small {
+  color: var(--flow-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.booking-flow-confirmation-page {
+  --confirmation-bg: #111827;
+  --confirmation-muted: #9fb0d1;
+  min-height: 100vh;
+  background: var(--confirmation-bg);
+}
+
+.booking-flow-confirmation-page main {
+  width: 100%;
+  min-height: 640px;
+  box-sizing: border-box;
+  display: block;
+  padding: 3rem 0 4rem;
+  background: var(--confirmation-bg);
+}
+
+.booking-flow-confirmation-page .booking-hero {
+  padding: 0;
+  background: transparent;
+  text-align: center;
+}
+
+.booking-flow-confirmation-page .booking-hero .booking-container::before {
+  content: '✓';
+  width: 42px;
+  height: 42px;
+  display: inline-grid;
+  place-items: center;
+  margin-bottom: 0.95rem;
+  border-radius: 999px;
+  background: rgba(25, 169, 116, 0.18);
+  color: var(--flow-success, #19a974);
+  font-size: 1.45rem;
+  font-weight: 900;
+}
+
+.booking-flow-confirmation-page .booking-view-back {
+  display: none;
+}
+
+.booking-flow-confirmation-page .booking-hero h1 {
+  max-width: none;
+  margin: 0;
+  color: var(--ink-foreground);
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: clamp(2rem, 5vw, 2.55rem);
+  line-height: 1.1;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.booking-flow-confirmation-page .booking-lead {
+  max-width: 34rem;
+  margin: 0.85rem auto 0;
+  color: var(--confirmation-muted);
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.booking-flow-confirmation-page .booking-section {
+  padding: 1.45rem 0 0;
+  background: transparent;
+}
+
+.booking-flow-confirmation-page .booking-confirmation-page {
+  width: 100%;
+  max-width: 560px;
+  box-sizing: border-box;
+  gap: 0.85rem;
+  padding: 1.45rem 1.55rem;
+  border: 0;
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: none;
+}
+
+.booking-flow-confirmation-page .booking-confirmation-icon {
+  display: none;
+}
+
+.booking-flow-confirmation-page .booking-confirmation-copy h2 {
+  margin: 0;
+  color: var(--flow-ink, #071226);
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.booking-flow-confirmation-page .booking-confirmation-copy p {
+  max-width: none;
+  margin: 0.6rem 0 0;
+  color: var(--flow-muted, #66748a);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.booking-flow-confirmation-page .booking-confirmation-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.72rem 1.2rem;
+  margin-top: 0.35rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--flow-line, #d9e1ec);
+}
+
+.booking-flow-confirmation-page .booking-confirmation-details span {
+  min-height: auto;
+  justify-content: flex-start;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--flow-ink, #071226);
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.booking-flow-confirmation-page .booking-confirmation-details i {
+  color: var(--primary);
+}
+
+.booking-flow-confirmation-page .booking-reference-chip {
+  grid-column: 1 / -1;
+}
+
+.booking-flow-confirmation-page .booking-copy-status {
+  min-height: 0;
+  color: #2369c5;
+  font-size: 0.76rem;
+}
+
+.booking-flow-confirmation-page .booking-confirmation-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.55rem;
+  padding-top: 0.25rem;
+}
+
+.booking-flow-confirmation-page .booking-confirmation-actions .booking-primary,
+.booking-flow-confirmation-page .booking-confirmation-actions .booking-secondary {
+  min-height: 42px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+}
+
+@media (min-width: 1040px) {
+  .booking-request-step-page .booking-layout {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+}
+
+@media (max-width: 960px) {
+  .booking-flow-page .booking-rates,
+  .booking-request-step-page .booking-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-reservation-card,
+  .booking-request-step-page .booking-hotel-card {
+    grid-column: 1;
+    grid-row: auto;
+    position: static;
+  }
+
+  .booking-rates-step-page .booking-reservation-card {
+    order: 5;
+  }
+}
+
+@media (max-width: 700px) {
+  .booking-flow-page .booking-container,
+  .booking-flow-confirmation-page .booking-container {
+    width: min(100% - 1.25rem, 1408px);
+  }
+
+  .booking-flow-confirmation-page main {
+    overflow-x: hidden;
+    padding: 3rem 0;
+  }
+
+  .booking-flow-confirmation-page .booking-container {
+    width: min(100% - 1.25rem, 1408px);
+    max-width: 1408px;
+  }
+
+  .booking-flow-confirmation-page .booking-hero h1 {
+    max-width: 100%;
+    font-size: clamp(1.55rem, 6.4vw, 1.85rem);
+  }
+
+  .booking-flow-confirmation-page .booking-lead {
+    max-width: 100%;
+    font-size: 0.9rem;
+  }
+
+  .booking-flow-confirmation-page .booking-confirmation-page {
+    max-width: 100%;
+  }
+
+  .booking-gallery-card,
+  .booking-gallery-card img {
+    min-height: 190px;
+  }
+
+  .booking-flow-page .booking-rate-select-card {
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
+
+  .booking-flow-page .booking-rate-select-media {
+    width: 104px;
+    height: 76px;
+  }
+
+  .booking-flow-page .booking-rate-select-side {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    justify-items: start;
+    text-align: left;
+  }
+
+  .booking-flow-page .booking-rate-select-cta {
+    width: auto;
+  }
+
+  .booking-request-step-page .booking-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-flow-confirmation-page .booking-confirmation-details {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-flow-confirmation-page .booking-confirmation-actions {
+    flex-direction: column;
+  }
+
+  .booking-flow-confirmation-page .booking-confirmation-actions .booking-primary,
+  .booking-flow-confirmation-page .booking-confirmation-actions .booking-secondary {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    white-space: normal;
+  }
+}

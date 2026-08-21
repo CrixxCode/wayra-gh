@@ -193,6 +193,10 @@ export class AlliedHotelsPage implements OnInit, AfterViewInit {
     this.recomputeFilteredHotels();
   }
 
+  setTypeFilter(type: string): void {
+    this.typeFilter = type;
+  }
+
   locationLabel(hotel: AlliedHotel): string {
 
     const place =

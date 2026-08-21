@@ -3,514 +3,242 @@
 }
 
 .allied-hotels-page {
-  /* Kept local alongside allied-booking.css: same reasoning as there, these
-     mirror the shared --primary/--primary-hover but can't safely auto-track
-     a future page-local override of --primary. */
-  --primary-rgb: 44, 123, 229;
-  --primary-text: #2369c5;
+  --background: #ffffff;
+  --foreground: #172033;
+  --card: #ffffff;
+  --primary: #2c7be5;
+  --primary-hover: #2369c5;
+  --primary-foreground: #ffffff;
+  --secondary: #f6f8fb;
+  --muted: #647087;
+  --border: #e2e7ef;
+  --surface: #f8fafc;
+  --ink: #111827;
+  --ink-foreground: #ffffff;
+  --ink-muted: #8b95aa;
+  --ink-border: rgba(255, 255, 255, 0.14);
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: 'Manrope', 'Segoe UI', sans-serif;
-  -webkit-font-smoothing: antialiased;
+  font-family: 'Manrope', system-ui, sans-serif;
 }
 
 .allied-container {
-  width: min(100% - 2rem, 92rem);
+  width: min(100%, 1296px);
   margin: 0 auto;
+  padding-left: clamp(1.25rem, 5vw, 4.5rem);
+  padding-right: clamp(1.25rem, 5vw, 4.5rem);
 }
 
 .allied-hero {
-  position: relative;
-  overflow: hidden;
-  padding: 4.5rem 0 3rem;
-  background: radial-gradient(circle at 82% 14%, rgba(44, 123, 229, 0.22), transparent 34%), var(--ink);
-  color: var(--ink-foreground);
-  text-align: center;
-}
-
-.allied-hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.16;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-  background-size: 56px 56px;
-}
-
-.allied-hero > * {
-  position: relative;
-  z-index: 1;
+  background: var(--ink);
 }
 
 .allied-hero .allied-container {
-  position: relative;
+  padding-top: clamp(4.5rem, 8vw, 5rem);
+  padding-bottom: clamp(4.75rem, 8vw, 5.5rem);
 }
 
-.allied-view-back {
-  position: absolute;
-  top: -3.55rem;
-  left: 0;
-  width: fit-content;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0;
-  padding: 0 0.45rem;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--ink-muted);
+.allied-hero span {
+  color: #6ea8f0;
+  font-family: 'Sora', sans-serif;
   font-size: 0.82rem;
   font-weight: 800;
-  text-decoration: none;
-  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
-}
-
-.allied-view-back:hover {
-  border-color: var(--ink-border);
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--ink-foreground);
-}
-
-.allied-kicker {
-  margin: 0;
-  color: var(--accent);
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .allied-hero h1 {
-  max-width: 900px;
-  margin: 0.75rem auto 0;
-  color: var(--ink-foreground);
-  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
-  font-size: 2.45rem;
-  line-height: 1.05;
-  font-weight: 800;
+  max-width: 45rem;
+  margin: 1rem 0;
+  color: #ffffff;
+  font-family: 'Sora', sans-serif;
+  font-size: clamp(2.6rem, 5vw, 3.15rem);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
 }
 
-.allied-lead {
-  max-width: 610px;
-  margin: 1rem auto 0;
+.allied-hero p {
+  max-width: 35rem;
+  margin: 0;
   color: var(--ink-muted);
-  font-size: 1rem;
-  line-height: 1.75;
-}
-
-.allied-stats {
-  margin-top: 2rem;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.75rem;
-}
-
-.allied-stats span {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0 1rem;
-  border: 1px solid var(--ink-border);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--ink-muted);
-  font-size: 0.9rem;
-  font-weight: 750;
-}
-
-.allied-stats strong {
-  color: var(--ink-foreground);
-  font-weight: 800;
+  font-size: 1.12rem;
+  line-height: 1.6;
 }
 
 .allied-directory {
-  padding: 2.25rem 0 5rem;
-  background: var(--surface);
+  background: #ffffff;
 }
 
-.allied-toolbar {
-  display: grid;
-  gap: 0.85rem;
-  align-items: end;
-  padding: 1rem;
+.allied-directory .allied-container {
+  padding-top: 3.5rem;
+  padding-bottom: 5.5rem;
+}
+
+.allied-type-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 2rem;
+}
+
+.allied-type-pills button {
   border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--card);
-  box-shadow: var(--shadow-card);
-}
-
-.allied-toolbar label {
-  min-width: 0;
-  display: grid;
-  gap: 0.4rem;
-}
-
-.allied-toolbar label span {
-  color: var(--foreground);
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.allied-toolbar input,
-.allied-toolbar select {
-  width: 100%;
-  min-height: 46px;
-  padding: 0 0.85rem;
-  border: 1px solid var(--input);
-  border-radius: 10px;
-  background: var(--background);
-  color: var(--foreground);
-  font-size: 0.92rem;
-  font-weight: 700;
-  outline: none;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
-}
-
-.allied-toolbar input:hover,
-.allied-toolbar select:hover {
-  border-color: #b9c4d2;
-}
-
-.allied-toolbar input:focus,
-.allied-toolbar select:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(44, 123, 229, 0.16);
-}
-
-.allied-toolbar button,
-.allied-empty button,
-.allied-error-state button {
-  min-height: 48px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  border: 1px solid var(--primary);
-  border-radius: 10px;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  font-size: 0.9rem;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--muted);
+  padding: 0.62rem 1.1rem;
+  font: inherit;
+  font-size: 0.88rem;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
 }
 
-.allied-toolbar button:hover,
-.allied-empty button:hover,
-.allied-error-state button:hover {
-  transform: translateY(-1px);
-  border-color: var(--primary-hover);
-  background: var(--primary-hover);
-}
-
-.allied-result-count {
-  margin: 1.8rem 0 1.1rem;
-  color: var(--muted);
-  font-size: 0.88rem;
-  font-weight: 750;
-  animation: allied-fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.allied-error {
-  color: #b42318;
-}
-
-.allied-error-state {
-  margin: 1.8rem 0 1.1rem;
-  display: grid;
-  gap: 0.85rem;
-  justify-items: start;
-  animation: allied-fade-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.allied-error-state .allied-result-count {
-  margin: 0;
+.allied-type-pills button.is-active {
+  border-color: #cfe2fb;
+  background: #edf5ff;
+  color: #1f67c7;
 }
 
 .allied-grid {
   display: grid;
-  gap: 1.35rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
 }
 
 .allied-card {
-  scroll-margin-top: 92px;
-  min-height: 320px;
-  display: flex;
-  flex-direction: column;
-  padding: 1.35rem;
+  overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--card);
-  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-  animation: allied-card-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.05);
 }
 
-/* trackBy keeps matching cards mounted across filter changes, so this only
-   plays for cards that are newly inserted: first load, or re-appearing after
-   a search/type filter change. Delay stays capped so a large result set
-   doesn't stretch the reveal out. */
-.allied-card:nth-child(2) { animation-delay: 35ms; }
-.allied-card:nth-child(3) { animation-delay: 70ms; }
-.allied-card:nth-child(4) { animation-delay: 105ms; }
-.allied-card:nth-child(n+5) { animation-delay: 140ms; }
-
 .allied-card-media {
-  position: relative;
-  margin: -1.35rem -1.35rem 0;
-  aspect-ratio: 16 / 10;
-  overflow: hidden;
-  border-radius: var(--radius) var(--radius) 0 0;
-  background: var(--ink);
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--border);
+  background: repeating-linear-gradient(135deg, #f8fafc 0, #f8fafc 9px, #eef2f8 9px, #eef2f8 18px);
 }
 
 .allied-card-media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.allied-card-media-fallback {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  gap: 0.5rem;
-  background:
-    radial-gradient(circle at 82% 14%, rgba(var(--primary-rgb), 0.32), transparent 34%),
-    var(--ink);
-  color: var(--ink-foreground);
-  text-align: center;
+.allied-card-media span {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #ffffff;
+  color: var(--muted);
+  padding: 0.5rem 0.75rem;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.75rem;
 }
 
-.allied-card-media-fallback i {
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 999px;
-  background: rgba(var(--white-rgb), 0.12);
-  border: 1px solid var(--ink-border);
-  color: var(--ink-foreground);
-  font-size: 1.3rem;
+.allied-card-body {
+  padding: 1.35rem 1.5rem 1.5rem;
 }
 
-.allied-card-media-fallback span {
-  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
+.allied-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
 }
 
 .allied-card h2 {
-  margin: 1rem 0 0;
-  color: var(--foreground);
-  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
-  font-size: 1.15rem;
-  font-weight: 800;
-}
-
-.allied-location,
-.allied-description {
   margin: 0;
-}
-
-.allied-location {
-  margin-top: 0.55rem;
-  max-width: 100%;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: var(--muted);
-  font-size: 0.85rem;
-  overflow-wrap: anywhere;
-}
-
-.allied-description {
-  margin-top: 0.8rem;
   color: var(--foreground);
-  font-size: 0.9rem;
+  font-family: 'Sora', sans-serif;
+  font-size: 1.12rem;
   font-weight: 750;
-  line-height: 1.65;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
-.allied-card ul {
-  margin: 1rem 0 0;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
-  list-style: none;
+.allied-card-head span {
+  border-radius: 999px;
+  background: #d1fae5;
+  color: #059669;
+  padding: 0.32rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
-.allied-card li {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.allied-card-location {
+  margin: 0 0 1rem;
   color: var(--muted);
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.allied-card li i,
-.allied-location i {
-  color: var(--primary);
-}
-
-.allied-card-more {
-  color: var(--muted);
-  font-weight: 750;
-  font-style: italic;
+  font-size: 0.91rem;
 }
 
 .allied-card-footer {
-  margin-top: auto;
-  padding-top: 1.25rem;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.85rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-.allied-card-price {
-  margin-right: auto;
-  max-width: 100%;
-  color: var(--foreground);
-  font-size: 0.84rem;
+.allied-card-footer small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
   font-weight: 800;
-  overflow-wrap: anywhere;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.allied-card-footer a {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 1rem;
-  border: 1px solid var(--input);
-  border-radius: 10px;
-  background: var(--background);
+.allied-card-footer strong {
+  display: block;
   color: var(--foreground);
-  font-size: 0.84rem;
+  font-family: 'Sora', sans-serif;
+  font-size: 1.38rem;
+}
+
+.allied-card-footer a,
+.allied-state button,
+.allied-empty button {
+  border: 1px solid var(--primary);
+  border-radius: 14px;
+  background: var(--primary);
+  color: #ffffff;
+  padding: 0.75rem 1.05rem;
   font-weight: 800;
   text-decoration: none;
-  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
 }
 
-.allied-card-footer a:hover {
-  transform: translateY(-1px);
-  border-color: rgba(44, 123, 229, 0.34);
-  background: var(--accent);
-}
-
+.allied-state,
 .allied-empty {
-  margin-top: 1.35rem;
-  padding: 2.5rem 1rem;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  padding: 2rem;
   text-align: center;
-  animation: allied-fade-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.allied-empty i {
-  color: var(--primary);
-  font-size: 1.8rem;
-}
-
-.allied-empty h2 {
-  margin: 0.8rem 0 1.2rem;
-  color: var(--foreground);
-  font-size: 1.2rem;
+.allied-error p {
+  color: #dc2626;
+  font-weight: 800;
 }
 
 .allied-hotels-page :focus-visible {
   outline: 3px solid rgba(44, 123, 229, 0.28);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
-@keyframes allied-card-enter {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes allied-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (min-width: 760px) {
-  .allied-hero h1 {
-    font-size: 3.25rem;
-  }
-
-  .allied-toolbar {
-    grid-template-columns: minmax(0, 1fr) 220px 120px;
-  }
-
+@media (max-width: 1024px) {
   .allied-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 1080px) {
-  .allied-hero h1 {
-    font-size: 4rem;
-  }
-
-  .allied-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .allied-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(44, 123, 229, 0.28);
-    box-shadow: var(--shadow-card);
-  }
-
-  .allied-card:hover .allied-card-media img {
-    transform: scale(1.03);
-  }
-}
-
 @media (max-width: 640px) {
-  .allied-view-back {
-    top: -3rem;
-  }
-
-  .allied-hero {
-    padding-top: 3rem;
+  .allied-grid {
+    grid-template-columns: 1fr;
   }
 
   .allied-card-footer {
@@ -519,17 +247,6 @@
   }
 
   .allied-card-footer a {
-    width: 100%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .allied-hotels-page *,
-  .allied-hotels-page *::before,
-  .allied-hotels-page *::after {
-    animation: none !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0s !important;
-    transition-delay: 0s !important;
+    text-align: center;
   }
 }

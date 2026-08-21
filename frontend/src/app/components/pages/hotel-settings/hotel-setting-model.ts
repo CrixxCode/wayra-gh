@@ -12,6 +12,7 @@ export interface HotelSettings {
 
     // Información general
     hotel_name: string;
+    reservation_code_prefix?: string;
     legal_name?: string;
     slogan?: string;
     description?: string;

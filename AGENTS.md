@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-08-17
+**Última actualización:** 2026-08-20
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -878,38 +878,29 @@ justo lo que una auditoría no quiere; si algún día el volumen molesta, se dec
 **`activity-log.view` no se borra:** se desactiva y pierde su enlace, y quien lo tenía recibe
 `audit.read`. Borrarlo dejaría huérfanas las asignaciones de rol y el rastro de que existió.
 
-### 5.24 Código público de reserva: prefijo del hotel + año + id, generado una sola vez
+### 5.24 Código público de reserva: prefijo estable del hotel + año + aleatorio
 
-**Decisión:** `Reservation.code` (ej. `WAY2026045`) es el identificador que se le muestra al huésped
-y al staff, y el único que el check-in online acepta para buscar una reserva. Se arma con
-`Reservation.build_code(hotel_name, year, reservation_id)`: las 3 primeras letras del nombre del
-hotel (sin tildes, sin separadores), el año de `created_at` y el `id` real de la reserva con relleno
-mínimo de 3 dígitos (crece sin truncar si el id pasa de 999). Se calcula una sola vez, en el primer
-`save()` de la reserva —no puede calcularse antes porque depende del `id` autoincremental, así que la
-creación hace dos `INSERT`/`UPDATE` en vez de uno— y nunca vuelve a cambiar.
+**Decisión:** `Reservation.code` (ej. `DJN-26-K7F9Q2`) es el identificador que se le muestra al
+huésped y al staff, y el único que el check-in online acepta para buscar una reserva. Se arma con:
+`HotelSettings.reservation_code_prefix` + año corto + segmento aleatorio seguro de 6 caracteres
+(`ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, sin caracteres ambiguos como `O/0/I/1`).
 
-**Qué había antes:** no existía ningún campo de código. El frontend (`detail-reservation.ts`,
-`list-reservations.ts`, `list-bill.ts`, `list-payments.ts`) *inventaba* uno al vuelo con
-`RES-{año}-{id}` solo para mostrarlo, y el backend de check-in online (`online_check_in.py`) aceptaba
-cualquier texto que terminara en dígitos después del último guion y los interpretaba como el `id`
-crudo (mismo truco que `hotel_slug` en `public_booking.py`). No había ninguna columna real: dos
-lugares distintos reconstruían el mismo `id` con formatos parecidos pero no idénticos.
+**El prefijo vive en el hotel, no se recalcula en cada reserva.** `HotelSettings` genera
+`reservation_code_prefix` una sola vez al crear el hotel, ignorando palabras genéricas como `Hotel`,
+`Hostal`, `Casa`, `Finca` o `Resort`. Por ejemplo, `Hotel Don Juan` → `DJN` y `Hotel Panorama` →
+`PAN`. El campo es único globalmente; si el prefijo base ya existe, se asigna un sufijo corto
+(`PAN`, `PAN2`, `PAN3`, ...). Así se evita la confusión humana de tener varios hoteles con `HOT`.
 
-**Por qué el id sigue siendo parte del código, en vez de una secuencia propia por hotel:** usar el
-`id` como sufijo numérico garantiza unicidad global sin necesidad de un contador propio por hotel (que
-exigiría bloqueo para evitar carreras) ni de reintentos por colisión. Dos hoteles con el mismo prefijo
-de 3 letras (`"Hotel Wayra"` y `"Hotel Waynabe"` → ambos `WAY`) igual generan códigos distintos porque
-el `id` que le sigue nunca se repite en toda la base.
+**La unicidad real la impone la base de datos.** `Reservation.code` sigue siendo `unique=True`; la
+generación usa `secrets`, no `random`, y se hace antes del primer `INSERT`, por lo que ya no existe
+una fila temporal con `code=""`. Si la parte aleatoria colisiona, `Reservation.save()` captura el
+`IntegrityError` y reintenta con otro segmento hasta agotar intentos. El `id` dejó de ser parte del
+código público para que el código no sea enumerable.
 
-**Impacto en el check-in online:** `online_check_in.py` dejó de parsear el código para extraer un
-`id` y ahora busca por coincidencia exacta contra `Reservation.code` (normalizado: sin espacios ni
-guiones, en mayúsculas). Esto es más robusto que el truco anterior y ya no depende de que el código
-termine en dígitos. El código real también reemplazó al `#{reservation.pk}` que se enviaba como
-"número de referencia" en los correos de reserva registrada/confirmada
-(`apps/reservations/emails.py`) y en la página pública de confirmación
-(`allied-booking-confirmation.ts`, vía el query param `code` que ahora manda
-`allied-booking-request.ts`) — es el mismo dato que el huésped necesita para el check-in online, así
-que tenía que ser el mismo código, no el id crudo.
+**Compatibilidad:** los códigos históricos se conservan tal cual. El check-in online busca primero el
+código exacto, conservando guiones, y como fallback compara una versión compacta sin separadores para
+tolerar que el huésped copie `DJN26K7F9Q2` en vez de `DJN-26-K7F9Q2`. También sigue aceptando los
+códigos antiguos guardados sin guiones.
 
 ## 6. Módulos funcionales
 
@@ -1123,6 +1114,141 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > originales eran breves, por lo que el campo "Por qué" de esas entradas es una reconstrucción
 > razonada, no una cita textual del autor. A partir de la creación de esta bitácora, cada entrada
 > debe escribirse en el momento del cambio.
+
+---
+
+### 2026-08-20 — CSRF local acepta el puerto alterno del dev server Angular
+
+- **Autor:** Codex, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix / desarrollo local
+- **Qué se hizo:** se agregó `LOCAL_FRONTEND_ORIGINS` en `backend/settings.py` para que, con `DJANGO_DEBUG=True`, Django sume automáticamente los orígenes locales del frontend a `CORS_ALLOWED_ORIGINS` y `CSRF_TRUSTED_ORIGINS`, incluso si `.env` trae una lista propia. Por defecto incluye `4200`, `4201` y `63919` para cubrir el puerto alterno que Angular eligió al estar ocupado el `4200`. También se documentó `DJANGO_LOCAL_FRONTEND_PORTS` en `backend/.env.example`.
+- **Por qué:** al reservar desde `http://localhost:63919`, Django rechazaba el POST público con `CSRF Failed: Origin checking failed` porque ese origen no estaba en la lista de confianza.
+- **Archivos/áreas afectadas:** `backend/backend/settings.py`, `backend/.env.example`.
+- **Impacto:** cambio de configuración local/dev; producción no cambia porque solo se activa cuando `DEBUG=True`. Validado con `python manage.py check`, revisión de settings efectivos y una prueba CSRF con `Origin: http://localhost:63919` que pasó de bloqueo CSRF a validación normal del serializer.
+
+### 2026-08-20 — Flujo público de reserva con estética de checkout compacto
+
+- **Autor:** Codex, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se remaquetaron los pasos públicos posteriores a la búsqueda (`/reservar/tarifas/:hotelSlug`, `/reservar/solicitud/:hotelSlug/:rateId` y `/reservar/confirmacion/:reservationId`) para acercarlos a la referencia visual enviada: stepper oscuro compacto, fondo gris claro en selección/datos, galería visual del hotel, tarjetas de habitación horizontales, resumen lateral "Tu reserva", formulario en card y confirmación sobre fondo oscuro. El CSS específico del flujo quedó separado en `allied-booking-flow.css` para no seguir cargando el peso visual en la búsqueda pública.
+- **Por qué:** el usuario pidió que el flujo de reservar se viera como la referencia, manteniendo intacta la lógica existente.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/allied-booking/allied-booking-rates.*`, `allied-booking-request.*`, `allied-booking-confirmation.*`, `booking-stepper.*`, `allied-booking-flow.css`.
+- **Impacto:** cambio frontend visual, sin migraciones, endpoints, RBAC ni cambios en el flujo de solicitud. La confirmación conserva el estado real de solicitud registrada, no simula pago online. Validado con capturas desktop/móvil del flujo, detector `impeccable` en modo degradado, `npm run lint` y `npm run build`.
+- **Ajuste posterior:** se restauraron el header y footer públicos en todo el flujo, incluida la confirmación; se alineó el ancho del contenido y del stepper al patrón público amplio de `1408px`; y se agregaron placeholders indicativos en los campos reales del formulario de datos del huésped.
+
+### 2026-08-20 — Códigos de reserva no enumerables con prefijo estable por hotel
+
+- **Autor:** Codex, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix / seguridad
+- **Qué se hizo:** se reemplazó la generación de `Reservation.code` basada en `prefijo + año + id` por códigos públicos del tipo `DJN-26-K7F9Q2`: prefijo estable y único del hotel (`HotelSettings.reservation_code_prefix`), año corto y segmento aleatorio seguro. El prefijo se crea una sola vez al crear el hotel, ignora palabras genéricas como `Hotel`, resuelve colisiones (`PAN`, `PAN2`, ...) y queda expuesto como campo de solo lectura. La reserva genera el código antes del primer insert y reintenta si la base de datos detecta una colisión. El check-in online ahora conserva guiones al buscar y mantiene fallback compacto para códigos pegados o históricos.
+- **Por qué:** los códigos anteriores incluían el `id` real y eran predecibles/enumerables; además, derivar el prefijo directamente de las primeras letras del nombre podía confundir a usuarios cuando muchos hoteles empezaban por `Hotel`.
+- **Archivos/áreas afectadas:** `backend/apps/hotel_settings/models.py`, `backend/apps/hotel_settings/serializers.py`, `backend/apps/hotel_settings/admin.py`, `backend/apps/hotel_settings/migrations/0011_hotelsettings_reservation_code_prefix.py`, `backend/apps/reservations/models.py`, `backend/apps/reservations/online_check_in.py`, `backend/apps/{hotel_settings,reservations}/tests.py`, `frontend/src/app/components/pages/hotel-settings/hotel-setting-model.ts`, sección 5.24 de esta bitácora.
+- **Impacto:** requiere migración nueva `hotel_settings.0011_hotelsettings_reservation_code_prefix`. Los códigos de reservas existentes no se modifican; las reservas nuevas usan el formato no enumerable. Validado con `makemigrations --check --dry-run`, pruebas enfocadas de reservas, check-in online, reserva web pública, configuración de hotel y `npm run lint`.
+
+### 2026-08-20 — Documento fijo bajo el titular en detalle de reserva
+
+- **Autor:** Codex, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** el encabezado del detalle de reserva dejó de usar la nacionalidad del primer huésped asociado como texto secundario bajo el nombre del titular. Ahora muestra siempre el documento del cliente titular (`client_document_number`) o `Sin documento` si no existe.
+- **Por qué:** la vista mezclaba nacionalidad y documento en el mismo lugar, lo que hacía que reservas similares se vieran inconsistentes según los datos cargados en huéspedes.
+- **Archivos/áreas afectadas:** `frontend/src/app/modules/reservations/detail-reservation/detail-reservation.ts`, `frontend/src/app/modules/reservations/detail-reservation/detail-reservation.spec.ts`.
+- **Impacto:** cambio frontend sin migraciones ni endpoints nuevos. La nacionalidad sigue visible en la tabla/modal de huéspedes.
+
+### 2026-08-20 — Ajuste de landing y vistas públicas contra el prototipo `Wayra Landing Page Design`
+
+- **Autor:** Codex, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** se revisó el prototipo `frontend/Wayra Landing Page Design/Wayra Landing.dc.html` y se reemplazó la presentación de la landing por una estructura alineada a esa maqueta: hero oscuro, problema, flujo operativo, módulos conectados, público objetivo, FAQ, CTA final y modal de solicitud de demo con el endpoint existente. La vista `/hoteles-aliados` se remaquetó con el hero, filtros tipo píldora y tarjetas del prototipo, conservando la carga de hoteles aliados reales. El hero de `/check-in-online` y el hero/formulario inicial de `/reservar` se ajustaron al encuadre visual del prototipo sin desconectar sus flujos funcionales. El footer público se cambió a la versión clara del prototipo con columnas Producto, Recursos y Contacto.
+- **Por qué:** el usuario pidió que la landing y las vistas públicas se hicieran tal cual al prototipo de la carpeta mencionada, partiendo de una revisión previa del mockup.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/landing/`, `frontend/src/app/components/pages/allied-hotels/`, `frontend/src/app/components/pages/online-check-in/`, `frontend/src/app/components/pages/allied-booking/`, `frontend/src/app/components/shared/public-footer/`.
+- **Impacto:** cambio frontend sin migraciones ni endpoints nuevos. Se mantiene la lógica de solicitud de demo, búsqueda/reserva y check-in online. `ng build` pasa; queda el warning existente de presupuesto CSS en `allied-booking.css`.
+- **Ajuste posterior:** se reemplazó la marca geométrica del prototipo por el favicon real de Wayra (`/favicon.ico`, asset disponible en `frontend/public`) en el header y footer públicos.
+- **Ajuste posterior:** se ajustó el contenedor base de la landing a un ancho amplio y controlado (`1720px` máximo, con padding lateral moderado) para que use mejor la pantalla sin quedar pegado a los bordes.
+- **Ajuste posterior:** el modal de solicitud de demo dejó de mostrar un formulario largo completo y pasó a un flujo paso a paso con cabecera oscura y stepper visual: Contacto, Alojamiento, Operación y Agenda. Se conserva el mismo `DemoRequestService`, payload y validaciones del backend; solo cambia la experiencia de captura.
+- **Ajuste posterior:** se ajustó el modal de demo para quedar más fiel a la referencia visual enviada: ancho de `720px`, header oscuro plano, stepper con líneas y círculos discretos, cuerpo blanco con grid de campos, footer con texto "Paso n de 4 · toma menos de dos minutos" y botón primario a la derecha. El paso Contacto mantiene el nombre de usuario requerido para el inicio de sesión, con validación y mapeo de errores al mismo paso.
+- **Ajuste posterior:** la vista `/reservar` se remaquetó contra la referencia enviada por el usuario: hero oscuro con búsqueda compacta, campo único de fechas con `p-datepicker` en modo rango para seleccionar llegada y salida, resumen de huéspedes, resultados sobre fondo gris, tarjetas horizontales con imagen/fallback, etiquetas, precio por estadía y CTA "Reservar". El selector "Ordenar por" ahora es funcional y reordena los alojamientos por precio menor, precio mayor o nombre. Se mantiene la consulta de hoteles aliados y la navegación al flujo de tarifas existente.
+- **Ajuste posterior:** se corrigió la card de resultados de `/reservar` para igualar mejor la referencia: reglas base acotadas a `.booking-search-page`, estructura fija de tres columnas, imagen/fallback de `196x112`, cuerpo sin padding heredado, bloque de precio/CTA alineado a la derecha, sin divisor vertical ni sombras/hover antiguos de la card previa.
+- **Ajuste posterior:** se ajustó el buscador de `/reservar` para quedar más fiel a la referencia: columnas y alturas del formulario compactas, campo de destino sin `Cusco, Perú` como valor visual predeterminado, iconos en los títulos de Destino, Fechas y Huéspedes, huéspedes visibles como un único campo resumen con controles numéricos en panel compacto, y valor inicial de `2 adultos`.
+- **Ajuste posterior:** se restauró el padding superior del bloque de resultados de `/reservar` para que el título "Alojamientos disponibles" no quede pegado al borde superior de la sección al desplazarse; no se tocaron buscador, cards ni lógica de ordenamiento.
+- **Ajuste posterior:** la vista `/check-in-online` se remaquetó contra la referencia enviada: hero oscuro con header público conservado, composición de dos columnas, textos y pasos a la izquierda, y el formulario real de búsqueda de reserva dentro del card blanco derecho con campos `Código de reserva` y `Número de documento del titular`, botón `Continuar` y mensaje de envío cifrado. La sección extensa de datos del huésped queda fuera del primer viewport y solo se renderiza después de verificar o confirmar una reserva. Se corrigió el copy porque el backend valida el lookup con el documento del titular, no con su apellido.
+- **Ajuste posterior:** se corrigió la escala visual de `/reservar` y `/check-in-online` para que no se vean pequeñas frente a la landing: ambos usan contenedores de `1408px` con márgenes laterales moderados, heroes más altos, títulos y textos más cercanos a la escala pública principal, campos de formulario de `52px`/`54px` y tarjetas de resultados/check-in con mayor padding y tipografía.
+- **Ajuste posterior:** se corrigió el desborde de precios largos en las cards de resultados de `/reservar`: la columna de precio/CTA dejó de tener ancho fijo de `140px`, ahora reserva espacio suficiente para montos como `$ 1.050.000`, mantiene el precio en una sola línea y apila ese bloque antes en anchos intermedios para evitar overflow horizontal.
+- **Ajuste posterior:** el flujo posterior al lookup de `/check-in-online` pasó de un formulario largo a un wizard público de tres pasos visibles después de validar código + documento: `Huésped principal`, `Acompañantes` y `Confirmación`, con stepper oscuro, barra de resumen de reserva, paneles laterales y comprobante final. El lookup público ahora devuelve datos del titular (`holder`), habitación/resumen, etiqueta de estado y estado de pago para que el botón `Cargar datos del titular` pueda poblar el huésped principal con información real de la reserva. El submit sigue usando el endpoint existente de check-in online; dirección, motivo de viaje y firma se anexan a `notes` porque no existen como columnas propias en `ReservationGuest`. Validado con `npm run build`, `npm run lint`, `python manage.py test apps.reservations.tests.OnlineCheckInPublicApiTests`, detector `impeccable` en modo degradado y comprobación HTTP 200 de `/check-in-online`.
+- **Ajuste posterior:** se endureció el wizard de `/check-in-online`: los placeholders de todos los campos editables usan un tono gris y ejemplos genéricos, el error de lookup se muestra como alerta roja con borde/fondo propio, el formulario ya no precarga datos del titular tras validar la reserva salvo que el usuario pulse `Cargar datos del titular`, se retiró `Turismo` como valor real por defecto, y la firma electrónica ahora debe coincidir con el nombre completo del titular tanto en frontend como en el endpoint público (`signature` en `OnlineCheckInSerializer` + validación en `online_check_in.py`). Validado con `npm run build`, `npm run lint`, `python manage.py test apps.reservations.tests.OnlineCheckInPublicApiTests`, detector `impeccable` en modo degradado y comprobación HTTP 200 de `/check-in-online`.
+
+### 2026-08-20 — Rediseño visual de las 4 rutas públicas para igualar el prototipo de diseño
+
+- **Autor:** Claude Code, a solicitud del usuario ("agarra el prototipo en 'Wayra Landing Page
+  Design' y hazme mi landing y mis vistas públicas tal cual a las del prototipo")
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** se llevó el lenguaje visual del prototipo (`frontend/Wayra Landing Page
+  Design/Wayra Landing.dc.html`, un mockup React aparte, sin conexión a datos reales) a las 4 rutas
+  públicas ya funcionales (landing, `/hoteles-aliados`, `/reservar` + sus 3 pasos, `/check-in-online`),
+  que ya compartían buena parte de la base del prototipo (mismo azul `#2c7be5`, Sora/Manrope, héroes
+  oscuros) pero no todo. Cambios concretos:
+  - `PublicHeaderComponent`: el header pasa de claro-con-blur-al-hacer-scroll a **siempre oscuro**
+    (`var(--ink)`), como en el prototipo. Nav con subrayado en vez de píldora de fondo, "Iniciar
+    sesión" como texto plano (sin caja), CTA con más sombra. Menú móvil recoloreado a oscuro.
+  - `PublicFooterComponent`: se retira la variante `compact` (input `variant` eliminado) — ahora
+    hay **un solo pie oscuro en las 4 rutas**, igual que el prototipo, en vez de una franja de puro
+    copyright bajo el contenido transaccional. Columnas: marca, "Producto" (texto plano con los
+    nombres de módulo, igual que el prototipo — no son páginas propias todavía), "Navegación"
+    (los anclajes reales a la landing, ahora resueltos con `[routerLink]="'/'" [fragment]` en vez de
+    `href="#ancla"`, que se rompía fuera de la landing) y "Cuenta". Sin columna "Recursos" ni datos
+    de contacto inventados (guías, centro de ayuda, precios, teléfono): esas páginas y ese contacto
+    no existen en el producto (ver PRODUCT.md, "no inventar hechos comerciales no disponibles").
+  - `landing.html`/`.css`: los íconos de las tarjetas "Para quién" pasan de ámbar
+    (`bg-amber-100`/`text-amber-700`) a la paleta azul del sistema (`.wayra-audience-icon`, usa
+    `--accent`/`--primary`). La lista estática de "Base operativa segura" se convierte en un marquee
+    con scroll continuo (contenido duplicado, la segunda pasada `aria-hidden`), como en el
+    prototipo, en vez de una lista envuelta estática.
+  - `allied-hotels.html`/`.css`/`.ts`: el filtro "Tipo" pasa de `<select>` nativo a una fila de
+    píldoras seleccionables (`setTypeFilter()`), como en el prototipo. El buscador de texto se
+    mantiene (el prototipo no lo tiene, pero es necesario en un catálogo real con más de unos pocos
+    hoteles).
+  - Reserva a hoteles aliados: nuevo `BookingStepperComponent`
+    (`allied-booking/booking-stepper.ts/html/css`) — barra con nodos numerados conectados por una
+    línea, en una franja oscura bajo el héroe, insertada en `allied-booking-rates.html` (paso 2) y
+    `allied-booking-request.html` (paso 3). Son **3 pasos, no los 4 del prototipo**: el prototipo
+    incluye un paso de "Pago" que no existe en el flujo real (la reserva queda como solicitud para
+    que el hotel aliado confirme disponibilidad, sin cobro en línea), así que se omitió en vez de
+    inventarlo. Igual que el prototipo, el stepper no se muestra en el paso 1 (búsqueda) ni en la
+    confirmación.
+  - Todo el contenido dinámico (hoteles aliados, tarifas, habitaciones, disponibilidad) se dejó
+    conectado a los datos reales del backend; no se copiaron los datos de ejemplo inventados del
+    prototipo (hoteles de Cusco, precios en soles, tarjetas de prueba) — decisión confirmada con el
+    usuario antes de empezar.
+- **Por qué:** el usuario quería que la landing y las vistas públicas coincidieran visualmente con
+  el prototipo que ya existía en el repositorio, manteniendo la funcionalidad real (RBAC, tenancy,
+  reservas reales) de las 4 páginas, que ya estaban construidas y conectadas al backend.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/shared/public-header/*`,
+  `frontend/src/app/components/shared/public-footer/*`,
+  `frontend/src/app/components/pages/landing/landing.html`,
+  `frontend/src/app/components/pages/landing/landing.css`,
+  `frontend/src/app/components/pages/allied-hotels/*`,
+  `frontend/src/app/components/pages/allied-booking/booking-stepper.ts/html/css` (nuevo),
+  `frontend/src/app/components/pages/allied-booking/allied-booking-rates.ts/html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-request.ts/html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking.html`,
+  `frontend/src/app/components/pages/allied-booking/allied-booking-confirmation.html`,
+  `frontend/src/app/components/pages/online-check-in/online-check-in.html`.
+- **Impacto:** ninguna migración, variable de entorno ni cambio de API. Sin recursos RBAC nuevos (son
+  4 rutas públicas ya existentes). `PublicFooterComponent` ya no acepta el input `variant`; las 8
+  plantillas que lo usaban se actualizaron a `<app-public-footer></app-public-footer>` sin atributo,
+  así que no queda ningún consumidor del input viejo. Al mostrar siempre el enlace de sesión, el
+  footer ahora llama `/api/auth/me/` en las 4 rutas (antes solo en landing) — duplica la llamada que
+  ya hacía el header en la misma página; ya era así en landing antes de este cambio, así que no es un
+  patrón nuevo, pero si en el futuro se nota el costo de red, conviene compartir esa respuesta entre
+  header y footer en `AuthService` en vez de dos llamadas independientes. Verificado con
+  `npm run build` (sin errores, mismos warnings de presupuesto preexistentes en
+  `allied-booking.css`, no tocado en este cambio) y con capturas de Playwright (escritorio y móvil)
+  contra el frontend + backend corriendo en local, con datos reales de un hotel aliado de prueba.
 
 ---
 

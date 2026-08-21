@@ -1,11 +1,14 @@
 /*
  * Valores canonicos del header publico. Todas las paginas publicas comparten
- * exactamente estos valores (altura, ancho, logo, z-index, blur, sombra,
+ * exactamente estos valores (altura, ancho, logo, z-index, sombra,
  * breakpoint, touch targets y foco): antes de esta extraccion cada pagina los
  * declaraba por separado y habian divergido (ver AGENTS.md, registro de esta
- * migracion). Los colores se derivan de los tokens ya declarados en
- * public-tokens.css (heredados por herencia normal de custom properties, no
- * duplicados aqui) para que cada pagina conserve su tinte de --primary.
+ * migracion).
+ *
+ * Fondo siempre oscuro (--ink), no un header claro con blur al hacer scroll:
+ * es la barra de navegacion tal como la define el prototipo de diseno
+ * (Wayra Landing Page Design), y queda igual en las 4 rutas publicas en vez
+ * de depender de --primary por pagina.
  */
 
 :host {
@@ -16,10 +19,9 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  border-bottom: 1px solid var(--border);
-  background: rgba(var(--white-rgb), 0.96);
-  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05);
-  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--ink-border);
+  background: var(--ink);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
 }
 
 .public-header-inner {
@@ -36,7 +38,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.75rem;
-  color: var(--foreground);
+  color: var(--ink-foreground);
   font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
   font-size: 1.15rem;
   font-weight: 800;
@@ -45,14 +47,16 @@
 }
 
 .public-header-brand img {
-  width: auto;
-  height: 2.5rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 10px;
+  object-fit: contain;
 }
 
 .public-header-nav {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 2.1rem;
 }
 
 .public-header-link {
@@ -60,49 +64,41 @@
   min-height: 44px;
   display: inline-flex;
   align-items: center;
-  padding: 0 0.9rem;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  color: var(--muted);
+  padding: 0 0.05rem;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-muted);
   font-size: 0.875rem;
   font-weight: 750;
   text-decoration: none;
   white-space: nowrap;
-  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+  transition: color 0.18s ease, border-color 0.18s ease;
 }
 
 .public-header-link.is-active {
-  /* --primary-hover, no --primary: contra --accent, --primary da 3.77:1 (falla
-     AA 4.5:1) en las 3 rutas que no sobreescriben --primary. --primary-hover
-     ya es #2369c5 en public-tokens.css, el mismo valor que allied-hotels.css/
-     allied-booking.css definian aparte como --primary-text para este mismo
-     caso (texto sobre --accent) antes de esta extraccion: 4.9:1, pasa AA. */
-  border-color: color-mix(in srgb, var(--primary) 24%, transparent);
-  background: var(--accent);
-  color: var(--primary-hover);
+  border-bottom-color: var(--primary);
+  color: var(--ink-foreground);
 }
 
 .public-header-actions {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1.35rem;
 }
 
 .public-header-session {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0 0.9rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--secondary);
-  color: var(--foreground);
+  gap: 0.4rem;
+  padding: 0 0.1rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink-foreground);
   font-size: 0.875rem;
-  font-weight: 750;
+  font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
-  transition: border-color 0.18s ease, background-color 0.18s ease;
+  transition: color 0.18s ease;
 }
 
 .public-header-cta {
@@ -110,17 +106,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 1.3rem;
+  padding: 0 1.4rem;
   border: 1px solid var(--primary);
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--primary);
   color: var(--primary-foreground);
   font-size: 0.84rem;
-  font-weight: 800;
+  font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+  box-shadow: 0 10px 26px rgba(var(--primary-rgb, 44, 123, 229), 0.38);
+  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .public-header-toggle {
@@ -129,10 +126,10 @@
   height: 44px;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
+  border: 1px solid var(--ink-border);
   border-radius: 10px;
   background: transparent;
-  color: var(--foreground);
+  color: var(--ink-foreground);
   cursor: pointer;
 }
 
@@ -140,10 +137,10 @@
 
 .public-header-mobile-panel {
   padding: 1rem;
-  border-top: 1px solid var(--border);
-  background: var(--card);
-  color: var(--foreground);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+  border-top: 1px solid var(--ink-border);
+  background: var(--ink);
+  color: var(--ink-foreground);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
   animation: public-header-panel-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -163,9 +160,9 @@
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--ink-border);
   border-radius: 14px;
-  background: var(--card);
+  background: rgba(255, 255, 255, 0.03);
   padding: 0.35rem;
 }
 
@@ -177,7 +174,7 @@
   gap: 0.55rem;
   border-radius: 10px;
   padding: 0.75rem 0.85rem;
-  color: var(--foreground);
+  color: var(--ink-foreground);
   font-size: 0.92rem;
   font-weight: 800;
   text-decoration: none;
@@ -185,8 +182,8 @@
 }
 
 .public-header-mobile-link.is-active {
-  background: var(--accent);
-  color: var(--primary-hover);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--primary);
 }
 
 .public-header-cta-block {
@@ -234,7 +231,8 @@
 
 @media (max-width: 480px) {
   .public-header-brand img {
-    height: 2.2rem;
+    width: 2.1rem;
+    height: 2.1rem;
   }
 
   .public-header-inner {
@@ -259,12 +257,11 @@
    no deje un enlace visualmente "atascado" en su estado hover. */
 @media (hover: hover) and (pointer: fine) {
   .public-header-link:hover {
-    color: var(--foreground);
+    color: var(--ink-foreground);
   }
 
   .public-header-session:hover {
-    border-color: var(--border-hover, var(--border));
-    background: var(--secondary-hover, var(--secondary));
+    color: var(--primary);
   }
 
   .public-header-cta:hover {
@@ -274,14 +271,12 @@
   }
 
   .public-header-mobile-link:hover {
-    /* --primary-hover, no --primary: mismo fix que .is-active (ver arriba),
-       ambas contra --accent. */
-    background: var(--accent);
-    color: var(--primary-hover);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--ink-foreground);
   }
 
   .public-header-toggle:hover {
-    background: var(--secondary);
+    background: rgba(255, 255, 255, 0.08);
   }
 }
 

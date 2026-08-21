@@ -1,20 +1,9 @@
 import { CommonModule } from '@angular/common';
-import {
-  Component,
-  OnInit,
-  inject,
-} from '@angular/core';
-import {
-  ActivatedRoute,
-  Router,
-  RouterLink,
-} from '@angular/router';
+import { Component, OnInit, inject } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, of } from 'rxjs';
 
-import {
-  AlliedHotel,
-  AlliedRoomRate,
-} from '../../../shared/allied-hotels';
+import { AlliedHotel, AlliedRoomRate } from '../../../shared/allied-hotels';
 import { AlliedHotelService } from '../../../services/allied-hotels';
 import {
   BookingCriteria,
@@ -33,6 +22,7 @@ import {
 } from './allied-booking-flow';
 import { PublicHeaderComponent } from '../../shared/public-header/public-header';
 import { PublicFooterComponent } from '../../shared/public-footer/public-footer';
+import { BookingStepperComponent } from './booking-stepper';
 
 @Component({
   selector: 'app-allied-booking-rates',
@@ -42,12 +32,12 @@ import { PublicFooterComponent } from '../../shared/public-footer/public-footer'
     RouterLink,
     PublicHeaderComponent,
     PublicFooterComponent,
+    BookingStepperComponent,
   ],
   templateUrl: './allied-booking-rates.html',
-  styleUrl: './allied-booking.css',
+  styleUrls: ['./allied-booking.css', './allied-booking-flow.css'],
 })
 export class AlliedBookingRatesPage implements OnInit {
-
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly alliedHotelService = inject(AlliedHotelService);
@@ -74,9 +64,7 @@ export class AlliedBookingRatesPage implements OnInit {
   }
 
   private loadHotels(): void {
-
-    const requestId =
-      this.requestId + 1;
+    const requestId = this.requestId + 1;
 
     this.requestId = requestId;
     this.loadingHotels = true;
@@ -91,29 +79,23 @@ export class AlliedBookingRatesPage implements OnInit {
             this.hotelsLoadError = 'No fue posible cargar los hoteles aliados activos.';
           }
           return of([] as AlliedHotel[]);
-        })
+        }),
       )
       .subscribe((hotels) => {
         if (requestId !== this.requestId) {
           return;
         }
 
-        const hotelSlug =
-          this.route.snapshot.paramMap.get('hotelSlug') ?? '';
+        const hotelSlug = this.route.snapshot.paramMap.get('hotelSlug') ?? '';
 
         this.hotelSlug = hotelSlug;
         this.hotels = hotels;
-        this.criteria =
-          parseBookingCriteriaFromQuery(
-            this.route.snapshot.queryParamMap,
-            hotels,
-            hotelSlug
-          );
-        this.selectedHotel =
-          findHotelBySlug(
-            hotels,
-            hotelSlug
-          );
+        this.criteria = parseBookingCriteriaFromQuery(
+          this.route.snapshot.queryParamMap,
+          hotels,
+          hotelSlug,
+        );
+        this.selectedHotel = findHotelBySlug(hotels, hotelSlug);
 
         if (!this.criteriaReady) {
           this.loadingHotels = false;
@@ -124,15 +106,9 @@ export class AlliedBookingRatesPage implements OnInit {
       });
   }
 
-  private loadAvailableRates(
-    hotelSlug: string,
-    requestId: number
-  ): void {
-
+  private loadAvailableRates(hotelSlug: string, requestId: number): void {
     this.alliedHotelService
-      .listActiveAlliedHotels(
-        buildAvailabilityQueryParams(this.criteria)
-      )
+      .listActiveAlliedHotels(buildAvailabilityQueryParams(this.criteria))
       .pipe(
         catchError(() => {
           if (requestId === this.requestId) {
@@ -140,18 +116,14 @@ export class AlliedBookingRatesPage implements OnInit {
             this.hotelsLoadError = 'No fue posible consultar disponibilidad.';
           }
           return of([] as AlliedHotel[]);
-        })
+        }),
       )
       .subscribe((hotels) => {
         if (requestId !== this.requestId) {
           return;
         }
 
-        const availableHotel =
-          findHotelBySlug(
-            hotels,
-            hotelSlug
-          );
+        const availableHotel = findHotelBySlug(hotels, hotelSlug);
 
         if (availableHotel) {
           this.selectedHotel = availableHotel;
@@ -168,7 +140,6 @@ export class AlliedBookingRatesPage implements OnInit {
   }
 
   retryLoadHotels(): void {
-
     if (this.loadingHotels) {
       return;
     }
@@ -177,13 +148,11 @@ export class AlliedBookingRatesPage implements OnInit {
   }
 
   retrySearchAvailability(): void {
-
     if (this.loadingHotels) {
       return;
     }
 
-    const requestId =
-      this.requestId + 1;
+    const requestId = this.requestId + 1;
 
     this.requestId = requestId;
     this.loadingHotels = true;
@@ -192,62 +161,51 @@ export class AlliedBookingRatesPage implements OnInit {
   }
 
   get queryParams() {
-
-    return buildBookingQueryParams(
-      this.criteria
-    );
+    return buildBookingQueryParams(this.criteria);
   }
 
   get criteriaReady(): boolean {
-
-    return isBookingCriteriaComplete(
-      this.hotels,
-      this.criteria
-    );
+    return isBookingCriteriaComplete(this.hotels, this.criteria);
   }
 
   get nights(): number {
+    return getNights(this.criteria.dateRange);
+  }
 
-    return getNights(
-      this.criteria.dateRange
-    );
+  get dateRangeLabel(): string {
+    const [checkIn, checkOut] = this.criteria.dateRange;
+
+    if (!checkIn || !checkOut) {
+      return '';
+    }
+
+    const formatter = new Intl.DateTimeFormat('es-CO', {
+      day: 'numeric',
+      month: 'short',
+    });
+
+    return `${formatter.format(checkIn)} - ${formatter.format(checkOut)}`;
   }
 
   get availableRoomRates(): AlliedRoomRate[] {
-
     if (!this.selectedHotel || !this.criteriaReady) {
       return [];
     }
 
-    return getAvailableRoomRates(
-      this.selectedHotel,
-      this.criteria
-    );
+    return getAvailableRoomRates(this.selectedHotel, this.criteria);
   }
 
   selectRoomRate(rate: AlliedRoomRate): void {
-
-    if (
-      !this.selectedHotel ||
-      !this.criteriaReady ||
-      this.selectingRateId !== null
-    ) {
+    if (!this.selectedHotel || !this.criteriaReady || this.selectingRateId !== null) {
       return;
     }
 
     this.selectingRateId = rate.id;
 
     this.router
-      .navigate(
-        [
-          '/reservar/solicitud',
-          this.selectedHotel.slug,
-          rate.id,
-        ],
-        {
-          queryParams: this.queryParams,
-        }
-      )
+      .navigate(['/reservar/solicitud', this.selectedHotel.slug, rate.id], {
+        queryParams: this.queryParams,
+      })
       // A rejected navigation (e.g. the lazy chunk for the next step fails
       // to load over a bad connection) must not leave selectingRateId stuck
       // forever, which would leave every "Elegir tarifa" button disabled
@@ -255,10 +213,7 @@ export class AlliedBookingRatesPage implements OnInit {
       // rejection to `false` here keeps it from surfacing as an unhandled
       // promise rejection while still logging it for diagnostics.
       .catch((error: unknown) => {
-        console.error(
-          'No fue posible abrir la solicitud de reserva.',
-          error
-        );
+        console.error('No fue posible abrir la solicitud de reserva.', error);
 
         return false;
       })
@@ -273,38 +228,26 @@ export class AlliedBookingRatesPage implements OnInit {
   }
 
   getAvailableRoomRateCount(rate: AlliedRoomRate): number {
-
     if (!this.selectedHotel) {
       return 0;
     }
 
-    return getAvailableRoomRateCount(
-      this.selectedHotel,
-      rate,
-      this.criteria
-    );
+    return getAvailableRoomRateCount(this.selectedHotel, rate, this.criteria);
   }
 
   getRateEstimatedTotal(rate: AlliedRoomRate): number {
-
-    return getRateEstimatedTotal(
-      rate,
-      this.criteria
-    );
+    return getRateEstimatedTotal(rate, this.criteria);
   }
 
   isAvailableRoomRateCountEstimated(rate: AlliedRoomRate): boolean {
-
     return isAvailableRoomRateCountEstimated(rate);
   }
 
   getRoomTypeIcon(roomType: string): string {
-
     return getRoomTypeIcon(roomType);
   }
 
   formatCurrency(value: number): string {
-
     return formatBookingCurrency(value);
   }
 

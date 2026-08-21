@@ -1,0 +1,83 @@
+:host {
+  display: block;
+  background: var(--ink);
+  border-top: 1px solid var(--ink-border);
+  border-bottom: 1px solid var(--ink-border);
+}
+
+.booking-stepper {
+  width: min(100% - 2rem, 1408px);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 1.28rem 0;
+}
+
+.booking-stepper-node {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.booking-stepper-badge {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.booking-stepper-badge.is-pending {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink-muted);
+}
+
+.booking-stepper-badge.is-active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.booking-stepper-badge.is-done {
+  background: rgba(44, 123, 229, 0.22);
+  color: var(--primary);
+}
+
+.booking-stepper-label {
+  font-size: 0.8rem;
+  font-weight: 750;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.booking-stepper-label.is-active,
+.booking-stepper-label.is-done {
+  color: var(--ink-foreground);
+}
+
+.booking-stepper-line {
+  flex: 1 1 auto;
+  height: 1px;
+  min-width: 1.5rem;
+  margin: 0 1.1rem;
+  background: var(--ink-border);
+}
+
+.booking-stepper-line.is-done {
+  background: rgba(44, 123, 229, 0.5);
+}
+
+@media (max-width: 560px) {
+  .booking-stepper-label {
+    display: none;
+  }
+
+  .booking-stepper-line {
+    margin: 0 0.6rem;
+  }
+}

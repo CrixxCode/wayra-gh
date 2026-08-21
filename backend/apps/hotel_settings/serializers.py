@@ -88,6 +88,7 @@ class HotelSettingsSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "hotel_name",
+            "reservation_code_prefix",
             "legal_name",
             "slogan",
             "description",
@@ -127,6 +128,7 @@ class HotelSettingsSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             "id",
+            "reservation_code_prefix",
             "created_at",
             "updated_at",
             "total_floors",

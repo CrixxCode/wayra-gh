@@ -55,16 +55,21 @@ interface FaqItem {
 }
 
 type DemoStep =
+  | 'requester'
   | 'hotel'
-  | 'location'
   | 'operation'
-  | 'requester';
+  | 'agenda';
 
 type DemoFormSection =
   | 'hotel'
   | 'location'
   | 'operation'
   | 'requester';
+
+interface DemoStepItem {
+  id: DemoStep;
+  label: string;
+}
 
 @Component({
   selector: 'app-landing',
@@ -196,7 +201,10 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
       username: [
         '',
-        Validators.minLength(3),
+        [
+          Validators.required,
+          Validators.minLength(3),
+        ],
       ],
 
       email: [
@@ -232,19 +240,19 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     {
       title: 'Antes del check-in',
       summary:
-        'Recepción confirma reserva, huésped y horario en un mismo registro.',
-      icon: 'pi pi-calendar-clock',
+        'Cotiza, reserva y confirma con disponibilidad real. El huésped queda cargado una sola vez, con sus datos y su historial.',
+      icon: 'pi pi-calendar',
     },
     {
       title: 'Durante la estadía',
       summary:
-        'Habitaciones, limpieza y servicios quedan conectados a la estadía activa.',
+        'Estado de habitaciones, limpieza, cambios y consumos cargados a la cuenta. Recepción y housekeeping ven lo mismo.',
       icon: 'pi pi-building',
     },
     {
-      title: 'Al cierre de caja',
+      title: 'Cierre de caja',
       summary:
-        'Pagos, cargos y reportes quedan disponibles para el cierre del día.',
+        'Cobros, medios de pago y saldos del turno en un solo arqueo. La gerencia recibe el reporte sin pedirlo.',
       icon: 'pi pi-wallet',
     },
   ];
@@ -256,27 +264,27 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
   readonly proofItems: ProofItem[] = [
     {
-      label: 'Reserva',
+      label: 'Reservas',
       description:
-        'Fechas, habitación, huéspedes, abonos y estado del check-in.',
+        'Calendario, tarifas y confirmaciones con disponibilidad real.',
       icon: 'pi pi-calendar-plus',
     },
     {
-      label: 'Habitación',
+      label: 'Habitaciones',
       description:
-        'Disponibilidad, limpieza, mantenimiento e inventario asociado.',
+        'Estados, limpieza y bloqueos por mantenimiento al día.',
       icon: 'pi pi-home',
     },
     {
       label: 'Caja',
       description:
-        'Cargos, pagos, reembolsos, saldos y cierre de la estadía.',
+        'Cobros, consumos y arqueo por turno con respaldo.',
       icon: 'pi pi-wallet',
     },
     {
       label: 'Gerencia',
       description:
-        'Ocupación, ingresos, egresos, reportes y registro de actividad.',
+        'Ocupación, ingresos y reportes listos para revisar.',
       icon: 'pi pi-chart-line',
     },
   ];
@@ -285,8 +293,9 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     'Acceso por usuarios y roles',
     'Trazabilidad por reserva',
     'Registro de actividad',
-    'Gestión desde navegador',
-    'Configuración del hotel',
+    'Acceso desde el navegador',
+    'Historial completo por huésped',
+    'Soporte en español',
   ];
 
   // =========================================================
@@ -378,6 +387,25 @@ export class LandingPage implements AfterViewInit, OnDestroy {
   demoSubmitError = '';
   demoRequestSummary = '';
 
+  readonly demoStepItems: DemoStepItem[] = [
+    {
+      id: 'requester',
+      label: 'Contacto',
+    },
+    {
+      id: 'hotel',
+      label: 'Alojamiento',
+    },
+    {
+      id: 'operation',
+      label: 'Operación',
+    },
+    {
+      id: 'agenda',
+      label: 'Agenda',
+    },
+  ];
+
   jobTitles: JobTitle[] = [];
   jobTitlesLoading = false;
   jobTitlesLoadError = '';
@@ -409,7 +437,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     check_out_time: 'Horario de check-out',
     requester_first_name: 'Nombre de contacto',
     requester_last_name: 'Nombre de contacto',
-    requester_username: 'Usuario sugerido para la demo',
+    requester_username: 'Nombre de usuario',
     requester_email: 'Correo de contacto',
     requester_job_title: 'Cargo',
     requester_phone: 'Teléfono de contacto',
@@ -422,10 +450,10 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     rooms: 'hotel',
     website: 'hotel',
 
-    country: 'location',
-    state: 'location',
-    city: 'location',
-    address: 'location',
+    country: 'hotel',
+    state: 'hotel',
+    city: 'hotel',
+    address: 'hotel',
 
     check_in_time: 'operation',
     check_out_time: 'operation',
@@ -433,11 +461,11 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     requester_contact_name: 'requester',
     requester_first_name: 'requester',
     requester_last_name: 'requester',
-    requester_username: 'operation',
+    requester_username: 'requester',
     requester_email: 'requester',
     requester_job_title: 'requester',
     requester_phone: 'requester',
-    message: 'operation',
+    message: 'agenda',
   };
 
 
@@ -446,33 +474,33 @@ export class LandingPage implements AfterViewInit, OnDestroy {
   // =========================================================
 
   get demoStepNumber(): number {
-
-    const steps: Record<DemoStep, number> = {
-      requester: 1,
-      hotel: 2,
-      location: 3,
-      operation: 4,
-    };
-
-    return steps[this.demoStep];
+    return this.currentDemoStepIndex + 1;
   }
 
 
   get demoStepLabel(): string {
-
-    const labels: Record<DemoStep, string> = {
-      requester: 'Contacto',
-      hotel: 'Hotel',
-      location: 'Ubicación',
-      operation: 'Turno',
-    };
-
-    return labels[this.demoStep];
+    return (
+      this.demoStepItems[this.currentDemoStepIndex]?.label ||
+      'Contacto'
+    );
   }
 
 
   get demoStepProgress(): number {
-    return this.demoStepNumber * 25;
+    return (
+      this.demoStepNumber /
+      this.demoStepItems.length
+    ) * 100;
+  }
+
+
+  get currentDemoStepIndex(): number {
+    return Math.max(
+      this.demoStepItems.findIndex(
+        (step) => step.id === this.demoStep
+      ),
+      0
+    );
   }
 
 
@@ -822,6 +850,11 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
 
   goToLocationStep(): boolean {
+    return this.goToOperationStep();
+  }
+
+
+  goToOperationStep(): boolean {
 
     this.ensureDemoRequesterIdentity();
 
@@ -838,36 +871,17 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     const hotelForm =
       this.demoForm.controls.hotel;
 
-    hotelForm.markAllAsTouched();
-
-    if (hotelForm.invalid) {
-      return false;
-    }
-
-    this.demoStep = 'location';
-
-    window.setTimeout(() => {
-      document
-        .getElementById('demo-country')
-        ?.focus();
-    });
-
-    return true;
-  }
-
-
-  goToOperationStep(): boolean {
-
-    if (!this.goToLocationStep()) {
-      return false;
-    }
-
     const locationForm =
       this.demoForm.controls.location;
 
+    hotelForm.markAllAsTouched();
     locationForm.markAllAsTouched();
 
-    if (locationForm.invalid) {
+    if (
+      hotelForm.invalid ||
+      locationForm.invalid
+    ) {
+      this.demoStep = 'hotel';
       return false;
     }
 
@@ -876,6 +890,37 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     window.setTimeout(() => {
       document
         .getElementById('demo-check-in-time')
+        ?.focus();
+    });
+
+    return true;
+  }
+
+
+  goToAgendaStep(): boolean {
+
+    if (!this.goToOperationStep()) {
+      return false;
+    }
+
+    const operationForm =
+      this.demoForm.controls.operation;
+
+    operationForm.markAllAsTouched();
+
+    if (
+      operationForm.invalid ||
+      this.hasSameDemoOperationTimes()
+    ) {
+      this.demoStep = 'operation';
+      return false;
+    }
+
+    this.demoStep = 'agenda';
+
+    window.setTimeout(() => {
+      document
+        .getElementById('demo-submit-request')
         ?.focus();
     });
 
@@ -894,6 +939,57 @@ export class LandingPage implements AfterViewInit, OnDestroy {
   }
 
 
+  goToPreviousDemoStep(): void {
+
+    const previousStep =
+      this.demoStepItems[
+        Math.max(
+          this.currentDemoStepIndex - 1,
+          0
+        )
+      ];
+
+    if (!previousStep) {
+      return;
+    }
+
+    this.demoStep = previousStep.id;
+    this.focusCurrentDemoStep();
+  }
+
+
+  goToNextDemoStep(): void {
+
+    if (this.demoStep === 'requester') {
+      this.goToHotelStep();
+      return;
+    }
+
+    if (this.demoStep === 'hotel') {
+      this.goToOperationStep();
+      return;
+    }
+
+    if (this.demoStep === 'operation') {
+      this.goToAgendaStep();
+    }
+  }
+
+
+  goToDemoStep(step: DemoStep): void {
+
+    if (
+      step === this.demoStep ||
+      !this.canOpenDemoStep(step)
+    ) {
+      return;
+    }
+
+    this.demoStep = step;
+    this.focusCurrentDemoStep();
+  }
+
+
   canOpenDemoStep(step: DemoStep): boolean {
 
     if (step === 'requester') {
@@ -904,13 +1000,6 @@ export class LandingPage implements AfterViewInit, OnDestroy {
       return this.demoForm.controls.requester.valid;
     }
 
-    if (step === 'location') {
-      return (
-        this.demoForm.controls.requester.valid &&
-        this.demoForm.controls.hotel.valid
-      );
-    }
-
     if (step === 'operation') {
       return (
         this.demoForm.controls.requester.valid &&
@@ -919,7 +1008,41 @@ export class LandingPage implements AfterViewInit, OnDestroy {
       );
     }
 
+    if (step === 'agenda') {
+      return (
+        this.demoForm.controls.requester.valid &&
+        this.demoForm.controls.hotel.valid &&
+        this.demoForm.controls.location.valid &&
+        this.demoForm.controls.operation.valid &&
+        !this.hasSameDemoOperationTimes()
+      );
+    }
+
     return false;
+  }
+
+
+  isDemoStepComplete(step: DemoStep): boolean {
+
+    if (step === 'requester') {
+      return this.demoForm.controls.requester.valid;
+    }
+
+    if (step === 'hotel') {
+      return (
+        this.demoForm.controls.hotel.valid &&
+        this.demoForm.controls.location.valid
+      );
+    }
+
+    if (step === 'operation') {
+      return (
+        this.demoForm.controls.operation.valid &&
+        !this.hasSameDemoOperationTimes()
+      );
+    }
+
+    return this.demoSubmitted;
   }
 
 
@@ -1026,7 +1149,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     }
 
     if (this.demoForm.controls.location.invalid) {
-      this.demoStep = 'location';
+      this.demoStep = 'hotel';
       return;
     }
 
@@ -1530,6 +1653,24 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     }
 
     this.demoStep = section;
+    this.focusCurrentDemoStep();
+  }
+
+
+  private focusCurrentDemoStep(): void {
+
+    const focusTargets: Record<DemoStep, string> = {
+      requester: 'demo-contact-name',
+      hotel: 'demo-hotel-name',
+      operation: 'demo-check-in-time',
+      agenda: 'demo-submit-request',
+    };
+
+    window.setTimeout(() => {
+      document
+        .getElementById(focusTargets[this.demoStep])
+        ?.focus();
+    });
   }
 
 
@@ -1673,29 +1814,15 @@ export class LandingPage implements AfterViewInit, OnDestroy {
         ? nameParts.slice(1).join(' ')
         : firstName;
 
-    const email =
+    const requestedUsername =
       String(
-        requesterForm.controls.email.value || ''
-      )
-        .trim()
-        .toLowerCase();
-
-    const hotelName =
-      String(
-        this.demoForm.controls.hotel.controls
-          .hotelName.value || ''
+        requesterForm.controls.username.value || ''
       ).trim();
 
     const username =
-      this.normalizeDemoUsername(
-        String(
-          requesterForm.controls.username.value || ''
-        ).trim() ||
-          email.split('@')[0] ||
-          contactName ||
-          hotelName ||
-          'demo'
-      );
+      requestedUsername
+        ? this.normalizeDemoUsername(requestedUsername)
+        : '';
 
     requesterForm.patchValue(
       {

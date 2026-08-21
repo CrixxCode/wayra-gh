@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Value
+from django.db.models.functions import Replace, Upper
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -43,31 +45,63 @@ def _normalize_document_number(value: str) -> str:
     return re.sub(r"[\s.-]", "", str(value or "")).strip().upper()
 
 
+def _normalize_person_name(value: str) -> str:
+    normalized = unicodedata.normalize("NFD", str(value or ""))
+    without_accents = "".join(
+        char for char in normalized if unicodedata.category(char) != "Mn"
+    )
+    return re.sub(r"[^A-Za-z0-9]+", " ", without_accents).strip().upper()
+
+
 def _normalize_reservation_code(reservation_code: str) -> str:
-    # Tolerante a espacios/guiones que el huesped pueda agregar al copiar el
-    # codigo (ej. del correo o de la ficha de recepcion); Reservation.code se
-    # guarda siempre sin separadores y en mayusculas.
-    return re.sub(r"[^A-Za-z0-9]", "", str(reservation_code or "")).upper()
+    # Tolerante a espacios accidentales, pero conserva guiones porque los codigos
+    # nuevos se guardan con formato legible: DJN-26-K7F9Q2.
+    return re.sub(r"\s+", "", str(reservation_code or "")).strip().upper()
+
+
+def _compact_reservation_code(reservation_code: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", _normalize_reservation_code(reservation_code))
 
 
 def _reservation_queryset() -> QuerySet[Reservation]:
     return Reservation.objects.select_related("client", "status", "hotel_settings")
 
 
-def _get_reservation(reservation_code: str) -> Reservation:
+def _find_reservation_by_code(queryset: QuerySet[Reservation], reservation_code: str) -> Reservation | None:
     normalized = _normalize_reservation_code(reservation_code)
-    reservation = _reservation_queryset().filter(code=normalized).first() if normalized else None
+    if not normalized:
+        return None
+
+    reservation = queryset.filter(code__iexact=normalized).first()
+    if reservation:
+        return reservation
+
+    compact = _compact_reservation_code(reservation_code)
+    if not compact:
+        return None
+
+    reservation = queryset.filter(code__iexact=compact).first()
+    if reservation:
+        return reservation
+
+    return (
+        queryset.annotate(_compact_code=Replace(Upper("code"), Value("-"), Value("")))
+        .filter(_compact_code=compact)
+        .first()
+    )
+
+
+def _get_reservation(reservation_code: str) -> Reservation:
+    reservation = _find_reservation_by_code(_reservation_queryset(), reservation_code)
     if not reservation:
         raise ValidationError({"reservation_code": RESERVATION_LOOKUP_ERROR_MESSAGE})
     return reservation
 
 
 def _get_locked_reservation(reservation_code: str) -> Reservation:
-    normalized = _normalize_reservation_code(reservation_code)
-    reservation = (
-        _reservation_queryset().select_for_update().filter(code=normalized).first()
-        if normalized
-        else None
+    reservation = _find_reservation_by_code(
+        _reservation_queryset().select_for_update(),
+        reservation_code,
     )
     if not reservation:
         raise ValidationError({"reservation_code": RESERVATION_LOOKUP_ERROR_MESSAGE})
@@ -97,6 +131,19 @@ def _verify_titular_present(reservation: Reservation, guests_payload: list[dict[
                 "guests": (
                     "Uno de los huespedes debe ser el titular de la reserva "
                     "(mismo numero de documento verificado)."
+                )
+            }
+        )
+
+
+def _verify_titular_signature(reservation: Reservation, signature: str) -> None:
+    titular_name = _normalize_person_name(getattr(reservation.client, "full_name", ""))
+    submitted_signature = _normalize_person_name(signature)
+    if not titular_name or submitted_signature != titular_name:
+        raise ValidationError(
+            {
+                "signature": (
+                    "La firma debe coincidir con el nombre completo del titular de la reserva."
                 )
             }
         )
@@ -182,6 +229,7 @@ def submit_online_check_in(*, data: dict[str, Any]) -> dict[str, Any]:
     with transaction.atomic():
         reservation = _get_locked_reservation(data["reservation_code"])
         _verify_titular_present(reservation, guests_payload)
+        _verify_titular_signature(reservation, data.get("signature", ""))
 
         eligibility = get_online_check_in_eligibility(reservation)
         if not eligibility["eligible"]:

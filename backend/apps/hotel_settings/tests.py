@@ -734,6 +734,20 @@ class PaymentMethodTenancyTests(TestCase):
 class DefaultPaymentMethodTests(TestCase):
     """Un hotel nuevo nace pudiendo cobrar en efectivo."""
 
+    def test_new_hotels_get_stable_unique_reservation_prefixes(self):
+        first = HotelSettings.objects.create(hotel_name="Hotel Panorama")
+        second = HotelSettings.objects.create(hotel_name="Hotel Panorama")
+
+        self.assertEqual(first.reservation_code_prefix, "PAN")
+        self.assertEqual(second.reservation_code_prefix, "PAN2")
+
+    def test_reservation_prefix_ignores_generic_hotel_word(self):
+        don_juan = HotelSettings.objects.create(hotel_name="Hotel Don Juan")
+        panorama = HotelSettings.objects.create(hotel_name="Hotel Panorama")
+
+        self.assertEqual(don_juan.reservation_code_prefix, "DJN")
+        self.assertEqual(panorama.reservation_code_prefix, "PAN")
+
     def test_new_hotel_gets_a_cash_method(self):
         hotel = HotelSettings.objects.create(hotel_name="Hotel Recien Creado")
 

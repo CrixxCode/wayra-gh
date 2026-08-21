@@ -2,7 +2,6 @@ import { CommonModule } from '@angular/common';
 import {
   Component,
   OnInit,
-  ViewChild,
   inject,
 } from '@angular/core';
 import {
@@ -13,12 +12,8 @@ import {
 import {
   ActivatedRoute,
   Router,
-  RouterLink,
 } from '@angular/router';
-import {
-  DatePicker,
-  DatePickerModule,
-} from 'primeng/datepicker';
+import { DatePickerModule } from 'primeng/datepicker';
 import { catchError, of } from 'rxjs';
 
 import { AlliedHotel } from '../../../shared/allied-hotels';
@@ -50,6 +45,11 @@ import {
 import { PublicHeaderComponent } from '../../shared/public-header/public-header';
 import { PublicFooterComponent } from '../../shared/public-footer/public-footer';
 
+type BookingSortMode =
+  | 'price-asc'
+  | 'price-desc'
+  | 'name-asc';
+
 @Component({
   selector: 'app-allied-booking',
   standalone: true,
@@ -57,7 +57,6 @@ import { PublicFooterComponent } from '../../shared/public-footer/public-footer'
     CommonModule,
     DatePickerModule,
     ReactiveFormsModule,
-    RouterLink,
     PublicHeaderComponent,
     PublicFooterComponent,
   ],
@@ -70,7 +69,6 @@ export class AlliedBookingPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly alliedHotelService = inject(AlliedHotelService);
-  @ViewChild('dateRangePicker') private dateRangePicker?: DatePicker;
   private availabilityRequestId = 0;
 
   hotels: AlliedHotel[] = [];
@@ -85,6 +83,7 @@ export class AlliedBookingPage implements OnInit {
   locatingDestination = false;
   destinationLocationError = '';
   hotelsLoadErrorContext: 'initial' | 'availability' = 'initial';
+  sortMode: BookingSortMode = 'price-asc';
 
   readonly searchForm =
     this.formBuilder.nonNullable.group({
@@ -105,7 +104,7 @@ export class AlliedBookingPage implements OnInit {
         ],
       ],
       guests: [
-        1,
+        2,
         [
           Validators.required,
           Validators.min(1),
@@ -113,9 +112,6 @@ export class AlliedBookingPage implements OnInit {
         ],
       ],
     });
-
-  readonly datePickerControl =
-    this.formBuilder.nonNullable.control([] as Date[]);
 
   ngOnInit(): void {
     this.searchForm.valueChanges.subscribe(() => {
@@ -154,14 +150,32 @@ export class AlliedBookingPage implements OnInit {
 
   private applyInitialQueryParams(): void {
 
+    const queryParams =
+      this.route.snapshot.queryParamMap;
+
+    const hasInitialCriteria =
+      [
+        'destination',
+        'country',
+        'city',
+        'hotel',
+        'checkIn',
+        'checkOut',
+        'rooms',
+        'guests',
+      ].some((key) => queryParams.has(key));
+
+    if (!hasInitialCriteria) {
+      return;
+    }
+
     const criteria =
       parseBookingCriteriaFromQuery(
-        this.route.snapshot.queryParamMap,
+        queryParams,
         this.hotels
       );
 
     this.searchForm.patchValue(criteria);
-    this.syncDatePickerDraft();
 
     if (
       criteria.destination &&
@@ -195,24 +209,6 @@ export class AlliedBookingPage implements OnInit {
     );
   }
 
-  get pendingDateRange(): Date[] {
-
-    return getSelectedDateRange(
-      this.datePickerControl.value
-    );
-  }
-
-  get canConfirmDateRange(): boolean {
-
-    const dateRange =
-      this.pendingDateRange;
-
-    return (
-      dateRange.length === 2 &&
-      !hasDateRangeError(dateRange)
-    );
-  }
-
   get hasIncompleteDateRange(): boolean {
 
     return hasIncompleteDateRange(
@@ -234,6 +230,39 @@ export class AlliedBookingPage implements OnInit {
     );
   }
 
+  get guestSummary(): string {
+
+    const {
+      guests,
+      rooms,
+    } = this.criteria;
+
+    const guestLabel =
+      guests === 1
+        ? 'adulto'
+        : 'adultos';
+
+    if (rooms === 1) {
+      return `${guests} ${guestLabel}`;
+    }
+
+    return `${guests} ${guestLabel} · ${rooms} habs.`;
+  }
+
+
+  get resultsTitle(): string {
+
+    if (this.searchSubmitted && !this.searchingAvailability) {
+      return `${this.availableHotels.length} ${
+        this.availableHotels.length === 1
+          ? 'alojamiento disponible'
+          : 'alojamientos disponibles'
+      }`;
+    }
+
+    return 'Alojamientos disponibles';
+  }
+
   get availableHotels(): AlliedHotel[] {
 
     if (
@@ -247,6 +276,41 @@ export class AlliedBookingPage implements OnInit {
       this.availabilityHotels,
       this.criteria
     );
+  }
+
+
+  get sortedAvailableHotels(): AlliedHotel[] {
+
+    return [
+      ...this.availableHotels,
+    ].sort((first, second) => {
+      if (this.sortMode === 'name-asc') {
+        return first.name.localeCompare(
+          second.name,
+          'es',
+          {
+            sensitivity: 'base',
+          }
+        );
+      }
+
+      const priceDiff =
+        this.getEstimatedTotal(first) - this.getEstimatedTotal(second);
+
+      if (priceDiff === 0) {
+        return first.name.localeCompare(
+          second.name,
+          'es',
+          {
+            sensitivity: 'base',
+          }
+        );
+      }
+
+      return this.sortMode === 'price-desc'
+        ? -priceDiff
+        : priceDiff;
+    });
   }
 
   searchAvailability(): void {
@@ -384,40 +448,28 @@ export class AlliedBookingPage implements OnInit {
       });
   }
 
-  openDateRangePicker(): void {
-    this.syncDatePickerDraft();
-  }
+  onDateRangeSelect(): void {
 
-  cancelDateRange(): void {
-    this.syncDatePickerDraft();
-    this.dateRangePicker?.hideOverlay();
-  }
-
-  closeDateRangePicker(): void {
-    this.syncDatePickerDraft();
-  }
-
-  confirmDateRange(): void {
-
-    const dateRange =
-      this.pendingDateRange;
-
+    this.searchForm.controls.dateRange.markAsDirty();
     this.searchForm.controls.dateRange.markAsTouched();
-    this.datePickerControl.markAsTouched();
+    this.searchSubmitted = false;
+  }
+
+  setSortMode(event: Event): void {
+
+    const select =
+      event.target as HTMLSelectElement | null;
+
+    const nextMode =
+      select?.value as BookingSortMode | undefined;
 
     if (
-      dateRange.length !== 2 ||
-      hasDateRangeError(dateRange)
+      nextMode === 'price-asc' ||
+      nextMode === 'price-desc' ||
+      nextMode === 'name-asc'
     ) {
-      return;
+      this.sortMode = nextMode;
     }
-
-    this.searchForm.controls.dateRange.setValue(
-      this.cloneDateRange(dateRange)
-    );
-    this.searchForm.controls.dateRange.markAsDirty();
-    this.searchSubmitted = false;
-    this.dateRangePicker?.hideOverlay();
   }
 
   selectHotel(hotel: AlliedHotel): void {
@@ -496,6 +548,12 @@ export class AlliedBookingPage implements OnInit {
     return `${destination.city}-${destination.country}-${index}`;
   }
 
+
+  trackByIndex(index: number): number {
+
+    return index;
+  }
+
   getAvailableRoomCount(hotel: AlliedHotel): number {
 
     return getAvailableRoomCount(
@@ -535,6 +593,41 @@ export class AlliedBookingPage implements OnInit {
     return formatBookingCurrency(value);
   }
 
+
+  getHotelResultSummary(hotel: AlliedHotel): string {
+
+    const rate =
+      this.getPrimaryRate(hotel);
+
+    const roomType =
+      rate?.roomType || hotel.type;
+
+    return `${roomType} · ${hotel.city}, ${hotel.country}`;
+  }
+
+
+  getHotelResultTags(hotel: AlliedHotel): string[] {
+
+    const tags =
+      hotel.highlights.length > 0
+        ? hotel.highlights
+        : [
+            'Cancelación flexible',
+            'Reserva directa',
+          ];
+
+    return tags.slice(0, 2);
+  }
+
+
+  getNightsLabel(): string {
+
+    const nights =
+      this.nights || 1;
+
+    return `${nights} ${nights === 1 ? 'NOCHE' : 'NOCHES'}`;
+  }
+
   private extractLocationError(error: unknown): string {
     if (
       error instanceof Error &&
@@ -546,20 +639,15 @@ export class AlliedBookingPage implements OnInit {
     return 'No pudimos usar tu ubicación. Escribe tu destino manualmente.';
   }
 
-  private syncDatePickerDraft(): void {
+  private getPrimaryRate(hotel: AlliedHotel) {
 
-    this.datePickerControl.setValue(
-      this.cloneDateRange(this.selectedDateRange),
-      {
-        emitEvent: false,
-      }
-    );
+    return [
+      ...hotel.roomRates,
+    ].sort(
+      (first, second) =>
+        first.nightlyRate - second.nightlyRate
+    )[0] ?? null;
   }
 
-  private cloneDateRange(dateRange: Date[]): Date[] {
 
-    return dateRange.map(
-      (date) => new Date(date.getTime())
-    );
-  }
 }

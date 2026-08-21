@@ -1,140 +1,41 @@
 <div class="allied-hotels-page">
-
   <app-public-header></app-public-header>
 
-
   <main>
-
     <section class="allied-hero">
       <div class="allied-container">
-
-        <a
-          class="allied-view-back"
-          routerLink="/">
-
-          <i
-            class="pi pi-arrow-left"
-            aria-hidden="true"></i>
-          Volver
-
-        </a>
-
-        <p class="allied-kicker">
-          Hoteles aliados
+        <span>Hoteles aliados</span>
+        <h1>Alojamientos que ya operan con Wayra</h1>
+        <p>
+          Reserva directo con nuestra red de hoteles, hostales y apartahoteles.
+          Disponibilidad en tiempo real, confirmacion inmediata.
         </p>
-
-        <h1>
-          Encuentra hoteles que trabajan con Wayra
-        </h1>
-
-        <p class="allied-lead">
-          Consulta alojamientos aliados y encuentra rapidamente la
-          informacion que necesitas para tu estadia.
-        </p>
-
-        <div class="allied-stats" aria-label="Resumen de hoteles aliados">
-          <span>
-            <strong>{{ hotels.length }}</strong>
-            {{ hotels.length === 1 ? 'alojamiento encontrado' : 'alojamientos encontrados' }}
-          </span>
-
-          <span>
-            <strong>{{ hotelTypeCount }}</strong>
-            {{ hotelTypeCount === 1 ? 'tipo de alojamiento' : 'tipos de alojamiento' }}
-          </span>
-
-          <span>
-            <strong>{{ totalRooms }}</strong>
-            {{ totalRooms === 1 ? 'habitacion registrada' : 'habitaciones registradas' }}
-          </span>
-        </div>
-
       </div>
     </section>
 
-
     <section class="allied-directory">
       <div class="allied-container">
-
-        <div class="allied-toolbar">
-
-          <label>
-            <span>Buscar</span>
-
-            <input
-              type="search"
-              [(ngModel)]="search"
-              placeholder="Hotel, ciudad o servicio" />
-          </label>
-
-          <label>
-            <span>Tipo</span>
-
-            <select [(ngModel)]="typeFilter">
-              <option
-                *ngFor="
-                  let type of hotelTypes;
-                  trackBy: trackByIndex
-                "
-                [value]="type">
-
-                {{ type }}
-
-              </option>
-            </select>
-          </label>
-
+        <div class="allied-type-pills" role="group" aria-label="Filtrar por tipo de alojamiento">
           <button
+            *ngFor="let type of hotelTypes; trackBy: trackByIndex"
             type="button"
-            (click)="clearFilters()">
-
-            Limpiar
-
+            [class.is-active]="typeFilter === type"
+            [attr.aria-pressed]="typeFilter === type"
+            (click)="setTypeFilter(type)">
+            {{ type }}
           </button>
-
         </div>
 
+        <p *ngIf="loading" class="allied-state" aria-live="polite">Cargando hoteles aliados...</p>
 
-        <p
-          *ngIf="!loading"
-          class="allied-result-count"
-          aria-live="polite">
-          {{ filteredHotels.length }}
-          {{ filteredHotels.length === 1 ? 'alojamiento encontrado' : 'alojamientos encontrados' }}
-        </p>
-
-        <p
-          *ngIf="loading"
-          class="allied-result-count"
-          aria-live="polite">
-          Cargando hoteles aliados...
-        </p>
-
-        <div
-          *ngIf="!loading && loadError"
-          class="allied-error-state"
-          aria-live="polite">
-
-          <p class="allied-result-count allied-error">
-            {{ loadError }}
-          </p>
-
-          <button
-            type="button"
-            (click)="retryLoadHotels()">
-            Reintentar
-          </button>
-
+        <div *ngIf="!loading && loadError" class="allied-state allied-error" aria-live="polite">
+          <p>{{ loadError }}</p>
+          <button type="button" (click)="retryLoadHotels()">Reintentar</button>
         </div>
 
-        <div
-          *ngIf="!loading"
-          class="allied-grid">
+        <div *ngIf="!loading" class="allied-grid">
           <article
-            *ngFor="
-              let hotel of filteredHotels;
-              trackBy: trackByHotel
-            "
+            *ngFor="let hotel of filteredHotels; trackBy: trackByHotel"
             [id]="hotel.slug"
             class="allied-card">
 
@@ -146,103 +47,40 @@
                 loading="lazy"
                 (error)="onImageError(hotel)" />
 
-              <div
-                *ngIf="!hotel.imageUrl || hasImageError(hotel)"
-                class="allied-card-media-fallback">
-                <i
-                  [class]="hotelTypeIcon(hotel)"
-                  aria-hidden="true"></i>
-                <span>
-                  {{ hotel.type }}
-                </span>
+              <span *ngIf="!hotel.imageUrl || hasImageError(hotel)">foto - 840x560</span>
+            </div>
+
+            <div class="allied-card-body">
+              <div class="allied-card-head">
+                <h2>{{ hotel.name }}</h2>
+                <span>{{ hotel.type }}</span>
+              </div>
+
+              <p class="allied-card-location">
+                {{ hotel.city }} · {{ hotel.rooms }} habitaciones
+              </p>
+
+              <div class="allied-card-footer">
+                <div>
+                  <small>Desde</small>
+                  <strong>{{ formatCurrency(hotel.nightlyRateFrom) }}</strong>
+                </div>
+
+                <a routerLink="/reservar" [queryParams]="{ hotel: hotel.slug }">
+                  Ver disponibilidad
+                </a>
               </div>
             </div>
-
-            <h2>
-              {{ hotel.name }}
-            </h2>
-
-            <p class="allied-location">
-              <i
-                class="pi pi-map-marker"
-                aria-hidden="true"></i>
-              {{ locationLabel(hotel) }}
-            </p>
-
-            <p
-              *ngIf="hotel.description"
-              class="allied-description">
-              {{ hotel.description }}
-            </p>
-
-            <ul>
-              <li
-                *ngFor="
-                  let highlight of hotel.highlights.slice(0, 3);
-                  trackBy: trackByIndex
-                ">
-
-                <i
-                  class="pi pi-check"
-                  aria-hidden="true"></i>
-                {{ highlight }}
-
-              </li>
-
-              <li
-                *ngIf="hotel.highlights.length > 3"
-                class="allied-card-more">
-                +{{ hotel.highlights.length - 3 }} mas
-              </li>
-            </ul>
-
-            <div class="allied-card-footer">
-              <span
-                *ngIf="hotel.nightlyRateFrom > 0"
-                class="allied-card-price">
-                Desde {{ formatCurrency(hotel.nightlyRateFrom) }} por noche
-              </span>
-
-              <a
-                routerLink="/reservar"
-                [queryParams]="{ hotel: hotel.slug }">
-
-                Reservar
-
-              </a>
-            </div>
-
           </article>
         </div>
 
-
-        <div
-          *ngIf="!loading && !loadError && filteredHotels.length === 0"
-          class="allied-empty">
-
-          <i
-            class="pi pi-search"
-            aria-hidden="true"></i>
-
-          <h2>
-            No hay hoteles con esos filtros
-          </h2>
-
-          <button
-            type="button"
-            (click)="clearFilters()">
-
-            Ver todos
-
-          </button>
-
+        <div *ngIf="!loading && !loadError && filteredHotels.length === 0" class="allied-empty">
+          <h2>No hay hoteles con esos filtros</h2>
+          <button type="button" (click)="clearFilters()">Ver todos</button>
         </div>
-
       </div>
     </section>
-
   </main>
 
-  <app-public-footer variant="compact"></app-public-footer>
-
+  <app-public-footer></app-public-footer>
 </div>

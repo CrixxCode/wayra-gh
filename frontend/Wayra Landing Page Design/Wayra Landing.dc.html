@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #eef1f6; -webkit-font-smoothing: antialiased; }
+  a { color: #2c7be5; text-decoration: none; }
+  a:hover { color: #2369c5; }
+  @keyframes wayraUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+  @keyframes wayraFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+  @keyframes wayraMarquee { from { transform: translateX(0); } to { transform: translateX(calc(-50% - 24px)); } }
+  @keyframes wayraFaq { from { transform: translateY(-6px); } to { transform: none; } }
+  @keyframes wayraPulse { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,0.55); } 70% { box-shadow: 0 0 0 9px rgba(52,211,153,0); } 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</helmet>
+<div style="font-family: Manrope, system-ui, sans-serif; color: #172033; display: flex; flex-direction: column; align-items: center; gap: 56px; padding: 48px 0 96px;">
+
+  <div style="width: 1440px; background: #ffffff; box-shadow: 0 24px 80px rgba(17,24,39,0.12); overflow: hidden;">
+
+    <header style="display: flex; align-items: center; justify-content: space-between; padding: 22px 72px; border-bottom: 1px solid #e2e7ef; background: #111827;">
+      <div style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onClick="{{ goHome }}">
+        <div style="width: 34px; height: 34px; border-radius: 11px; background: {{ accent }}; display: flex; align-items: center; justify-content: center;">
+          <div style="width: 13px; height: 13px; border-radius: 4px 13px 4px 13px; background: #ffffff;"></div>
+        </div>
+        <span style="font-family: Sora, sans-serif; font-weight: 700; font-size: 21px; letter-spacing: -0.02em; color: #ffffff;">Wayra</span>
+      </div>
+      <nav style="display: flex; align-items: center; gap: 34px; font-size: 15px; font-weight: 500; color: #b9c1d1;">
+        <span style="cursor: pointer; padding-bottom: 4px; color: {{ navAliadosColor }}; border-bottom: 2px solid {{ navAliadosLine }};" onClick="{{ goAliados }}">Hoteles Aliados</span>
+        <span style="cursor: pointer; padding-bottom: 4px; color: {{ navReservarColor }}; border-bottom: 2px solid {{ navReservarLine }};" onClick="{{ goReservar }}">Reservar</span>
+        <span style="cursor: pointer; padding-bottom: 4px; color: {{ navCheckinColor }}; border-bottom: 2px solid {{ navCheckinLine }};" onClick="{{ goCheckin }}">Check-in Online</span>
+      </nav>
+      <div style="display: flex; align-items: center; gap: 20px;">
+        <span style="font-size: 15px; font-weight: 600; color: #ffffff;">Iniciar sesión</span>
+        <div style="background: {{ accent }}; color: #ffffff; font-weight: 600; font-size: 15px; padding: 12px 22px; border-radius: 14px; box-shadow: 0 8px 24px rgba(44,123,229,0.35);">Solicitar demo</div>
+      </div>
+    </header>
+
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+    <section style="background: #111827; padding: 88px 72px 96px; display: grid; grid-template-columns: 1fr 1.05fr; gap: 64px; align-items: center;">
+      <div>
+        <div style="display: inline-flex; align-items: center; gap: 10px; border: 1px solid #2d3748; border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 600; color: #8b95aa; letter-spacing: 0.02em;">
+          <span style="width: 7px; height: 7px; border-radius: 999px; background: #34d399;"></span>
+          PMS en la nube para alojamientos independientes
+        </div>
+        <h1 style="font-family: Sora, sans-serif; font-weight: 800; font-size: 58px; line-height: 1.06; letter-spacing: -0.03em; color: #ffffff; margin: 26px 0 20px; text-wrap: balance;">Reservas, habitaciones y caja en un solo lugar</h1>
+        <p style="font-size: 19px; line-height: 1.6; color: #8b95aa; margin: 0 0 34px; max-width: 520px; text-wrap: pretty;">Wayra es el sistema de gestión hotelera que reemplaza las hojas de cálculo y los mensajes sueltos. Tu equipo trabaja con la misma información, desde el navegador, en cada turno.</p>
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 38px;">
+          <div style="background: #1f67c7; color: #ffffff; font-weight: 700; font-size: 16px; padding: 17px 30px; border-radius: 16px; box-shadow: 0 14px 34px rgba(31,103,199,0.45);">Solicitar demo</div>
+          <div style="border: 1px solid #2d3748; color: #ffffff; font-weight: 600; font-size: 16px; padding: 16px 26px; border-radius: 16px;">Ver cómo funciona</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 13px;">
+          <div style="display: flex; align-items: center; gap: 11px; font-size: 15px; color: #b9c1d1;"><span style="width: 20px; height: 20px; border-radius: 999px; background: rgba(52,211,153,0.15); color: #34d399; font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: 700;">✓</span> Implementación en días, sin instalaciones</div>
+          <div style="display: flex; align-items: center; gap: 11px; font-size: 15px; color: #b9c1d1;"><span style="width: 20px; height: 20px; border-radius: 999px; background: rgba(52,211,153,0.15); color: #34d399; font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: 700;">✓</span> Roles y permisos por área de trabajo</div>
+          <div style="display: flex; align-items: center; gap: 11px; font-size: 15px; color: #b9c1d1;"><span style="width: 20px; height: 20px; border-radius: 999px; background: rgba(52,211,153,0.15); color: #34d399; font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: 700;">✓</span> Cierre de caja cuadrado cada noche</div>
+        </div>
+      </div>
+      <div style="border-radius: 18px; border: 1px solid #2d3748; background: repeating-linear-gradient(135deg, #1a2334 0px, #1a2334 9px, #202b3f 9px, #202b3f 18px); height: 470px; display: flex; align-items: center; justify-content: center; box-shadow: 0 30px 70px rgba(0,0,0,0.4);">
+        <span style="font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: #8b95aa; background: #111827; padding: 10px 16px; border-radius: 10px; border: 1px solid #2d3748;">mockup / panel de reservas — 1180×940</span>
+      </div>
+    </section>
+
+    <section style="padding: 96px 72px; background: #ffffff; display: grid; grid-template-columns: 1.05fr 1fr; gap: 72px; align-items: center;">
+      <div>
+        <span style="font-family: Sora, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: {{ accent }};">El problema</span>
+        <h2 style="font-family: Sora, sans-serif; font-weight: 700; font-size: 40px; line-height: 1.12; letter-spacing: -0.025em; margin: 16px 0 18px; text-wrap: balance;">La operación no se rompe por falta de esfuerzo, sino por falta de un solo registro</h2>
+        <p style="font-size: 17px; line-height: 1.65; color: #647087; margin: 0 0 34px; text-wrap: pretty;">Cuando cada dato vive en un lugar distinto, la recepción improvisa y la gerencia decide con información vieja.</p>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; gap: 14px; align-items: flex-start; border: 1px solid #e2e7ef; border-radius: 16px; padding: 18px 20px;">
+            <span style="width: 26px; height: 26px; border-radius: 999px; background: #fee2e2; color: #dc2626; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">×</span>
+            <div><div style="font-weight: 700; font-size: 16px; margin-bottom: 4px;">Reservas en tres canales distintos</div><div style="font-size: 15px; color: #647087; line-height: 1.55;">Planillas, WhatsApp y llamadas: nadie sabe cuál versión es la correcta.</div></div>
+          </div>
+          <div style="display: flex; gap: 14px; align-items: flex-start; border: 1px solid #e2e7ef; border-radius: 16px; padding: 18px 20px;">
+            <span style="width: 26px; height: 26px; border-radius: 999px; background: #fee2e2; color: #dc2626; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">×</span>
+            <div><div style="font-weight: 700; font-size: 16px; margin-bottom: 4px;">Datos duplicados del huésped</div><div style="font-size: 15px; color: #647087; line-height: 1.55;">El mismo cliente se registra tres veces y el historial se pierde.</div></div>
+          </div>
+          <div style="display: flex; gap: 14px; align-items: flex-start; border: 1px solid #e2e7ef; border-radius: 16px; padding: 18px 20px;">
+            <span style="width: 26px; height: 26px; border-radius: 999px; background: #fee2e2; color: #dc2626; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">×</span>
+            <div><div style="font-weight: 700; font-size: 16px; margin-bottom: 4px;">Caja que no cuadra al cierre</div><div style="font-size: 15px; color: #647087; line-height: 1.55;">Consumos y cobros anotados aparte, revisados a mano cada noche.</div></div>
+          </div>
+          <div style="display: flex; gap: 14px; align-items: flex-start; border: 1px solid #e2e7ef; border-radius: 16px; padding: 18px 20px; background: #edf5ff; border-color: #cfe2fb;">
+            <span style="width: 26px; height: 26px; border-radius: 999px; background: #d1fae5; color: #059669; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">✓</span>
+            <div><div style="font-weight: 700; font-size: 16px; margin-bottom: 4px;">Con Wayra: un único registro compartido</div><div style="font-size: 15px; color: #48566f; line-height: 1.55;">Disponibilidad, huéspedes y movimientos de caja actualizados en el momento en que ocurren.</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="border-radius: 18px; border: 1px solid #e2e7ef; background: repeating-linear-gradient(135deg, #f8fafc 0px, #f8fafc 9px, #eef2f8 9px, #eef2f8 18px); height: 540px; display: flex; align-items: center; justify-content: center;">
+        <span style="font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: #647087; background: #ffffff; padding: 10px 16px; border-radius: 10px; border: 1px solid #e2e7ef;">foto recepción / antes-después — 1080×1080</span>
+      </div>
+    </section>
+
+    <section style="background: #111827; padding: 92px 72px;">
+      <div style="max-width: 640px; margin-bottom: 56px;">
+        <span style="font-family: Sora, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6ea8f0;">Cómo se trabaja</span>
+        <h2 style="font-family: Sora, sans-serif; font-weight: 700; font-size: 40px; line-height: 1.12; letter-spacing: -0.025em; color: #ffffff; margin: 16px 0 14px;">Un flujo para todo el día del hotel</h2>
+        <p style="font-size: 17px; line-height: 1.65; color: #8b95aa; margin: 0;">Del primer contacto con el huésped al cierre del turno, sin salir del sistema.</p>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+        <div style="border: 1px solid #2d3748; border-radius: 18px; padding: 32px; background: #161f31;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px;">
+            <span style="font-family: Sora, sans-serif; font-size: 15px; font-weight: 700; color: {{ accent }};">01</span>
+            <div style="width: 44px; height: 44px; border-radius: 14px; background: rgba(44,123,229,0.16); display: flex; align-items: center; justify-content: center;"><div style="width: 16px; height: 16px; border: 2px solid #6ea8f0; border-radius: 4px;"></div></div>
+          </div>
+          <h3 style="font-family: Sora, sans-serif; font-size: 21px; font-weight: 600; color: #ffffff; margin: 0 0 10px;">Antes del check-in</h3>
+          <p style="font-size: 15.5px; line-height: 1.6; color: #8b95aa; margin: 0;">Cotiza, reserva y confirma con disponibilidad real. El huésped queda cargado una sola vez, con sus datos y su historial.</p>
+        </div>
+        <div style="border: 1px solid #2d3748; border-radius: 18px; padding: 32px; background: #161f31;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px;">
+            <span style="font-family: Sora, sans-serif; font-size: 15px; font-weight: 700; color: {{ accent }};">02</span>
+            <div style="width: 44px; height: 44px; border-radius: 14px; background: rgba(44,123,229,0.16); display: flex; align-items: center; justify-content: center;"><div style="width: 16px; height: 16px; border: 2px solid #6ea8f0; border-radius: 999px;"></div></div>
+          </div>
+          <h3 style="font-family: Sora, sans-serif; font-size: 21px; font-weight: 600; color: #ffffff; margin: 0 0 10px;">Durante la estadía</h3>
+          <p style="font-size: 15.5px; line-height: 1.6; color: #8b95aa; margin: 0;">Estado de habitaciones, limpieza, cambios y consumos cargados a la cuenta. Recepción y housekeeping ven lo mismo.</p>
+        </div>
+        <div style="border: 1px solid #2d3748; border-radius: 18px; padding: 32px; background: #161f31;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px;">
+            <span style="font-family: Sora, sans-serif; font-size: 15px; font-weight: 700; color: {{ accent }};">03</span>
+            <div style="width: 44px; height: 44px; border-radius: 14px; background: rgba(44,123,229,0.16); display: flex; align-items: center; justify-content: center;"><div style="width: 16px; height: 16px; border: 2px solid #6ea8f0; transform: rotate(45deg);"></div></div>
+          </div>
+          <h3 style="font-family: Sora, sans-serif; font-size: 21px; font-weight: 600; color: #ffffff; margin: 0 0 10px;">Cierre de caja</h3>
+          <p style="font-size: 15.5px; line-height: 1.6; color: #8b95aa; margin: 0;">Cobros, medios de pago y saldos del turno en un solo arqueo. La gerencia recibe el reporte sin pedirlo.</p>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding: 96px 72px; background: #f8fafc;">
+      <div style="max-width: 680px; margin: 0 auto 48px; text-align: center;">
+        <span style="font-family: Sora, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: {{ accent }};">El producto</span>
+        <h2 style="font-family: Sora, sans-serif; font-weight: 700; font-size: 40px; line-height: 1.12; letter-spacing: -0.025em; margin: 16px 0 14px; text-wrap: balance;">Cuatro módulos conectados, una sola fuente de verdad</h2>
+        <p style="font-size: 17px; line-height: 1.65; color: #647087; margin: 0;">Lo que se registra en recepción se refleja en habitaciones, caja y reportes.</p>
+      </div>
+      <div style="border-radius: 18px; border: 1px solid #e2e7ef; background: repeating-linear-gradient(135deg, #ffffff 0px, #ffffff 9px, #f1f5fa 9px, #f1f5fa 18px); height: 520px; display: flex; align-items: center; justify-content: center; box-shadow: 0 22px 60px rgba(17,24,39,0.09); margin-bottom: 32px;">
+        <span style="font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: #647087; background: #ffffff; padding: 10px 16px; border-radius: 10px; border: 1px solid #e2e7ef;">captura del sistema — 2400×1040</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 32px;">
+        <div style="background: #ffffff; border: 1px solid #e2e7ef; border-radius: 16px; padding: 24px;">
+          <div style="width: 40px; height: 40px; border-radius: 13px; background: #edf5ff; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;"><div style="width: 14px; height: 14px; border: 2px solid #2c7be5; border-radius: 3px;"></div></div>
+          <div style="font-family: Sora, sans-serif; font-weight: 600; font-size: 17px; margin-bottom: 6px;">Reservas</div>
+          <div style="font-size: 14.5px; line-height: 1.55; color: #647087;">Calendario, tarifas y confirmaciones con disponibilidad real.</div>
+        </div>
+        <div style="background: #ffffff; border: 1px solid #e2e7ef; border-radius: 16px; padding: 24px;">
+          <div style="width: 40px; height: 40px; border-radius: 13px; background: #edf5ff; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;"><div style="width: 14px; height: 14px; border: 2px solid #2c7be5; border-radius: 999px;"></div></div>
+          <div style="font-family: Sora, sans-serif; font-weight: 600; font-size: 17px; margin-bottom: 6px;">Habitaciones</div>
+          <div style="font-size: 14.5px; line-height: 1.55; color: #647087;">Estados, limpieza y bloqueos por mantenimiento al día.</div>
+        </div>
+        <div style="background: #ffffff; border: 1px solid #e2e7ef; border-radius: 16px; padding: 24px;">
+          <div style="width: 40px; height: 40px; border-radius: 13px; background: #edf5ff; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;"><div style="width: 14px; height: 14px; border: 2px solid #2c7be5; transform: rotate(45deg);"></div></div>
+          <div style="font-family: Sora, sans-serif; font-weight: 600; font-size: 17px; margin-bottom: 6px;">Caja</div>
+          <div style="font-size: 14.5px; line-height: 1.55; color: #647087;">Cobros, consumos y arqueo por turno con respaldo.</div>
+        </div>
+        <div style="background: #ffffff; border: 1px solid #e2e7ef; border-radius: 16px; padding: 24px;">
+          <div style="width: 40px; height: 40px; border-radius: 13px; background: #edf5ff; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;"><div style="width: 16px; height: 10px; border-left: 2px solid #2c7be5; border-bottom: 2px solid #2c7be5;"></div></div>
+          <div style="font-family: Sora, sans-serif; font-weight: 600; font-size: 17px; margin-bottom: 6px;">Gerencia</div>
+          <div style="font-size: 14.5px; line-height: 1.55; color: #647087;">Ocupación, ingresos y reportes listos para revisar.</div>
+        </div>
+      </div>
+      <div style="background: #ffffff; border: 1px solid #e2e7ef; border-radius: 16px; padding: 22px 0; overflow: hidden; mask-image: linear-gradient(90deg, transparent 0, #000 90px, #000 calc(100% - 90px), transparent 100%); -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 90px, #000 calc(100% - 90px), transparent 100%);">
+        <div style="display: flex; align-items: center; gap: 48px; width: max-content; animation: wayraMarquee 34s linear infinite;">
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #172033; white-space: nowrap;"><span style="color: #059669; font-weight: 700;">✓</span> Roles y permisos por usuario</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #172033; white-space: nowrap;"><span style="color: #059669; font-weight: 700;">✓</span> Trazabilidad de cada movimiento</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #172033; white-space: nowrap;"><span style="color: #059669; font-weight: 700;">✓</span> Acceso desde el navegador</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #172033; white-space: nowrap;"><span style="color: #059669; font-weight: 700;">✓</span> Respaldos diarios automáticos</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #172033; white-space: nowrap;"><span style="color: #059669; font-weight: 700;">✓</span> Historial completo por huésped</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #172033; white-space: nowrap;"><span style="color: #059669; font-weight: 700;">✓</span> Soporte en español</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #172033; white-space: nowrap;" aria-hidden="true"><span style="color: #059669; font-weight: 700;">✓</span> Roles y permisos por usuario</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #172033; white-space: nowrap;" aria-hidden="true"><span style="color: #059669; font-weight: 700;">✓</span> Trazabilidad de cada movimiento</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #172033; white-space: nowrap;" aria-hidden="true"><span style="color: #059669; font-weight: 700;">✓</span> Acceso desde el navegador</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #172033; white-space: nowrap;" aria-hidden="true"><span style="color: #059669; font-weight: 700;">✓</span> Respaldos diarios automáticos</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #172033; white-space: nowrap;" aria-hidden="true"><span style="color: #059669; font-weight: 700;">✓</span> Historial completo por huésped</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #172033; white-space: nowrap;" aria-hidden="true"><span style="color: #059669; font-weight: 700;">✓</span> Soporte en español</div>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding: 96px 72px; background: #ffffff;">
+      <div style="max-width: 620px; margin-bottom: 44px;">
+        <span style="font-family: Sora, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: {{ accent }};">Para quién</span>
+        <h2 style="font-family: Sora, sans-serif; font-weight: 700; font-size: 40px; line-height: 1.12; letter-spacing: -0.025em; margin: 16px 0 0;">Pensado para operaciones independientes</h2>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+        <div style="border: 1px solid #e2e7ef; border-radius: 18px; padding: 28px; background: #ffffff; box-shadow: 0 10px 30px rgba(17,24,39,0.04);">
+          <div style="width: 44px; height: 44px; border-radius: 14px; background: #edf5ff; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;"><div style="width: 16px; height: 16px; border: 2px solid #2c7be5; border-radius: 4px;"></div></div>
+          <div style="font-family: Sora, sans-serif; font-weight: 600; font-size: 18px; margin-bottom: 8px;">Hoteles pequeños y medianos</div>
+          <div style="font-size: 15px; line-height: 1.6; color: #647087;">De 8 a 80 habitaciones, con recepción por turnos y varios responsables de caja.</div>
+        </div>
+        <div style="border: 1px solid #e2e7ef; border-radius: 18px; padding: 28px; background: #ffffff; box-shadow: 0 10px 30px rgba(17,24,39,0.04);">
+          <div style="width: 44px; height: 44px; border-radius: 14px; background: #edf5ff; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;"><div style="width: 16px; height: 16px; border: 2px solid #2c7be5; border-radius: 999px;"></div></div>
+          <div style="font-family: Sora, sans-serif; font-weight: 600; font-size: 18px; margin-bottom: 8px;">Hostales</div>
+          <div style="font-size: 15px; line-height: 1.6; color: #647087;">Camas y habitaciones compartidas, estadías cortas y alta rotación diaria.</div>
+        </div>
+        <div style="border: 1px solid #e2e7ef; border-radius: 18px; padding: 28px; background: #ffffff; box-shadow: 0 10px 30px rgba(17,24,39,0.04);">
+          <div style="width: 44px; height: 44px; border-radius: 14px; background: #edf5ff; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;"><div style="width: 16px; height: 16px; border: 2px solid #2c7be5; transform: rotate(45deg);"></div></div>
+          <div style="font-family: Sora, sans-serif; font-weight: 600; font-size: 18px; margin-bottom: 8px;">Apartahoteles</div>
+          <div style="font-size: 15px; line-height: 1.6; color: #647087;">Unidades con estadías largas, servicios adicionales y cobros periódicos.</div>
+        </div>
+        <div style="border: 1px solid #e2e7ef; border-radius: 18px; padding: 28px; background: #ffffff; box-shadow: 0 10px 30px rgba(17,24,39,0.04);">
+          <div style="width: 44px; height: 44px; border-radius: 14px; background: #edf5ff; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;"><div style="width: 16px; height: 12px; border: 2px solid #2c7be5; border-radius: 3px 3px 10px 10px;"></div></div>
+          <div style="font-family: Sora, sans-serif; font-weight: 600; font-size: 18px; margin-bottom: 8px;">Alojamientos turísticos</div>
+          <div style="font-size: 15px; line-height: 1.6; color: #647087;">Cabañas, posadas y casas de descanso con temporadas marcadas.</div>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding: 96px 72px; background: #f8fafc; display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 72px; align-items: start;">
+      <div>
+        <span style="font-family: Sora, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: {{ accent }};">Preguntas frecuentes</span>
+        <h2 style="font-family: Sora, sans-serif; font-weight: 700; font-size: 38px; line-height: 1.12; letter-spacing: -0.025em; margin: 16px 0 14px;">Antes de la demo</h2>
+        <p style="font-size: 16.5px; line-height: 1.65; color: #647087; margin: 0;">Si queda algo pendiente, lo resolvemos en la llamada.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <sc-for list="{{ faqs }}" as="item" hint-placeholder-count="6">
+          <div style="background: #ffffff; border: 1px solid #e2e7ef; border-radius: 16px; padding: 22px 26px; cursor: pointer;" onClick="{{ item.toggle }}">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px;">
+              <span style="font-family: Sora, sans-serif; font-weight: 600; font-size: 17.5px; color: #172033;">{{ item.q }}</span>
+              <span style="width: 28px; height: 28px; border-radius: 999px; background: #edf5ff; color: #2c7be5; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; flex-shrink: 0; transition: transform .3s cubic-bezier(.22,.7,.2,1), background .3s ease; transform: rotate({{ item.rot }});">+</span>
+            </div>
+            <div style="display: {{ item.display }}; animation: {{ item.anim }}; font-size: 15.5px; line-height: 1.65; color: #647087; padding-top: 14px; max-width: 620px;">{{ item.a }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="padding: 0 72px 96px; background: #ffffff;">
+      <div style="background: #111827; border-radius: 18px; padding: 76px 64px; display: flex; align-items: center; justify-content: space-between; gap: 48px;">
+        <div style="max-width: 620px;">
+          <h2 style="font-family: Sora, sans-serif; font-weight: 700; font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; color: #ffffff; margin: 0 0 16px; text-wrap: balance;">Veamos tu operación en Wayra</h2>
+          <p style="font-size: 17.5px; line-height: 1.6; color: #8b95aa; margin: 0;">Agenda 30 minutos. Recorremos tu flujo real, con tus habitaciones y tus tarifas.</p>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 14px; flex-shrink: 0;">
+          <div style="background: {{ accent }}; color: #ffffff; font-weight: 700; font-size: 17px; padding: 19px 34px; border-radius: 16px; box-shadow: 0 14px 34px rgba(44,123,229,0.4);">Solicitar demo</div>
+          <span style="font-size: 14px; color: #8b95aa;">Sin instalaciones ni compromiso</span>
+        </div>
+      </div>
+    </section>
+
+    </sc-if>
+
+    <sc-if value="{{ isAliados }}" hint-placeholder-val="{{ false }}">
+      <section style="background: #111827; padding: 72px 72px 80px;">
+        <span style="font-family: Sora, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6ea8f0;">Hoteles aliados</span>
+        <h1 style="font-family: Sora, sans-serif; font-weight: 800; font-size: 50px; line-height: 1.08; letter-spacing: -0.03em; color: #ffffff; margin: 16px 0 16px; max-width: 720px; text-wrap: balance;">Alojamientos que ya operan con Wayra</h1>
+        <p style="font-size: 18px; line-height: 1.6; color: #8b95aa; margin: 0; max-width: 560px;">Reserva directo con nuestra red de hoteles, hostales y apartahoteles. Disponibilidad en tiempo real, confirmación inmediata.</p>
+      </section>
+      <section style="background: #ffffff; padding: 56px 72px 88px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 32px;">
+          <div style="background: #edf5ff; border: 1px solid #cfe2fb; color: #1f67c7; font-size: 14px; font-weight: 600; padding: 10px 18px; border-radius: 999px;">Todos</div>
+          <div style="border: 1px solid #e2e7ef; color: #647087; font-size: 14px; font-weight: 600; padding: 10px 18px; border-radius: 999px;">Hoteles</div>
+          <div style="border: 1px solid #e2e7ef; color: #647087; font-size: 14px; font-weight: 600; padding: 10px 18px; border-radius: 999px;">Hostales</div>
+          <div style="border: 1px solid #e2e7ef; color: #647087; font-size: 14px; font-weight: 600; padding: 10px 18px; border-radius: 999px;">Apartahoteles</div>
+          <div style="border: 1px solid #e2e7ef; color: #647087; font-size: 14px; font-weight: 600; padding: 10px 18px; border-radius: 999px;">Alojamientos turísticos</div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+          <sc-for list="{{ hoteles }}" as="h" hint-placeholder-count="6">
+            <div style="border: 1px solid #e2e7ef; border-radius: 18px; overflow: hidden; background: #ffffff; box-shadow: 0 10px 30px rgba(17,24,39,0.05);">
+              <div style="height: 200px; background: repeating-linear-gradient(135deg, #f8fafc 0px, #f8fafc 9px, #eef2f8 9px, #eef2f8 18px); display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #e2e7ef;">
+                <span style="font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: #647087; background: #ffffff; padding: 8px 12px; border-radius: 9px; border: 1px solid #e2e7ef;">foto — 840×560</span>
+              </div>
+              <div style="padding: 22px 24px 24px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px;">
+                  <span style="font-family: Sora, sans-serif; font-weight: 600; font-size: 18px;">{{ h.nombre }}</span>
+                  <span style="font-size: 13px; font-weight: 700; color: #059669; background: #d1fae5; padding: 5px 10px; border-radius: 999px;">{{ h.tipo }}</span>
+                </div>
+                <div style="font-size: 14.5px; color: #647087; margin-bottom: 16px;">{{ h.ciudad }} · {{ h.habitaciones }} habitaciones</div>
+                <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;">
+                  <div>
+                    <div style="font-size: 12.5px; color: #647087; text-transform: uppercase; letter-spacing: 0.06em;">Desde</div>
+                    <div style="font-family: Sora, sans-serif; font-weight: 700; font-size: 22px;">{{ h.precio }}</div>
+                  </div>
+                  <div style="background: {{ accent }}; color: #ffffff; font-weight: 600; font-size: 14.5px; padding: 12px 18px; border-radius: 14px; cursor: pointer;" onClick="{{ goReservar }}">Ver disponibilidad</div>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ isReservar }}" hint-placeholder-val="{{ false }}">
+      <sc-if value="{{ p1 }}" hint-placeholder-val="{{ true }}">
+      <section style="background: #111827; padding: 72px 72px 96px;">
+        <h1 style="font-family: Sora, sans-serif; font-weight: 800; font-size: 50px; line-height: 1.08; letter-spacing: -0.03em; color: #ffffff; margin: 0 0 14px; max-width: 700px; text-wrap: balance;">Reserva directo, sin intermediarios</h1>
+        <p style="font-size: 18px; line-height: 1.6; color: #8b95aa; margin: 0 0 40px; max-width: 560px;">Elige fechas y confirma en el momento. El hotel recibe tu reserva en su sistema al instante.</p>
+        <div style="background: #ffffff; border-radius: 18px; padding: 22px; display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr auto; gap: 16px; align-items: end; box-shadow: 0 24px 60px rgba(0,0,0,0.35);">
+          <div>
+            <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Destino u hotel</div>
+            <div style="border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; color: #172033;">Cusco, Perú</div>
+          </div>
+          <div>
+            <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Llegada</div>
+            <div style="border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; color: #172033;">12 sep 2026</div>
+          </div>
+          <div>
+            <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Salida</div>
+            <div style="border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; color: #172033;">15 sep 2026</div>
+          </div>
+          <div>
+            <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Huéspedes</div>
+            <div style="border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; color: #172033;">2 adultos</div>
+          </div>
+          <div style="background: {{ accent }}; color: #ffffff; font-weight: 700; font-size: 16px; padding: 16px 30px; border-radius: 14px; box-shadow: 0 10px 26px rgba(44,123,229,0.35);">Buscar</div>
+        </div>
+      </section>
+      <section style="background: #f8fafc; padding: 64px 72px 88px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 28px;">
+          <h2 style="font-family: Sora, sans-serif; font-weight: 700; font-size: 30px; letter-spacing: -0.02em; margin: 0;">3 alojamientos disponibles</h2>
+          <span style="font-size: 15px; color: #647087;">Ordenar por: precio</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 18px;">
+          <sc-for list="{{ resultados }}" as="r" hint-placeholder-count="3">
+            <div style="background: #ffffff; border: 1px solid #e2e7ef; border-radius: 18px; padding: 20px; display: grid; grid-template-columns: 240px 1fr auto; gap: 24px; align-items: center;">
+              <div style="height: 150px; border-radius: 14px; background: repeating-linear-gradient(135deg, #f8fafc 0px, #f8fafc 9px, #eef2f8 9px, #eef2f8 18px); display: flex; align-items: center; justify-content: center;">
+                <span style="font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: #647087;">foto — 720×450</span>
+              </div>
+              <div>
+                <div style="font-family: Sora, sans-serif; font-weight: 600; font-size: 20px; margin-bottom: 6px;">{{ r.nombre }}</div>
+                <div style="font-size: 14.5px; color: #647087; margin-bottom: 14px;">{{ r.detalle }}</div>
+                <div style="display: flex; gap: 10px;">
+                  <span style="font-size: 13px; font-weight: 600; color: #48566f; background: #edf5ff; border: 1px solid #cfe2fb; padding: 6px 12px; border-radius: 999px;">Desayuno incluido</span>
+                  <span style="font-size: 13px; font-weight: 600; color: #48566f; background: #edf5ff; border: 1px solid #cfe2fb; padding: 6px 12px; border-radius: 999px;">Cancelación flexible</span>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 12.5px; color: #647087; text-transform: uppercase; letter-spacing: 0.06em;">3 noches</div>
+                <div style="font-family: Sora, sans-serif; font-weight: 700; font-size: 26px; margin: 4px 0 14px;">{{ r.total }}</div>
+                <div style="background: {{ accent }}; color: #ffffff; font-weight: 700; font-size: 15px; padding: 14px 26px; border-radius: 14px; cursor: pointer;" onClick="{{ r.select }}">Reservar</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+      </sc-if>
+
+      <sc-if value="{{ showStepper }}" hint-placeholder-val="{{ false }}">
+        <section style="background: #111827; padding: 34px 72px;">
+          <div style="display: flex; align-items: center; gap: 18px;">
+            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+              <span style="width: 30px; height: 30px; border-radius: 999px; background: {{ st1bg }}; color: {{ st1fg }}; font-family: Sora, sans-serif; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">1</span>
+              <span style="font-size: 15px; font-weight: 600; color: {{ st1fg }};">Buscar</span>
+              <div style="flex: 1; height: 1px; background: #2d3748;"></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+              <span style="width: 30px; height: 30px; border-radius: 999px; background: {{ st2bg }}; color: {{ st2fg }}; font-family: Sora, sans-serif; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">2</span>
+              <span style="font-size: 15px; font-weight: 600; color: {{ st2fg }};">Habitación</span>
+              <div style="flex: 1; height: 1px; background: #2d3748;"></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+              <span style="width: 30px; height: 30px; border-radius: 999px; background: {{ st3bg }}; color: {{ st3fg }}; font-family: Sora, sans-serif; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">3</span>
+              <span style="font-size: 15px; font-weight: 600; color: {{ st3fg }};">Datos</span>
+              <div style="flex: 1; height: 1px; background: #2d3748;"></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span style="width: 30px; height: 30px; border-radius: 999px; background: {{ st4bg }}; color: {{ st4fg }}; font-family: Sora, sans-serif; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">4</span>
+              <span style="font-size: 15px; font-weight: 600; color: {{ st4fg }};">Pago</span>
+            </div>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ p2 }}" hint-placeholder-val="{{ false }}">
+        <section style="background: #f8fafc; padding: 48px 72px 88px;">
+          <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 26px;">
+            <span style="font-size: 15px; font-weight: 600; color: {{ accent }}; cursor: pointer;" onClick="{{ backTo1 }}">← Volver a resultados</span>
+          </div>
+          <h1 style="font-family: Sora, sans-serif; font-weight: 700; font-size: 36px; letter-spacing: -0.025em; margin: 0 0 6px;">{{ resumenHotel }}</h1>
+          <p style="font-size: 16px; color: #647087; margin: 0 0 32px;">{{ resumenDetalle }} · {{ resumenFechas }} · {{ resumenHuespedes }}</p>
+          <div style="display: grid; grid-template-columns: 1.6fr 0.9fr; gap: 32px; align-items: start;">
+            <div>
+              <div style="height: 300px; border-radius: 18px; border: 1px solid #e2e7ef; background: repeating-linear-gradient(135deg, #ffffff 0px, #ffffff 9px, #f1f5fa 9px, #f1f5fa 18px); display: flex; align-items: center; justify-content: center; margin-bottom: 26px;">
+                <span style="font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; color: #647087; background: #ffffff; padding: 9px 14px; border-radius: 9px; border: 1px solid #e2e7ef;">galería del hotel — 1400×600</span>
+              </div>
+              <h2 style="font-family: Sora, sans-serif; font-weight: 700; font-size: 24px; letter-spacing: -0.02em; margin: 0 0 18px;">Elige tu habitación</h2>
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                <sc-for list="{{ habitaciones }}" as="hab" hint-placeholder-count="3">
+                  <div style="background: #ffffff; border: 1px solid {{ hab.borde }}; border-radius: 18px; padding: 22px; display: grid; grid-template-columns: 160px 1fr auto; gap: 22px; align-items: center; cursor: pointer;" onClick="{{ hab.select }}">
+                    <div style="height: 110px; border-radius: 14px; background: repeating-linear-gradient(135deg, #f8fafc 0px, #f8fafc 9px, #eef2f8 9px, #eef2f8 18px); display: flex; align-items: center; justify-content: center;">
+                      <span style="font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #647087;">foto — 480×330</span>
+                    </div>
+                    <div>
+                      <div style="font-family: Sora, sans-serif; font-weight: 600; font-size: 19px; margin-bottom: 5px;">{{ hab.nombre }}</div>
+                      <div style="font-size: 14.5px; color: #647087; margin-bottom: 12px;">{{ hab.detalle }}</div>
+                      <div style="display: flex; gap: 9px;">
+                        <span style="font-size: 12.5px; font-weight: 600; color: #48566f; background: #edf5ff; border: 1px solid #cfe2fb; padding: 5px 11px; border-radius: 999px;">{{ hab.extra1 }}</span>
+                        <span style="font-size: 12.5px; font-weight: 600; color: #48566f; background: #edf5ff; border: 1px solid #cfe2fb; padding: 5px 11px; border-radius: 999px;">{{ hab.extra2 }}</span>
+                      </div>
+                    </div>
+                    <div style="text-align: right;">
+                      <div style="font-family: Sora, sans-serif; font-weight: 700; font-size: 21px;">{{ hab.precio }}</div>
+                      <div style="font-size: 13px; color: #647087; margin-bottom: 12px;">por noche</div>
+                      <div style="background: {{ hab.btnBg }}; color: {{ hab.btnFg }}; border: 1px solid {{ hab.btnBorde }}; font-weight: 700; font-size: 14.5px; padding: 11px 20px; border-radius: 13px;">{{ hab.btnTexto }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="background: #ffffff; border: 1px solid #e2e7ef; border-radius: 18px; padding: 26px; position: sticky; top: 24px; box-shadow: 0 14px 40px rgba(17,24,39,0.06);">
+              <div style="font-family: Sora, sans-serif; font-weight: 700; font-size: 19px; margin-bottom: 18px;">Tu reserva</div>
+              <div style="display: flex; flex-direction: column; gap: 13px; font-size: 15px; padding-bottom: 18px; border-bottom: 1px solid #e2e7ef;">
+                <div style="display: flex; justify-content: space-between; gap: 12px;"><span style="color: #647087;">Alojamiento</span><span style="font-weight: 600; text-align: right;">{{ resumenHotel }}</span></div>
+                <div style="display: flex; justify-content: space-between; gap: 12px;"><span style="color: #647087;">Fechas</span><span style="font-weight: 600; text-align: right;">{{ resumenFechas }}</span></div>
+                <div style="display: flex; justify-content: space-between; gap: 12px;"><span style="color: #647087;">Huéspedes</span><span style="font-weight: 600;">{{ resumenHuespedes }}</span></div>
+                <div style="display: flex; justify-content: space-between; gap: 12px;"><span style="color: #647087;">Habitación</span><span style="font-weight: 600; text-align: right;">{{ resumenHab }}</span></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 18px 0 20px;">
+                <span style="font-weight: 700; font-size: 16px;">Total {{ resumenNoches }}</span>
+                <span style="font-family: Sora, sans-serif; font-weight: 700; font-size: 25px;">{{ resumenTotal }}</span>
+              </div>
+              <div style="background: {{ ctaBg }}; color: #ffffff; font-weight: 700; font-size: 16px; padding: 16px; border-radius: 14px; text-align: center; cursor: pointer;" onClick="{{ toStep3 }}">Continuar con mis datos</div>
+              <div style="font-size: 13.5px; color: #647087; text-align: center; margin-top: 12px;">{{ notaPaso2 }}</div>
+            </div>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ p3 }}" hint-placeholder-val="{{ false }}">
+        <section style="background: #f8fafc; padding: 48px 72px 88px;">
+          <span style="font-size: 15px; font-weight: 600; color: {{ accent }}; cursor: pointer;" onClick="{{ backTo2 }}">← Volver a habitaciones</span>
+          <h1 style="font-family: Sora, sans-serif; font-weight: 700; font-size: 36px; letter-spacing: -0.025em; margin: 22px 0 6px;">Datos del huésped</h1>
+          <p style="font-size: 16px; color: #647087; margin: 0 0 32px;">El hotel usa esta información para preparar tu llegada.</p>
+          <div style="display: grid; grid-template-columns: 1.6fr 0.9fr; gap: 32px; align-items: start;">
+            <div style="background: #ffffff; border: 1px solid #e2e7ef; border-radius: 18px; padding: 32px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Nombres</div>
+                  <input value="{{ fNombre }}" onChange="{{ onNombre }}" placeholder="María Elena" style="width: 100%; box-sizing: border-box; border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; font-family: Manrope, sans-serif; color: #172033; outline: none;" />
+                </div>
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Apellidos</div>
+                  <input value="{{ fApellido }}" onChange="{{ onApellido }}" placeholder="Quispe Rojas" style="width: 100%; box-sizing: border-box; border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; font-family: Manrope, sans-serif; color: #172033; outline: none;" />
+                </div>
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Documento de identidad</div>
+                  <input value="{{ fDoc }}" onChange="{{ onDoc }}" placeholder="DNI 40218765" style="width: 100%; box-sizing: border-box; border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; font-family: Manrope, sans-serif; color: #172033; outline: none;" />
+                </div>
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Teléfono</div>
+                  <input value="{{ fTelefono }}" onChange="{{ onTelefono }}" placeholder="+51 987 654 321" style="width: 100%; box-sizing: border-box; border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; font-family: Manrope, sans-serif; color: #172033; outline: none;" />
+                </div>
+                <div style="grid-column: span 2;">
+                  <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Correo electrónico</div>
+                  <input value="{{ fEmail }}" onChange="{{ onEmail }}" placeholder="maria@correo.com" style="width: 100%; box-sizing: border-box; border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; font-family: Manrope, sans-serif; color: #172033; outline: none;" />
+                  <div style="font-size: 13.5px; color: #647087; margin-top: 8px;">Ahí llega tu confirmación y el enlace de check-in online.</div>
+                </div>
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Hora estimada de llegada</div>
+                  <input value="{{ fHora }}" onChange="{{ onHora }}" placeholder="15:00" style="width: 100%; box-sizing: border-box; border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; font-family: Manrope, sans-serif; color: #172033; outline: none;" />
+                </div>
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Motivo del viaje</div>
+                  <input value="{{ fMotivo }}" onChange="{{ onMotivo }}" placeholder="Turismo" style="width: 100%; box-sizing: border-box; border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; font-family: Manrope, sans-serif; color: #172033; outline: none;" />
+                </div>
+                <div style="grid-column: span 2;">
+                  <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Pedidos especiales (opcional)</div>
+                  <input value="{{ fNotas }}" onChange="{{ onNotas }}" placeholder="Cuna, piso alto, llegada de madrugada…" style="width: 100%; box-sizing: border-box; border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; font-family: Manrope, sans-serif; color: #172033; outline: none;" />
+                </div>
+              </div>
+            </div>
+            <div style="background: #ffffff; border: 1px solid #e2e7ef; border-radius: 18px; padding: 26px; position: sticky; top: 24px; box-shadow: 0 14px 40px rgba(17,24,39,0.06);">
+              <div style="font-family: Sora, sans-serif; font-weight: 700; font-size: 19px; margin-bottom: 18px;">Tu reserva</div>
+              <div style="display: flex; flex-direction: column; gap: 13px; font-size: 15px; padding-bottom: 18px; border-bottom: 1px solid #e2e7ef;">
+                <div style="display: flex; justify-content: space-between; gap: 12px;"><span style="color: #647087;">Alojamiento</span><span style="font-weight: 600; text-align: right;">{{ resumenHotel }}</span></div>
+                <div style="display: flex; justify-content: space-between; gap: 12px;"><span style="color: #647087;">Habitación</span><span style="font-weight: 600; text-align: right;">{{ resumenHab }}</span></div>
+                <div style="display: flex; justify-content: space-between; gap: 12px;"><span style="color: #647087;">Fechas</span><span style="font-weight: 600; text-align: right;">{{ resumenFechas }}</span></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 18px 0 20px;">
+                <span style="font-weight: 700; font-size: 16px;">Total {{ resumenNoches }}</span>
+                <span style="font-family: Sora, sans-serif; font-weight: 700; font-size: 25px;">{{ resumenTotal }}</span>
+              </div>
+              <div style="background: {{ accent }}; color: #ffffff; font-weight: 700; font-size: 16px; padding: 16px; border-radius: 14px; text-align: center; cursor: pointer;" onClick="{{ toStep4 }}">Continuar al pago</div>
+            </div>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ p4 }}" hint-placeholder-val="{{ false }}">
+        <section style="background: #f8fafc; padding: 48px 72px 88px;">
+          <span style="font-size: 15px; font-weight: 600; color: {{ accent }}; cursor: pointer;" onClick="{{ backTo3 }}">← Volver a mis datos</span>
+          <h1 style="font-family: Sora, sans-serif; font-weight: 700; font-size: 36px; letter-spacing: -0.025em; margin: 22px 0 6px;">Pago y confirmación</h1>
+          <p style="font-size: 16px; color: #647087; margin: 0 0 32px;">Elige cómo pagar. La reserva queda confirmada al terminar.</p>
+          <div style="display: grid; grid-template-columns: 1.6fr 0.9fr; gap: 32px; align-items: start;">
+            <div style="background: #ffffff; border: 1px solid #e2e7ef; border-radius: 18px; padding: 32px;">
+              <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px;">
+                <sc-for list="{{ metodos }}" as="m" hint-placeholder-count="3">
+                  <div style="border: 1px solid {{ m.borde }}; background: {{ m.fondo }}; border-radius: 16px; padding: 18px 20px; display: flex; align-items: center; gap: 14px; cursor: pointer;" onClick="{{ m.select }}">
+                    <span style="width: 20px; height: 20px; border-radius: 999px; border: 2px solid {{ m.radio }}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><span style="width: 9px; height: 9px; border-radius: 999px; background: {{ m.punto }};"></span></span>
+                    <div>
+                      <div style="font-weight: 700; font-size: 16px;">{{ m.nombre }}</div>
+                      <div style="font-size: 14px; color: #647087;">{{ m.detalle }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <sc-if value="{{ conTarjeta }}" hint-placeholder-val="{{ true }}">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding-top: 26px; border-top: 1px solid #e2e7ef;">
+                  <div style="grid-column: span 2;">
+                    <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Número de tarjeta</div>
+                    <input value="{{ fTarjeta }}" onChange="{{ onTarjeta }}" placeholder="4111 1111 1111 1111" style="width: 100%; box-sizing: border-box; border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; font-family: ui-monospace, Menlo, monospace; color: #172033; outline: none;" />
+                  </div>
+                  <div>
+                    <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Vencimiento</div>
+                    <input value="{{ fVence }}" onChange="{{ onVence }}" placeholder="09/29" style="width: 100%; box-sizing: border-box; border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; font-family: ui-monospace, Menlo, monospace; color: #172033; outline: none;" />
+                  </div>
+                  <div>
+                    <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">CVV</div>
+                    <input value="{{ fCvv }}" onChange="{{ onCvv }}" placeholder="123" style="width: 100%; box-sizing: border-box; border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; font-family: ui-monospace, Menlo, monospace; color: #172033; outline: none;" />
+                  </div>
+                  <div style="grid-column: span 2;">
+                    <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Titular de la tarjeta</div>
+                    <input value="{{ fTitular }}" onChange="{{ onTitular }}" placeholder="Como aparece en la tarjeta" style="width: 100%; box-sizing: border-box; border: 1px solid #e2e7ef; border-radius: 14px; padding: 14px 16px; font-size: 15.5px; font-family: Manrope, sans-serif; color: #172033; outline: none;" />
+                  </div>
+                </div>
+              </sc-if>
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #647087; margin-top: 24px;"><span style="color: #059669; font-weight: 700;">✓</span> Cancelación gratuita hasta 48 horas antes de la llegada</div>
+            </div>
+            <div style="background: #ffffff; border: 1px solid #e2e7ef; border-radius: 18px; padding: 26px; position: sticky; top: 24px; box-shadow: 0 14px 40px rgba(17,24,39,0.06);">
+              <div style="font-family: Sora, sans-serif; font-weight: 700; font-size: 19px; margin-bottom: 18px;">Detalle del cobro</div>
+              <div style="display: flex; flex-direction: column; gap: 13px; font-size: 15px; padding-bottom: 18px; border-bottom: 1px solid #e2e7ef;">
+                <div style="display: flex; justify-content: space-between; gap: 12px;"><span style="color: #647087;">{{ resumenHab }}</span><span style="font-weight: 600;">{{ resumenSubtotal }}</span></div>
+                <div style="display: flex; justify-content: space-between; gap: 12px;"><span style="color: #647087;">{{ lineaNoches }}</span><span style="font-weight: 600;">—</span></div>
+                <div style="display: flex; justify-content: space-between; gap: 12px;"><span style="color: #647087;">Impuestos y servicios</span><span style="font-weight: 600;">{{ resumenImpuestos }}</span></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 18px 0 20px;">
+                <span style="font-weight: 700; font-size: 16px;">Total a pagar</span>
+                <span style="font-family: Sora, sans-serif; font-weight: 700; font-size: 25px;">{{ resumenTotal }}</span>
+              </div>
+              <div style="background: {{ accent }}; color: #ffffff; font-weight: 700; font-size: 16px; padding: 16px; border-radius: 14px; text-align: center; cursor: pointer;" onClick="{{ confirmar }}">Confirmar reserva</div>
+              <div style="font-size: 13px; color: #647087; text-align: center; margin-top: 12px;">Al confirmar aceptas los términos y la política de cancelación.</div>
+            </div>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ p5 }}" hint-placeholder-val="{{ false }}">
+        <section style="background: #111827; padding: 80px 72px 88px;">
+          <div style="max-width: 760px; margin: 0 auto; text-align: center;">
+            <div style="width: 66px; height: 66px; border-radius: 999px; background: rgba(52,211,153,0.16); color: #34d399; font-size: 30px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 0 auto 26px;">✓</div>
+            <h1 style="font-family: Sora, sans-serif; font-weight: 800; font-size: 44px; line-height: 1.1; letter-spacing: -0.03em; color: #ffffff; margin: 0 0 14px;">Reserva confirmada</h1>
+            <p style="font-size: 18px; line-height: 1.6; color: #8b95aa; margin: 0 0 34px;">Enviamos el comprobante a {{ correoConfirmacion }}. El hotel ya la tiene registrada en su sistema.</p>
+            <div style="background: #ffffff; border-radius: 18px; padding: 32px; text-align: left;">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 20px; border-bottom: 1px solid #e2e7ef;">
+                <div>
+                  <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 5px;">Código de reserva</div>
+                  <div style="font-family: ui-monospace, Menlo, monospace; font-size: 24px; font-weight: 700;">{{ codigo }}</div>
+                </div>
+                <span style="font-size: 13.5px; font-weight: 700; color: #059669; background: #d1fae5; padding: 8px 14px; border-radius: 999px;">Pagado</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px 40px; padding: 22px 0;">
+                <div><div style="font-size: 13px; color: #647087; margin-bottom: 4px;">Alojamiento</div><div style="font-weight: 600; font-size: 16px;">{{ resumenHotel }}</div></div>
+                <div><div style="font-size: 13px; color: #647087; margin-bottom: 4px;">Habitación</div><div style="font-weight: 600; font-size: 16px;">{{ resumenHab }}</div></div>
+                <div><div style="font-size: 13px; color: #647087; margin-bottom: 4px;">Fechas</div><div style="font-weight: 600; font-size: 16px;">{{ resumenFechas }}</div></div>
+                <div><div style="font-size: 13px; color: #647087; margin-bottom: 4px;">Huéspedes</div><div style="font-weight: 600; font-size: 16px;">{{ resumenHuespedes }}</div></div>
+                <div><div style="font-size: 13px; color: #647087; margin-bottom: 4px;">Titular</div><div style="font-weight: 600; font-size: 16px;">{{ titularConfirmacion }}</div></div>
+                <div><div style="font-size: 13px; color: #647087; margin-bottom: 4px;">Total pagado</div><div style="font-weight: 600; font-size: 16px;">{{ resumenTotal }}</div></div>
+              </div>
+              <div style="display: flex; gap: 12px; padding-top: 20px; border-top: 1px solid #e2e7ef;">
+                <div style="background: {{ accent }}; color: #ffffff; font-weight: 700; font-size: 15.5px; padding: 15px 26px; border-radius: 14px; cursor: pointer;" onClick="{{ goCheckin }}">Hacer check-in online</div>
+                <div style="border: 1px solid #e2e7ef; color: #172033; font-weight: 600; font-size: 15.5px; padding: 14px 24px; border-radius: 14px; cursor: pointer;" onClick="{{ goHome }}">Volver al inicio</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </sc-if>
+    </sc-if>
+
+    <sc-if value="{{ isCheckin }}" hint-placeholder-val="{{ false }}">
+      <section style="background: #111827; padding: 72px 72px 88px; display: grid; grid-template-columns: 1fr 0.85fr; gap: 64px; align-items: center;">
+        <div>
+          <span style="font-family: Sora, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6ea8f0;">Check-in online</span>
+          <h1 style="font-family: Sora, sans-serif; font-weight: 800; font-size: 50px; line-height: 1.08; letter-spacing: -0.03em; color: #ffffff; margin: 16px 0 16px; text-wrap: balance;">Llega y recibe tu llave, sin trámites en recepción</h1>
+          <p style="font-size: 18px; line-height: 1.6; color: #8b95aa; margin: 0 0 32px; max-width: 520px;">Completa tus datos antes de viajar. El hotel valida tu reserva y te espera con la habitación lista.</p>
+          <div style="display: flex; flex-direction: column; gap: 18px;">
+            <div style="display: flex; gap: 16px; align-items: flex-start;">
+              <span style="width: 32px; height: 32px; border-radius: 10px; background: rgba(44,123,229,0.16); color: #6ea8f0; font-family: Sora, sans-serif; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">1</span>
+              <div><div style="font-weight: 700; font-size: 16.5px; color: #ffffff; margin-bottom: 3px;">Busca tu reserva</div><div style="font-size: 15px; color: #8b95aa; line-height: 1.55;">Con el código que te envió el hotel y tu apellido.</div></div>
+            </div>
+            <div style="display: flex; gap: 16px; align-items: flex-start;">
+              <span style="width: 32px; height: 32px; border-radius: 10px; background: rgba(44,123,229,0.16); color: #6ea8f0; font-family: Sora, sans-serif; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">2</span>
+              <div><div style="font-weight: 700; font-size: 16.5px; color: #ffffff; margin-bottom: 3px;">Registra a los huéspedes</div><div style="font-size: 15px; color: #8b95aa; line-height: 1.55;">Documento, contacto y hora estimada de llegada.</div></div>
+            </div>
+            <div style="display: flex; gap: 16px; align-items: flex-start;">
+              <span style="width: 32px; height: 32px; border-radius: 10px; background: rgba(44,123,229,0.16); color: #6ea8f0; font-family: Sora, sans-serif; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">3</span>
+              <div><div style="font-weight: 700; font-size: 16.5px; color: #ffffff; margin-bottom: 3px;">Firma y confirma</div><div style="font-size: 15px; color: #8b95aa; line-height: 1.55;">Recibes el comprobante y el hotel queda notificado.</div></div>
+            </div>
+          </div>
+        </div>
+        <div style="background: #ffffff; border-radius: 18px; padding: 36px; box-shadow: 0 26px 70px rgba(0,0,0,0.4);">
+          <div style="font-family: Sora, sans-serif; font-weight: 700; font-size: 23px; margin-bottom: 8px;">Encuentra tu reserva</div>
+          <div style="font-size: 15px; color: #647087; margin-bottom: 26px;">Disponible desde 48 horas antes de tu llegada.</div>
+          <div style="display: flex; flex-direction: column; gap: 18px;">
+            <div>
+              <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Código de reserva</div>
+              <div style="border: 1px solid #e2e7ef; border-radius: 14px; padding: 15px 16px; font-size: 15.5px; color: #172033; font-family: ui-monospace, Menlo, monospace;">WYR-48210</div>
+            </div>
+            <div>
+              <div style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #647087; margin-bottom: 8px;">Apellido del titular</div>
+              <div style="border: 1px solid #e2e7ef; border-radius: 14px; padding: 15px 16px; font-size: 15.5px; color: #9aa3b4;">Escribe tu apellido</div>
+            </div>
+            <div style="background: {{ accent }}; color: #ffffff; font-weight: 700; font-size: 16px; padding: 17px; border-radius: 14px; text-align: center; box-shadow: 0 12px 30px rgba(44,123,229,0.3);">Continuar</div>
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #647087;"><span style="color: #059669; font-weight: 700;">✓</span> Tus datos se envían cifrados al hotel</div>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <footer style="background: #f8fafc; border-top: 1px solid #e2e7ef; padding: 56px 72px 40px;">
+      <div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 40px; padding-bottom: 40px; border-bottom: 1px solid #e2e7ef;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 11px; margin-bottom: 14px;">
+            <div style="width: 30px; height: 30px; border-radius: 10px; background: {{ accent }}; display: flex; align-items: center; justify-content: center;"><div style="width: 12px; height: 12px; border-radius: 4px 12px 4px 12px; background: #ffffff;"></div></div>
+            <span style="font-family: Sora, sans-serif; font-weight: 700; font-size: 19px; letter-spacing: -0.02em;">Wayra</span>
+          </div>
+          <p style="font-size: 15px; line-height: 1.6; color: #647087; margin: 0; max-width: 300px;">Sistema de gestión hotelera para alojamientos independientes.</p>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 11px; font-size: 15px; color: #647087;">
+          <span style="font-family: Sora, sans-serif; font-weight: 600; color: #172033; margin-bottom: 3px;">Producto</span>
+          <span>Reservas</span><span>Habitaciones</span><span>Caja</span><span>Reportes</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 11px; font-size: 15px; color: #647087;">
+          <span style="font-family: Sora, sans-serif; font-weight: 600; color: #172033; margin-bottom: 3px;">Recursos</span>
+          <span>Guías de implementación</span><span>Centro de ayuda</span><span>Estado del servicio</span><span>Precios</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 11px; font-size: 15px; color: #647087;">
+          <span style="font-family: Sora, sans-serif; font-weight: 600; color: #172033; margin-bottom: 3px;">Contacto</span>
+          <span>hola@wayra.com</span><span>+51 1 555 0134</span><span>Lima, Perú</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 24px; font-size: 14px; color: #647087;">
+        <span>© 2026 Wayra. Todos los derechos reservados.</span>
+        <div style="display: flex; gap: 26px;"><span>Términos</span><span>Privacidad</span><span>Tratamiento de datos</span></div>
+      </div>
+    </footer>
+  </div>
+
+  <sc-if value="{{ showMobileHero }}" hint-placeholder-val="{{ true }}">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+      <span style="font-family: ui-monospace, Menlo, monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #647087;">Hero — mobile 390px</span>
+      <div style="width: 390px; background: #111827; border-radius: 28px; overflow: hidden; box-shadow: 0 24px 70px rgba(17,24,39,0.28);">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid #1f2937;">
+          <div style="display: flex; align-items: center; gap: 9px;">
+            <div style="width: 28px; height: 28px; border-radius: 9px; background: {{ accent }}; display: flex; align-items: center; justify-content: center;"><div style="width: 11px; height: 11px; border-radius: 3px 11px 3px 11px; background: #ffffff;"></div></div>
+            <span style="font-family: Sora, sans-serif; font-weight: 700; font-size: 17px; color: #ffffff;">Wayra</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;"><div style="width: 20px; height: 2px; background: #ffffff;"></div><div style="width: 20px; height: 2px; background: #ffffff;"></div></div>
+        </div>
+        <div style="padding: 34px 24px 36px;">
+          <div style="display: inline-flex; align-items: center; gap: 8px; border: 1px solid #2d3748; border-radius: 999px; padding: 7px 13px; font-size: 11.5px; font-weight: 600; color: #8b95aa;"><span style="width: 6px; height: 6px; border-radius: 999px; background: #34d399;"></span> PMS en la nube</div>
+          <h1 style="font-family: Sora, sans-serif; font-weight: 800; font-size: 34px; line-height: 1.08; letter-spacing: -0.03em; color: #ffffff; margin: 20px 0 14px;">Reservas, habitaciones y caja en un solo lugar</h1>
+          <p style="font-size: 15.5px; line-height: 1.6; color: #8b95aa; margin: 0 0 24px;">Wayra reemplaza las hojas de cálculo y los mensajes sueltos. Tu equipo trabaja con la misma información en cada turno.</p>
+          <div style="display: flex; flex-direction: column; gap: 11px; margin-bottom: 26px;">
+            <div style="background: #1f67c7; color: #ffffff; font-weight: 700; font-size: 16px; padding: 16px; border-radius: 16px; text-align: center;">Solicitar demo</div>
+            <div style="border: 1px solid #2d3748; color: #ffffff; font-weight: 600; font-size: 16px; padding: 15px; border-radius: 16px; text-align: center;">Ver cómo funciona</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px;">
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #b9c1d1;"><span style="color: #34d399; font-weight: 700;">✓</span> Implementación en días</div>
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #b9c1d1;"><span style="color: #34d399; font-weight: 700;">✓</span> Roles y permisos por área</div>
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #b9c1d1;"><span style="color: #34d399; font-weight: 700;">✓</span> Cierre de caja cada noche</div>
+          </div>
+          <div style="border-radius: 16px; border: 1px solid #2d3748; background: repeating-linear-gradient(135deg, #1a2334 0px, #1a2334 8px, #202b3f 8px, #202b3f 16px); height: 260px; display: flex; align-items: center; justify-content: center;">
+            <span style="font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: #8b95aa; background: #111827; padding: 8px 12px; border-radius: 9px; border: 1px solid #2d3748;">mockup móvil — 680×1040</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#2c7be5&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#2c7be5&quot;,&quot;#1f67c7&quot;,&quot;#0f766e&quot;,&quot;#4f46e5&quot;]},&quot;showMobileHero&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = {
+    open: 0, view: "home", paso: 1, hotelSel: 0, habSel: null, metodo: "tarjeta", codigo: "",
+    form: { nombre: "María Elena", apellido: "Quispe Rojas", doc: "DNI 40218765", telefono: "+51 987 654 321", email: "maria.quispe@correo.com", hora: "15:00", motivo: "Turismo", notas: "", tarjeta: "", vence: "", cvv: "", titular: "" }
+  };
+
+  setPaso(paso) { this.setState({ paso }, () => window.scrollTo(0, 0)); }
+  setField(k) { return (e) => { const v = e.target.value; this.setState(s => ({ form: Object.assign({}, s.form, { [k]: v }) })); }; }
+
+  go(view) {
+    this.setState({ view, paso: 1 }, () => {
+      window.scrollTo(0, 0);
+      this._motionDone = false;
+      if (this._io) { this._io.disconnect(); this._io = null; }
+      setTimeout(() => this.setupMotion(), 40);
+    });
+  }
+
+
+  componentDidMount() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    this._t = setTimeout(() => this.setupMotion(), 60);
+  }
+  componentWillUnmount() { clearTimeout(this._t); if (this._io) this._io.disconnect(); }
+
+  setupMotion() {
+    if (this._motionDone) return;
+    this._motionDone = true;
+    const vh = window.innerHeight;
+    const targets = [];
+    document.querySelectorAll("section, footer").forEach(sec => {
+      Array.from(sec.children).forEach(child => {
+        const cs = getComputedStyle(child);
+        if (cs.display === "grid" && child.children.length > 1) Array.from(child.children).forEach(c => targets.push(c));
+        else targets.push(child);
+      });
+    });
+
+    // El contenido nunca se oculta: la animación se aplica al entrar en pantalla.
+    // "forwards" (no "both"): si el reloj de animación no avanza, el contenido queda visible.
+    const play = (el) => {
+      if (el.dataset.wr === "in") return;
+      el.dataset.wr = "in";
+      el.style.animation = "wayraUp .8s cubic-bezier(.22,.7,.2,1) " + (Number(el.dataset.wrDelay) || 0) + "ms forwards";
+      const clear = () => { if (el.dataset.wrKeep !== "1") el.style.animation = ""; };
+      el.addEventListener("animationend", clear, { once: true });
+      setTimeout(clear, 2000);
+    };
+
+    targets.forEach(el => {
+      const i = Array.prototype.indexOf.call(el.parentElement.children, el);
+      el.dataset.wrDelay = String(Math.min(i, 5) * 80);
+    });
+
+    if (typeof IntersectionObserver === "function") {
+      this._io = new IntersectionObserver((entries) => {
+        entries.forEach(e => { if (e.isIntersecting) { play(e.target); this._io.unobserve(e.target); } });
+      }, { threshold: 0.1, rootMargin: "0px 0px -6% 0px" });
+    }
+
+    targets.forEach(el => {
+      if (el.getBoundingClientRect().top < vh * 0.92) play(el);
+      else if (this._io) this._io.observe(el);
+    });
+
+    // flotación suave del mockup del hero
+    const heroArt = document.querySelector("section > div:last-child");
+    if (heroArt && heroArt.offsetHeight > 380) {
+      heroArt.dataset.wrKeep = "1";
+      heroArt.style.animation = "wayraFloat 8s ease-in-out 1.2s infinite";
+    }
+
+    // pulso en el indicador del badge
+    const dot = document.querySelector('section div[style*="border-radius: 999px"][style*="background: rgb(52, 211, 153)"]');
+    if (dot) dot.style.animation = "wayraPulse 2.4s ease-out infinite";
+
+    // botones: elevación al pasar el cursor
+    Array.from(document.querySelectorAll("div, span")).forEach(b => {
+      if (b.children.length) return;
+      const t = b.textContent.trim();
+      if (t !== "Solicitar demo" && t !== "Ver cómo funciona" && t !== "Iniciar sesión") return;
+      if (b.dataset.wrHover === "1") return;
+      b.dataset.wrHover = "1";
+      b.style.transition = "transform .25s cubic-bezier(.22,.7,.2,1), box-shadow .25s ease, background .25s ease, border-color .25s ease";
+      b.addEventListener("mouseenter", () => { b.style.transform = "translateY(-2px)"; if (t === "Solicitar demo") b.style.background = "#2369c5"; });
+      b.addEventListener("mouseleave", () => { b.style.transform = ""; if (t === "Solicitar demo") b.style.background = ""; });
+    });
+
+    // realce al pasar el cursor sobre tarjetas
+    document.querySelectorAll('div[style*="border-radius: 18px"], div[style*="border-radius: 16px"]').forEach(card => {
+      if (card.offsetHeight < 90 || card.offsetHeight > 420) return;
+      if (card.dataset.wrHover === "1") return;
+      card.dataset.wrHover = "1";
+      card.style.transition = (card.style.transition ? card.style.transition + ", " : "") + "transform .35s cubic-bezier(.22,.7,.2,1), box-shadow .35s ease";
+      card.addEventListener("mouseenter", () => { card.style.transform = "translateY(-4px)"; });
+      card.addEventListener("mouseleave", () => { card.style.transform = ""; });
+    });
+  }
+
+  renderVals() {
+    const items = [
+      ["¿Para qué tipo de alojamientos sirve Wayra?", "Para hoteles pequeños y medianos, hostales, apartahoteles y alojamientos turísticos. Funciona igual de bien con 10 habitaciones que con 80, y se adapta a operaciones con uno o varios turnos de recepción."],
+      ["¿Hay que instalar algo?", "No. Wayra funciona desde el navegador, en cualquier computadora o tablet con conexión. No requiere servidores propios ni instalaciones en cada equipo."],
+      ["¿Qué se gestiona exactamente?", "Reservas y tarifas, estado y limpieza de habitaciones, cuentas de huéspedes, consumos, cobros y cierre de caja por turno, además de los reportes de ocupación e ingresos para gerencia."],
+      ["¿Cómo funciona la demo?", "Son 30 minutos por videollamada. Revisamos tu operación actual, cargamos un ejemplo con tus habitaciones y tarifas, y respondemos lo que necesites antes de decidir."],
+      ["¿Escala si tengo pocas habitaciones?", "Sí. El plan de entrada está pensado para operaciones chicas y crece contigo: se agregan usuarios, unidades y módulos sin cambiar de sistema ni migrar datos."],
+      ["¿Puedo controlar qué ve cada persona?", "Cada usuario tiene un rol con permisos definidos. Recepción, housekeeping y gerencia acceden solo a lo que corresponde, y cada movimiento queda registrado con autor y fecha."],
+      ["¿Qué pasa con mi información actual?", "Acompañamos la carga inicial de habitaciones, tarifas y huéspedes a partir de tus planillas. La implementación típica toma pocos días."]
+    ];
+    const v = this.state.view;
+    const navColor = (k) => v === k ? "#ffffff" : "#b9c1d1";
+    const navLine = (k) => v === k ? (this.props.accent ?? "#2c7be5") : "transparent";
+    const accent = this.props.accent ?? "#2c7be5";
+    const paso = this.state.paso;
+    const f = this.state.form;
+    const noches = 3;
+    const money = (n) => "S/ " + Math.round(n).toLocaleString("es-PE");
+    const stepBg = (n) => paso === n ? accent : (paso > n ? "rgba(44,123,229,0.22)" : "#1f2937");
+    const stepFg = (n) => paso === n ? "#ffffff" : (paso > n ? "#6ea8f0" : "#647087");
+    const res = [
+      { nombre: "Hotel Andino Plaza", detalle: "Habitación doble superior · Centro histórico, Cusco", ubicacion: "Centro histórico, Cusco", tarifa: 210 },
+      { nombre: "Casa Wayra Valle", detalle: "Habitación matrimonial · Urubamba, Valle Sagrado", ubicacion: "Urubamba, Valle Sagrado", tarifa: 180 },
+      { nombre: "Hostal Kantu", detalle: "Habitación privada con baño · Arequipa", ubicacion: "Yanahuara, Arequipa", tarifa: 85 }
+    ];
+    const hotel = res[this.state.hotelSel] || res[0];
+    const habs = [
+      { nombre: "Doble estándar", detalle: "1 cama queen · 22 m² · hasta 2 huéspedes", extra1: "Desayuno incluido", extra2: "Wi-Fi", tarifa: hotel.tarifa },
+      { nombre: "Doble superior con vista", detalle: "1 cama king · 28 m² · balcón privado", extra1: "Desayuno incluido", extra2: "Vista a la plaza", tarifa: Math.round(hotel.tarifa * 1.25) },
+      { nombre: "Suite familiar", detalle: "2 ambientes · 40 m² · hasta 4 huéspedes", extra1: "Desayuno incluido", extra2: "Cuna disponible", tarifa: Math.round(hotel.tarifa * 1.7) }
+    ];
+    const hab = this.state.habSel === null ? null : habs[this.state.habSel];
+    const subtotal = (hab ? hab.tarifa : hotel.tarifa) * noches;
+    const impuestos = Math.round(subtotal * 0.18);
+    return {
+      accent: this.props.accent ?? "#2c7be5",
+      showMobileHero: (this.props.showMobileHero ?? true) && v === "home",
+      isHome: v === "home",
+      isAliados: v === "aliados",
+      isReservar: v === "reservar",
+      isCheckin: v === "checkin",
+      goHome: () => this.go("home"),
+      goAliados: () => this.go("aliados"),
+      goReservar: () => this.go("reservar"),
+      goCheckin: () => this.go("checkin"),
+      navAliadosColor: navColor("aliados"), navAliadosLine: navLine("aliados"),
+      navReservarColor: navColor("reservar"), navReservarLine: navLine("reservar"),
+      navCheckinColor: navColor("checkin"), navCheckinLine: navLine("checkin"),
+      hoteles: [
+        { nombre: "Hotel Andino Plaza", tipo: "Hotel", ciudad: "Cusco", habitaciones: 42, precio: "S/ 210 / noche" },
+        { nombre: "Hostal Kantu", tipo: "Hostal", ciudad: "Arequipa", habitaciones: 18, precio: "S/ 85 / noche" },
+        { nombre: "Suites Miraflores", tipo: "Apartahotel", ciudad: "Lima", habitaciones: 26, precio: "S/ 295 / noche" },
+        { nombre: "Casa Wayra Valle", tipo: "Alojamiento", ciudad: "Urubamba", habitaciones: 12, precio: "S/ 180 / noche" },
+        { nombre: "Hotel Puerto Sol", tipo: "Hotel", ciudad: "Paracas", habitaciones: 55, precio: "S/ 240 / noche" },
+        { nombre: "Hostal Riberas", tipo: "Hostal", ciudad: "Iquitos", habitaciones: 22, precio: "S/ 95 / noche" }
+      ],
+      resultados: res.map((r, i) => ({ nombre: r.nombre, detalle: r.detalle, total: money(r.tarifa * noches), select: () => this.setState({ hotelSel: i, habSel: null, paso: 2 }, () => window.scrollTo(0, 0)) })),
+      p1: v === "reservar" && paso === 1,
+      p2: v === "reservar" && paso === 2,
+      p3: v === "reservar" && paso === 3,
+      p4: v === "reservar" && paso === 4,
+      p5: v === "reservar" && paso === 5,
+      showStepper: v === "reservar" && paso >= 2 && paso <= 4,
+      st1bg: stepBg(1), st1fg: stepFg(1), st2bg: stepBg(2), st2fg: stepFg(2),
+      st3bg: stepBg(3), st3fg: stepFg(3), st4bg: stepBg(4), st4fg: stepFg(4),
+      habitaciones: habs.map((h, i) => {
+        const sel = this.state.habSel === i;
+        return {
+          nombre: h.nombre, detalle: h.detalle, extra1: h.extra1, extra2: h.extra2,
+          precio: money(h.tarifa), borde: sel ? accent : "#e2e7ef",
+          btnBg: sel ? accent : "#ffffff", btnFg: sel ? "#ffffff" : accent, btnBorde: sel ? accent : "#cfe2fb",
+          btnTexto: sel ? "Elegida" : "Elegir",
+          select: () => this.setState({ habSel: i })
+        };
+      }),
+      metodos: [
+        { key: "tarjeta", nombre: "Tarjeta de crédito o débito", detalle: "Visa, Mastercard, American Express" },
+        { key: "transferencia", nombre: "Transferencia bancaria", detalle: "Recibes los datos de la cuenta por correo" },
+        { key: "hotel", nombre: "Pagar en el hotel", detalle: "Se retiene la tarjeta como garantía" }
+      ].map(m => ({
+        nombre: m.nombre, detalle: m.detalle,
+        borde: this.state.metodo === m.key ? "#cfe2fb" : "#e2e7ef",
+        fondo: this.state.metodo === m.key ? "#edf5ff" : "#ffffff",
+        radio: this.state.metodo === m.key ? accent : "#cbd3e0",
+        punto: this.state.metodo === m.key ? accent : "transparent",
+        select: () => this.setState({ metodo: m.key })
+      })),
+      conTarjeta: this.state.metodo === "tarjeta",
+      resumenHotel: hotel.nombre,
+      resumenDetalle: hotel.ubicacion,
+      resumenFechas: "12 – 15 sep 2026",
+      resumenHuespedes: "2 adultos",
+      resumenNoches: "3 noches",
+      resumenHab: hab ? hab.nombre : "Sin elegir",
+      resumenSubtotal: money(subtotal),
+      resumenImpuestos: money(impuestos),
+      resumenTotal: money(subtotal + impuestos),
+      lineaNoches: hab ? money(hab.tarifa) + " × 3 noches" : "3 noches",
+      ctaBg: hab ? accent : "#a7b0c0",
+      notaPaso2: hab ? "Sin cargos hasta confirmar" : "Elige una habitación para continuar",
+      toStep3: () => { if (hab) this.setPaso(3); },
+      toStep4: () => this.setPaso(4),
+      backTo1: () => this.setPaso(1),
+      backTo2: () => this.setPaso(2),
+      backTo3: () => this.setPaso(3),
+      confirmar: () => this.setState({ paso: 5, codigo: "WYR-" + String(10000 + Math.floor(Math.random() * 89999)) }, () => window.scrollTo(0, 0)),
+      codigo: this.state.codigo || "WYR-48210",
+      correoConfirmacion: f.email || "tu correo",
+      titularConfirmacion: ((f.nombre || "") + " " + (f.apellido || "")).trim() || "Titular de la reserva",
+      fNombre: f.nombre, fApellido: f.apellido, fDoc: f.doc, fTelefono: f.telefono, fEmail: f.email,
+      fHora: f.hora, fMotivo: f.motivo, fNotas: f.notas,
+      fTarjeta: f.tarjeta, fVence: f.vence, fCvv: f.cvv, fTitular: f.titular,
+      onNombre: this.setField("nombre"), onApellido: this.setField("apellido"), onDoc: this.setField("doc"),
+      onTelefono: this.setField("telefono"), onEmail: this.setField("email"), onHora: this.setField("hora"),
+      onMotivo: this.setField("motivo"), onNotas: this.setField("notas"),
+      onTarjeta: this.setField("tarjeta"), onVence: this.setField("vence"), onCvv: this.setField("cvv"), onTitular: this.setField("titular"),
+      faqs: items.map(([q, a], i) => {
+        const isOpen = this.state.open === i;
+        return { q, a, rot: isOpen ? "45deg" : "0deg", anim: isOpen ? "wayraFaq .35s cubic-bezier(.22,.7,.2,1) forwards" : "none", display: isOpen ? "block" : "none", toggle: () => this.setState(s => ({ open: s.open === i ? -1 : i })) };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

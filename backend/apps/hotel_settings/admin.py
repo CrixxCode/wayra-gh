@@ -11,6 +11,7 @@ class HotelFloorInline(admin.TabularInline):
 class HotelSettingsAdmin(admin.ModelAdmin):
     list_display = (
         "hotel_name",
+        "reservation_code_prefix",
         "stars",
         "city",
         "country",
@@ -22,6 +23,7 @@ class HotelSettingsAdmin(admin.ModelAdmin):
         "updated_at",
     )
     list_filter = ("is_active", "country", "city")
+    readonly_fields = ("reservation_code_prefix",)
     inlines = [HotelFloorInline]
 
 

@@ -1,2177 +1,445 @@
-<div class="wayra-landing relative overflow-x-clip">
-
-  <!-- ======================================================
-       HEADER
-  ======================================================= -->
+<div class="wayra-landing">
+  <!--
+  THESIS: Wayra replaces scattered hotel operations with one shared record, refusing the old split hero/image marketing page.
+  OWN-WORLD: dark navy command surface, blue action controls, white operational bands, Sora display type, Manrope body copy.
+  STORY: operators recognize the disorder, see the daily flow, understand the connected modules, and request a demo.
+  FIRST VIEWPORT: dark header and two-column hero, left copy/actions/checks, right system mockup placeholder at dashboard scale.
+  FORM: prototype replacement from Wayra Landing Page Design; code-led implementation matched to the supplied HTML.
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
+  -->
 
   <app-public-header
-    ctaLabel="Solicitar demo para mi hotel"
+    ctaLabel="Solicitar demo"
     (ctaTriggered)="openDemoModal()">
   </app-public-header>
 
-
-  <!-- ======================================================
-       MAIN
-  ======================================================= -->
-
   <main>
+    <section id="inicio" class="prototype-hero">
+      <div class="prototype-section prototype-hero-grid">
+        <article class="wayra-reveal">
+          <div class="prototype-pill">
+            <span></span>
+            PMS en la nube para alojamientos independientes
+          </div>
 
+          <h1>Reservas, habitaciones y caja en un solo lugar</h1>
 
-    <!-- ====================================================
-         HERO
-    ===================================================== -->
-
-    <section
-      id="inicio"
-      class="wayra-hero">
-
-      <div
-        class="mx-auto grid w-full max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-12 lg:px-8 lg:py-24">
-
-        <!-- COPY -->
-
-        <article
-          class="wayra-reveal lg:col-span-5">
-
-          <h1
-            class="wayra-heading text-4xl font-extrabold leading-[1.08] text-slate-950 sm:text-5xl lg:text-6xl">
-
-            Cierra cada turno con reservas, habitaciones y caja en la misma fuente.
-
-          </h1>
-
-          <p
-            class="mt-6 max-w-xl text-base leading-8 text-slate-600 sm:text-lg">
-
-            Wayra conecta la reserva inicial, el estado de habitaciones,
-            los consumos, los pagos y los reportes para que el equipo no
-            reconstruya datos al final del día.
-
+          <p>
+            Wayra es el sistema de gestion hotelera que reemplaza las hojas de
+            calculo y los mensajes sueltos. Tu equipo trabaja con la misma
+            informacion, desde el navegador, en cada turno.
           </p>
 
-
-          <div
-            class="mt-8 flex flex-col gap-3 sm:flex-row">
-
-            <button
-              type="button"
-              class="wayra-btn-primary"
-              (click)="openDemoModal($event)">
-
-              Solicitar demo para mi hotel
-
-              <i
-                aria-hidden="true"
-                class="pi pi-arrow-right text-xs">
-              </i>
-
+          <div class="prototype-actions">
+            <button type="button" class="prototype-primary" (click)="openDemoModal($event)">
+              Solicitar demo
             </button>
-
-
-            <a
-              class="wayra-btn-secondary"
-              href="#operacion"
-              (click)="scrollToSection($event, 'operacion')">
-
-              Ver cómo funciona
-
+            <a class="prototype-secondary" href="#operacion" (click)="scrollToSection($event, 'operacion')">
+              Ver como funciona
             </a>
-
           </div>
 
-
-          <div
-            class="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-slate-600">
-
-            <span
-              class="inline-flex items-center gap-2">
-
-              <i
-                aria-hidden="true"
-                class="pi pi-check-circle text-emerald-600">
-              </i>
-
-              Reservas sin doble registro
-
-            </span>
-
-            <span
-              class="inline-flex items-center gap-2">
-
-              <i
-                aria-hidden="true"
-                class="pi pi-check-circle text-emerald-600">
-              </i>
-
-              Saldos visibles al check-out
-
-            </span>
-
-            <span
-              class="inline-flex items-center gap-2">
-
-              <i
-                aria-hidden="true"
-                class="pi pi-check-circle text-emerald-600">
-              </i>
-
-              Limpieza y finanzas conectadas
-
-            </span>
-
+          <div class="prototype-checks">
+            <span><i class="pi pi-check"></i> Implementacion en dias, sin instalaciones</span>
+            <span><i class="pi pi-check"></i> Roles y permisos por area de trabajo</span>
+            <span><i class="pi pi-check"></i> Cierre de caja cuadrado cada noche</span>
           </div>
-
         </article>
 
-
-        <!-- PRODUCTO -->
-
-        <figure
-          class="lg:col-span-7">
-
-          <div
-            class="wayra-product-hero">
-
-            <picture>
-
-              <source
-                type="image/webp"
-                srcset="/landing/landing-1-960w.webp 960w, /landing/landing-1.webp 1672w"
-                sizes="(max-width: 1023px) 100vw, 830px" />
-
-              <img
-                src="/landing/landing-1.png"
-                alt="Panel principal de la plataforma hotelera Wayra"
-                width="1672"
-                height="941"
-                fetchpriority="high"
-                class="block w-full" />
-
-            </picture>
-
-          </div>
-
-          <figcaption
-            class="mt-3 text-center text-xs text-slate-600">
-
-            Ejemplo de la interfaz de Wayra.
-            Los datos mostrados son ilustrativos.
-
-          </figcaption>
-
-        </figure>
-
+        <div class="prototype-dark-mockup wayra-reveal">
+          <span>mockup / panel de reservas - 1180x940</span>
+        </div>
       </div>
-
     </section>
 
-
-    <!-- ====================================================
-         PROBLEMA
-    ===================================================== -->
-
-    <section
-      class="wayra-problem-section bg-white py-16 sm:py-20">
-
-      <div
-        class="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-12 lg:gap-14 lg:px-8">
-
-        <article
-          class="wayra-reveal lg:col-span-5">
-
-          <h2
-            class="wayra-heading text-3xl font-extrabold leading-tight text-slate-900 sm:text-4xl">
-
-            Gestionar un hotel no debería significar trabajar entre hojas
-            de cálculo, mensajes y registros separados.
-
-          </h2>
-
-          <p
-            class="mt-5 max-w-[65ch] text-base leading-8 text-slate-600">
-
-            Cuando cada área usa una fuente distinta, la operación pierde
-            claridad y el equipo dedica más tiempo a coordinar datos que a
-            atender al huésped.
-
+    <section class="prototype-band">
+      <div class="prototype-section prototype-two-col">
+        <article class="wayra-reveal">
+          <span class="prototype-label">El problema</span>
+          <h2>La operacion no se rompe por falta de esfuerzo, sino por falta de un solo registro</h2>
+          <p>
+            Cuando cada dato vive en un lugar distinto, la recepcion improvisa
+            y la gerencia decide con informacion vieja.
           </p>
 
-
-          <div
-            class="mt-7 grid gap-4">
-
-            <div
-              class="wayra-simple-point">
-
-              <i
-                aria-hidden="true"
-                class="pi pi-copy">
-              </i>
-
-              <span>
-                Información dispersa.
-              </span>
-
+          <div class="prototype-problem-list">
+            <div>
+              <span class="prototype-bad">x</span>
+              <strong>Reservas en tres canales distintos</strong>
+              <p>Planillas, WhatsApp y llamadas: nadie sabe cual version es la correcta.</p>
             </div>
-
-
-            <div
-              class="wayra-simple-point">
-
-              <i
-                aria-hidden="true"
-                class="pi pi-sync">
-              </i>
-
-              <span>
-                Reservas manuales.
-              </span>
-
+            <div>
+              <span class="prototype-bad">x</span>
+              <strong>Datos duplicados del huesped</strong>
+              <p>El mismo cliente se registra tres veces y el historial se pierde.</p>
             </div>
-
-
-            <div
-              class="wayra-simple-point">
-
-              <i
-                aria-hidden="true"
-                class="pi pi-chart-bar">
-              </i>
-
-              <span>
-                Poca claridad del estado de las habitaciones.
-              </span>
-
+            <div>
+              <span class="prototype-bad">x</span>
+              <strong>Caja que no cuadra al cierre</strong>
+              <p>Consumos y cobros anotados aparte, revisados a mano cada noche.</p>
             </div>
-
-
-            <div
-              class="wayra-simple-point">
-
-              <i
-                aria-hidden="true"
-                class="pi pi-replay">
-              </i>
-
-              <span>
-                Tareas repetitivas.
-              </span>
-
+            <div class="prototype-good-row">
+              <span class="prototype-good">✓</span>
+              <strong>Con Wayra: un unico registro compartido</strong>
+              <p>Disponibilidad, huespedes y movimientos de caja actualizados en el momento en que ocurren.</p>
             </div>
-
-
-            <div
-              class="wayra-simple-point">
-
-              <i
-                aria-hidden="true"
-                class="pi pi-clone">
-              </i>
-
-              <span>
-                Duplicidad de información.
-              </span>
-
-            </div>
-
           </div>
-
         </article>
 
-
-        <figure
-          class="wayra-reveal lg:col-span-7">
-
-          <div
-            class="wayra-image-card">
-
-            <picture>
-
-              <source
-                type="image/webp"
-                srcset="/landing/landing-2-960w.webp 960w, /landing/landing-2.webp 1672w"
-                sizes="(max-width: 1023px) 100vw, 830px" />
-
-              <img
-                src="/landing/landing-2.png"
-                alt="Procesos administrativos hoteleros gestionados con documentos y herramientas dispersas"
-                width="1672"
-                height="941"
-                loading="lazy"
-                class="h-full w-full object-cover" />
-
-            </picture>
-
-          </div>
-
-        </figure>
-
+        <div class="prototype-light-mockup wayra-reveal">
+          <span>foto recepcion / antes-despues - 1080x1080</span>
+        </div>
       </div>
-
     </section>
 
-
-
-    <!-- ====================================================
-         OPERACIÓN
-    ===================================================== -->
-
-    <section
-      id="producto"
-      class="wayra-operation-section pt-28 pb-20 text-white sm:pt-36 sm:pb-28">
-
-      <div
-        class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-
-        <div
-          class="wayra-reveal mx-auto max-w-3xl text-center py-10">
-
-          <h2
-            class="wayra-heading text-3xl font-extrabold leading-tight sm:text-4xl">
-
-            Del check-in al cierre de caja, sin partir la información.
-
-          </h2>
-
-          <p
-            class="mt-5 text-base leading-7 text-slate-300 sm:mt-6">
-
-            La misma reserva alimenta recepción, habitaciones, servicios,
-            pagos y reportes. Cada área ve lo que necesita sin reconstruir
-            el día desde mensajes o archivos separados.
-
-          </p>
-
+    <section id="operacion" class="prototype-dark-section">
+      <div class="prototype-section">
+        <div class="prototype-section-head wayra-reveal">
+          <span class="prototype-label prototype-label-light">Como se trabaja</span>
+          <h2>Un flujo para todo el dia del hotel</h2>
+          <p>Del primer contacto con el huesped al cierre del turno, sin salir del sistema.</p>
         </div>
 
-        <div
-          id="operacion"
-          aria-hidden="true">
-        </div>
-
-        <ol
-          class="wayra-flow-steps mt-24 sm:mt-28 lg:mt-32">
-
-          <li
-            *ngFor="
-              let moment of turnMoments;
-              let i = index;
-              trackBy: trackByIndex
-            "
-            class="wayra-flow-step wayra-reveal"
-            [style.transitionDelay.ms]="revealDelay(i)">
-
-            <div
-              class="wayra-flow-top">
-
-              <span
-                class="wayra-flow-number"
-                aria-hidden="true">
-
-                {{ i + 1 | number: '2.0-0' }}
-
-              </span>
-
-              <span
-                class="wayra-flow-icon">
-
-                <i
-                  aria-hidden="true"
-                  [class]="moment.icon">
-                </i>
-
-              </span>
-
+        <div class="prototype-flow">
+          <article *ngFor="let moment of turnMoments; let i = index; trackBy: trackByIndex" class="wayra-reveal">
+            <div>
+              <span>{{ i + 1 | number: '2.0-0' }}</span>
+              <i [class]="moment.icon" aria-hidden="true"></i>
             </div>
-
-            <h3
-              class="wayra-heading text-xl font-extrabold text-white sm:text-2xl">
-
-              {{ moment.title }}
-
-            </h3>
-
-            <p>
-
-              {{ moment.summary }}
-
-            </p>
-
-          </li>
-
-        </ol>
-
-      </div>
-
-    </section>
-
-
-    <!-- ====================================================
-         EVIDENCIA DE PRODUCTO
-    ===================================================== -->
-
-    <section
-      class="bg-white py-20 sm:py-24 lg:py-28">
-
-      <div
-        class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-
-        <div
-          class="wayra-reveal mx-auto max-w-3xl text-center">
-
-          <h2
-            class="wayra-heading text-3xl font-extrabold text-slate-900 sm:text-4xl">
-
-            Lo que queda registrado en Wayra
-
-          </h2>
-
-          <p
-            class="mt-4 text-base leading-7 text-slate-600">
-
-            Reservas, habitaciones, pagos y actividad operativa quedan
-            conectados en un mismo lugar.
-
-          </p>
-
-        </div>
-
-        <div
-          class="wayra-proof-wrap wayra-reveal mt-14 sm:mt-16 lg:mt-20">
-
-          <div
-            class="wayra-proof-media">
-
-            <div
-              class="wayra-image-card wayra-proof-hero">
-
-              <picture>
-
-                <source
-                  type="image/webp"
-                  srcset="/landing/landing-5-960w.webp 960w, /landing/landing-5.webp 1672w"
-                  sizes="(max-width: 1023px) 100vw, 900px" />
-
-                <img
-                  src="/landing/landing-5.png"
-                  alt="Reportes e indicadores de operación hotelera en Wayra"
-                  width="1672"
-                  height="941"
-                  loading="lazy"
-                  class="h-full w-full object-cover" />
-
-              </picture>
-
-            </div>
-
-            <p
-              class="wayra-proof-caption">
-
-              Vista ilustrativa de ocupación, pagos y actividad del hotel.
-
-            </p>
-
-          </div>
-
-          <div
-            class="wayra-proof-panel">
-
-            <ul
-              class="wayra-proof-chain">
-
-              <li
-                *ngFor="
-                  let item of proofItems;
-                  trackBy: trackByIndex
-                ">
-
-                <span
-                  class="wayra-proof-icon"
-                  aria-hidden="true">
-
-                  <i
-                    [class]="item.icon">
-                  </i>
-
-                </span>
-
-                <div>
-
-                  <span
-                    class="wayra-proof-label">
-
-                    {{ item.label }}
-
-                  </span>
-
-                  <p>
-
-                    {{ item.description }}
-
-                  </p>
-
-                </div>
-
-              </li>
-
-            </ul>
-
-          </div>
-
-        </div>
-
-        <div
-          class="wayra-proof-trust wayra-reveal mt-10 sm:mt-12">
-
-          <div
-            class="wayra-proof-trust-head">
-
-            <span
-              class="wayra-proof-trust-icon"
-              aria-hidden="true">
-
-              <i
-                class="pi pi-shield">
-              </i>
-
-            </span>
-
-            <span
-              class="wayra-proof-trust-label">
-
-              Base operativa segura
-
-            </span>
-
-          </div>
-
-          <ul>
-
-            <li
-              *ngFor="
-                let trustItem of trustItems;
-                trackBy: trackByIndex
-              ">
-
-              <i
-                aria-hidden="true"
-                class="pi pi-check">
-              </i>
-
-              {{ trustItem }}
-
-            </li>
-
-          </ul>
-
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <!-- ====================================================
-         PARA QUIÉN
-    ===================================================== -->
-
-    <section
-      id="publico"
-      class="bg-white py-16 sm:py-20">
-
-      <div
-        class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-
-        <div
-          class="wayra-reveal mx-auto max-w-3xl text-center">
-
-          <h2
-            class="wayra-heading text-3xl font-extrabold text-slate-900 sm:text-4xl">
-
-            Hecho para alojamientos que quieren simplificar su operación.
-
-          </h2>
-
-          <p
-            class="mt-4 text-base leading-7 text-slate-600">
-
-            Wayra se adapta a equipos que atienden huéspedes, coordinan
-            habitaciones, cobran estadías y revisan caja sin reconstruir datos
-            al final del día.
-
-          </p>
-
-        </div>
-
-
-        <div
-          class="mt-10 grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">
-
-          <article
-            *ngFor="
-              let audience of audiences;
-              let i = index;
-              trackBy: trackByIndex
-            "
-            class="wayra-audience-card wayra-reveal"
-            [style.transitionDelay.ms]="revealDelay(i)">
-
-            <div
-              class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-
-              <i
-                aria-hidden="true"
-                [class]="audience.icon">
-              </i>
-
-            </div>
-
-            <h3
-              class="wayra-heading mt-4 text-lg font-bold text-slate-900">
-
-              {{ audience.title }}
-
-            </h3>
-
-            <p
-              class="mt-2 text-sm leading-6 text-slate-600">
-
-              {{ audience.detail }}
-
-            </p>
-
+            <h3>{{ moment.title }}</h3>
+            <p>{{ moment.summary }}</p>
           </article>
-
         </div>
-
       </div>
-
     </section>
 
-
-
-    <!-- ====================================================
-         FAQ
-    ===================================================== -->
-
-    <section
-      id="faq"
-      class="bg-white py-16 sm:py-20">
-
-      <div
-        class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-
-        <div
-          class="wayra-reveal mx-auto max-w-3xl text-center">
-
-          <h2
-            class="wayra-heading text-3xl font-extrabold text-slate-900 sm:text-4xl">
-
-            Resuelve tus dudas antes de agendar una demo
-
-          </h2>
-
+    <section class="prototype-product-section">
+      <div class="prototype-section">
+        <div class="prototype-center-head wayra-reveal">
+          <span class="prototype-label">El producto</span>
+          <h2>Cuatro modulos conectados, una sola fuente de verdad</h2>
+          <p>Lo que se registra en recepcion se refleja en habitaciones, caja y reportes.</p>
         </div>
 
+        <div class="prototype-wide-mockup wayra-reveal">
+          <span>captura del sistema - 2400x1040</span>
+        </div>
 
-        <div
-          class="mt-10 space-y-3">
+        <div class="prototype-module-grid">
+          <article *ngFor="let item of proofItems; trackBy: trackByIndex" class="wayra-reveal">
+            <i [class]="item.icon" aria-hidden="true"></i>
+            <h3>{{ item.label }}</h3>
+            <p>{{ item.description }}</p>
+          </article>
+        </div>
 
+        <div class="prototype-marquee wayra-reveal">
+          <div>
+            <span *ngFor="let trustItem of trustItems; trackBy: trackByIndex">
+              <i class="pi pi-check"></i>{{ trustItem }}
+            </span>
+            <span *ngFor="let trustItem of trustItems; trackBy: trackByIndex" aria-hidden="true">
+              <i class="pi pi-check"></i>{{ trustItem }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="publico" class="prototype-band">
+      <div class="prototype-section">
+        <div class="prototype-left-head wayra-reveal">
+          <span class="prototype-label">Para quien</span>
+          <h2>Pensado para operaciones independientes</h2>
+        </div>
+
+        <div class="prototype-audience-grid">
+          <article *ngFor="let audience of audiences; trackBy: trackByIndex" class="wayra-reveal">
+            <i [class]="audience.icon" aria-hidden="true"></i>
+            <h3>{{ audience.title }}</h3>
+            <p>{{ audience.detail }}</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq" class="prototype-faq">
+      <div class="prototype-section prototype-faq-grid">
+        <div class="wayra-reveal">
+          <span class="prototype-label">Preguntas frecuentes</span>
+          <h2>Antes de la demo</h2>
+          <p>Si queda algo pendiente, lo resolvemos en la llamada.</p>
+        </div>
+
+        <div class="prototype-faq-list">
           <details
-            *ngFor="
-              let faq of faqs;
-              let index = index;
-              trackBy: trackByIndex
-            "
-            class="wayra-faq-item wayra-reveal"
-            [style.transitionDelay.ms]="revealDelay(index)">
-
-            <summary
-              (click)="onFaqSummaryClick($event, index)">
+            *ngFor="let faq of faqs; let index = index; trackBy: trackByIndex"
+            class="wayra-reveal">
+            <summary (click)="onFaqSummaryClick($event, index)">
               {{ faq.question }}
             </summary>
-
-            <p>
-              {{ faq.answer }}
-            </p>
-
+            <p>{{ faq.answer }}</p>
           </details>
-
         </div>
-
       </div>
-
     </section>
 
-
-
-    <!-- ====================================================
-         CTA FINAL
-    ===================================================== -->
-
-    <section
-      class="bg-white px-4 pb-20 sm:px-6">
-
-      <div
-        class="wayra-final-cta wayra-reveal mx-auto max-w-7xl">
-
-        <h2
-          class="wayra-heading mx-auto max-w-3xl text-3xl font-extrabold text-white sm:text-4xl">
-
-          Simplifica la gestión diaria de tu hotel.
-
-        </h2>
-
-        <p
-          class="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-300">
-
-          Revisa cómo Wayra conecta reservas, habitaciones, pagos y reportes
-          antes de que tu equipo vuelva a cerrar caja con datos dispersos.
-
-        </p>
-
-        <button
-          type="button"
-          class="wayra-btn-primary mt-8"
-          (click)="openDemoModal($event)">
-
-          Solicitar demo para mi hotel
-
-          <i
-            aria-hidden="true"
-            class="pi pi-arrow-right text-xs">
-          </i>
-
-        </button>
-
+    <section class="prototype-cta">
+      <div class="prototype-section">
+        <div class="prototype-cta-card wayra-reveal">
+          <div>
+            <h2>Veamos tu operacion en Wayra</h2>
+            <p>Agenda 30 minutos. Recorremos tu flujo real, con tus habitaciones y tus tarifas.</p>
+          </div>
+          <div>
+            <button type="button" class="prototype-primary" (click)="openDemoModal($event)">
+              Solicitar demo
+            </button>
+            <span>Sin instalaciones ni compromiso</span>
+          </div>
+        </div>
       </div>
-
     </section>
-
   </main>
 
-
-
-  <!-- ======================================================
-       FOOTER
-  ======================================================= -->
-
-  <app-public-footer variant="full"></app-public-footer>
-
-
-
-  <!-- ======================================================
-       MODAL SOLICITAR DEMO
-  ======================================================= -->
+  <app-public-footer></app-public-footer>
 
   <div
     *ngIf="demoModalOpen"
-    class="wayra-demo-overlay fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/70 px-4 py-6 backdrop-blur-sm"
+    class="prototype-modal-backdrop"
     (click)="closeDemoModalWithConfirm()">
-
     <section
-      class="wayra-demo-modal w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-950/30"
+      class="prototype-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="demo-modal-title"
       (click)="$event.stopPropagation()">
 
-
-      <!-- HEADER MODAL -->
-
-      <header
-        class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 sm:px-6">
-
-        <div>
-
-          <h2
-            id="demo-modal-title"
-            class="wayra-heading text-2xl font-extrabold text-slate-900">
-
-            Prepara tu demo de Wayra
-
-          </h2>
-
-          <p
-            class="mt-2 text-sm text-slate-600">
-
-            Primero coordinamos contigo. Luego armamos una demo con ejemplos
-            de habitaciones, check-in y cierre de caja cercanos a tu operación,
-            sin activar cobros ni publicar información.
-
-          </p>
-
+      <header class="prototype-modal-hero">
+        <div class="prototype-modal-titlebar">
+          <div>
+            <h2 id="demo-modal-title">Solicitar una demo</h2>
+            <p>Cuéntanos quién eres</p>
+          </div>
+          <button type="button" aria-label="Cerrar solicitud de demo" (click)="closeDemoModalWithConfirm()">
+            <i class="pi pi-times" aria-hidden="true"></i>
+          </button>
         </div>
 
-
-        <button
-          type="button"
-          class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
-          aria-label="Cerrar solicitud de demo"
-          (click)="closeDemoModalWithConfirm()">
-
-          <i
-            aria-hidden="true"
-            class="pi pi-times">
-          </i>
-
-        </button>
-
+        <nav class="prototype-stepper" aria-label="Progreso de solicitud de demo">
+          <button
+            *ngFor="let step of demoStepItems; let index = index; trackBy: trackByIndex"
+            type="button"
+            [class.is-active]="demoStep === step.id"
+            [class.is-complete]="isDemoStepComplete(step.id)"
+            [disabled]="!canOpenDemoStep(step.id)"
+            (click)="goToDemoStep(step.id)">
+            <span>{{ index + 1 }}</span>
+            <strong>{{ step.label }}</strong>
+          </button>
+        </nav>
       </header>
 
-
-
-      <ng-container
-        *ngIf="
-          !demoSubmitted;
-          else demoConfirmation
-        ">
-
-
-        <!-- PROGRESO MÓVIL -->
-
-        <div
-          class="border-b border-slate-200 bg-slate-50 px-5 py-4 sm:hidden">
-
+      <ng-container *ngIf="!demoSubmitted; else demoConfirmation">
+        <form [formGroup]="demoForm" (ngSubmit)="demoStep === 'agenda' ? submitDemoRequest() : goToNextDemoStep()">
           <div
-            class="flex items-center justify-between gap-3">
-
-            <span
-              class="text-sm font-bold text-slate-900">
-
-              {{ demoStepLabel }}
-
-            </span>
-
-            <span
-              class="text-xs font-semibold text-slate-600">
-
-              Paso {{ demoStepNumber }} de 4
-
-            </span>
-
+            *ngIf="demoStep === 'requester'"
+            class="prototype-modal-grid prototype-contact-grid"
+            formGroupName="requester">
+            <label>
+              <span>Nombre completo</span>
+              <input id="demo-contact-name" type="text" formControlName="contactName" />
+              <small *ngIf="isInvalid('requester', 'contactName')">Ingresa el nombre de contacto.</small>
+            </label>
+            <label>
+              <span>Cargo</span>
+              <select formControlName="jobTitle">
+                <option value="" disabled>{{ jobTitlesLoading ? 'Cargando cargos...' : 'Selecciona un cargo' }}</option>
+                <option *ngFor="let jobTitle of jobTitles; trackBy: trackByIndex" [value]="jobTitle.name">
+                  {{ jobTitle.name }}
+                </option>
+                <option *ngIf="!jobTitlesIncludeOtro" value="Otro">Otro</option>
+              </select>
+              <small *ngIf="isInvalid('requester', 'jobTitle')">Selecciona el cargo.</small>
+            </label>
+            <label>
+              <span>Correo corporativo</span>
+              <input type="email" autocomplete="email" formControlName="email" />
+              <small *ngIf="isInvalid('requester', 'email')">Ingresa un correo valido.</small>
+            </label>
+            <label>
+              <span>Teléfono / WhatsApp</span>
+              <input type="tel" autocomplete="tel" formControlName="phone" />
+              <small *ngIf="isInvalid('requester', 'phone')">Ingresa un telefono.</small>
+            </label>
+            <label class="prototype-modal-wide">
+              <span>Nombre de usuario</span>
+              <input type="text" autocomplete="username" formControlName="username" />
+              <small *ngIf="isInvalid('requester', 'username')">
+                Ingresa un nombre de usuario de al menos 3 caracteres.
+              </small>
+            </label>
           </div>
 
           <div
-            class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200">
-
-            <div
-              class="wayra-demo-progress-bar h-full w-full rounded-full"
-              [style.transform]="'scaleX(' + (demoStepProgress / 100) + ')'">
-            </div>
-
+            *ngIf="demoStep === 'hotel'"
+            class="prototype-modal-grid"
+            formGroupName="hotel">
+            <label>
+              <span>Nombre del hotel</span>
+              <input id="demo-hotel-name" type="text" formControlName="hotelName" />
+              <small *ngIf="isInvalid('hotel', 'hotelName')">Ingresa el nombre del alojamiento.</small>
+            </label>
+            <label>
+              <span>Tipo de alojamiento</span>
+              <select formControlName="hotelType">
+                <option value="" disabled>Selecciona un tipo</option>
+                <option *ngFor="let type of hotelTypes; trackBy: trackByIndex" [value]="type">{{ type }}</option>
+              </select>
+              <small *ngIf="isInvalid('hotel', 'hotelType')">Selecciona el tipo de alojamiento.</small>
+            </label>
+            <label>
+              <span>Habitaciones</span>
+              <input type="number" formControlName="rooms" />
+              <small *ngIf="isInvalid('hotel', 'rooms')">Ingresa un número válido de habitaciones.</small>
+            </label>
+            <label>
+              <span>Sitio web (opcional)</span>
+              <input type="url" formControlName="website" />
+            </label>
           </div>
 
-        </div>
+          <div
+            *ngIf="demoStep === 'hotel'"
+            class="prototype-modal-grid prototype-location-grid"
+            formGroupName="location">
+            <label>
+              <span>Pais</span>
+              <select id="demo-country" formControlName="country" (change)="onDemoCountryChange()">
+                <option value="" disabled>Selecciona un pais</option>
+                <option *ngFor="let country of locationCountries; trackBy: trackByIndex" [value]="country.name">
+                  {{ country.name }}
+                </option>
+              </select>
+              <small *ngIf="isInvalid('location', 'country')">Selecciona el país.</small>
+            </label>
+            <label>
+              <span>Departamento</span>
+              <select formControlName="state" (change)="onDemoStateChange()">
+                <option value="" disabled>Selecciona un departamento</option>
+                <option *ngFor="let department of locationDepartments; trackBy: trackByIndex" [value]="department.name">
+                  {{ department.name }}
+                </option>
+              </select>
+              <small *ngIf="isInvalid('location', 'state')">Selecciona el departamento.</small>
+            </label>
+            <label>
+              <span>Ciudad</span>
+              <select formControlName="city">
+                <option value="" disabled>Selecciona una ciudad</option>
+                <option *ngFor="let city of locationCities; trackBy: trackByIndex" [value]="city">{{ city }}</option>
+              </select>
+              <small *ngIf="isInvalid('location', 'city')">Selecciona la ciudad.</small>
+            </label>
+            <label>
+              <span>Direccion</span>
+              <input type="text" formControlName="address" />
+              <small *ngIf="isInvalid('location', 'address')">Ingresa la dirección del alojamiento.</small>
+            </label>
+          </div>
 
+          <div
+            *ngIf="demoStep === 'operation'"
+            class="prototype-modal-grid"
+            formGroupName="operation">
+            <label>
+              <span>Check-in</span>
+              <input id="demo-check-in-time" type="time" formControlName="checkInTime" />
+              <small *ngIf="isInvalid('operation', 'checkInTime')">Selecciona el horario de check-in.</small>
+            </label>
+            <label>
+              <span>Check-out</span>
+              <input type="time" formControlName="checkOutTime" />
+              <small *ngIf="isInvalid('operation', 'checkOutTime')">Selecciona el horario de check-out.</small>
+            </label>
+            <label class="prototype-modal-wide">
+              <span>Comentarios (opcional)</span>
+              <textarea rows="3" [formControl]="demoForm.controls.requester.controls.message"></textarea>
+            </label>
+            <p *ngIf="hasSameDemoOperationTimes()" class="prototype-modal-error prototype-modal-wide">
+              El check-in y el check-out deben tener horarios distintos.
+            </p>
+          </div>
 
-
-        <!-- STEPPER DESKTOP -->
-
-        <div
-          class="hidden grid-cols-4 gap-2 border-b border-slate-200 bg-slate-50 px-6 py-4 sm:grid">
-
-
-          <button
-            type="button"
-            class="wayra-demo-step"
-            [class.wayra-demo-step-active]="
-              demoStep === 'requester'
-            "
-            (click)="goToRequesterStep()">
-
-            <span>1</span>
-            Contacto
-
-          </button>
-
-
-          <button
-            type="button"
-            class="wayra-demo-step"
-            [class.wayra-demo-step-active]="
-              demoStep === 'hotel'
-            "
-            [disabled]="
-              !canOpenDemoStep('hotel')
-            "
-            (click)="goToHotelStep()">
-
-            <span>2</span>
-            Hotel
-
-          </button>
-
-
-          <button
-            type="button"
-            class="wayra-demo-step"
-            [class.wayra-demo-step-active]="
-              demoStep === 'location'
-            "
-            [disabled]="
-              !canOpenDemoStep('location')
-            "
-            (click)="goToLocationStep()">
-
-            <span>3</span>
-            Ubicación
-
-          </button>
-
-
-          <button
-            type="button"
-            class="wayra-demo-step"
-            [class.wayra-demo-step-active]="
-              demoStep === 'operation'
-            "
-            [disabled]="
-              !canOpenDemoStep('operation')
-            "
-            (click)="goToOperationStep()">
-
-            <span>4</span>
-            Turno
-
-          </button>
-
-        </div>
-
-
-
-        <!-- ==================================================
-             FORM
-        =================================================== -->
-
-        <form
-          [formGroup]="demoForm"
-          (ngSubmit)="submitDemoRequest()">
-
-
-
-          <!-- ================================================
-               PASO 2 HOTEL
-          ================================================= -->
-
-          <ng-container
-            *ngIf="demoStep === 'hotel'">
-
-            <div
-              formGroupName="hotel"
-              class="px-5 py-6 sm:px-6">
-
-              <p
-                class="wayra-demo-step-note">
-
-                Con estos datos preparamos una muestra de ocupación,
-                habitaciones y saldos parecida al tamaño de tu hotel.
-
+          <section *ngIf="demoStep === 'agenda'" class="prototype-demo-review">
+            <div>
+              <span>Contacto</span>
+              <strong>{{ demoForm.controls.requester.controls.contactName.value || 'Sin nombre' }}</strong>
+              <p>
+                {{ demoForm.controls.requester.controls.email.value || 'Correo pendiente' }} ·
+                {{ demoForm.controls.requester.controls.username.value || 'Usuario pendiente' }}
               </p>
-
-              <div
-                class="grid gap-4 md:grid-cols-2">
-
-
-                <label
-                  class="wayra-demo-field md:col-span-2"
-                  for="demo-hotel-name">
-
-                  <span>
-                    Nombre del hotel
-                  </span>
-
-                  <input
-                    id="demo-hotel-name"
-                    type="text"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'hotel',
-                        'hotelName'
-                      )
-                    "
-                    formControlName="hotelName"
-                    autocomplete="organization"
-                    [attr.aria-invalid]="
-                      isInvalid('hotel', 'hotelName')
-                    "
-                    [attr.aria-describedby]="
-                      isInvalid('hotel', 'hotelName')
-                        ? 'demo-hotel-name-error'
-                        : null
-                    " />
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'hotel',
-                        'hotelName'
-                      )
-                    "
-                    id="demo-hotel-name-error"
-                    role="alert"
-                    class="field-error">
-
-                    Ingresa el nombre del hotel.
-
-                  </small>
-
-                </label>
-
-
-
-                <label
-                  class="wayra-demo-field"
-                  for="demo-hotel-type">
-
-                  <span>
-                    Tipo de alojamiento
-                  </span>
-
-                  <select
-                    id="demo-hotel-type"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'hotel',
-                        'hotelType'
-                      )
-                    "
-                    formControlName="hotelType"
-                    [attr.aria-invalid]="
-                      isInvalid('hotel', 'hotelType')
-                    "
-                    [attr.aria-describedby]="
-                      isInvalid('hotel', 'hotelType')
-                        ? 'demo-hotel-type-error'
-                        : null
-                    ">
-
-                    <option
-                      value=""
-                      disabled>
-                      Selecciona un tipo
-                    </option>
-
-                    <option
-                      *ngFor="
-                        let type of hotelTypes;
-                        trackBy: trackByIndex
-                      "
-                      [value]="type">
-
-                      {{ type }}
-
-                    </option>
-
-                  </select>
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'hotel',
-                        'hotelType'
-                      )
-                    "
-                    id="demo-hotel-type-error"
-                    role="alert"
-                    class="field-error">
-
-                    Selecciona el tipo de alojamiento.
-
-                  </small>
-
-                </label>
-
-
-
-                <label
-                  class="wayra-demo-field"
-                  for="demo-rooms">
-
-                  <span>
-                    Número de habitaciones
-                  </span>
-
-                  <input
-                    id="demo-rooms"
-                    type="number"
-                    min="1"
-                    max="2000"
-                    inputmode="numeric"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'hotel',
-                        'rooms'
-                      )
-                    "
-                    formControlName="rooms"
-                    [attr.aria-invalid]="
-                      isInvalid('hotel', 'rooms')
-                    "
-                    [attr.aria-describedby]="
-                      isInvalid('hotel', 'rooms')
-                        ? 'demo-rooms-error'
-                        : null
-                    " />
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'hotel',
-                        'rooms'
-                      )
-                    "
-                    id="demo-rooms-error"
-                    role="alert"
-                    class="field-error">
-
-                    Ingresa una cantidad entre 1 y 2000.
-
-                  </small>
-
-                </label>
-
-
-
-                <label
-                  class="wayra-demo-field md:col-span-2"
-                  for="demo-website">
-
-                  <span>
-                    Sitio web o red social (opcional)
-                  </span>
-
-                  <input
-                    id="demo-website"
-                    type="text"
-                    class="wayra-demo-input"
-                    formControlName="website"
-                    autocomplete="url"
-                    placeholder="https://" />
-
-                </label>
-
-              </div>
-
-
-              <div
-                class="mt-6 flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
-
-                <button
-                  type="button"
-                  class="wayra-form-button-secondary"
-                  (click)="goToRequesterStep()">
-
-                  <i
-                    aria-hidden="true"
-                    class="pi pi-arrow-left text-xs">
-                  </i>
-
-                  Atrás
-
-                </button>
-
-                <button
-                  type="button"
-                  class="wayra-form-button-primary"
-                  (click)="goToLocationStep()">
-
-                  Continuar
-
-                  <i
-                    aria-hidden="true"
-                    class="pi pi-arrow-right text-xs">
-                  </i>
-
-                </button>
-
-              </div>
-
             </div>
-
-          </ng-container>
-
-
-
-          <!-- ================================================
-               PASO 3 UBICACIÓN
-          ================================================= -->
-
-          <ng-container
-            *ngIf="demoStep === 'location'">
-
-            <div
-              formGroupName="location"
-              class="px-5 py-6 sm:px-6">
-
-              <p
-                class="wayra-demo-step-note">
-
-                La ubicación nos ayuda a dejar listos datos base del hotel y
-                una demo que no parezca genérica.
-
+            <div>
+              <span>Alojamiento</span>
+              <strong>{{ demoForm.controls.hotel.controls.hotelName.value || 'Hotel pendiente' }}</strong>
+              <p>
+                {{ demoForm.controls.hotel.controls.rooms.value || 0 }} habitaciones ·
+                {{ demoForm.controls.location.controls.city.value || 'Ciudad pendiente' }}
               </p>
-
-              <div
-                class="grid gap-4 md:grid-cols-2">
-
-
-                <label
-                  class="wayra-demo-field"
-                  for="demo-country">
-
-                  <span>
-                    País
-                  </span>
-
-                  <select
-                    id="demo-country"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'location',
-                        'country'
-                      )
-                    "
-                    formControlName="country"
-                    (change)="onDemoCountryChange()"
-                    [attr.aria-invalid]="
-                      isInvalid('location', 'country')
-                    "
-                    [attr.aria-describedby]="
-                      locationLoadError
-                        ? 'demo-country-load-error'
-                        : isInvalid('location', 'country')
-                          ? 'demo-country-error'
-                          : null
-                    ">
-
-                    <option
-                      value=""
-                      disabled>
-
-                      {{
-                        locationCountriesLoading
-                          ? 'Cargando países...'
-                          : 'Selecciona un país'
-                      }}
-
-                    </option>
-
-                    <option
-                      *ngFor="
-                        let country of locationCountries;
-                        trackBy: trackByIndex
-                      "
-                      [value]="country.name">
-
-                      {{ country.name }}
-
-                    </option>
-
-                  </select>
-
-                  <small
-                    *ngIf="locationLoadError"
-                    id="demo-country-load-error"
-                    role="alert"
-                    class="field-error">
-
-                    {{ locationLoadError }}
-
-                    <button
-                      type="button"
-                      class="wayra-inline-retry"
-                      (click)="loadDemoCountries()">
-
-                      Reintentar
-
-                    </button>
-
-                  </small>
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'location',
-                        'country'
-                      )
-                    "
-                    id="demo-country-error"
-                    role="alert"
-                    class="field-error">
-
-                    Selecciona el país.
-
-                  </small>
-
-                </label>
-
-
-
-                <label
-                  class="wayra-demo-field"
-                  for="demo-state">
-
-                  <span>
-                    Departamento
-                  </span>
-
-                  <select
-                    id="demo-state"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'location',
-                        'state'
-                      )
-                    "
-                    formControlName="state"
-                    [disabled]="
-                      !locationDepartments.length
-                    "
-                    (change)="onDemoStateChange()"
-                    [attr.aria-invalid]="
-                      isInvalid('location', 'state')
-                    "
-                    [attr.aria-describedby]="
-                      isInvalid('location', 'state')
-                        ? 'demo-state-error'
-                        : null
-                    ">
-
-                    <option
-                      value=""
-                      disabled>
-
-                      Selecciona un departamento
-
-                    </option>
-
-                    <option
-                      *ngFor="
-                        let department of locationDepartments;
-                        trackBy: trackByIndex
-                      "
-                      [value]="department.name">
-
-                      {{ department.name }}
-
-                    </option>
-
-                  </select>
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'location',
-                        'state'
-                      )
-                    "
-                    id="demo-state-error"
-                    role="alert"
-                    class="field-error">
-
-                    Selecciona el departamento.
-
-                  </small>
-
-                </label>
-
-
-
-                <label
-                  class="wayra-demo-field"
-                  for="demo-city">
-
-                  <span>
-                    Ciudad
-                  </span>
-
-                  <select
-                    id="demo-city"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'location',
-                        'city'
-                      )
-                    "
-                    formControlName="city"
-                    [disabled]="
-                      !locationCities.length
-                    "
-                    [attr.aria-invalid]="
-                      isInvalid('location', 'city')
-                    "
-                    [attr.aria-describedby]="
-                      isInvalid('location', 'city')
-                        ? 'demo-city-error'
-                        : null
-                    ">
-
-                    <option
-                      value=""
-                      disabled>
-
-                      Selecciona una ciudad
-
-                    </option>
-
-                    <option
-                      *ngFor="
-                        let city of locationCities;
-                        trackBy: trackByIndex
-                      "
-                      [value]="city">
-
-                      {{ city }}
-
-                    </option>
-
-                  </select>
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'location',
-                        'city'
-                      )
-                    "
-                    id="demo-city-error"
-                    role="alert"
-                    class="field-error">
-
-                    Selecciona la ciudad.
-
-                  </small>
-
-                </label>
-
-
-
-                <label
-                  class="wayra-demo-field"
-                  for="demo-address">
-
-                  <span>
-                    Dirección del hotel
-                  </span>
-
-                  <input
-                    id="demo-address"
-                    type="text"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'location',
-                        'address'
-                      )
-                    "
-                    formControlName="address"
-                    autocomplete="street-address"
-                    [attr.aria-invalid]="
-                      isInvalid('location', 'address')
-                    "
-                    [attr.aria-describedby]="
-                      isInvalid('location', 'address')
-                        ? 'demo-address-error'
-                        : null
-                    " />
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'location',
-                        'address'
-                      )
-                    "
-                    id="demo-address-error"
-                    role="alert"
-                    class="field-error">
-
-                    Ingresa la dirección.
-
-                  </small>
-
-                </label>
-
-              </div>
-
-
-              <div
-                class="mt-6 flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
-
-                <button
-                  type="button"
-                  class="wayra-form-button-secondary"
-                  (click)="goToHotelStep()">
-
-                  <i
-                    aria-hidden="true"
-                    class="pi pi-arrow-left text-xs">
-                  </i>
-
-                  Atrás
-
-                </button>
-
-                <button
-                  type="button"
-                  class="wayra-form-button-primary"
-                  (click)="goToOperationStep()">
-
-                  Continuar
-
-                  <i
-                    aria-hidden="true"
-                    class="pi pi-arrow-right text-xs">
-                  </i>
-
-                </button>
-
-              </div>
-
             </div>
-
-          </ng-container>
-
-
-
-          <!-- ================================================
-               PASO 4 TURNO
-          ================================================= -->
-
-          <ng-container
-            *ngIf="demoStep === 'operation'">
-
-            <div
-              formGroupName="operation"
-              class="px-5 py-6 sm:px-6">
-
-              <p
-                class="wayra-demo-step-note">
-
-                Con estos horarios simulamos check-in, check-out, limpieza y
-                saldos en una jornada normal del hotel.
-
-              </p>
-
-              <div
-                class="grid gap-4 md:grid-cols-2">
-
-
-                <label
-                  class="wayra-demo-field"
-                  for="demo-check-in-time">
-
-                  <span>
-                    Horario de check-in
-                  </span>
-
-                  <input
-                    id="demo-check-in-time"
-                    type="time"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'operation',
-                        'checkInTime'
-                      ) ||
-                      hasSameDemoOperationTimes()
-                    "
-                    formControlName="checkInTime"
-                    [attr.aria-invalid]="
-                      isInvalid('operation', 'checkInTime')
-                    "
-                    [attr.aria-describedby]="
-                      isInvalid('operation', 'checkInTime')
-                        ? 'demo-check-in-time-error'
-                        : null
-                    " />
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'operation',
-                        'checkInTime'
-                      )
-                    "
-                    id="demo-check-in-time-error"
-                    role="alert"
-                    class="field-error">
-
-                    Selecciona el horario de check-in.
-
-                  </small>
-
-                </label>
-
-
-
-                <label
-                  class="wayra-demo-field"
-                  for="demo-check-out-time">
-
-                  <span>
-                    Horario de check-out
-                  </span>
-
-                  <input
-                    id="demo-check-out-time"
-                    type="time"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'operation',
-                        'checkOutTime'
-                      ) ||
-                      hasSameDemoOperationTimes()
-                    "
-                    formControlName="checkOutTime"
-                    [attr.aria-invalid]="
-                      isInvalid('operation', 'checkOutTime')
-                    "
-                    [attr.aria-describedby]="
-                      isInvalid('operation', 'checkOutTime')
-                        ? 'demo-check-out-time-error'
-                        : null
-                    " />
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'operation',
-                        'checkOutTime'
-                      )
-                    "
-                    id="demo-check-out-time-error"
-                    role="alert"
-                    class="field-error">
-
-                    Selecciona el horario de check-out.
-
-                  </small>
-
-                </label>
-
-              </div>
-
-
-              <p
-                *ngIf="
-                  hasSameDemoOperationTimes()
-                "
-                role="alert"
-                class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-
-                Check-in y check-out no pueden tener la misma hora.
-
-              </p>
-
-              <div
-                class="mt-6 grid gap-4 border-t border-slate-200 pt-5 md:grid-cols-2">
-
-                <label
-                  class="wayra-demo-field"
-                  for="demo-username">
-
-                  <span>
-                    Usuario para acceso de prueba (opcional)
-                  </span>
-
-                  <input
-                    id="demo-username"
-                    type="text"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'requester',
-                        'username'
-                      )
-                    "
-                    [formControl]="
-                      demoForm.controls.requester.controls.username
-                    "
-                    autocomplete="username"
-                    placeholder="Lo usamos si activamos tu acceso de prueba"
-                    [attr.aria-invalid]="
-                      isInvalid('requester', 'username')
-                    "
-                    [attr.aria-describedby]="
-                      isInvalid('requester', 'username')
-                        ? 'demo-username-error'
-                        : null
-                    " />
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'requester',
-                        'username'
-                      )
-                    "
-                    id="demo-username-error"
-                    role="alert"
-                    class="field-error">
-
-                    Usa al menos tres caracteres.
-
-                  </small>
-
-                </label>
-
-
-
-                <label
-                  class="wayra-demo-field md:col-span-2"
-                  for="demo-message">
-
-                  <span>
-                    Comentarios para la demo (opcional)
-                  </span>
-
-                  <textarea
-                    id="demo-message"
-                    rows="3"
-                    class="wayra-demo-input wayra-demo-textarea"
-                    [formControl]="
-                      demoForm.controls.requester.controls.message
-                    "
-                    placeholder="Proceso o módulo que quieres revisar durante la demo.">
-                  </textarea>
-
-                </label>
-
-              </div>
-
-              <p
-                *ngIf="demoSubmitError"
-                role="alert"
-                class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-
-                {{ demoSubmitError }}
-
-              </p>
-
-
-              <div
-                class="mt-6 flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
-
-                <button
-                  type="button"
-                  class="wayra-form-button-secondary"
-                  (click)="goToLocationStep()">
-
-                  <i
-                    aria-hidden="true"
-                    class="pi pi-arrow-left text-xs">
-                  </i>
-
-                  Atrás
-
-                </button>
-
-                <button
-                  type="submit"
-                  class="wayra-form-button-primary"
-                  [disabled]="demoSubmitting">
-
-                  {{
-                    demoSubmitting
-                      ? 'Guardando...'
-                      : 'Enviar solicitud'
-                  }}
-
-                  <i
-                    aria-hidden="true"
-                    class="text-xs"
-                    [ngClass]="
-                      demoSubmitting
-                        ? 'pi pi-spin pi-spinner'
-                        : 'pi pi-send'
-                    ">
-                  </i>
-
-                </button>
-
-              </div>
-
+            <div>
+              <span>Operación</span>
+              <strong>
+                {{ demoForm.controls.operation.controls.checkInTime.value }} -
+                {{ demoForm.controls.operation.controls.checkOutTime.value }}
+              </strong>
+              <p>Revisaremos estos datos para coordinar la llamada de demo.</p>
             </div>
-
-          </ng-container>
-
-
-
-          <!-- ================================================
-               PASO 1 CONTACTO
-          ================================================= -->
-
-          <ng-container
-            *ngIf="demoStep === 'requester'">
-
-            <div
-              formGroupName="requester"
-              class="px-5 py-6 sm:px-6">
-
-              <p
-                class="wayra-demo-step-note">
-
-                Empezamos por coordinar contigo. Estos datos no crean una
-                cuenta activa, no inician cobros y no se publican.
-
-              </p>
-
-              <div
-                class="grid gap-4 md:grid-cols-2">
-
-
-                <label
-                  class="wayra-demo-field"
-                  for="demo-contact-name">
-
-                  <span>
-                    Nombre de contacto
-                  </span>
-
-                  <input
-                    id="demo-contact-name"
-                    type="text"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'requester',
-                        'contactName'
-                      )
-                    "
-                    formControlName="contactName"
-                    autocomplete="name"
-                    [attr.aria-invalid]="
-                      isInvalid('requester', 'contactName')
-                    "
-                    [attr.aria-describedby]="
-                      isInvalid('requester', 'contactName')
-                        ? 'demo-contact-name-error'
-                        : null
-                    " />
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'requester',
-                        'contactName'
-                      )
-                    "
-                    id="demo-contact-name-error"
-                    role="alert"
-                    class="field-error">
-
-                    Ingresa el nombre de contacto.
-
-                  </small>
-
-                </label>
-
-
-
-                <label
-                  class="wayra-demo-field"
-                  for="demo-job-title">
-
-                  <span>
-                    Cargo
-                  </span>
-
-                  <select
-                    id="demo-job-title"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'requester',
-                        'jobTitle'
-                      )
-                    "
-                    formControlName="jobTitle"
-                    [attr.aria-invalid]="
-                      isInvalid('requester', 'jobTitle')
-                    "
-                    [attr.aria-describedby]="
-                      jobTitlesLoadError && !jobTitlesLoading
-                        ? 'demo-job-title-load-error'
-                        : isInvalid('requester', 'jobTitle')
-                          ? 'demo-job-title-error'
-                          : null
-                    ">
-
-                    <option
-                      value=""
-                      disabled>
-
-                      {{
-                        jobTitlesLoading
-                          ? 'Cargando cargos...'
-                          : 'Selecciona un cargo'
-                      }}
-
-                    </option>
-
-                    <option
-                      *ngFor="
-                        let jobTitle of jobTitles;
-                        trackBy: trackByIndex
-                      "
-                      [value]="jobTitle.name">
-
-                      {{ jobTitle.name }}
-
-                    </option>
-
-                    <option
-                      *ngIf="!jobTitlesIncludeOtro"
-                      value="Otro">
-
-                      Otro
-
-                    </option>
-
-                  </select>
-
-                  <small
-                    *ngIf="
-                      jobTitlesLoadError &&
-                      !jobTitlesLoading
-                    "
-                    id="demo-job-title-load-error"
-                    role="alert"
-                    class="field-error">
-
-                    {{ jobTitlesLoadError }}
-                    Selecciona "Otro" para continuar mientras lo resolvemos.
-
-                    <button
-                      type="button"
-                      class="wayra-inline-retry"
-                      (click)="loadDemoJobTitles()">
-
-                      Reintentar
-
-                    </button>
-
-                  </small>
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'requester',
-                        'jobTitle'
-                      )
-                    "
-                    id="demo-job-title-error"
-                    role="alert"
-                    class="field-error">
-
-                    Selecciona el cargo.
-
-                  </small>
-
-                </label>
-
-
-
-                <label
-                  class="wayra-demo-field"
-                  for="demo-email">
-
-                  <span>
-                    Correo de contacto
-                  </span>
-
-                  <input
-                    id="demo-email"
-                    type="email"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'requester',
-                        'email'
-                      )
-                    "
-                    formControlName="email"
-                    autocomplete="email"
-                    [attr.aria-invalid]="
-                      isInvalid('requester', 'email')
-                    "
-                    [attr.aria-describedby]="
-                      isInvalid('requester', 'email')
-                        ? 'demo-email-error'
-                        : null
-                    " />
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'requester',
-                        'email'
-                      )
-                    "
-                    id="demo-email-error"
-                    role="alert"
-                    class="field-error">
-
-                    Ingresa un correo válido.
-
-                  </small>
-
-                </label>
-
-
-
-                <label
-                  class="wayra-demo-field"
-                  for="demo-phone">
-
-                  <span>
-                    Teléfono de contacto
-                  </span>
-
-                  <input
-                    id="demo-phone"
-                    type="tel"
-                    class="wayra-demo-input"
-                    [class.input-error]="
-                      isInvalid(
-                        'requester',
-                        'phone'
-                      )
-                    "
-                    formControlName="phone"
-                    autocomplete="tel"
-                    [attr.aria-invalid]="
-                      isInvalid('requester', 'phone')
-                    "
-                    [attr.aria-describedby]="
-                      isInvalid('requester', 'phone')
-                        ? 'demo-phone-error'
-                        : null
-                    " />
-
-                  <small
-                    *ngIf="
-                      isInvalid(
-                        'requester',
-                        'phone'
-                      )
-                    "
-                    id="demo-phone-error"
-                    role="alert"
-                    class="field-error">
-
-                    Ingresa un teléfono de contacto.
-
-                  </small>
-
-                </label>
-
-
-
-              </div>
-
-
-
-              <div
-                class="mt-6 flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
-
-                <button
-                  type="button"
-                  class="wayra-form-button-secondary"
-                  (click)="closeDemoModal()">
-
-                  Cancelar
-
-                </button>
-
-
-                <button
-                  type="button"
-                  class="wayra-form-button-primary"
-                  (click)="goToHotelStep()">
-
-                  Continuar
-
-                  <i
-                    aria-hidden="true"
-                    class="pi pi-arrow-right text-xs">
-                  </i>
-
-                </button>
-
-              </div>
-
+          </section>
+
+          <p *ngIf="demoSubmitError" class="prototype-modal-error">{{ demoSubmitError }}</p>
+          <p *ngIf="locationLoadError" class="prototype-modal-error">{{ locationLoadError }}</p>
+
+          <footer>
+            <p>Paso {{ demoStepNumber }} de {{ demoStepItems.length }} · toma menos de dos minutos</p>
+            <div>
+              <button
+                *ngIf="currentDemoStepIndex > 0"
+                type="button"
+                class="prototype-form-secondary"
+                (click)="goToPreviousDemoStep()">
+                Atrás
+              </button>
+              <button
+                type="submit"
+                id="demo-submit-request"
+                class="prototype-primary"
+                [disabled]="demoSubmitting">
+                {{
+                  demoSubmitting
+                    ? 'Guardando...'
+                    : demoStep === 'agenda'
+                      ? 'Enviar solicitud'
+                      : 'Continuar'
+                }}
+              </button>
             </div>
-
-          </ng-container>
-
+          </footer>
         </form>
-
       </ng-container>
 
-
-
-      <!-- ==================================================
-           CONFIRMACIÓN
-      =================================================== -->
-
-      <ng-template
-        #demoConfirmation>
-
-        <div
-          class="px-5 py-10 text-center sm:px-6">
-
-          <div
-            class="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-
-            <i
-              aria-hidden="true"
-              class="pi pi-check text-xl">
-            </i>
-
-          </div>
-
-          <h3
-            class="wayra-heading mt-5 text-2xl font-extrabold text-slate-900">
-
-            Solicitud registrada
-
-          </h3>
-
-          <p
-            class="mx-auto mt-3 max-w-xl text-sm leading-7 text-slate-600">
-
-            Recibimos la solicitud de demo de
-            {{ demoRequestSummary }}.
-            El equipo de Wayra va a revisar tus datos
-            y se pondrá en contacto contigo para coordinar el acceso.
-
+      <ng-template #demoConfirmation>
+        <div class="prototype-confirmation">
+          <i class="pi pi-check" aria-hidden="true"></i>
+          <h3>Solicitud registrada</h3>
+          <p>
+            Recibimos la solicitud de demo de {{ demoRequestSummary }}. El equipo de Wayra
+            se pondra en contacto contigo para coordinar el acceso.
           </p>
-
-          <button
-            type="button"
-            class="wayra-btn-primary mt-7"
-            (click)="closeDemoModal()">
-
-            Cerrar
-
-          </button>
-
+          <button type="button" class="prototype-primary" (click)="closeDemoModal()">Cerrar</button>
         </div>
-
       </ng-template>
-
     </section>
-
   </div>
-
 </div>

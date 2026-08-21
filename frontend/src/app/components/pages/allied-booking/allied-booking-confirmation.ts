@@ -1,77 +1,45 @@
 import { CommonModule } from '@angular/common';
-import {
-  AfterViewInit,
-  Component,
-  ElementRef,
-  inject,
-  ViewChild,
-} from '@angular/core';
-import {
-  ActivatedRoute,
-  RouterLink,
-} from '@angular/router';
+import { AfterViewInit, Component, ElementRef, inject, ViewChild } from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
-import { PublicHeaderComponent } from '../../shared/public-header/public-header';
 import { PublicFooterComponent } from '../../shared/public-footer/public-footer';
+import { PublicHeaderComponent } from '../../shared/public-header/public-header';
 
 @Component({
   selector: 'app-allied-booking-confirmation',
   standalone: true,
-  imports: [
-    CommonModule,
-    RouterLink,
-    PublicHeaderComponent,
-    PublicFooterComponent,
-  ],
+  imports: [CommonModule, RouterLink, PublicHeaderComponent, PublicFooterComponent],
   templateUrl: './allied-booking-confirmation.html',
-  styleUrl: './allied-booking.css',
+  styleUrls: ['./allied-booking.css', './allied-booking-flow.css'],
 })
 export class AlliedBookingConfirmationPage implements AfterViewInit {
-
   private readonly route = inject(ActivatedRoute);
 
   @ViewChild('confirmationRegion')
   private readonly confirmationRegion?: ElementRef<HTMLElement>;
 
-  readonly reservationId =
-    this.route.snapshot.paramMap.get('reservationId') ?? '';
+  readonly reservationId = this.route.snapshot.paramMap.get('reservationId') ?? '';
 
   readonly reservationReference =
     this.route.snapshot.queryParamMap.get('code') ||
     (this.reservationId ? `#${this.reservationId}` : '');
 
-  readonly hotelName =
-    this.route.snapshot.queryParamMap.get('hotel') ?? '';
+  readonly hotelName = this.route.snapshot.queryParamMap.get('hotel') ?? '';
 
-  readonly checkIn =
-    this.route.snapshot.queryParamMap.get('checkIn') ?? '';
+  readonly checkIn = this.route.snapshot.queryParamMap.get('checkIn') ?? '';
 
-  readonly checkOut =
-    this.route.snapshot.queryParamMap.get('checkOut') ?? '';
+  readonly checkOut = this.route.snapshot.queryParamMap.get('checkOut') ?? '';
 
   get hasStayDates(): boolean {
-
-    return Boolean(
-      this.checkIn &&
-      this.checkOut
-    );
+    return Boolean(this.checkIn && this.checkOut);
   }
 
   get hasConfirmationDetails(): boolean {
-
-    return Boolean(
-      this.hotelName ||
-      this.reservationReference ||
-      this.hasStayDates
-    );
+    return Boolean(this.hotelName || this.reservationReference || this.hasStayDates);
   }
 
   get clipboardSupported(): boolean {
-
-    return Boolean(
-      typeof navigator !== 'undefined' &&
-      navigator.clipboard
-    );
+    return Boolean(typeof navigator !== 'undefined' && navigator.clipboard);
   }
 
   copyFeedback = '';
@@ -79,23 +47,16 @@ export class AlliedBookingConfirmationPage implements AfterViewInit {
   private copyFeedbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   ngAfterViewInit(): void {
-    this.confirmationRegion?.nativeElement.focus();
+    this.confirmationRegion?.nativeElement.focus({ preventScroll: true });
   }
 
   async copyReservationReference(): Promise<void> {
-
-    if (
-      !this.reservationReference ||
-      !this.clipboardSupported
-    ) {
+    if (!this.reservationReference || !this.clipboardSupported) {
       return;
     }
 
     try {
-
-      await navigator.clipboard.writeText(
-        this.reservationReference
-      );
+      await navigator.clipboard.writeText(this.reservationReference);
     } catch {
       // Clipboard write can fail (permission denied, insecure context,
       // etc.). The reference stays visible as plain text either way, so

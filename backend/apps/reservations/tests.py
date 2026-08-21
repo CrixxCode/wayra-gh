@@ -224,6 +224,49 @@ class ReservationFlowTestCase(TestCase):
         with self.assertRaises(ValueError):
             validate_reservation_status_transition("CANCELADA", "CONFIRMADA")
 
+    def test_reservation_code_uses_hotel_prefix_year_and_random_segment(self):
+        today = timezone.now().date()
+
+        with patch.object(Reservation, "build_random_segment", return_value="K7F9Q2"):
+            reservation = self._create_reservation(
+                check_in=today + timedelta(days=1),
+                check_out=today + timedelta(days=2),
+                status=self.reservation_status_pending,
+            )
+
+        expected_year = str(timezone.localtime(timezone.now()).year)[-2:]
+        self.assertEqual(
+            reservation.code,
+            f"{self.hotel_settings.reservation_code_prefix}-{expected_year}-K7F9Q2",
+        )
+
+    def test_reservation_code_retries_when_random_segment_collides(self):
+        today = timezone.now().date()
+        expected_year = str(timezone.localtime(timezone.now()).year)[-2:]
+        existing_code = f"{self.hotel_settings.reservation_code_prefix}-{expected_year}-AAAAAA"
+
+        Reservation.objects.create(
+            hotel_settings=self.hotel_settings,
+            client=self.client,
+            status=self.reservation_status_pending,
+            origin=self.reservation_origin,
+            expected_check_in=today + timedelta(days=3),
+            expected_check_out=today + timedelta(days=4),
+            code=existing_code,
+        )
+
+        with patch.object(Reservation, "build_random_segment", side_effect=["AAAAAA", "BBBBBB"]):
+            reservation = self._create_reservation(
+                check_in=today + timedelta(days=5),
+                check_out=today + timedelta(days=6),
+                status=self.reservation_status_pending,
+            )
+
+        self.assertEqual(
+            reservation.code,
+            f"{self.hotel_settings.reservation_code_prefix}-{expected_year}-BBBBBB",
+        )
+
     def test_guest_document_number_is_unique_inside_reservation_case_insensitive(self):
         today = timezone.now().date()
         reservation = self._create_reservation(
@@ -1938,6 +1981,7 @@ class OnlineCheckInPublicApiTests(APITestCase):
             "arrivalTime": "14:00-16:00",
             "emergencyContactName": "Carlos Gomez",
             "emergencyContactPhone": "3007654321",
+            "signature": "Laura Gomez",
             "notes": "Llegada en vuelo nocturno.",
             "acceptsDataPolicy": True,
         }
@@ -2122,6 +2166,17 @@ class OnlineCheckInPublicApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 400)
 
+    def test_signature_must_match_reservation_holder(self):
+        response = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(signature="Mario Gomez"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("titular", str(response.data))
+        self.assertEqual(self.reservation.guests.count(), 0)
+
     def _lookup_payload(self, **overrides):
         payload = {
             "reservationCode": self.reservation.code,
@@ -2141,10 +2196,31 @@ class OnlineCheckInPublicApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["reservation_id"], self.reservation.id)
         self.assertEqual(response.data["hotel_name"], "Hotel Check-in Online")
+        self.assertEqual(response.data["status_label"], "Confirmada")
+        self.assertEqual(response.data["room_summary"], "Estandar - 101")
+        self.assertEqual(response.data["payment_status_code"], "PENDIENTE")
+        self.assertEqual(response.data["payment_status_label"], "Pendiente")
         self.assertEqual(response.data["total_guests"], 2)
         self.assertTrue(response.data["eligible"])
         self.assertIsNone(response.data["eligible_reason"])
         self.assertEqual(response.data["existing_guests"], [])
+        self.assertEqual(response.data["holder"]["first_name"], "Laura")
+        self.assertEqual(response.data["holder"]["last_name"], "Gomez")
+        self.assertEqual(response.data["holder"]["document_type"], "CC")
+        self.assertEqual(response.data["holder"]["document_number"], "1234567890")
+        self.assertEqual(response.data["holder"]["email"], "laura@example.com")
+
+    def test_lookup_accepts_new_reservation_code_without_hyphens(self):
+        compact_code = self.reservation.code.replace("-", "")
+
+        response = self.client.post(
+            "/api/online-check-in/lookup/",
+            data=self._lookup_payload(reservationCode=compact_code),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["reservation_id"], self.reservation.id)
 
     def test_lookup_rejects_document_mismatch(self):
         response = self.client.post(

@@ -4,14 +4,14 @@
 
 .online-checkin-page {
   min-height: 100vh;
-  background: var(--background);
-  color: var(--foreground);
+  background: #111827;
+  color: #07142d;
   font-family: 'Manrope', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 .online-container {
-  width: min(100% - 2rem, 1408px);
+  width: min(calc(100% - clamp(1.25rem, 4vw, 4.5rem)), 1408px);
   margin: 0 auto;
 }
 
@@ -19,786 +19,944 @@
 .online-secondary {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 46px;
+  padding: 0 1.1rem;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+
+.online-primary {
+  border: 1px solid #2f7ee6;
+  background: #2f7ee6;
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(47, 126, 230, 0.24);
+}
+
+.online-secondary {
+  border: 1px solid #d6dfeb;
+  background: #ffffff;
+  color: #07142d;
+}
+
+.online-primary:disabled,
+.online-secondary:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
 }
 
 .online-hero {
-  position: relative;
-  overflow: hidden;
-  padding: 4.5rem 0 3rem;
-  background: radial-gradient(circle at 82% 14%, rgba(44, 123, 229, 0.22), transparent 34%), var(--ink);
-  color: var(--ink-foreground);
-  text-align: center;
+  min-height: 560px;
+  box-sizing: border-box;
+  padding: 4.8rem 0 5.8rem;
+  background: #111827;
+  color: #ffffff;
 }
 
-.online-hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.16;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-  background-size: 56px 56px;
-}
-
-.online-hero > * {
-  position: relative;
-  z-index: 1;
-}
-
-.online-hero .online-container {
-  position: relative;
-}
-
-.online-view-back {
-  position: absolute;
-  top: -3.55rem;
-  left: 0;
-  width: fit-content;
-  min-height: 32px;
-  display: flex;
+.online-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(480px, 520px);
   align-items: center;
-  gap: 0.4rem;
-  margin: 0;
-  padding: 0 0.45rem;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--ink-muted);
-  font-size: 0.82rem;
-  font-weight: 800;
-  text-decoration: none;
-  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
-}
-
-.online-view-back:hover {
-  border-color: var(--ink-border);
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--ink-foreground);
+  gap: clamp(4rem, 7vw, 7rem);
 }
 
 .online-kicker {
   margin: 0;
-  color: var(--primary);
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0;
+  color: #2f86f6;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .online-hero h1 {
-  max-width: 850px;
-  margin: 0.75rem auto 0;
-  color: var(--ink-foreground);
+  max-width: 44rem;
+  margin: 1.2rem 0 0;
+  color: #ffffff;
   font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
-  font-size: 2.35rem;
-  line-height: 1.08;
-  font-weight: 800;
+  font-size: clamp(2.95rem, 5vw, 4rem);
+  line-height: 1.03;
+  font-weight: 900;
 }
 
 .online-lead {
-  max-width: 650px;
-  margin: 1rem auto 0;
-  color: var(--ink-muted);
-  font-size: 1rem;
-  line-height: 1.75;
+  max-width: 36rem;
+  margin: 1.3rem 0 2.4rem;
+  color: #9fb0d1;
+  font-size: 1.12rem;
+  line-height: 1.6;
 }
 
-.online-section {
-  padding: 2.25rem 0 5rem;
-  background: var(--surface);
-}
-
-.online-layout {
+.online-hero-steps {
   display: grid;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
-.online-main {
-  min-width: 0;
+.online-hero-steps div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.28rem 1rem;
 }
 
-.online-card,
-.online-side-panel,
-.online-confirmation {
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--card);
-  box-shadow: var(--shadow-card);
-}
-
-.online-card {
-  padding: clamp(1rem, 3vw, 1.5rem);
-}
-
-.online-card + .online-card,
-.online-confirmation {
-  margin-top: 1.5rem;
-}
-
-.online-card-header {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  margin-bottom: 1.25rem;
-}
-
-.online-step {
-  width: 38px;
-  height: 38px;
+.online-hero-steps span {
+  grid-row: span 2;
+  width: 32px;
+  height: 32px;
   display: inline-grid;
-  flex: 0 0 auto;
   place-items: center;
-  border-radius: 12px;
-  background: var(--accent);
-  color: var(--primary);
-  font-size: 0.92rem;
-  font-weight: 800;
+  border-radius: 10px;
+  background: rgba(44, 123, 229, 0.2);
+  color: #73aef8;
+  font-weight: 900;
 }
 
-.online-card-header p,
-.online-side-panel p {
+.online-hero-steps strong {
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.online-hero-steps p {
   margin: 0;
-  color: var(--primary);
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0;
+  color: #90a4c8;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.online-hero-card {
+  width: min(100%, 520px);
+  margin-top: -0.55rem;
+  padding: 2.35rem 2.25rem 2.2rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.32);
+}
+
+.online-hero-card h2 {
+  margin: 0;
+  color: #1d2738;
+  font-size: 1.45rem;
+  line-height: 1.2;
+  font-weight: 900;
+}
+
+.online-hero-card > p {
+  margin: 0.65rem 0 1.45rem;
+  color: #8a96aa;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  font-weight: 650;
+}
+
+.online-hero-field,
+.flow-field {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.online-hero-field {
+  margin-top: 1.05rem;
+}
+
+.online-hero-field span,
+.reservation-strip span,
+.flow-field > span,
+.upload-box > span {
+  color: #6d7f9d;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-.online-card-header h2 {
-  margin: 0.18rem 0 0;
-  color: var(--foreground);
-  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
-  font-size: 1.25rem;
-  font-weight: 800;
-}
-
-.online-code-card {
-  display: grid;
-  gap: 1rem;
-}
-
-.online-guest-card {
-  /* *ngIf="codeConfirmed" mounts this once per successful lookup, so this
-     entrance plays exactly when the guest-data section becomes available —
-     never while the guest is editing fields inside it (they don't remount).
-     Everything inside (fieldsets, guest cards, fields) rides along as one
-     unit; nothing inside gets its own separate entrance or stagger. */
-  animation: online-fade-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.online-field {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.online-field span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: var(--foreground);
-  font-size: 0.84rem;
-  font-weight: 800;
-}
-
-.online-field input,
-.online-field select,
-.online-field textarea {
+.online-hero-field input,
+.flow-field input,
+.flow-field select,
+.signature-card input {
   width: 100%;
-  min-height: 50px;
+  min-height: 48px;
   padding: 0 0.95rem;
-  border: 1px solid var(--input);
+  border: 1px solid #d7e0ec;
   border-radius: 10px;
-  background: var(--card);
-  color: var(--foreground);
+  background: #ffffff;
+  color: #18243a;
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 0.93rem;
   font-weight: 750;
   outline: none;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.online-field textarea {
-  min-height: 110px;
-  padding-top: 0.85rem;
-  resize: vertical;
+.online-hero-field input {
+  min-height: 52px;
+  border-radius: 12px;
 }
 
-.online-field input:focus,
-.online-field select:focus,
-.online-field textarea:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(44, 123, 229, 0.12);
+.online-hero-field input:focus,
+.flow-field input:focus,
+.flow-field select:focus,
+.signature-card input:focus {
+  border-color: #2f7ee6;
+  box-shadow: 0 0 0 3px rgba(47, 126, 230, 0.12);
 }
 
-.online-field .input-error {
-  border-color: rgba(220, 38, 38, 0.72);
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08);
+.input-error {
+  border-color: #dc2626 !important;
 }
 
-.online-field small,
-.online-consent-error {
-  color: var(--danger);
-  font-size: 0.78rem;
-  font-weight: 800;
+.online-hero-field input::placeholder,
+.flow-field input::placeholder,
+.signature-card input::placeholder {
+  color: #98a6bb;
+  font-weight: 650;
+  opacity: 1;
 }
 
-/* Static help hints (id ends in "-hint") are not error state; keep them
-   neutral so they don't read as an alarm next to real validation errors. */
-.online-field small[id$="-hint"] {
-  color: var(--muted);
+.flow-field select.placeholder-select {
+  color: #98a6bb;
+  font-weight: 650;
+}
+
+.flow-field select option {
+  color: #18243a;
   font-weight: 750;
 }
 
-/* Field-level errors, the consent checkbox error, and the two form-level
-   banners (#online-check-in-lookup-error, #online-check-in-error) all reuse
-   this: opacity only, no translateY, no shake. aria-invalid/aria-describedby
-   are already wired synchronously in the template — this only softens how
-   the message looks appearing, never when it's announced. Hints (excluded
-   above) never animate; they're always present. */
-.online-field small:not([id$="-hint"]),
+.online-hero-field small,
+.flow-field small,
+.terms-card small,
+.signature-card small,
 .online-consent-error {
-  animation: online-hint-in 0.16s ease-out both;
+  display: block;
+  color: #dc2626;
+  font-size: 0.76rem;
+  font-weight: 850;
 }
 
-.online-code-actions {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.online-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.online-code-actions-spacer {
-  display: none;
-}
-
-.online-primary,
-.online-secondary {
-  min-height: 46px;
-  justify-content: center;
-  gap: 0.55rem;
-  padding: 0 1.1rem;
+.online-error-banner {
+  display: block;
+  margin: 0.85rem 0 0;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid #fecaca;
   border-radius: 10px;
-  font-size: 0.9rem;
-  font-weight: 800;
-  text-decoration: none;
-  cursor: pointer;
-  /* opacity added so the :disabled dim below (used while a lookup or submit
-     is in flight) reads as a smoothed state change instead of a hard cut. */
-  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.86rem;
+  font-weight: 900;
+  line-height: 1.45;
 }
 
-.online-primary {
-  /* --primary at white text only reaches ~4.14:1 (fails WCAG AA 4.5:1);
-     --primary-hover clears ~5.4:1 without touching the shared token. */
-  border: 1px solid var(--primary-hover);
-  background: var(--primary-hover);
-  color: var(--primary-foreground);
+.online-hero-card > p.online-error-banner {
+  margin: 0.85rem 0 0;
+  color: #b91c1c;
 }
 
-.online-secondary {
-  border: 1px solid var(--border);
-  background: var(--secondary);
-  color: var(--foreground);
-}
-
-.online-primary:disabled,
-.online-primary:disabled:hover,
-.online-secondary:disabled,
-.online-secondary:disabled:hover {
-  transform: none;
-  opacity: 0.68;
-  cursor: not-allowed;
-}
-
-.online-reservation-chip {
-  min-height: 44px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-  margin-bottom: 1.25rem;
-  padding: 0 0.9rem;
-  border: 1px solid rgba(44, 123, 229, 0.18);
+.online-hero-card .online-primary {
+  width: 100%;
+  min-height: 54px;
+  margin-top: 1.05rem;
   border-radius: 12px;
-  background: var(--accent);
-  color: var(--primary);
-  font-size: 0.85rem;
-  font-weight: 800;
-  /* Mounted once alongside .online-guest-card (same *ngIf), so this never
-     replays while the guest edits fields below it. A slightly later delay
-     than the section it sits in gives the "verified" status its own small
-     callout without turning into a separate multi-step sequence. Hotel name
-     and dates inside are plain text, not animated individually. */
-  animation: online-fade-in 0.26s cubic-bezier(0.16, 1, 0.3, 1) 40ms both;
 }
 
-.online-reservation-chip strong {
-  color: var(--foreground);
-  font-weight: 800;
+.online-hero-security {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  color: #8a96aa;
+  font-size: 0.86rem;
+  font-weight: 650;
 }
 
-.online-guest-lines {
+.online-hero-security i {
+  color: #10b981;
+}
+
+.online-flow,
+.online-complete {
+  outline: none;
+}
+
+.online-flow {
+  min-height: 100vh;
+  background: #f3f6fb;
+}
+
+.online-flow .online-container,
+.online-complete .online-container {
+  width: min(calc(100% - clamp(1.5rem, 6vw, 6rem)), 1160px);
+}
+
+.online-flow-top {
+  padding: 1.55rem 0 1.85rem;
+  background: #111827;
+  color: #ffffff;
+}
+
+.online-flow-stepper {
   display: grid;
-  gap: 1.1rem;
-  margin-bottom: 1.5rem;
+  grid-template-columns: auto minmax(36px, 1fr) auto minmax(36px, 1fr) auto minmax(36px, 1fr) auto;
+  align-items: center;
+  gap: 0.72rem;
+  margin-bottom: 1.35rem;
 }
 
-.online-guest-line {
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
+.flow-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.62rem;
+  color: #6f83a6;
+  font-size: 0.8rem;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
-.online-guest-line-title {
-  margin: 0 0 0.9rem;
-  color: var(--foreground);
-  font-size: 0.95rem;
-  font-weight: 800;
+.flow-step span {
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #20304a;
+  color: #7f94b9;
+  font-size: 0.72rem;
 }
 
-.online-guest-line-title span {
-  margin-left: 0.35rem;
-  color: var(--primary);
-  font-weight: 800;
+.flow-step.is-active,
+.flow-step.is-complete {
+  color: #ffffff;
 }
 
-.online-field-group {
+.flow-step.is-active span,
+.flow-step.is-complete span {
+  background: #2f7ee6;
+  color: #ffffff;
+}
+
+.flow-rule {
+  height: 1px;
+  background: #344159;
+}
+
+.reservation-strip {
   display: grid;
-  gap: 0.85rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
+  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1.25fr) auto;
+  align-items: center;
+  gap: 1rem;
+  min-height: 68px;
+  padding: 0.92rem 1.05rem;
+  border: 1px solid #33415b;
+  border-radius: 12px;
+  background: #172236;
+}
+
+.reservation-strip div {
+  display: grid;
+  gap: 0.25rem;
   min-width: 0;
 }
 
-.online-field-group + .online-field-group {
-  margin-top: 1.35rem;
-  padding-top: 1.35rem;
-  border-top: 1px solid var(--border);
+.reservation-strip strong {
+  min-width: 0;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
-.online-field-group-title {
+.reservation-strip p {
   margin: 0;
-  padding: 0;
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  padding: 0.45rem 0.72rem;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  font-size: 0.76rem;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
-.online-inline-action {
-  display: inline-flex;
-  width: fit-content;
-  align-items: center;
-  gap: 0.35rem;
-  margin: 0;
+.online-flow-body {
+  padding: 3.6rem 0 5.2rem;
+  background: #f3f6fb;
+}
+
+.flow-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 720px) minmax(280px, 380px);
+  align-items: start;
+  gap: 2rem;
+}
+
+.flow-main {
+  min-width: 0;
+}
+
+.flow-back {
+  min-height: 28px;
+  margin: 0 0 1rem;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--primary);
+  color: #1f6fe5;
   font: inherit;
-  font-size: 0.8rem;
-  font-weight: 800;
+  font-size: 0.85rem;
+  font-weight: 850;
   cursor: pointer;
 }
 
-.online-inline-action:hover {
-  color: var(--primary-hover);
-  text-decoration: underline;
+.flow-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.35rem;
 }
 
-.online-inline-action i {
-  font-size: 0.75rem;
+.flow-title-row h2 {
+  margin: 0;
+  color: #07142d;
+  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
+  font-size: clamp(1.75rem, 3vw, 2.2rem);
+  line-height: 1.08;
+  font-weight: 900;
 }
 
-.online-guest-shared-fields {
-  margin-top: 1.75rem;
-  margin-bottom: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
+.flow-title-row p,
+.flow-side p,
+.signature-card p {
+  margin: 0.45rem 0 0;
+  color: #667694;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  font-weight: 650;
 }
 
-.online-form-grid {
+.holder-load {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 40px;
+  padding: 0 0.9rem;
+  border: 1px solid #bed7ff;
+  border-radius: 10px;
+  background: #eef6ff;
+  color: #0d66db;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.holder-load:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.holder-feedback {
+  display: block;
+  min-height: 1rem;
+  margin: -0.8rem 0 0.7rem;
+  color: #0c9265;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.flow-card,
+.flow-side,
+.registered-main-row,
+.add-companion-note {
+  border: 1px solid #d9e2ef;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.flow-card {
+  padding: 1.45rem;
+}
+
+.primary-form-card,
+.companions-list,
+.review-stack,
+.review-card,
+.terms-card,
+.signature-card {
   display: grid;
-  align-items: start;
   gap: 1rem;
 }
 
-.online-consent {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.7rem;
-  color: var(--muted);
-  font-size: 0.86rem;
-  font-weight: 750;
-  line-height: 1.55;
+.primary-form-card {
+  gap: 1.35rem;
 }
 
-.online-consent input {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-  margin-top: 0.1rem;
-  accent-color: var(--primary);
-}
-
-.online-consent-error {
-  display: block;
-  margin-top: 0.5rem;
-}
-
-.online-actions {
-  margin-top: 1.5rem;
-}
-
-.online-side-panel {
-  height: fit-content;
-  padding: 1.25rem;
-}
-
-.online-side-panel ul {
+.flow-form-grid {
   display: grid;
-  gap: 0.9rem;
-  margin: 1rem 0 0;
-  padding: 0;
-  list-style: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.1rem;
 }
 
-.online-side-panel li {
+.flow-field {
+  min-width: 0;
+}
+
+.flow-field.is-wide {
+  grid-column: 1 / -1;
+}
+
+.doc-choice {
   display: flex;
-  align-items: flex-start;
-  gap: 0.65rem;
-  color: var(--muted);
-  font-size: 0.9rem;
-  font-weight: 750;
-  line-height: 1.55;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-height: 44px;
+  align-items: center;
 }
 
-.online-side-panel i {
-  color: var(--primary);
-  margin-top: 0.15rem;
+.doc-choice button {
+  min-height: 36px;
+  padding: 0 0.85rem;
+  border: 1px solid #d9e4f3;
+  border-radius: 999px;
+  background: #f7fbff;
+  color: #3d5678;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 850;
+  cursor: pointer;
 }
 
-.online-confirmation {
-  padding: clamp(1.25rem, 4vw, 2rem);
+.doc-choice button.is-selected {
+  border-color: #a9cffd;
+  background: #e8f3ff;
+  color: #1168dc;
+}
+
+.upload-box {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e4eaf3;
+}
+
+.upload-box label {
+  display: grid;
+  place-items: center;
+  gap: 0.42rem;
+  min-height: 132px;
+  padding: 1rem;
+  border: 1px dashed #b7c9e2;
+  border-radius: 12px;
+  background: #f8fbff;
   text-align: center;
 }
 
-/* Dedicated class rather than ".online-confirmation > div": the reminder
-   block below is also a direct-child <div> of .online-confirmation, and a
-   bare child-combinator selector here would incorrectly restyle it too
-   (46px icon sizing, inline-grid, blue background) — exactly what caused
-   the earlier layout regression. */
-.online-confirmation-icon {
-  width: 46px;
-  height: 46px;
+.upload-box input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.upload-box strong {
+  color: #07142d;
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+.upload-box small {
+  color: #6b7b98;
+  font-size: 0.78rem;
+}
+
+.upload-box em {
   display: inline-grid;
   place-items: center;
-  border-radius: 14px;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  /* Step 1 of the confirmation's one-time reveal (status -> heading/copy ->
-     action), opacity + a small scale rather than a bounce/spring/pulse. */
-  animation: online-confirmation-icon-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  min-height: 34px;
+  margin-top: 0.4rem;
+  padding: 0 1rem;
+  border: 1px solid #bfdbff;
+  border-radius: 10px;
+  background: #eef6ff;
+  color: #176de1;
+  font-style: normal;
+  font-size: 0.8rem;
+  font-weight: 900;
 }
 
-.online-confirmation h2 {
+.flow-next {
+  justify-self: end;
+  min-width: 220px;
+}
+
+.flow-side {
+  display: grid;
+  gap: 1rem;
+  padding: 1.35rem;
+  box-shadow: 0 18px 36px rgba(16, 24, 40, 0.08);
+}
+
+.flow-side h3,
+.review-card h3,
+.terms-card h3,
+.signature-card h3 {
+  margin: 0;
+  color: #07142d;
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.flow-side dl,
+.arrival-pass dl {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+}
+
+.flow-side dl div,
+.arrival-pass dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.flow-side dt,
+.arrival-pass dt {
+  color: #72809b;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.flow-side dd,
+.arrival-pass dd {
+  margin: 0;
+  color: #07142d;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-align: right;
+}
+
+.registered-main-row,
+.review-guest-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.registered-main-row {
+  min-height: 72px;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1.1rem;
+}
+
+.registered-main-row > span,
+.companion-card header > span,
+.review-guest-row > span {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #eef5ff;
+  color: #1f6fe5;
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.registered-main-row strong,
+.companion-card h3,
+.review-guest-row strong {
+  color: #07142d;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.registered-main-row p,
+.companion-card p,
+.review-guest-row p {
+  margin: 0.2rem 0 0;
+  color: #64748f;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.registered-main-row em,
+.review-guest-row em {
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  background: #fff2cc;
+  color: #9a6500;
+  font-style: normal;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.registered-main-row em.is-complete,
+.review-guest-row em.is-complete {
+  background: #dffbea;
+  color: #059669;
+}
+
+.companion-card header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.companion-card h3 {
+  margin: 0;
+}
+
+.add-companion-note {
+  display: grid;
+  place-items: center;
+  gap: 0.25rem;
+  min-height: 76px;
+  border-style: dashed;
+  background: #fbfdff;
+  color: #1d70e5;
+  font-size: 0.85rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.add-companion-note span {
+  color: #6f7f99;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.review-guest-row {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+}
+
+.terms-card label {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 50px;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #bdd9ff;
+  border-radius: 10px;
+  background: #eaf4ff;
+  color: #20304a;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.terms-card input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  accent-color: #2f7ee6;
+}
+
+.signature-card input {
+  min-height: 54px;
+  font-size: 1.05rem;
+}
+
+.online-complete {
+  min-height: calc(100vh - 76px);
+  padding: 4.2rem 0 5rem;
+  background: #111827;
+  color: #ffffff;
+}
+
+.complete-wrap {
+  display: grid;
+  justify-items: center;
+}
+
+.complete-check {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  font-size: 1.35rem;
+}
+
+.online-complete h2 {
   margin: 1rem 0 0;
-  color: var(--foreground);
+  color: #ffffff;
   font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
-  font-size: 1.25rem;
-  font-weight: 800;
-  /* Step 2. */
-  animation: online-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) 50ms both;
+  font-size: clamp(2rem, 4vw, 2.55rem);
+  font-weight: 900;
+  text-align: center;
 }
 
-.online-confirmation p {
-  max-width: 520px;
-  margin: 0.65rem auto 1.2rem;
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.7;
-  /* Same step as the heading (2) — same delay, so they read as one group. */
-  animation: online-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) 50ms both;
+.online-complete > .online-container > p {
+  max-width: 640px;
+  margin: 0.8rem 0 1.8rem;
+  color: #97a8c8;
+  line-height: 1.6;
+  text-align: center;
 }
 
-/* Step 3, scoped to inside .online-confirmation only: .online-primary is
-   also the lookup and guest-form submit buttons elsewhere on this page,
-   which must stay fully visible on load, not tied to this sequence. Total
-   stagger across all three steps is 100ms, within the ~100-120ms budget. */
-.online-confirmation a {
-  animation: online-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
+.arrival-pass {
+  width: min(100%, 640px);
+  padding: 1.7rem;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #07142d;
 }
 
-/* Intentionally not part of the icon -> heading/copy -> action entrance
-   sequence above: no animation-delay, no fade, no transform. It renders
-   with the rest of the already-settled confirmation, not as a fourth step. */
-.online-confirmation-reminder {
-  max-width: 520px;
-  margin: 0 auto 1.2rem;
-  padding-top: 1.1rem;
-  border-top: 1px solid var(--border);
+.arrival-pass header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #dce4ef;
+}
+
+.arrival-pass header span {
+  color: #697895;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.arrival-pass header strong {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 1.08rem;
+  font-weight: 950;
+}
+
+.pass-qr {
+  width: 74px;
+  height: 74px;
+  border-radius: 10px;
+  background:
+    linear-gradient(45deg, #07142d 25%, transparent 25% 75%, #07142d 75%),
+    linear-gradient(45deg, #07142d 25%, transparent 25% 75%, #07142d 75%);
+  background-color: #ffffff;
+  background-position: 0 0, 6px 6px;
+  background-size: 12px 12px;
+}
+
+.arrival-pass dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.1rem 2rem;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid #dce4ef;
+}
+
+.arrival-pass dl div {
+  display: grid;
+  justify-content: stretch;
+  gap: 0.3rem;
+}
+
+.arrival-pass dd {
   text-align: left;
 }
 
-.online-confirmation-reminder-title {
-  margin: 0 0 0.85rem;
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-/* Stacked rows (reference, then hotel/dates context) instead of a single
-   flex-wrap row of equal-weight chips: a fixed-format reference code and a
-   free-length hotel name don't share a sensible common width, and forcing
-   them into one row is what caused the earlier collapse. */
-.online-confirmation-reminder-details {
-  display: grid;
-  gap: 0.9rem;
-}
-
-.online-reminder-row {
-  display: grid;
-  gap: 0.4rem;
-  min-width: 0;
-}
-
-.online-reminder-label {
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-/* flex-wrap so the copy button can drop to its own line on narrow widths
-   instead of squeezing the reference text. */
-.online-reminder-reference-value {
+.arrival-pass footer {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-  min-width: 0;
+  gap: 0.7rem;
+  padding-top: 1rem;
 }
 
-.online-reminder-value {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-  max-width: 100%;
-  color: var(--foreground);
-  font-size: 1rem;
-  font-weight: 800;
-  line-height: 1.4;
-  /* Safety net only, not the layout mechanism: wraps at word boundaries and
-     only breaks mid-word if a single token is wider than the row. */
-  overflow-wrap: break-word;
-}
-
-.online-reminder-value i {
-  flex: 0 0 auto;
-  color: var(--primary);
-}
-
-.online-reminder-context {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.35rem;
-}
-
-.online-reminder-context-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-  max-width: 100%;
-  color: var(--foreground);
-  font-size: 0.9rem;
-  font-weight: 750;
-  overflow-wrap: break-word;
-}
-
-.online-reminder-context-item i {
-  flex: 0 0 auto;
-  color: var(--primary);
-}
-
-.online-copy-reference {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-height: 34px;
-  padding: 0 0.75rem;
-  border: 1px solid rgba(44, 123, 229, 0.22);
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--primary);
-  font-size: 0.8rem;
-  font-weight: 800;
-  cursor: pointer;
-  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.12s ease;
-}
-
-.online-copy-reference i {
-  font-size: 0.74rem;
-}
-
-.online-copy-reference:active {
-  transform: scale(0.96);
-}
-
-/* Reserves a fixed slot so "Código copiado." appearing/disappearing doesn't
-   nudge the "Volver al inicio" action below it — no transition, the text
-   swap itself is the feedback, not something to animate. */
-.online-copy-status {
-  display: block;
-  min-height: 1.1rem;
-  margin-top: 0.7rem;
-  color: var(--primary);
-  font-size: 0.8rem;
-  font-weight: 750;
-}
-
-.online-checkin-page :focus-visible {
-  outline: 3px solid rgba(44, 123, 229, 0.28);
-  outline-offset: 2px;
-}
-
-@keyframes online-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
+@media (max-width: 980px) {
+  .online-hero-grid,
+  .reservation-strip,
+  .flow-grid {
+    grid-template-columns: 1fr;
   }
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes online-hint-in {
-  from {
-    opacity: 0;
+  .online-hero-grid {
+    gap: 2.5rem;
   }
 
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes online-confirmation-icon-enter {
-  from {
-    opacity: 0;
-    transform: scale(0.94);
+  .online-hero-card {
+    max-width: 520px;
+    margin-top: 0;
   }
 
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@media (min-width: 720px) {
-  .online-hero h1 {
-    font-size: 3.25rem;
+  .online-flow-stepper {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
   }
 
-  .online-code-card {
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.55fr);
-    align-items: start;
+  .flow-rule {
+    display: none;
   }
 
-  .online-code-card .online-card-header {
-    grid-column: 1 / -1;
+  .reservation-strip p {
+    width: fit-content;
   }
 
-  .online-code-actions-spacer {
-    display: block;
-    visibility: hidden;
-    color: var(--foreground);
-    font-size: 0.84rem;
-    font-weight: 800;
-  }
-
-  .online-form-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .online-actions {
-    flex-direction: row;
-    justify-content: space-between;
-  }
-}
-
-@media (min-width: 1040px) {
-  .online-hero h1 {
-    font-size: 4rem;
-  }
-
-  .online-layout {
-    grid-template-columns: minmax(0, 1fr) 320px;
-    align-items: start;
-  }
-}
-
-/* Hover-only polish, gated so a tap on iOS/iPadOS Safari can't leave a
-   primary/secondary button visibly "stuck" lifted or recolored until the
-   next tap elsewhere. :disabled/:disabled:hover above and :focus-visible
-   below both stay active regardless of hover capability. */
-@media (hover: hover) and (pointer: fine) {
-  .online-primary:hover,
-  .online-secondary:hover {
-    transform: translateY(-1px);
-  }
-
-  .online-primary:hover {
-    /* Same WCAG-AA contrast fix as the resting state: --primary-hover is
-       already the base background/border (see the comment on .online-primary
-       above), so brightness(0.92) is what actually reads as "hovered" here. */
-    border-color: var(--primary-hover);
-    background: var(--primary-hover);
-    filter: brightness(0.92);
-  }
-
-  .online-secondary:hover {
-    border-color: rgba(44, 123, 229, 0.28);
-    background: var(--accent);
-    color: var(--primary-hover);
-  }
-
-  .online-copy-reference:hover {
-    border-color: rgba(44, 123, 229, 0.4);
-    background: rgba(44, 123, 229, 0.18);
-    color: var(--primary-hover);
+  .flow-side {
+    order: -1;
   }
 }
 
 @media (max-width: 640px) {
-  .online-view-back {
-    top: -2.25rem;
-    left: 0;
+  .online-container,
+  .online-flow .online-container,
+  .online-complete .online-container {
+    width: min(calc(100% - 1.25rem), 1160px);
   }
 
   .online-hero {
-    padding-top: 3rem;
+    min-height: auto;
+    padding: 3.1rem 0 3.6rem;
   }
 
-  .online-primary,
-  .online-secondary {
+  .online-hero h1 {
+    font-size: 2.55rem;
+  }
+
+  .online-hero-card,
+  .flow-card,
+  .flow-side,
+  .arrival-pass {
+    padding: 1.2rem;
+  }
+
+  .online-flow-body {
+    padding: 2.4rem 0 3.2rem;
+  }
+
+  .flow-title-row,
+  .arrival-pass header,
+  .arrival-pass footer {
+    display: grid;
+  }
+
+  .flow-form-grid,
+  .arrival-pass dl {
+    grid-template-columns: 1fr;
+  }
+
+  .flow-next,
+  .holder-load {
     width: 100%;
+  }
+
+  .review-guest-row,
+  .registered-main-row {
+    grid-template-columns: auto 1fr;
+  }
+
+  .review-guest-row em,
+  .registered-main-row em {
+    grid-column: 2;
+    width: fit-content;
   }
 }
 

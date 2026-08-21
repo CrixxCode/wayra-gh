@@ -129,9 +129,6 @@ export class DetailReservation implements OnChanges {
   }
 
   get guestSecondaryLabel(): string {
-    const firstNationality = this.reservation?.guests?.find((guest) => !!guest.nationality)?.nationality;
-    if (firstNationality && String(firstNationality).trim()) return String(firstNationality).trim();
-
     return this.reservation?.client_document_number || 'Sin documento';
   }
 

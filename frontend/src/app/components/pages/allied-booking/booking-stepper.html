@@ -1,0 +1,49 @@
+<nav
+  class="booking-stepper"
+  aria-label="Progreso de la reserva">
+
+  <ng-container
+    *ngFor="
+      let item of steps;
+      let last = last;
+      trackBy: trackByStep
+    ">
+
+    <div class="booking-stepper-node">
+
+      <span
+        class="booking-stepper-badge"
+        [class]="'is-' + stateFor(item.step)"
+        [attr.aria-current]="stateFor(item.step) === 'active' ? 'step' : null">
+
+        <i
+          *ngIf="stateFor(item.step) === 'done'"
+          class="pi pi-check"
+          aria-hidden="true">
+        </i>
+
+        <ng-container *ngIf="stateFor(item.step) !== 'done'">
+          {{ item.step }}
+        </ng-container>
+
+      </span>
+
+      <span
+        class="booking-stepper-label"
+        [class]="'is-' + stateFor(item.step)">
+
+        {{ item.label }}
+
+      </span>
+
+    </div>
+
+    <div
+      *ngIf="!last"
+      class="booking-stepper-line"
+      [class.is-done]="stateFor(item.step) === 'done'">
+    </div>
+
+  </ng-container>
+
+</nav>

@@ -1,9 +1,10 @@
 import re
-import unicodedata
+import secrets
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import IntegrityError, models, transaction
+from django.utils import timezone
 
 from apps.clients.models import Client
 from apps.master_data.models import MasterData
@@ -12,6 +13,10 @@ from apps.hotel_settings.models import ReservationPolicy
 
 
 class Reservation(models.Model):
+    CODE_RANDOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    CODE_RANDOM_LENGTH = 6
+    CODE_GENERATION_ATTEMPTS = 5
+
     client = models.ForeignKey(
         Client,
         on_delete=models.PROTECT,
@@ -78,10 +83,8 @@ class Reservation(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # Codigo publico de la reserva (ej. "WAY2026045"): 3 letras del hotel + año +
-    # el id real de la reserva. El id garantiza unicidad global aunque dos hoteles
-    # compartan las mismas 3 letras iniciales. Se genera una sola vez en el primer
-    # save() (no puede calcularse antes porque depende del id autoincremental) y
+    # Codigo publico de la reserva (ej. "DJN-26-K7F9Q2"): prefijo estable del hotel
+    # + anio corto + segmento aleatorio seguro. Se genera antes del primer insert y
     # nunca vuelve a cambiar. Es el codigo que el huesped usa en el check-in online
     # y el que se le comunica por correo (ver apps/reservations/emails.py).
     code = models.CharField(max_length=20, unique=True, editable=False, blank=True)
@@ -90,23 +93,45 @@ class Reservation(models.Model):
         db_table = "reservation"
         ordering = ["-id"]
 
-    @staticmethod
-    def build_code(hotel_name: str, year: int, reservation_id: int) -> str:
-        """`Hotel Wayra`, 2026, 45 -> `WAY2026045`."""
-        normalized = unicodedata.normalize("NFD", str(hotel_name or ""))
-        without_accents = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
-        letters = re.sub(r"[^A-Za-z]", "", without_accents).upper()
-        prefix = (letters[:3] or "HTL").ljust(3, "X")
-        return f"{prefix}{year}{reservation_id:03d}"
+    @classmethod
+    def build_random_segment(cls) -> str:
+        return "".join(secrets.choice(cls.CODE_RANDOM_ALPHABET) for _ in range(cls.CODE_RANDOM_LENGTH))
+
+    @classmethod
+    def build_code(cls, hotel_prefix: str, year: int, random_segment: str | None = None) -> str:
+        prefix = re.sub(r"[^A-Z0-9]", "", str(hotel_prefix or "").upper())[:5] or "HTL"
+        short_year = str(year)[-2:].zfill(2)
+        segment = random_segment or cls.build_random_segment()
+        return f"{prefix}-{short_year}-{segment}"
+
+    def generate_code(self) -> str:
+        hotel = self.hotel_settings
+        prefix = getattr(hotel, "reservation_code_prefix", "") or hotel.build_reservation_code_prefix(
+            getattr(hotel, "hotel_name", "")
+        )
+        return self.build_code(prefix, timezone.localtime(timezone.now()).year)
 
     def save(self, *args, **kwargs):
-        is_new = self._state.adding
-        super().save(*args, **kwargs)
-        if is_new and not self.code:
-            self.code = self.build_code(
-                self.hotel_settings.hotel_name, self.created_at.year, self.id
-            )
-            super().save(update_fields=["code"])
+        should_generate_code = not self.code
+
+        if should_generate_code:
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"code"}
+
+        for attempt in range(self.CODE_GENERATION_ATTEMPTS):
+            if should_generate_code:
+                self.code = self.generate_code()
+
+            try:
+                with transaction.atomic():
+                    return super().save(*args, **kwargs)
+            except IntegrityError:
+                if not should_generate_code or attempt >= self.CODE_GENERATION_ATTEMPTS - 1:
+                    raise
+                if self._state.adding:
+                    self.pk = None
+                    self._state.adding = True
 
     @property
     def status_code(self):

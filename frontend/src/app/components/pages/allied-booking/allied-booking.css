@@ -1,4 +1,4 @@
-:host {
+﻿:host {
   display: block;
 }
 
@@ -38,14 +38,10 @@
 .booking-hero {
   position: relative;
   overflow: hidden;
-  padding: 4.5rem 0 3rem;
-  background: radial-gradient(circle at 82% 14%, rgba(var(--primary-rgb), 0.22), transparent 34%), var(--ink);
+  padding: 4.5rem 0 6rem;
+  background: var(--ink);
   color: var(--ink-foreground);
-  text-align: center;
-}
-
-.booking-hero .booking-container {
-  position: relative;
+  text-align: left;
 }
 
 .booking-view-back {
@@ -66,7 +62,10 @@
   font-size: 0.82rem;
   font-weight: 800;
   text-decoration: none;
-  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    color 0.18s ease;
 }
 
 .booking-view-back:hover {
@@ -85,29 +84,32 @@
 }
 
 .booking-hero .booking-kicker {
-  color: var(--primary);
+  color: #6ea8f0;
+  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
+  letter-spacing: 0.1em;
 }
 
 .booking-hero h1 {
-  max-width: 850px;
-  margin: 0.75rem auto 0;
+  max-width: 44rem;
+  margin: 1rem 0 0;
   color: var(--ink-foreground);
   font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
-  font-size: 2.35rem;
+  font-size: clamp(2.6rem, 5vw, 3.15rem);
   line-height: 1.08;
   font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 .booking-lead {
-  max-width: 590px;
-  margin: 1rem auto 0;
+  max-width: 35rem;
+  margin: 1rem 0 0;
   color: var(--ink-muted);
-  font-size: 1rem;
-  line-height: 1.75;
+  font-size: 1.12rem;
+  line-height: 1.6;
 }
 
 .booking-section {
-  padding: 2.25rem 0 5rem;
+  padding: 0 0 5.5rem;
   background: var(--surface);
 }
 
@@ -126,8 +128,10 @@
   display: grid;
   gap: 1.05rem;
   align-items: end;
-  padding: 1.25rem;
+  margin-top: -3.1rem;
+  padding: 1.35rem;
   border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
 }
 
 .booking-results {
@@ -203,7 +207,10 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--background);
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
   /* trackByIndex remounts every card whenever the rate list changes (a new
      search or a retry), so this plays each time rates first appear, not on
      every unrelated re-render. Reuses .booking-search-results' entrance
@@ -212,10 +219,18 @@
   animation: booking-result-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.booking-rate-select-card:nth-child(2) { animation-delay: 35ms; }
-.booking-rate-select-card:nth-child(3) { animation-delay: 70ms; }
-.booking-rate-select-card:nth-child(4) { animation-delay: 105ms; }
-.booking-rate-select-card:nth-child(n+5) { animation-delay: 140ms; }
+.booking-rate-select-card:nth-child(2) {
+  animation-delay: 35ms;
+}
+.booking-rate-select-card:nth-child(3) {
+  animation-delay: 70ms;
+}
+.booking-rate-select-card:nth-child(4) {
+  animation-delay: 105ms;
+}
+.booking-rate-select-card:nth-child(n + 5) {
+  animation-delay: 140ms;
+}
 
 .booking-rate-select-media {
   position: relative;
@@ -239,8 +254,7 @@
   place-items: center;
   gap: 0.6rem;
   background:
-    radial-gradient(circle at 82% 14%, rgba(var(--primary-rgb), 0.32), transparent 34%),
-    var(--ink);
+    radial-gradient(circle at 82% 14%, rgba(var(--primary-rgb), 0.32), transparent 34%), var(--ink);
   color: var(--ink-foreground);
   text-align: center;
 }
@@ -351,161 +365,14 @@
   /* The generic .booking-primary transition (shared with other booking
      routes) doesn't include opacity, so its :disabled dim would otherwise
      snap instantly while a rate selection is opening the next step. */
-  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease;
 }
 
 /* Search results — hotel cards ($impeccable bolder) */
-
-.booking-result-card {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--background);
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-  /* trackByHotel keeps matching cards mounted across searches that return the
-     same hotel, so this only replays when a card is actually new: the first
-     results after a search, not on unrelated re-renders. One entrance per
-     card, not per piece of content inside it. */
-  animation: booking-result-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.booking-result-card:nth-child(2) { animation-delay: 35ms; }
-.booking-result-card:nth-child(3) { animation-delay: 70ms; }
-.booking-result-card:nth-child(4) { animation-delay: 105ms; }
-.booking-result-card:nth-child(n+5) { animation-delay: 140ms; }
-
-.booking-result-media {
-  position: relative;
-  aspect-ratio: 16 / 10;
-  overflow: hidden;
-  background: var(--ink);
-}
-
-.booking-result-media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.booking-result-media-fallback {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  gap: 0.6rem;
-  background:
-    radial-gradient(circle at 82% 14%, rgba(var(--primary-rgb), 0.32), transparent 34%),
-    var(--ink);
-  color: var(--ink-foreground);
-  text-align: center;
-}
-
-.booking-result-media-fallback i {
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 999px;
-  background: rgba(var(--white-rgb), 0.12);
-  border: 1px solid var(--ink-border);
-  color: var(--ink-foreground);
-  font-size: 1.5rem;
-}
-
-.booking-result-media-fallback span {
-  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
-  font-size: 0.86rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
-}
-
-.booking-result-badge {
-  position: absolute;
-  top: 0.85rem;
-  left: 0.85rem;
-  border-color: rgba(var(--white-rgb), 0.22);
-  background: rgba(var(--ink-rgb), 0.55);
-  color: var(--ink-foreground);
-  backdrop-filter: blur(6px);
-}
-
-.booking-result-body {
-  padding: 1.25rem 1.25rem 0.5rem;
-}
-
-.booking-result-card h3 {
-  margin: 0;
-  color: var(--foreground);
-  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
-  font-size: 1.35rem;
-  line-height: 1.15;
-  font-weight: 800;
-}
-
-.booking-result-location {
-  margin: 0.5rem 0 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--muted);
-  font-size: 0.92rem;
-  font-weight: 750;
-}
-
-.booking-result-location i {
-  color: var(--primary);
-}
-
-.booking-result-side {
-  display: grid;
-  align-content: end;
-  gap: 0.5rem;
-  padding: 1rem 1.25rem 1.25rem;
-}
-
-.booking-result-availability {
-  width: fit-content;
-  min-height: 30px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 0.65rem;
-  border-radius: 999px;
-  background: var(--secondary);
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.booking-result-price {
-  display: grid;
-  gap: 0.15rem;
-}
-
-.booking-result-price small {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 750;
-}
-
-.booking-result-price strong {
-  color: var(--foreground);
-  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
-  font-size: 1.85rem;
-  line-height: 1.1;
-  font-weight: 800;
-}
-
-.booking-result-cta {
-  width: 100%;
-  justify-content: center;
-  margin-top: 0.35rem;
-}
 
 .booking-empty {
   margin-top: 1rem;
@@ -753,111 +620,15 @@
   outline: none;
   font-size: 0.94rem;
   font-weight: 800;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
 }
 
 .booking-search .booking-field input,
 .booking-search .booking-field select {
   min-height: 54px;
-}
-
-.booking-field p-datepicker {
-  position: relative;
-  z-index: 80;
-  width: 100%;
-  display: block;
-}
-
-:host ::ng-deep .booking-date-range-picker,
-:host ::ng-deep .booking-date-range-picker .p-datepicker-input,
-:host ::ng-deep .booking-date-range-picker input {
-  width: 100%;
-}
-
-:host ::ng-deep .booking-date-range-input {
-  min-height: 54px;
-  padding: 0 1rem;
-  border: 1px solid var(--input);
-  border-radius: 12px;
-  background: var(--background);
-  color: var(--foreground);
-  outline: none;
-  font-size: 0.94rem;
-  font-weight: 800;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
-}
-
-:host ::ng-deep .booking-date-range-input:hover {
-  border-color: var(--input-hover);
-}
-
-:host ::ng-deep .booking-date-range-input:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-focus-glow);
-}
-
-:host ::ng-deep .booking-date-range-panel {
-  z-index: 100;
-  max-width: min(19rem, calc(100vw - 2rem));
-  font-size: 0.86rem;
-}
-
-:host ::ng-deep .booking-date-range-panel .p-datepicker-calendar td,
-:host ::ng-deep .booking-date-range-panel .p-datepicker-calendar th {
-  padding: 0.16rem;
-}
-
-:host ::ng-deep .booking-date-range-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.55rem;
-  padding: 0.7rem 0.2rem 0.15rem;
-}
-
-:host ::ng-deep .booking-date-range-cancel,
-:host ::ng-deep .booking-date-range-accept {
-  min-height: 38px;
-  padding: 0 0.95rem;
-  border-radius: 9px;
-  font-size: 0.83rem;
-  font-weight: 800;
-  cursor: pointer;
-  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
-}
-
-:host ::ng-deep .booking-date-range-cancel {
-  border: 1px solid var(--input);
-  background: var(--background);
-  color: var(--foreground);
-}
-
-:host ::ng-deep .booking-date-range-cancel:hover {
-  border-color: rgba(var(--primary-rgb), 0.34);
-  background: var(--accent);
-}
-
-:host ::ng-deep .booking-date-range-cancel:active {
-  transform: translateY(1px);
-}
-
-:host ::ng-deep .booking-date-range-accept {
-  border: 1px solid var(--primary);
-  background: var(--primary);
-  color: var(--primary-foreground);
-}
-
-:host ::ng-deep .booking-date-range-accept:hover:not(:disabled) {
-  border-color: var(--primary-hover);
-  background: var(--primary-hover);
-}
-
-:host ::ng-deep .booking-date-range-accept:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-:host ::ng-deep .booking-date-range-accept:disabled {
-  opacity: 0.62;
-  cursor: not-allowed;
 }
 
 .booking-destination-panel {
@@ -1100,7 +871,10 @@
   font-weight: 800;
   text-decoration: none;
   cursor: pointer;
-  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease;
 }
 
 .booking-primary {
@@ -1126,7 +900,11 @@
    smoothed state change instead of a hard cut. */
 .booking-search-submit,
 .booking-request-submit {
-  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease;
 }
 
 .booking-secondary {
@@ -1247,7 +1025,10 @@
   background: transparent;
   color: var(--primary-text);
   cursor: pointer;
-  transition: background-color 0.18s ease, color 0.18s ease, transform 0.12s ease;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.12s ease;
 }
 
 .booking-copy-reference i {
@@ -1299,31 +1080,6 @@
 }
 
 @media (min-width: 700px) and (max-width: 1039px) {
-  .booking-result-card {
-    grid-template-columns: minmax(200px, 38%) minmax(0, 1fr);
-    grid-template-rows: auto auto;
-  }
-
-  .booking-result-media {
-    grid-column: 1;
-    grid-row: 1 / -1;
-    aspect-ratio: auto;
-  }
-
-  .booking-result-body {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .booking-result-side {
-    grid-column: 2;
-    grid-row: 2;
-    align-content: start;
-    margin-top: 0.25rem;
-    padding-top: 0.85rem;
-    border-top: 1px solid var(--border);
-  }
-
   .booking-rate-select-card {
     grid-template-columns: minmax(200px, 38%) minmax(0, 1fr);
     grid-template-rows: auto auto;
@@ -1372,25 +1128,6 @@
     border-radius: 10px;
   }
 
-  .booking-result-card {
-    grid-template-columns: 300px minmax(0, 1fr) 230px;
-  }
-
-  .booking-result-media {
-    aspect-ratio: auto;
-  }
-
-  .booking-result-body {
-    align-self: center;
-  }
-
-  .booking-result-side {
-    align-content: center;
-    justify-items: end;
-    text-align: right;
-    border-left: 1px solid var(--border);
-  }
-
   .booking-rate-select-card {
     grid-template-columns: 300px minmax(0, 1fr) 230px;
   }
@@ -1434,16 +1171,6 @@
    separate, always-on .booking-page :focus-visible rule above, and
    :disabled/:active below, both independent of this hover motion. */
 @media (hover: hover) and (pointer: fine) {
-  .booking-result-card:hover {
-    transform: translateY(-3px);
-    border-color: var(--primary-border-strong);
-    box-shadow: var(--shadow-elevated);
-  }
-
-  .booking-result-card:hover .booking-result-media img {
-    transform: scale(1.03);
-  }
-
   .booking-rate-select-card:hover {
     transform: translateY(-3px);
     border-color: var(--primary-border-strong);
@@ -1496,14 +1223,483 @@
     top: -1rem;
   }
 
-  .booking-result-media {
-    aspect-ratio: auto;
-    max-height: 150px;
-  }
-
   .booking-rate-select-media {
     aspect-ratio: auto;
     max-height: 150px;
+  }
+}
+
+/* Search page reference layout */
+
+.booking-search-page {
+  background: #f3f6fa;
+}
+
+.booking-search-page .booking-container {
+  width: min(calc(100% - clamp(1.25rem, 4vw, 4.5rem)), 1408px);
+}
+
+.booking-search-page .booking-hero {
+  min-height: 440px;
+  padding: 4.5rem 0 11.8rem;
+  background: #111827;
+}
+
+.booking-search-page .booking-hero .booking-kicker {
+  display: none;
+}
+
+.booking-search-page .booking-hero h1 {
+  max-width: 46rem;
+  margin-top: 0;
+  font-size: clamp(2.8rem, 5vw, 3.9rem);
+  line-height: 1.03;
+  letter-spacing: 0;
+}
+
+.booking-search-page .booking-lead {
+  max-width: 38rem;
+  margin-top: 1.1rem;
+  color: #9fb0d1;
+  font-size: 1.15rem;
+  line-height: 1.55;
+}
+
+.booking-search-page .booking-section {
+  padding-bottom: 5rem;
+  background: #f3f6fa;
+}
+
+.booking-search-page .booking-search {
+  display: grid;
+  grid-template-columns: minmax(300px, 1.25fr) minmax(400px, 1.65fr) minmax(205px, 0.9fr) 118px;
+  gap: 14px;
+  align-items: end;
+  margin-top: -10.1rem;
+  padding: 20px;
+  border: 0;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.booking-search-page .booking-search .booking-field,
+.booking-search-page .booking-search .booking-field-group {
+  gap: 8px;
+}
+
+.booking-search-page .booking-search .booking-field > span,
+.booking-search-page .booking-search .booking-field-destination > label > span,
+.booking-search-page .booking-guest-label {
+  min-height: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #66748a;
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.booking-search-page .booking-search .booking-field > span i,
+.booking-search-page .booking-search .booking-field-destination > label > span i,
+.booking-search-page .booking-guest-label i {
+  width: auto;
+  height: auto;
+  display: inline-block;
+  flex: 0 0 auto;
+  border-radius: 0;
+  background: transparent;
+  color: #2f7ee6;
+  font-size: 0.84rem;
+}
+
+.booking-search-page .booking-search .booking-field input,
+.booking-search-page .booking-search .booking-field select {
+  min-height: 52px;
+  padding: 0 1rem;
+  border-color: #d9e1ec;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #142033;
+  font-size: 0.98rem;
+  font-weight: 650;
+}
+
+.booking-search-page .booking-field-dates p-datepicker,
+:host ::ng-deep .booking-search-page .booking-date-range-picker,
+:host ::ng-deep .booking-search-page .booking-date-range-picker .p-datepicker-input,
+:host ::ng-deep .booking-search-page .booking-date-range-picker input {
+  width: 100%;
+}
+
+:host ::ng-deep .booking-search-page .booking-date-range-input {
+  min-height: 52px;
+  padding: 0 1rem;
+  border: 1px solid #d9e1ec;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #142033;
+  outline: none;
+  font-size: 0.98rem;
+  font-weight: 650;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+:host ::ng-deep .booking-search-page .booking-date-range-input:hover {
+  border-color: var(--input-hover);
+}
+
+:host ::ng-deep .booking-search-page .booking-date-range-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-focus-glow);
+}
+
+:host ::ng-deep .booking-search-page .booking-date-range-panel {
+  z-index: 100;
+  max-width: min(24rem, calc(100vw - 2rem));
+  font-size: 0.94rem;
+}
+
+.booking-search-page .booking-guest-picker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  grid-template-columns: none;
+  padding: 0;
+}
+
+.booking-search-page .booking-guest-summary {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 1rem;
+  border: 1px solid #d9e1ec;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #142033;
+  text-align: left;
+  font-size: 0.98rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.booking-search-page .booking-guest-summary:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-focus-glow);
+  outline: none;
+}
+
+.booking-search-page .booking-guest-controls {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 90;
+  width: min(21rem, calc(100vw - 2rem));
+  display: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid #d9e1ec;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.14);
+}
+
+.booking-search-page .booking-guest-picker:focus-within .booking-guest-controls {
+  display: grid;
+}
+
+.booking-search-page .booking-guest-controls .booking-field > span {
+  color: #7a8798;
+  font-size: 0.7rem;
+}
+
+.booking-search-page .booking-guest-controls .booking-field input {
+  min-height: 40px;
+  padding: 0 0.65rem;
+}
+
+.booking-search-page .booking-search-submit {
+  width: 100%;
+  min-height: 54px;
+  align-self: end;
+  padding: 0 1rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+}
+
+.booking-search-page .booking-search-results {
+  margin-top: 4.5rem;
+  padding-top: 2.75rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.booking-search-page .booking-search-results .booking-kicker {
+  display: none;
+}
+
+.booking-search-page .booking-results-header {
+  align-items: center;
+  padding-bottom: 1.45rem;
+  border-bottom: 0;
+}
+
+.booking-search-page .booking-results-header h2 {
+  margin: 0;
+  color: #071226;
+  font-size: 1.65rem;
+  letter-spacing: 0;
+}
+
+.booking-search-page .booking-sort {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #66748a;
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.booking-search-page .booking-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.booking-search-page .booking-sort select {
+  padding: 0 1.25rem 0 0.15rem;
+  border: 0;
+  background: transparent;
+  color: #66748a;
+  font: inherit;
+  cursor: pointer;
+}
+
+.booking-search-page .booking-options {
+  margin-top: 0;
+  gap: 1.25rem;
+}
+
+.booking-search-page .booking-result-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 200px;
+  gap: 22px;
+  align-items: center;
+  min-height: 176px;
+  padding: 20px;
+  overflow: visible;
+  border-color: #d9e1ec;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.booking-search-page .booking-result-media {
+  position: relative;
+  width: 240px;
+  height: 136px;
+  aspect-ratio: auto;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #f3f7fc;
+}
+
+.booking-search-page .booking-result-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.booking-search-page .booking-result-media-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(
+    -45deg,
+    #f7fbff 0,
+    #f7fbff 10px,
+    #edf3fb 10px,
+    #edf3fb 18px
+  );
+  color: #66748a;
+}
+
+.booking-search-page .booking-result-media-fallback span {
+  color: #5f6d80;
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 0.64rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.booking-search-page .booking-result-badge,
+.booking-search-page .booking-result-availability {
+  display: none;
+}
+
+.booking-search-page .booking-result-body {
+  align-self: center;
+  padding: 0;
+}
+
+.booking-search-page .booking-result-card h3 {
+  margin: 0;
+  color: #071226;
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 1.22rem;
+  line-height: 1.2;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.booking-search-page .booking-result-location {
+  margin: 0.35rem 0 0;
+  display: block;
+  color: #66748a;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.booking-search-page .booking-result-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.booking-search-page .booking-result-tags span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  border: 1px solid rgba(var(--primary-rgb), 0.22);
+  border-radius: 999px;
+  background: rgba(var(--primary-rgb), 0.08);
+  color: #2369c5;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.booking-search-page .booking-result-side {
+  display: grid;
+  justify-items: end;
+  align-content: center;
+  gap: 0.9rem;
+  padding: 0;
+  border-left: 0;
+  text-align: right;
+}
+
+.booking-search-page .booking-result-price {
+  display: grid;
+}
+
+.booking-search-page .booking-result-price small {
+  color: #66748a;
+  font-size: 0.66rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.booking-search-page .booking-result-price strong {
+  color: #071226;
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 1.68rem;
+  line-height: 1.05;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.booking-search-page .booking-result-cta {
+  width: 108px;
+  min-height: 46px;
+  margin-top: 0;
+  padding: 0 1rem;
+  border-radius: 11px;
+  font-size: 0.86rem;
+}
+
+@media (max-width: 1180px) {
+  .booking-search-page .booking-hero {
+    padding-bottom: 15.5rem;
+  }
+
+  .booking-search-page .booking-search {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: -14.3rem;
+  }
+
+  .booking-search-page .booking-search-submit {
+    grid-column: 1 / -1;
+  }
+
+  .booking-search-page .booking-result-card {
+    grid-template-columns: 184px minmax(0, 1fr);
+  }
+
+  .booking-search-page .booking-result-media {
+    width: 184px;
+    height: 100%;
+    min-height: 126px;
+  }
+
+  .booking-search-page .booking-result-side {
+    grid-column: 2;
+    justify-items: start;
+    text-align: left;
+  }
+}
+
+@media (max-width: 640px) {
+  .booking-search-page .booking-container {
+    width: min(calc(100% - 1.25rem), 1408px);
+  }
+
+  .booking-search-page .booking-hero {
+    min-height: auto;
+    padding: 3rem 0 16.5rem;
+  }
+
+  .booking-search-page .booking-hero h1 {
+    font-size: 2.45rem;
+  }
+
+  .booking-search-page .booking-search {
+    grid-template-columns: 1fr;
+    margin-top: -15.2rem;
+    padding: 1rem;
+  }
+
+  .booking-search-page .booking-result-card {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+
+  .booking-search-page .booking-result-media {
+    width: 100%;
+    height: 210px;
+  }
+
+  .booking-search-page .booking-result-body,
+  .booking-search-page .booking-result-side {
+    padding: 0;
+  }
+
+  .booking-search-page .booking-result-side {
+    grid-column: auto;
   }
 }
 
@@ -1566,7 +1762,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .booking-result-card:hover,
   .booking-rate-select-card:hover,
   .booking-primary:hover,
   .booking-secondary:hover {

@@ -1,82 +1,44 @@
-<div class="booking-page">
-
+<div class="booking-page booking-flow-confirmation-page">
   <app-public-header></app-public-header>
 
-
   <main>
-
     <section class="booking-hero">
       <div class="booking-container">
-
-        <a
-          class="booking-view-back"
-          routerLink="/reservar">
-
+        <a class="booking-view-back" routerLink="/reservar">
           <i class="pi pi-arrow-left"></i>
           Nueva busqueda
-
         </a>
 
-        <p class="booking-kicker">
-          Solicitud enviada
-        </p>
-
-        <h1>
-          Tu solicitud fue enviada
-        </h1>
+        <h1>Solicitud registrada</h1>
 
         <p class="booking-lead">
-          Gracias por confiar en Wayra. El hotel aliado revisara tu solicitud
-          y te confirmaremos la disponibilidad tan pronto tengamos respuesta.
+          Te enviaremos la confirmación por correo cuando el hotel revise la disponibilidad.
         </p>
-
       </div>
     </section>
 
-
     <section class="booking-section">
       <div class="booking-container">
-
         <section
           #confirmationRegion
           class="booking-confirmation-page"
           tabindex="-1"
-          aria-live="polite">
-
+          aria-live="polite"
+        >
           <div class="booking-confirmation-icon">
-            <i
-              class="pi pi-check"
-              aria-hidden="true"></i>
+            <i class="pi pi-check" aria-hidden="true"></i>
           </div>
 
           <div class="booking-confirmation-copy">
-            <p class="booking-kicker">
-              Proximos pasos
-            </p>
+            <h2>El hotel revisará tu solicitud</h2>
 
-            <h2>
-              El hotel revisara tu solicitud
-            </h2>
-
-            <p>
-              Te enviaremos un correo con la confirmacion de disponibilidad
-              en cuanto el hotel responda. Mientras tanto, estos son los
-              datos de tu solicitud:
-            </p>
-
-            <div
-              *ngIf="hasConfirmationDetails"
-              class="booking-confirmation-details">
-
+            <div *ngIf="hasConfirmationDetails" class="booking-confirmation-details">
               <span *ngIf="hotelName">
                 <i class="pi pi-building"></i>
                 {{ hotelName }}
               </span>
 
-              <span
-                *ngIf="reservationReference"
-                class="booking-reference-chip">
-
+              <span *ngIf="reservationReference" class="booking-reference-chip">
                 <i class="pi pi-ticket"></i>
                 Referencia {{ reservationReference }}
 
@@ -85,56 +47,36 @@
                   type="button"
                   class="booking-copy-reference"
                   (click)="copyReservationReference()"
-                  [attr.aria-label]="'Copiar referencia ' + reservationReference">
-
+                  [attr.aria-label]="'Copiar referencia ' + reservationReference"
+                >
                   <i class="pi pi-copy" aria-hidden="true"></i>
-
                 </button>
-
               </span>
 
               <span *ngIf="hasStayDates">
                 <i class="pi pi-calendar"></i>
                 {{ checkIn }} al {{ checkOut }}
               </span>
-
             </div>
 
-            <span
-              class="booking-copy-status"
-              role="status"
-              aria-live="polite">
+            <span class="booking-copy-status" role="status" aria-live="polite">
               {{ copyFeedback }}
             </span>
           </div>
 
           <div class="booking-confirmation-actions">
-            <a
-              class="booking-primary"
-              routerLink="/reservar">
-
-              Buscar otro alojamiento
+            <a class="booking-primary" routerLink="/check-in-online">
+              Consultar check-in online
 
               <i class="pi pi-search text-xs"></i>
-
             </a>
 
-            <a
-              class="booking-secondary"
-              routerLink="/hoteles-aliados">
-
-              Ver hoteles aliados
-
-            </a>
+            <a class="booking-secondary" routerLink="/reservar"> Volver al inicio </a>
           </div>
-
         </section>
-
       </div>
     </section>
-
   </main>
 
-  <app-public-footer variant="compact"></app-public-footer>
-
+  <app-public-footer></app-public-footer>
 </div>

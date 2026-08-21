@@ -14,12 +14,13 @@ import { RouterLink } from '@angular/router';
 
 import {
   OnlineCheckInExistingGuest,
+  OnlineCheckInHolder,
   OnlineCheckInLookupResponse,
   OnlineCheckInResponse,
   OnlineCheckInService,
 } from '../../../services/online-check-in';
-import { PublicHeaderComponent } from '../../shared/public-header/public-header';
 import { PublicFooterComponent } from '../../shared/public-footer/public-footer';
+import { PublicHeaderComponent } from '../../shared/public-header/public-header';
 
 type ReservationCodeControlName =
   | 'reservationCode'
@@ -32,7 +33,12 @@ type GuestCheckInControlName =
   | 'arrivalTime'
   | 'emergencyContactName'
   | 'emergencyContactPhone'
+  | 'residenceAddress'
+  | 'travelReason'
   | 'notes'
+  | 'signature'
+  | 'confirmsGuestData'
+  | 'acceptsStayRules'
   | 'acceptsDataPolicy';
 
 type GuestLineControlName =
@@ -65,6 +71,8 @@ type GuestLineGroup = FormGroup<{
   birthDate: FormControl<string>;
   nationality: FormControl<string>;
 }>;
+
+type CheckInStep = 2 | 3 | 4;
 
 @Component({
   selector: 'app-online-check-in',
@@ -182,19 +190,29 @@ export class OnlineCheckInPage {
       ],
       emergencyContactName: [
         '',
-        [
-          Validators.required,
-          Validators.minLength(3),
-        ],
       ],
       emergencyContactPhone: [
         '',
+      ],
+      residenceAddress: [''],
+      travelReason: [''],
+      notes: [''],
+      signature: [
+        '',
         [
           Validators.required,
-          Validators.minLength(7),
+          Validators.minLength(3),
+          this.signatureMatchesHolderValidator.bind(this),
         ],
       ],
-      notes: [''],
+      confirmsGuestData: [
+        false,
+        Validators.requiredTrue,
+      ],
+      acceptsStayRules: [
+        false,
+        Validators.requiredTrue,
+      ],
       acceptsDataPolicy: [
         false,
         Validators.requiredTrue,
@@ -209,10 +227,13 @@ export class OnlineCheckInPage {
   submitError = '';
   reservationSummary: OnlineCheckInLookupResponse | null = null;
   confirmation: OnlineCheckInResponse | null = null;
+  checkInStep: CheckInStep = 2;
 
   copyFeedback = '';
+  holderLoadFeedback = '';
 
   private copyFeedbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private holderLoadFeedbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   get reservationCodeLabel(): string {
 
@@ -227,6 +248,122 @@ export class OnlineCheckInPage {
       typeof navigator !== 'undefined' &&
       navigator.clipboard
     );
+  }
+
+  get reservationHolder(): OnlineCheckInHolder | null {
+
+    return this.reservationSummary?.holder ?? null;
+  }
+
+  get primaryGuestLine(): GuestLineGroup | null {
+
+    return this.guestLines.at(0) ?? null;
+  }
+
+  get companionIndexes(): number[] {
+
+    return Array.from(
+      { length: Math.max(this.guestLines.length - 1, 0) },
+      (_, index) => index + 1
+    );
+  }
+
+  get completedGuestCount(): number {
+
+    return this.guestLines.controls.filter((line) => line.valid).length;
+  }
+
+  get companionCount(): number {
+
+    return Math.max(this.guestLines.length - 1, 0);
+  }
+
+  get remainingCompanionSlots(): number {
+
+    return Math.max(this.guestLines.length - 1 - this.completedCompanionCount, 0);
+  }
+
+  get completedCompanionCount(): number {
+
+    return this.guestLines.controls
+      .slice(1)
+      .filter((line) => line.valid)
+      .length;
+  }
+
+  get reservationDateRange(): string {
+
+    const checkIn =
+      this.reservationSummary?.expected_check_in ||
+      this.confirmation?.expected_check_in;
+
+    const checkOut =
+      this.reservationSummary?.expected_check_out ||
+      this.confirmation?.expected_check_out;
+
+    if (!checkIn || !checkOut) {
+      return 'Fechas por confirmar';
+    }
+
+    return `${this.formatDisplayDate(checkIn, false)} - ${this.formatDisplayDate(checkOut, true)}`;
+  }
+
+  get reservationRoomLabel(): string {
+
+    return this.reservationSummary?.room_summary || 'Habitacion asignada por el hotel';
+  }
+
+  get reservationStatusBadge(): string {
+
+    const status =
+      this.reservationSummary?.status_label?.trim() || 'Confirmada';
+
+    const paymentLabel =
+      this.reservationSummary?.payment_status_label?.trim();
+
+    if (this.reservationSummary?.payment_status_code === 'PAGADO') {
+      return `Reserva ${status.toLowerCase()} y pagada`;
+    }
+
+    if (paymentLabel && paymentLabel !== 'Sin cargos') {
+      return `Reserva ${status.toLowerCase()} - ${paymentLabel.toLowerCase()}`;
+    }
+
+    return `Reserva ${status.toLowerCase()}`;
+  }
+
+  get arrivalTimeLabel(): string {
+
+    const value =
+      this.guestForm.controls.arrivalTime.value;
+
+    return this.arrivalWindows.find((option) => option.value === value)?.label || 'Pendiente';
+  }
+
+  get holderFullName(): string {
+
+    const holder =
+      this.reservationHolder;
+
+    if (!holder) {
+      return '';
+    }
+
+    return `${holder.first_name || ''} ${holder.last_name || ''}`.trim();
+  }
+
+  get primaryGuestFullName(): string {
+
+    return this.getGuestFullName(0) || 'Huesped principal';
+  }
+
+  get passCode(): string {
+
+    const reservationId =
+      this.confirmation?.reservation_id ||
+      this.reservationSummary?.reservation_id;
+
+    return reservationId ? `PASE-${reservationId}` : 'PASE';
   }
 
   continueWithCode(): void {
@@ -265,28 +402,19 @@ export class OnlineCheckInPage {
           }
 
           this.reservationSummary = response;
-          this.buildGuestLines(
-            response,
-            codeValues.documentType,
-            codeValues.documentNumber
-          );
+          this.confirmation = null;
+          this.submitError = '';
+          this.resetGuestFormFields();
+          this.buildGuestLines(response, codeValues.documentNumber);
+          this.checkInStep = 2;
+          this.holderLoadFeedback = '';
           this.codeConfirmed = true;
           this.submitted = false;
-
-          const prefersReducedMotion =
-            this.prefersReducedMotion();
-
-          window.setTimeout(() => {
-            const guestSection =
-              document.getElementById('guest-check-in-data');
-
-            guestSection?.scrollIntoView({
-              behavior: prefersReducedMotion ? 'auto' : 'smooth',
-              block: 'start',
-            });
-
-            guestSection?.focus({ preventScroll: true });
+          this.guestForm.controls.signature.updateValueAndValidity({
+            emitEvent: false,
           });
+
+          this.scrollToFlow();
         },
         error: (error) => {
           this.lookingUp = false;
@@ -311,6 +439,8 @@ export class OnlineCheckInPage {
     this.submitError = '';
 
     if (this.guestLines.invalid || this.guestForm.invalid) {
+      this.checkInStep = this.getFirstInvalidStep();
+      this.scrollToFlow();
       return;
     }
 
@@ -319,6 +449,12 @@ export class OnlineCheckInPage {
 
     const guests =
       this.guestLines.controls.map((line) => line.getRawValue());
+
+    const emergencyContactName =
+      guestValues.emergencyContactName?.trim() || this.primaryGuestFullName;
+
+    const emergencyContactPhone =
+      guestValues.emergencyContactPhone?.trim() || guestValues.phone;
 
     this.submitting = true;
 
@@ -329,9 +465,10 @@ export class OnlineCheckInPage {
         email: guestValues.email,
         phone: guestValues.phone,
         arrivalTime: guestValues.arrivalTime,
-        emergencyContactName: guestValues.emergencyContactName,
-        emergencyContactPhone: guestValues.emergencyContactPhone,
-        notes: guestValues.notes,
+        emergencyContactName,
+        emergencyContactPhone,
+        signature: guestValues.signature,
+        notes: this.buildOnlineCheckInNotes(),
         acceptsDataPolicy: guestValues.acceptsDataPolicy,
       })
       .subscribe({
@@ -425,6 +562,12 @@ export class OnlineCheckInPage {
     this.submitError = '';
     this.reservationSummary = null;
     this.confirmation = null;
+    this.checkInStep = 2;
+    this.holderLoadFeedback = '';
+    if (this.holderLoadFeedbackTimeoutId !== null) {
+      clearTimeout(this.holderLoadFeedbackTimeoutId);
+      this.holderLoadFeedbackTimeoutId = null;
+    }
     this.guestLines.clear();
     this.reservationForm.reset({
       reservationCode: '',
@@ -437,7 +580,12 @@ export class OnlineCheckInPage {
       arrivalTime: '',
       emergencyContactName: '',
       emergencyContactPhone: '',
+      residenceAddress: '',
+      travelReason: '',
       notes: '',
+      signature: '',
+      confirmsGuestData: false,
+      acceptsStayRules: false,
       acceptsDataPolicy: false,
     });
   }
@@ -513,6 +661,10 @@ export class OnlineCheckInPage {
       return this.getMinLengthGuestMessage(controlName);
     }
 
+    if (control.hasError('signatureMismatch')) {
+      return `La firma debe coincidir con el titular: ${this.holderFullName}.`;
+    }
+
     if (control.hasError('maxlength')) {
       return 'El dato ingresado es demasiado largo.';
     }
@@ -563,9 +715,198 @@ export class OnlineCheckInPage {
     });
   }
 
+  loadReservationHolderAsPrimaryGuest(): void {
+
+    const holder =
+      this.reservationHolder;
+
+    const primaryLine =
+      this.primaryGuestLine;
+
+    if (!holder || !primaryLine) {
+      return;
+    }
+
+    primaryLine.patchValue({
+      firstName: holder.first_name || '',
+      lastName: holder.last_name || '',
+      documentType: holder.document_type || this.reservationForm.controls.documentType.value,
+      documentNumber: holder.document_number || this.reservationForm.controls.documentNumber.value,
+      nationality: holder.nationality || '',
+    });
+
+    this.guestForm.patchValue({
+      email: holder.email || '',
+      phone: holder.phone || '',
+    });
+
+    this.holderLoadFeedback = 'Datos del titular cargados.';
+
+    if (this.holderLoadFeedbackTimeoutId !== null) {
+      clearTimeout(this.holderLoadFeedbackTimeoutId);
+    }
+
+    this.holderLoadFeedbackTimeoutId = setTimeout(() => {
+      this.holderLoadFeedback = '';
+      this.holderLoadFeedbackTimeoutId = null;
+    }, 2500);
+  }
+
+  setGuestDocumentType(index: number, documentType: string): void {
+
+    const guestLine =
+      this.guestLines.at(index);
+
+    if (!guestLine) {
+      return;
+    }
+
+    guestLine.controls.documentType.setValue(documentType);
+    guestLine.controls.documentType.markAsDirty();
+  }
+
+  goToPrimaryGuest(): void {
+
+    this.checkInStep = 2;
+    this.scrollToFlow();
+  }
+
+  continueToCompanions(): void {
+
+    this.markPrimaryGuestStepAsTouched();
+
+    if (!this.isPrimaryGuestStepValid()) {
+      return;
+    }
+
+    this.checkInStep = 3;
+    this.scrollToFlow();
+  }
+
+  continueToReview(): void {
+
+    this.markCompanionStepAsTouched();
+
+    if (this.guestLines.invalid) {
+      return;
+    }
+
+    this.checkInStep = 4;
+    this.scrollToFlow();
+  }
+
+  isGuestLineComplete(index: number): boolean {
+
+    return Boolean(this.guestLines.at(index)?.valid);
+  }
+
+  getGuestFullName(index: number): string {
+
+    const guestLine =
+      this.guestLines.at(index);
+
+    if (!guestLine) {
+      return '';
+    }
+
+    const value =
+      guestLine.getRawValue();
+
+    return `${value.firstName || ''} ${value.lastName || ''}`.trim();
+  }
+
+  getGuestDocumentLabel(index: number): string {
+
+    const guestLine =
+      this.guestLines.at(index);
+
+    if (!guestLine) {
+      return 'Documento pendiente';
+    }
+
+    const value =
+      guestLine.getRawValue();
+
+    if (!value.documentNumber) {
+      return 'Documento pendiente';
+    }
+
+    return `${this.shortDocumentLabel(value.documentType)} ${value.documentNumber}`;
+  }
+
+  getGuestReviewMeta(index: number): string {
+
+    const guestLine =
+      this.guestLines.at(index);
+
+    if (!guestLine) {
+      return 'Datos pendientes';
+    }
+
+    const value =
+      guestLine.getRawValue();
+
+    const details = [
+      value.documentNumber ? this.getGuestDocumentLabel(index) : 'Documento pendiente',
+      value.nationality ? value.nationality : 'Nacionalidad pendiente',
+      index === 0 ? 'Titular' : 'Acompanante',
+    ];
+
+    return details.join(' · ');
+  }
+
+  shortDocumentLabel(value: string): string {
+
+    const normalized =
+      (value || '').toUpperCase();
+
+    const labels: Record<string, string> = {
+      CC: 'CC',
+      CE: 'CE',
+      PASAPORTE: 'Pasaporte',
+      DNI: 'DNI',
+    };
+
+    return labels[normalized] || normalized || 'Doc.';
+  }
+
+  downloadCheckInReceipt(): void {
+
+    const receiptLines = [
+      'Comprobante de check-in online',
+      `Pase de llegada: ${this.passCode}`,
+      `Reserva: ${this.reservationCodeLabel}`,
+      `Hotel: ${this.confirmation?.hotel_name || this.reservationSummary?.hotel_name || ''}`,
+      `Habitacion: ${this.reservationRoomLabel}`,
+      `Fechas: ${this.reservationDateRange}`,
+      `Huespedes registrados: ${this.confirmation?.guests?.length || this.completedGuestCount} de ${this.guestLines.length}`,
+      `Llegada estimada: ${this.arrivalTimeLabel}`,
+    ];
+
+    const blob =
+      new Blob([receiptLines.join('\n')], { type: 'text/plain;charset=utf-8' });
+
+    const url =
+      URL.createObjectURL(blob);
+
+    const link =
+      document.createElement('a');
+
+    link.href = url;
+    link.download = `check-in-${this.reservationCodeLabel || 'reserva'}.txt`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+  }
+
   trackByValue(_: number, option: SelectOption): string {
 
     return option.value;
+  }
+
+  trackByIndex(index: number): number {
+
+    return index;
   }
 
   trackByGuestLine(index: number): number {
@@ -575,7 +916,6 @@ export class OnlineCheckInPage {
 
   private buildGuestLines(
     response: OnlineCheckInLookupResponse,
-    titularDocumentType: string,
     titularDocumentNumber: string
   ): void {
 
@@ -599,6 +939,10 @@ export class OnlineCheckInPage {
         ? remainingExistingGuests.splice(titularIndex, 1)[0]
         : null;
 
+    if (titularGuest) {
+      this.patchSharedFieldsFromExistingGuest(titularGuest);
+    }
+
     for (let index = 0; index < totalGuests; index++) {
 
       if (index === 0) {
@@ -606,10 +950,7 @@ export class OnlineCheckInPage {
           this.buildGuestLine(
             titularGuest
               ? this.toGuestLinePrefill(titularGuest)
-              : {
-                  documentType: titularDocumentType,
-                  documentNumber: titularDocumentNumber,
-                }
+              : undefined
           )
         );
         continue;
@@ -686,6 +1027,114 @@ export class OnlineCheckInPage {
     };
   }
 
+  private resetGuestFormFields(): void {
+
+    this.guestForm.reset({
+      email: '',
+      phone: '',
+      arrivalTime: '',
+      emergencyContactName: '',
+      emergencyContactPhone: '',
+      residenceAddress: '',
+      travelReason: '',
+      notes: '',
+      signature: '',
+      confirmsGuestData: false,
+      acceptsStayRules: false,
+      acceptsDataPolicy: false,
+    });
+  }
+
+  private patchSharedFieldsFromExistingGuest(guest: OnlineCheckInExistingGuest): void {
+
+    this.guestForm.patchValue({
+      email: guest.email ?? '',
+      phone: guest.phone ?? '',
+      arrivalTime: guest.arrival_time_window ?? '',
+      emergencyContactName: guest.emergency_contact_name ?? '',
+      emergencyContactPhone: guest.emergency_contact_phone ?? '',
+      notes: guest.notes ?? '',
+      acceptsDataPolicy: guest.accepts_data_policy,
+    });
+  }
+
+  private markPrimaryGuestStepAsTouched(): void {
+
+    this.primaryGuestLine?.markAllAsTouched();
+    this.guestForm.controls.email.markAsTouched();
+    this.guestForm.controls.phone.markAsTouched();
+    this.guestForm.controls.arrivalTime.markAsTouched();
+  }
+
+  private markCompanionStepAsTouched(): void {
+
+    this.guestLines.controls.slice(1).forEach((guestLine) => {
+      guestLine.markAllAsTouched();
+    });
+  }
+
+  private isPrimaryGuestStepValid(): boolean {
+
+    return Boolean(
+      this.primaryGuestLine?.valid &&
+      this.guestForm.controls.email.valid &&
+      this.guestForm.controls.phone.valid &&
+      this.guestForm.controls.arrivalTime.valid
+    );
+  }
+
+  private getFirstInvalidStep(): CheckInStep {
+
+    if (!this.isPrimaryGuestStepValid()) {
+      return 2;
+    }
+
+    if (this.guestLines.controls.slice(1).some((guestLine) => guestLine.invalid)) {
+      return 3;
+    }
+
+    return 4;
+  }
+
+  private buildOnlineCheckInNotes(): string | undefined {
+
+    const values =
+      this.guestForm.getRawValue();
+
+    const lines = [
+      values.notes?.trim() ? `Observaciones: ${values.notes.trim()}` : '',
+      values.residenceAddress?.trim()
+        ? `Direccion de residencia: ${values.residenceAddress.trim()}`
+        : '',
+      values.travelReason?.trim()
+        ? `Motivo de viaje: ${values.travelReason.trim()}`
+        : '',
+      values.signature?.trim()
+        ? `Firma electronica: ${values.signature.trim()}`
+        : '',
+    ].filter(Boolean);
+
+    return lines.length ? lines.join('\n') : undefined;
+  }
+
+  private scrollToFlow(): void {
+
+    const prefersReducedMotion =
+      this.prefersReducedMotion();
+
+    window.setTimeout(() => {
+      const section =
+        document.getElementById('online-check-in-flow');
+
+      section?.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'start',
+      });
+
+      section?.focus({ preventScroll: true });
+    });
+  }
+
   private readonly birthDateRangeValidator = (control: AbstractControl): ValidationErrors | null => {
 
     const value = control.value as string;
@@ -701,10 +1150,35 @@ export class OnlineCheckInPage {
     return null;
   };
 
+  private signatureMatchesHolderValidator(control: AbstractControl): ValidationErrors | null {
+
+    const holderName =
+      this.normalizePersonName(this.holderFullName);
+
+    const signature =
+      this.normalizePersonName(control.value as string);
+
+    if (!holderName || !signature) {
+      return null;
+    }
+
+    return signature === holderName ? null : { signatureMismatch: true };
+  }
+
   private normalizeDocumentNumber(value: string): string {
 
     return value
       .replace(/[\s.-]/g, '')
+      .trim()
+      .toUpperCase();
+  }
+
+  private normalizePersonName(value: string): string {
+
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9]+/g, ' ')
       .trim()
       .toUpperCase();
   }
@@ -724,11 +1198,16 @@ export class OnlineCheckInPage {
 
     const messages: Record<GuestCheckInControlName, string> = {
       email: 'Ingresa un correo de contacto.',
-      phone: 'Ingresa un teléfono de contacto.',
+      phone: 'Ingresa un telefono de contacto.',
       arrivalTime: 'Selecciona una hora estimada de llegada.',
       emergencyContactName: 'Ingresa el nombre de contacto de emergencia.',
-      emergencyContactPhone: 'Ingresa el teléfono de emergencia.',
-      notes: 'Ingresa una observación.',
+      emergencyContactPhone: 'Ingresa el telefono de emergencia.',
+      residenceAddress: 'Ingresa la direccion de residencia.',
+      travelReason: 'Ingresa el motivo del viaje.',
+      notes: 'Ingresa una observacion.',
+      signature: 'Escribe tu nombre completo como firma electronica.',
+      confirmsGuestData: 'Confirma que los datos son correctos.',
+      acceptsStayRules: 'Acepta las normas de convivencia para continuar.',
       acceptsDataPolicy: 'Debes aceptar el tratamiento de datos para continuar.',
     };
 
@@ -738,9 +1217,10 @@ export class OnlineCheckInPage {
   private getMinLengthGuestMessage(controlName: GuestCheckInControlName): string {
 
     const messages: Partial<Record<GuestCheckInControlName, string>> = {
-      phone: 'El teléfono debe tener al menos 7 caracteres.',
+      phone: 'El telefono debe tener al menos 7 caracteres.',
       emergencyContactName: 'El contacto debe tener al menos 3 caracteres.',
-      emergencyContactPhone: 'El teléfono debe tener al menos 7 caracteres.',
+      emergencyContactPhone: 'El telefono debe tener al menos 7 caracteres.',
+      signature: 'La firma debe tener al menos 3 caracteres.',
     };
 
     return messages[controlName] ?? 'El dato ingresado es demasiado corto.';
@@ -784,6 +1264,30 @@ export class OnlineCheckInPage {
     return value
       .trim()
       .toUpperCase();
+  }
+
+  private formatDisplayDate(value: string, includeYear: boolean): string {
+
+    const [year, month, day] =
+      value.split('-').map((part) => Number(part));
+
+    if (!year || !month || !day) {
+      return value;
+    }
+
+    const date =
+      new Date(year, month - 1, day);
+
+    return new Intl.DateTimeFormat(
+      'es-PE',
+      {
+        day: 'numeric',
+        month: 'short',
+        year: includeYear ? 'numeric' : undefined,
+      }
+    )
+      .format(date)
+      .replace('.', '');
   }
 
   private extractErrorMessage(error: unknown): string {
