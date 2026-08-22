@@ -1132,7 +1132,9 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
   transaccional existente y deja el correo del administrador como `reply_to`. El modal de redaccion
   y el modal de roles se centran sobre la pantalla completa aunque se abran desde el drawer lateral
   de detalle; el modal de correo usa un ancho mayor para que el destinatario y los botones del pie
-  no queden apretados.
+  no queden apretados. Las acciones de detalle de usuario envian `scope=global` para que el contexto
+  de hotel seleccionado del administrador de plataforma no provoque falsos 404 al editar, administrar
+  roles, restaurar, eliminar o enviar correo a usuarios de otro hotel.
 - **Por qué:** el administrador de plataforma necesitaba comunicarse con un usuario sin salir de
   Wayra ni perder la identidad visual de los correos transaccionales.
 - **Archivos/áreas afectadas:** `backend/accounts/{views.py,serializers.py,email_utils.py,tests.py}`,

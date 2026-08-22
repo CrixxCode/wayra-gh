@@ -167,14 +167,14 @@ export class UserService {
     return this.http.patch<UserI>(
       `${this.usersUrl}${id}/`,
       formData,
-      this.authService.buildCsrfRequestOptions()
+      this.buildGlobalUserActionOptions()
     );
   }
 
 
   /** Elimina fisicamente un usuario */
   deleteUser(id: number | string): Observable<void> {
-    return this.http.delete<void>(`${this.usersUrl}${id}/`, this.authService.buildCsrfRequestOptions());
+    return this.http.delete<void>(`${this.usersUrl}${id}/`, this.buildGlobalUserActionOptions());
   }
 
   /** Elimina logicamente un usuario (por ejemplo, desactiva el estado) */
@@ -184,7 +184,7 @@ export class UserService {
     return this.http.patch<UserI>(
       `${this.usersUrl}${id}/`,
       body,
-      this.authService.buildCsrfRequestOptions()
+      this.buildGlobalUserActionOptions()
     );
   }
 
@@ -192,14 +192,14 @@ export class UserService {
     return this.http.post<UserI>(
       `${this.usersUrl}${id}/restore/`,
       {},
-      this.authService.buildCsrfRequestOptions()
+      this.buildGlobalUserActionOptions()
     );
   }
 
   getUserRoles(id: number | string): Observable<UserRoleAssignments> {
     return this.http.get<UserRoleAssignments>(
       `${this.usersUrl}${id}/roles/`,
-      this.authService.buildCsrfRequestOptions()
+      this.buildGlobalUserActionOptions()
     );
   }
 
@@ -207,7 +207,7 @@ export class UserService {
     return this.http.post<UserI>(
       `${this.usersUrl}${id}/roles/`,
       { role_ids: roleIds },
-      this.authService.buildCsrfRequestOptions()
+      this.buildGlobalUserActionOptions()
     );
   }
 
@@ -215,8 +215,15 @@ export class UserService {
     return this.http.post<UserDirectEmailResponse>(
       `${this.usersUrl}${id}/send-email/`,
       payload,
-      this.authService.buildCsrfRequestOptions()
+      this.buildGlobalUserActionOptions()
     );
+  }
+
+  private buildGlobalUserActionOptions() {
+    return {
+      ...this.authService.buildCsrfRequestOptions(),
+      params: new HttpParams().set('scope', 'global'),
+    };
   }
 
   private resolveHotelSettingsId(hotelSettings: UserI['hotel_settings']): number | null {
