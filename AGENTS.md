@@ -1136,7 +1136,8 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 - **Que se hizo:** se reemplazaron los placeholders visuales de la landing publica por las imagenes
   disponibles en `frontend/public/landing`: captura de reservas en el hero, foto comparativa de
   recepcion en la seccion del problema y captura del dashboard en la seccion de producto. Los marcos
-  usan la proporcion real de cada asset para evitar recortes y mantener buena presencia visual.
+  usan la proporcion real de cada asset para evitar recortes y mantener buena presencia visual; el
+  hero reserva mas ancho para que los elementos de la captura de reservas se lean mejor.
 - **Por que:** la landing ya tenia los espacios visuales definidos, pero mostraba contenedores de
   maqueta en vez de los assets finales.
 - **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/`,

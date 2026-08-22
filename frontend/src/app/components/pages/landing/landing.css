@@ -41,10 +41,14 @@
   background: var(--ink);
 }
 
+.prototype-hero .prototype-section {
+  width: min(100%, 1880px);
+}
+
 .prototype-hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.18fr);
-  gap: clamp(2rem, 5vw, 4rem);
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.42fr);
+  gap: clamp(1.5rem, 3.5vw, 3rem);
   align-items: center;
   padding-top: clamp(4.5rem, 8vw, 5.5rem);
   padding-bottom: clamp(5rem, 8vw, 6rem);
