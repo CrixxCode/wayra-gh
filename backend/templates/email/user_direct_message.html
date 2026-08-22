@@ -1,0 +1,33 @@
+{% extends "email/base_email.html" %}
+
+{% block title %}{{ subject }}{% endblock %}
+
+{% block preheader %}Mensaje enviado desde {{ app_name }}.{% endblock %}
+
+{% block badge_label %}Mensaje de plataforma{% endblock %}
+
+{% block brand_subtitle %}Comunicacion directa de cuenta.{% endblock %}
+
+{% block content %}
+              <h1 style="margin:0 0 12px 0;color:#111c3f;font-size:28px;line-height:1.2;font-weight:800;">
+                {{ subject }}
+              </h1>
+              <p style="margin:0 0 12px 0;color:#334b72;font-size:15px;line-height:1.65;">
+                Hola {{ recipient_name }},
+              </p>
+              <div style="margin:0 0 20px 0;color:#334b72;font-size:15px;line-height:1.65;">
+                {{ message|linebreaksbr }}
+              </div>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;margin-top:16px;">
+                <tr>
+                  <td style="padding:12px 14px;border:1px solid #d7e0ef;background:#f7faff;border-radius:12px;">
+                    <p style="margin:0;color:#42557f;font-size:12px;line-height:1.6;">
+                      Enviado por <strong style="color:#0f1f41;">{{ sender_name }}</strong>{% if sender_email %} &lt;{{ sender_email }}&gt;{% endif %} desde {{ app_name }}.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+{% endblock %}
+
+{% block outer_caption %}Correo enviado desde el panel de administracion de {{ app_name }}.{% endblock %}

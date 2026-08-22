@@ -230,6 +230,17 @@ h3 {
   outline: 0;
 }
 
+.mini-action:disabled,
+.mini-action:disabled:hover,
+.mini-action:disabled:focus-visible {
+  border-color: var(--drawer-border-strong);
+  background: var(--drawer-surface);
+  color: var(--drawer-text);
+  cursor: not-allowed;
+  opacity: 0.58;
+  outline: 0;
+}
+
 .info-list {
   display: flex;
   flex-direction: column;
@@ -303,6 +314,9 @@ h3 {
 .role-modal-backdrop {
   position: fixed;
   inset: 0;
+  left: min(0px, calc(450px - 100vw));
+  right: auto;
+  width: 100vw;
   z-index: 1200;
   padding: 18px;
   background: rgba(15, 23, 42, 0.46);
@@ -522,6 +536,117 @@ h3 {
   min-width: 116px;
 }
 
+.email-modal {
+  width: min(680px, 100%);
+}
+
+.email-modal-backdrop {
+  z-index: 1300;
+}
+
+.email-form {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.email-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.email-field span {
+  color: var(--drawer-text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.email-field input,
+.email-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--drawer-border-strong);
+  border-radius: 10px;
+  background: var(--drawer-surface);
+  color: var(--drawer-text);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  outline: 0;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.email-field input {
+  height: 40px;
+  padding: 0 11px;
+}
+
+.email-field textarea {
+  min-height: 170px;
+  max-height: 300px;
+  padding: 10px 11px;
+  resize: vertical;
+}
+
+.email-field input:focus,
+.email-field textarea:focus {
+  border-color: var(--drawer-info-text);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--drawer-info-text) 18%, transparent);
+}
+
+.email-field input:disabled,
+.email-field textarea:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.email-meta-row {
+  display: flex;
+  justify-content: flex-end;
+  color: var(--drawer-text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.email-error {
+  min-height: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--drawer-danger-text);
+  border-radius: 10px;
+  background: var(--drawer-danger-bg);
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.email-modal .role-modal-foot > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.email-modal .role-modal-foot > div {
+  flex: 0 0 auto;
+}
+
+.email-modal .btn-dark {
+  min-width: 148px;
+}
+
+.email-submit-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
 @media (max-width: 560px) {
   .drawer-kpis {
     grid-template-columns: 1fr;
@@ -541,8 +666,13 @@ h3 {
   }
 
   .role-modal-backdrop {
-    align-items: flex-end;
+    left: 0;
+    align-items: center;
     padding: 10px;
+  }
+
+  .email-modal-backdrop {
+    align-items: center;
   }
 
   .role-modal {

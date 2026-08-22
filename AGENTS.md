@@ -1120,6 +1120,27 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ## 12. Registro de cambios
 
+### 2026-08-22 — Correo directo desde Usuarios plataforma
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Qué se hizo:** el detalle de `Usuarios plataforma` ahora permite redactar y enviar un correo
+  directo al usuario seleccionado. Se agrego `POST /api/users/<id>/send-email/`, protegido con
+  `users.write` y restringido adicionalmente al administrador global de plataforma. El correo usa
+  una plantilla HTML que extiende `email/base_email.html`, conserva el remitente/configuracion
+  transaccional existente y deja el correo del administrador como `reply_to`. El modal de redaccion
+  y el modal de roles se centran sobre la pantalla completa aunque se abran desde el drawer lateral
+  de detalle; el modal de correo usa un ancho mayor para que el destinatario y los botones del pie
+  no queden apretados.
+- **Por qué:** el administrador de plataforma necesitaba comunicarse con un usuario sin salir de
+  Wayra ni perder la identidad visual de los correos transaccionales.
+- **Archivos/áreas afectadas:** `backend/accounts/{views.py,serializers.py,email_utils.py,tests.py}`,
+  `backend/templates/email/user_direct_message.html`, `frontend/src/app/services/user.ts`,
+  `frontend/src/app/modules/users/{list,profile}/`.
+- **Impacto:** cambio de API sin migraciones ni recursos RBAC nuevos; requiere que la configuracion
+  de correo saliente existente este operativa.
+
 ### 2026-08-22 — Acciones desplegables en Solicitudes de demo
 
 - **Autor:** Codex, a solicitud de Cristian Ramirez

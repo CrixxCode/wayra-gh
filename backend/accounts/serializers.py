@@ -13,6 +13,8 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from apps.hotel_settings.models import HotelSettings
 from accounts.email_utils import (
+    attach_inline_logo,
+    build_email_brand_context,
     build_password_reset_url,
     describe_email_send_failure,
     email_backend_configuration_error,
@@ -774,6 +776,99 @@ class PasswordResetRequestSerializer(serializers.Serializer):
             return {"found": True, "sent": False, "error_detail": error_detail}
 
         return {"found": True, "sent": bool(sent_count) and email_backend_delivers_to_inbox()}
+
+
+class UserDirectEmailSerializer(serializers.Serializer):
+    subject = serializers.CharField(max_length=140, trim_whitespace=True)
+    message = serializers.CharField(max_length=5000, trim_whitespace=True)
+
+    def validate_subject(self, value):
+        subject = str(value or "").strip()
+        if not subject:
+            raise serializers.ValidationError("El asunto es obligatorio.")
+        if "\n" in subject or "\r" in subject:
+            raise serializers.ValidationError("El asunto no puede tener saltos de linea.")
+        return subject
+
+    def validate_message(self, value):
+        message = str(value or "").strip()
+        if not message:
+            raise serializers.ValidationError("El mensaje es obligatorio.")
+        return message
+
+    def save(self, **kwargs):
+        target_user = kwargs["target_user"]
+        actor = kwargs["actor"]
+        subject = self.validated_data["subject"]
+        message = self.validated_data["message"]
+        recipient_email = str(getattr(target_user, "email", "") or "").strip().lower()
+
+        if not recipient_email:
+            raise serializers.ValidationError({"email": "El usuario no tiene correo registrado."})
+
+        brand, inline_logo_bytes, inline_logo_name, inline_logo_cid = build_email_brand_context(
+            getattr(target_user, "hotel_settings", None)
+        )
+        recipient_name = (
+            f"{getattr(target_user, 'first_name', '')} {getattr(target_user, 'last_name', '')}".strip()
+            or getattr(target_user, "username", "")
+            or "usuario"
+        )
+        sender_name = (
+            f"{getattr(actor, 'first_name', '')} {getattr(actor, 'last_name', '')}".strip()
+            or getattr(actor, "username", "")
+            or brand["app_name"]
+        )
+        sender_email = str(getattr(actor, "email", "") or "").strip()
+
+        text_body = (
+            f"Hola {recipient_name},\n\n"
+            f"{message}\n\n"
+            f"Enviado por {sender_name} desde {brand['app_name']}.\n"
+        )
+        html_body = render_to_string(
+            "email/user_direct_message.html",
+            {
+                "recipient_name": recipient_name,
+                "sender_name": sender_name,
+                "sender_email": sender_email,
+                "subject": subject,
+                "message": message,
+                **brand,
+            },
+        )
+
+        from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@hotel.local")
+        reply_to = [sender_email] if sender_email else None
+        msg = EmailMultiAlternatives(subject, text_body, from_email, [recipient_email], reply_to=reply_to)
+        msg.attach_alternative(html_body, "text/html")
+        attach_inline_logo(msg, inline_logo_bytes, inline_logo_name, inline_logo_cid)
+
+        configuration_error = email_backend_configuration_error()
+        if configuration_error:
+            logger.error(
+                "Direct user email could not be sent for user_id=%s email=%s actor_id=%s: %s",
+                target_user.pk,
+                recipient_email,
+                getattr(actor, "pk", None),
+                configuration_error,
+            )
+            return {"sent": False, "error_detail": configuration_error}
+
+        try:
+            sent_count = msg.send(fail_silently=False)
+        except Exception as exc:
+            error_detail = describe_email_send_failure(exc)
+            logger.exception(
+                "Direct user email could not be sent for user_id=%s email=%s actor_id=%s: %s",
+                target_user.pk,
+                recipient_email,
+                getattr(actor, "pk", None),
+                error_detail,
+            )
+            return {"sent": False, "error_detail": error_detail}
+
+        return {"sent": bool(sent_count) and email_backend_delivers_to_inbox()}
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):

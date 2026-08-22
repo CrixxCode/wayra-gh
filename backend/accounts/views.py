@@ -33,7 +33,7 @@ from .models import JobTitle, Role, Resource, UserRole, RoleResource, Notificati
 from .serializers import (
     JobTitleSerializer, RegisterSerializer, UserSerializer, UserUpdateSerializer, RoleSerializer, ResourceSerializer,
     UserMiniSerializer, PasswordChangeSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
-    NotificationKeysSerializer, ProfileUpdateSerializer
+    NotificationKeysSerializer, ProfileUpdateSerializer, UserDirectEmailSerializer
 )
 from django.db import models
 
@@ -411,6 +411,34 @@ class UserViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
         target_user.refresh_from_db()
         return Response(
             UserSerializer(target_user, context=self.get_serializer_context()).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        request=UserDirectEmailSerializer,
+        responses={200: OpenApiTypes.OBJECT, 503: OpenApiTypes.OBJECT},
+    )
+    @action(detail=True, methods=["post"], url_path="send-email")
+    def send_email(self, request, pk=None):
+        if not is_effective_global_admin(request.user):
+            raise PermissionDenied("Solo el administrador de plataforma puede enviar correos directos.")
+
+        target_user = self.get_object()
+        serializer = UserDirectEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = serializer.save(target_user=target_user, actor=request.user)
+
+        if not result.get("sent"):
+            return Response(
+                {
+                    "detail": "No se pudo enviar el correo. Revisa la configuracion de correo saliente.",
+                    "sent": False,
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            {"detail": "Correo enviado correctamente.", "sent": True},
             status=status.HTTP_200_OK,
         )
 

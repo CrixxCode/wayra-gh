@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule, NgClass } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MessageService } from 'primeng/api';
 import { finalize } from 'rxjs';
 import { UserService } from '../../../services/user';
@@ -9,15 +10,24 @@ import { environment } from '../../../../enviorements/environment';
 @Component({
   selector: 'app-user-profile',
   standalone: true,
-  imports: [CommonModule, NgClass],
+  imports: [CommonModule, NgClass, FormsModule],
   templateUrl: './profile.html',
   styleUrls: ['./profile.css']
 })
 export class UserProfile {
   @Input() user: UserI | null = null;
+  @Input() allowDirectEmail = false;
   @Output() close = new EventEmitter<void>();
   @Output() edit = new EventEmitter<void>();
   @Output() rolesUpdated = new EventEmitter<UserI>();
+
+  showEmailModal = false;
+  sendingEmail = false;
+  emailSubject = '';
+  emailMessage = '';
+  emailError = '';
+  readonly emailSubjectMax = 140;
+  readonly emailMessageMax = 5000;
 
   showRoleModal = false;
   loadingRoles = false;
@@ -37,6 +47,55 @@ export class UserProfile {
 
   editUser(): void {
     this.edit.emit();
+  }
+
+  openEmailComposer(): void {
+    if (!this.canOpenEmailComposer()) return;
+    const displayName = this.getDisplayName();
+    this.emailSubject = '';
+    this.emailMessage = `Hola ${displayName},\n\n`;
+    this.emailError = '';
+    this.showEmailModal = true;
+  }
+
+  closeEmailComposer(): void {
+    if (this.sendingEmail) return;
+    this.showEmailModal = false;
+    this.emailError = '';
+  }
+
+  sendDirectEmail(): void {
+    if (!this.user?.id || this.sendingEmail) return;
+
+    const subject = this.emailSubject.trim();
+    const message = this.emailMessage.trim();
+    if (!subject || !message) {
+      this.emailError = 'Escribe el asunto y el mensaje antes de enviar.';
+      return;
+    }
+
+    this.sendingEmail = true;
+    this.emailError = '';
+
+    this.userService
+      .sendUserEmail(this.user.id, { subject, message })
+      .pipe(finalize(() => (this.sendingEmail = false)))
+      .subscribe({
+        next: () => {
+          this.showEmailModal = false;
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Correo enviado',
+            detail: 'El mensaje fue enviado al usuario.',
+            life: 2600,
+          });
+        },
+        error: (error) => {
+          this.emailError =
+            error?.error?.detail ||
+            'No se pudo enviar el correo. Revisa el asunto, el mensaje y la configuracion de correo.';
+        },
+      });
   }
 
   openRoleManager(): void {
@@ -120,6 +179,15 @@ export class UserProfile {
 
   getStatusLabel(): string {
     return this.isActive() ? 'Activo' : 'Inactivo';
+  }
+
+  canOpenEmailComposer(): boolean {
+    return this.allowDirectEmail && !!String(this.user?.email || '').trim();
+  }
+
+  getDisplayName(): string {
+    if (!this.user) return 'usuario';
+    return `${this.user.first_name || ''} ${this.user.last_name || ''}`.trim() || this.user.username || 'usuario';
   }
 
   getPrimaryRole(): string {

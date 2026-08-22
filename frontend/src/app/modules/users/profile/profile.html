@@ -48,7 +48,19 @@
 
   <div class="drawer-body">
     <section>
-      <h3>Contacto</h3>
+      <div class="section-title-row">
+        <h3>Contacto</h3>
+        <button
+          type="button"
+          class="mini-action"
+          *ngIf="allowDirectEmail"
+          [disabled]="!canOpenEmailComposer()"
+          (click)="openEmailComposer()"
+        >
+          <i class="fa-solid fa-envelope"></i>
+          Enviar correo
+        </button>
+      </div>
       <div class="info-list">
         <div><span>Correo</span><strong>{{ user.email || 'No registra' }}</strong></div>
         <div><span>Usuario</span><strong>&#64;{{ user.username }}</strong></div>
@@ -156,6 +168,87 @@
             [disabled]="loadingRoles || savingRoles || !!rolesError"
           >
             {{ savingRoles ? 'Guardando...' : 'Guardar roles' }}
+          </button>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <div
+    class="role-modal-backdrop email-modal-backdrop"
+    *ngIf="showEmailModal"
+    (click)="closeEmailComposer()"
+  >
+    <div
+      class="role-modal email-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="email-modal-title"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="role-modal-head">
+        <div>
+          <h3 id="email-modal-title">Enviar correo</h3>
+          <p>{{ user.email }}</p>
+        </div>
+        <button type="button" class="role-modal-close" (click)="closeEmailComposer()" title="Cerrar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </header>
+
+      <div class="role-modal-body">
+        <form class="email-form" (ngSubmit)="sendDirectEmail()">
+          <label class="email-field">
+            <span>Asunto</span>
+            <input
+              type="text"
+              name="emailSubject"
+              [(ngModel)]="emailSubject"
+              [maxlength]="emailSubjectMax"
+              [disabled]="sendingEmail"
+              autocomplete="off"
+              required
+            />
+          </label>
+
+          <label class="email-field">
+            <span>Mensaje</span>
+            <textarea
+              name="emailMessage"
+              [(ngModel)]="emailMessage"
+              [maxlength]="emailMessageMax"
+              [disabled]="sendingEmail"
+              rows="9"
+              required
+            ></textarea>
+          </label>
+
+          <div class="email-meta-row">
+            <span>{{ emailMessage.length }} / {{ emailMessageMax }}</span>
+          </div>
+
+          <div class="role-error email-error" *ngIf="emailError">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{{ emailError }}</span>
+          </div>
+
+          <button type="submit" class="email-submit-hidden" aria-hidden="true" tabindex="-1"></button>
+        </form>
+      </div>
+
+      <footer class="role-modal-foot">
+        <span>Destinatario: {{ user.email }}</span>
+        <div>
+          <button type="button" class="btn btn-light" (click)="closeEmailComposer()" [disabled]="sendingEmail">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn btn-dark"
+            (click)="sendDirectEmail()"
+            [disabled]="sendingEmail || !emailSubject.trim() || !emailMessage.trim()"
+          >
+            {{ sendingEmail ? 'Enviando...' : 'Enviar correo' }}
           </button>
         </div>
       </footer>

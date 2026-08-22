@@ -1,7 +1,8 @@
 from io import StringIO
 
+from django.core import mail
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import get_resolver, reverse
 from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory, APITestCase, APIClient
@@ -619,6 +620,63 @@ class UserHotelAssignmentByRoleTests(APITestCase):
         returned_ids = {entry["id"] for entry in payload}
         self.assertIn(str(self.admin_user.id), returned_ids)
         self.assertIn(str(self.other_hotel_user.id), returned_ids)
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        DEFAULT_FROM_EMAIL="Wayra <no-reply@example.com>",
+        APP_DISPLAY_NAME="Wayra",
+    )
+    def test_platform_admin_can_send_direct_email_to_user(self):
+        self.client.force_login(self.platform_admin)
+
+        response = self.client.post(
+            f"/api/users/{self.target_user.id}/send-email/",
+            {
+                "subject": "Aviso de cuenta",
+                "message": "Linea uno del mensaje.\nLinea dos del mensaje.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["sent"])
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertEqual(message.to, [self.target_user.email])
+        self.assertEqual(message.subject, "Aviso de cuenta")
+        self.assertEqual(message.reply_to, [self.platform_admin.email])
+        self.assertIn("Linea uno del mensaje.", message.body)
+        self.assertEqual(len(message.alternatives), 1)
+        self.assertIn("Mensaje de plataforma", message.alternatives[0][0])
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_hotel_user_cannot_send_direct_email_from_user_detail(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            f"/api/users/{self.target_user.id}/send-email/",
+            {"subject": "Aviso", "message": "Mensaje"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(len(mail.outbox), 0)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_direct_email_requires_recipient_email(self):
+        self.client.force_login(self.platform_admin)
+        self.target_user.email = ""
+        self.target_user.save(update_fields=["email"])
+
+        response = self.client.post(
+            f"/api/users/{self.target_user.id}/send-email/",
+            {"subject": "Aviso", "message": "Mensaje"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("email", response.data.get("errors", {}))
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_hotel_user_role_assignments_expose_only_hotel_management_roles(self):
         self.client.force_login(self.admin_user)

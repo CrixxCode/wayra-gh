@@ -17,6 +17,16 @@ export interface UserRoleAssignments {
   active_role_ids: string[];
 }
 
+export interface UserDirectEmailPayload {
+  subject: string;
+  message: string;
+}
+
+export interface UserDirectEmailResponse {
+  detail: string;
+  sent: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class UserService {
   private readonly apiBase = environment.API_URI.replace(/\/$/, '');
@@ -197,6 +207,14 @@ export class UserService {
     return this.http.post<UserI>(
       `${this.usersUrl}${id}/roles/`,
       { role_ids: roleIds },
+      this.authService.buildCsrfRequestOptions()
+    );
+  }
+
+  sendUserEmail(id: number | string, payload: UserDirectEmailPayload): Observable<UserDirectEmailResponse> {
+    return this.http.post<UserDirectEmailResponse>(
+      `${this.usersUrl}${id}/send-email/`,
+      payload,
       this.authService.buildCsrfRequestOptions()
     );
   }
