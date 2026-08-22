@@ -277,6 +277,15 @@ export class UserList implements OnInit {
     });
   }
 
+  onUserRolesUpdated(updatedUser: UserI): void {
+    this.selectedUser = this.cloneUser(updatedUser);
+    const replaceUser = (user: UserI) => (user.id === updatedUser.id ? this.cloneUser(updatedUser) : user);
+    this.users = this.users.map(replaceUser);
+    this.filteredUsers = this.filteredUsers.map(replaceUser);
+    this.updateStats();
+    this.applyFilters();
+  }
+
   onEditDialogHide(): void {
     this.visibleEditDialog = false;
     this.selectedUser = null;

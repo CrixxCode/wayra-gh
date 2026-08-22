@@ -66,6 +66,14 @@ class EmptySerializer(drf_serializers.Serializer):
     pass
 
 
+class UserRoleAssignmentSerializer(drf_serializers.Serializer):
+    role_ids = drf_serializers.ListField(
+        child=drf_serializers.UUIDField(),
+        required=True,
+        allow_empty=True,
+    )
+
+
 class SessionLoginRequestSerializer(drf_serializers.Serializer):
     username = drf_serializers.CharField()
     password = drf_serializers.CharField()
@@ -344,6 +352,67 @@ class UserViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
         user = serializer.save()
         data = UserSerializer(user, context=self.get_serializer_context()).data
         return Response(data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["get", "post"], url_path="roles")
+    def roles(self, request, pk=None):
+        target_user = self.get_object()
+        available_roles = assignable_roles_for_actor(request.user).order_by("name")
+
+        if request.method == "GET":
+            active_role_ids = list(
+                UserRole.objects.filter(
+                    user=target_user,
+                    role__in=available_roles,
+                    is_active=True,
+                ).values_list("role_id", flat=True)
+            )
+            return Response(
+                {
+                    "roles": RoleSerializer(available_roles, many=True).data,
+                    "active_role_ids": [str(role_id) for role_id in active_role_ids],
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        serializer = UserRoleAssignmentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        requested_ids = {str(role_id) for role_id in serializer.validated_data["role_ids"]}
+        selected_roles = list(available_roles.filter(id__in=requested_ids))
+        selected_ids = {str(role.id) for role in selected_roles}
+        rejected_ids = sorted(requested_ids - selected_ids)
+        if rejected_ids:
+            return Response(
+                {
+                    "detail": "No puedes asignar uno o mas roles desde esta vista.",
+                    "rejected_role_ids": rejected_ids,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        existing_links = {
+            str(link.role_id): link
+            for link in UserRole.objects.filter(user=target_user, role__in=available_roles)
+        }
+
+        for role in available_roles:
+            role_id = str(role.id)
+            should_be_active = role_id in selected_ids
+            link = existing_links.get(role_id)
+
+            if link is None and should_be_active:
+                UserRole.objects.create(user=target_user, role=role, is_active=True)
+                continue
+
+            if link is not None and link.is_active != should_be_active:
+                link.is_active = should_be_active
+                link.save(update_fields=["is_active"])
+
+        target_user.refresh_from_db()
+        return Response(
+            UserSerializer(target_user, context=self.get_serializer_context()).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class RoleViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):

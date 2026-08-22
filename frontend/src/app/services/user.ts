@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
-import { UserI } from '../modules/users/user-model';
+import { RoleI, UserI } from '../modules/users/user-model';
 import { AuthService } from './auth/auth';
 import { environment } from '../../enviorements/environment';
 
@@ -10,6 +10,11 @@ interface PaginatedResponse<T> {
   next: string | null;
   previous: string | null;
   results: T[];
+}
+
+export interface UserRoleAssignments {
+  roles: RoleI[];
+  active_role_ids: string[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -123,7 +128,7 @@ export class UserService {
   }
 
   /** Actualiza un usuario existente */
-  updateUser(id: number, user: UserI): Observable<UserI> {
+  updateUser(id: number | string, user: UserI): Observable<UserI> {
     const formData = new FormData();
     formData.append('first_name', user.first_name);
     formData.append('last_name', user.last_name);
@@ -158,12 +163,12 @@ export class UserService {
 
 
   /** Elimina fisicamente un usuario */
-  deleteUser(id: number): Observable<void> {
+  deleteUser(id: number | string): Observable<void> {
     return this.http.delete<void>(`${this.usersUrl}${id}/`, this.authService.buildCsrfRequestOptions());
   }
 
   /** Elimina logicamente un usuario (por ejemplo, desactiva el estado) */
-  deleteUserLogic(id: number): Observable<UserI> {
+  deleteUserLogic(id: number | string): Observable<UserI> {
     // Supone que el backend permite PATCH a /api/users/:id/ con {"is_active": false}
     const body = { is_active: false }; // o { status: 'INACTIVE' } segun tu modelo
     return this.http.patch<UserI>(
@@ -173,10 +178,25 @@ export class UserService {
     );
   }
 
-  restoreUser(id: number): Observable<UserI> {
+  restoreUser(id: number | string): Observable<UserI> {
     return this.http.post<UserI>(
       `${this.usersUrl}${id}/restore/`,
       {},
+      this.authService.buildCsrfRequestOptions()
+    );
+  }
+
+  getUserRoles(id: number | string): Observable<UserRoleAssignments> {
+    return this.http.get<UserRoleAssignments>(
+      `${this.usersUrl}${id}/roles/`,
+      this.authService.buildCsrfRequestOptions()
+    );
+  }
+
+  setUserRoles(id: number | string, roleIds: string[]): Observable<UserI> {
+    return this.http.post<UserI>(
+      `${this.usersUrl}${id}/roles/`,
+      { role_ids: roleIds },
       this.authService.buildCsrfRequestOptions()
     );
   }

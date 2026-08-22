@@ -518,6 +518,8 @@ class UserHotelAssignmentByRoleTests(APITestCase):
         self.admin_role = Role.objects.create(name="Administrador", slug="admin")
         self.admin_role.resources.add(users_read, users_write)
 
+        self.manager_role = Role.objects.create(name="Gerente", slug="manager")
+        self.manager_role.resources.add(users_read, users_write)
         self.operator_role = Role.objects.create(name="Operador", slug="operator")
         self.operator_role.resources.add(users_read, users_write)
         self.reception_role = Role.objects.create(name="Recepcion", slug="staff")
@@ -617,6 +619,61 @@ class UserHotelAssignmentByRoleTests(APITestCase):
         returned_ids = {entry["id"] for entry in payload}
         self.assertIn(str(self.admin_user.id), returned_ids)
         self.assertIn(str(self.other_hotel_user.id), returned_ids)
+
+    def test_hotel_user_role_assignments_expose_only_hotel_management_roles(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.get(f"/api/users/{self.target_user.id}/roles/")
+
+        self.assertEqual(response.status_code, 200)
+        slugs = {role["slug"] for role in response.data["roles"]}
+        self.assertEqual(slugs, {"admin", "manager", "staff"})
+        self.assertNotIn(str(self.operator_role.id), response.data["active_role_ids"])
+
+    def test_hotel_user_role_assignments_can_toggle_multiple_roles(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            f"/api/users/{self.target_user.id}/roles/",
+            {"role_ids": [str(self.admin_role.id), str(self.reception_role.id)]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        active_slugs = set(
+            Role.objects.filter(
+                userrole__user=self.target_user,
+                userrole__is_active=True,
+            ).values_list("slug", flat=True)
+        )
+        self.assertEqual(active_slugs, {"admin", "staff", "operator"})
+
+        response = self.client.post(
+            f"/api/users/{self.target_user.id}/roles/",
+            {"role_ids": [str(self.reception_role.id)]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        active_slugs = set(
+            Role.objects.filter(
+                userrole__user=self.target_user,
+                userrole__is_active=True,
+            ).values_list("slug", flat=True)
+        )
+        self.assertEqual(active_slugs, {"staff", "operator"})
+
+    def test_hotel_user_role_assignments_reject_platform_only_roles(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            f"/api/users/{self.target_user.id}/roles/",
+            {"role_ids": [str(self.operator_role.id)]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(str(self.operator_role.id), response.data["rejected_role_ids"])
 
     def test_non_admin_role_keeps_actor_hotel_on_user_create(self):
         self.client.force_login(self.operator_user)

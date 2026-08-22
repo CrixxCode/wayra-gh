@@ -16,7 +16,7 @@ export interface UserHotelSettingsI {
 }
 
 export interface UserI {
-  id?: number;
+  id?: number | string;
   username: string;
   password?: string;
   first_name: string;

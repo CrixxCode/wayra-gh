@@ -1,6 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MessageService } from 'primeng/api';
+import { of } from 'rxjs';
 
 import { UserProfile } from './profile';
+import { UserService } from '../../../services/user';
 
 describe('UserProfile', () => {
   let component: UserProfile;
@@ -8,7 +11,17 @@ describe('UserProfile', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [UserProfile]
+      imports: [UserProfile],
+      providers: [
+        {
+          provide: UserService,
+          useValue: {
+            getUserRoles: () => of({ roles: [], active_role_ids: [] }),
+            setUserRoles: () => of(null),
+          },
+        },
+        MessageService,
+      ],
     })
     .compileComponents();
 

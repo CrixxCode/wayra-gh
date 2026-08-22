@@ -56,7 +56,13 @@
     </section>
 
     <section>
-      <h3>Permisos</h3>
+      <div class="section-title-row">
+        <h3>Permisos</h3>
+        <button type="button" class="mini-action" (click)="openRoleManager()">
+          <i class="fa-solid fa-shield-halved"></i>
+          Administrar roles
+        </button>
+      </div>
       <div class="info-list">
         <div><span>Rol principal</span><strong>{{ getPrimaryRole() }}</strong></div>
         <div><span>Total de roles</span><strong>{{ getRolesCount() }}</strong></div>
@@ -77,4 +83,82 @@
     <button type="button" class="btn btn-dark" (click)="editUser()">Editar usuario</button>
     <button type="button" class="btn btn-light" (click)="closeDialog()">Cerrar</button>
   </footer>
+
+  <div
+    class="role-modal-backdrop"
+    *ngIf="showRoleModal"
+    (click)="closeRoleManager()"
+  >
+    <div
+      class="role-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="role-modal-title"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="role-modal-head">
+        <div>
+          <h3 id="role-modal-title">Administrar roles</h3>
+          <p>{{ user.first_name }} {{ user.last_name }}</p>
+        </div>
+        <button type="button" class="role-modal-close" (click)="closeRoleManager()" title="Cerrar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </header>
+
+      <div class="role-modal-body">
+        <div class="role-loading" *ngIf="loadingRoles">
+          <i class="fa-solid fa-circle-notch fa-spin"></i>
+          Cargando roles...
+        </div>
+
+        <div class="role-error" *ngIf="!loadingRoles && rolesError">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>{{ rolesError }}</span>
+          <button type="button" (click)="openRoleManager()">Reintentar</button>
+        </div>
+
+        <div class="role-toggle-list" *ngIf="!loadingRoles && !rolesError">
+          <button
+            type="button"
+            class="role-toggle"
+            *ngFor="let role of roleOptions"
+            [class.is-active]="isRoleSelected(role)"
+            [attr.aria-pressed]="isRoleSelected(role)"
+            [disabled]="savingRoles"
+            (click)="toggleRole(role)"
+          >
+            <span class="role-toggle-indicator">
+              <i class="fa-solid" [class.fa-check]="isRoleSelected(role)" [class.fa-plus]="!isRoleSelected(role)"></i>
+            </span>
+            <span class="role-toggle-copy">
+              <strong>{{ role.name }}</strong>
+              <small>{{ role.description || role.slug || 'Rol del hotel' }}</small>
+            </span>
+          </button>
+
+          <div class="role-empty" *ngIf="roleOptions.length === 0">
+            No hay roles disponibles para administrar.
+          </div>
+        </div>
+      </div>
+
+      <footer class="role-modal-foot">
+        <span>{{ selectedRoleIds.size }} rol(es) activo(s)</span>
+        <div>
+          <button type="button" class="btn btn-light" (click)="closeRoleManager()" [disabled]="savingRoles">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn btn-dark"
+            (click)="saveRoles()"
+            [disabled]="loadingRoles || savingRoles || !!rolesError"
+          >
+            {{ savingRoles ? 'Guardando...' : 'Guardar roles' }}
+          </button>
+        </div>
+      </footer>
+    </div>
+  </div>
 </div>

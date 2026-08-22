@@ -1128,6 +1128,39 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ---
 
+### 2026-08-22 — Imagenes reales en landing publica
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se reemplazaron los placeholders visuales de la landing publica por las imagenes
+  disponibles en `frontend/public/landing`: captura de reservas en el hero, foto comparativa de
+  recepcion en la seccion del problema y captura del dashboard en la seccion de producto. Los marcos
+  usan la proporcion real de cada asset para evitar recortes y mantener buena presencia visual.
+- **Por que:** la landing ya tenia los espacios visuales definidos, pero mostraba contenedores de
+  maqueta en vez de los assets finales.
+- **Archivos/areas afectadas:** `frontend/src/app/components/pages/landing/`,
+  `frontend/public/landing/`, `AGENTS.md`.
+- **Impacto:** sin migraciones, variables de entorno, cambios de API ni recursos RBAC nuevos.
+
+### 2026-08-22 — Administración de roles desde detalle de usuarios de hotel
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** funcional / UX
+- **Qué se hizo:** en el detalle de Personal (`/usuarios-hotel`) se agregó el botón
+  **Administrar roles**, que abre un modal con los roles asignables al usuario y controles tipo
+  toggle para activarlos o desactivarlos. La API expone `GET/POST /api/users/<id>/roles/`, limitada
+  a los roles que el actor puede administrar, y conserva intactos los roles fuera de ese alcance.
+- **Por qué:** el administrador del hotel necesita ajustar roles del personal desde la vista de
+  detalle, sin navegar a la administración global de roles ni poder asignar roles de plataforma.
+- **Archivos/áreas afectadas:** `backend/accounts/views.py`, `backend/accounts/tests.py`,
+  `frontend/src/app/modules/users/profile/`, `frontend/src/app/modules/users/list/`,
+  `frontend/src/app/modules/users/user-model.ts`, `frontend/src/app/services/user.ts`,
+  `AGENTS.md`.
+- **Impacto:** sin migraciones nuevas; el endpoint reutiliza los scopes `users.read` y
+  `users.write`.
+
 ### 2026-08-22 — Roles carga usuarios globales en vista de plataforma
 
 - **Autor:** Codex, a solicitud de Cristian Ramirez
