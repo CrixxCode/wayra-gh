@@ -648,6 +648,7 @@ class UserHotelAssignmentByRoleTests(APITestCase):
         self.assertIn("Linea uno del mensaje.", message.body)
         self.assertEqual(len(message.alternatives), 1)
         self.assertIn("Mensaje de plataforma", message.alternatives[0][0])
+        self.assertIn("cid:platform-logo", message.alternatives[0][0])
 
     @override_settings(
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from email.mime.image import MIMEImage
-from pathlib import Path
 from typing import Any
 
 from django.conf import settings
@@ -11,6 +9,8 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 
 from accounts.email_utils import (
+    attach_inline_logo,
+    build_wayra_logo_context,
     describe_email_send_failure,
     email_backend_configuration_error,
 )
@@ -30,28 +30,7 @@ def _build_hotel_email_brand(hotel_settings) -> tuple[dict, bytes | None, str, s
         or str(getattr(settings, "SUPPORT_EMAIL", "soporte@hotel.local") or "soporte@hotel.local").strip()
     )
 
-    logo_url = str(getattr(hotel_settings, "logo", "") or "").strip()
-    using_hotel_logo = bool(logo_url)
-    if not logo_url:
-        logo_url = str(getattr(settings, "BRAND_LOGO_URL", "") or "").strip()
-
-    inline_logo_bytes = None
-    inline_logo_name = "logo.png"
-    inline_logo_cid = "platform-logo"
-    if not logo_url:
-        logo_candidates = [
-            Path(settings.BASE_DIR).parent / "frontend" / "public" / "logo.png",
-            Path(settings.BASE_DIR) / "static" / "logo.png",
-        ]
-        for candidate in logo_candidates:
-            if candidate.exists() and candidate.is_file():
-                try:
-                    inline_logo_bytes = candidate.read_bytes()
-                    inline_logo_name = candidate.name
-                    logo_url = f"cid:{inline_logo_cid}"
-                except OSError:
-                    inline_logo_bytes = None
-                break
+    logo_url, inline_logo_bytes, inline_logo_name, inline_logo_cid = build_wayra_logo_context()
 
     address_parts = [
         str(getattr(hotel_settings, "address", "") or "").strip(),
@@ -65,7 +44,7 @@ def _build_hotel_email_brand(hotel_settings) -> tuple[dict, bytes | None, str, s
         "support_email": support_email,
         "primary_color": primary_color,
         "logo_url": logo_url or None,
-        "logo_alt": "Logo del hotel" if using_hotel_logo else f"{app_name} logo",
+        "logo_alt": f"{app_name} logo",
         "hotel_name": hotel_name or app_name,
         "hotel_footer_address": hotel_footer_address or None,
     }
@@ -108,11 +87,7 @@ def _send_reservation_email(
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@hotel.local")
     msg = EmailMultiAlternatives(subject, text_body, from_email, [email])
     msg.attach_alternative(html_body, "text/html")
-    if inline_logo_bytes:
-        logo_attachment = MIMEImage(inline_logo_bytes)
-        logo_attachment.add_header("Content-ID", f"<{inline_logo_cid}>")
-        logo_attachment.add_header("Content-Disposition", "inline", filename=inline_logo_name)
-        msg.attach(logo_attachment)
+    attach_inline_logo(msg, inline_logo_bytes, inline_logo_name, inline_logo_cid)
 
     configuration_error = email_backend_configuration_error()
     if configuration_error:

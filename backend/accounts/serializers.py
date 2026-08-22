@@ -1,6 +1,4 @@
 import logging
-from pathlib import Path
-from email.mime.image import MIMEImage
 
 from django.contrib.auth import get_user_model, password_validation
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -16,6 +14,7 @@ from accounts.email_utils import (
     attach_inline_logo,
     build_email_brand_context,
     build_password_reset_url,
+    build_wayra_logo_context,
     describe_email_send_failure,
     email_backend_configuration_error,
     email_backend_delivers_to_inbox,
@@ -683,33 +682,9 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         app_name = str(getattr(settings, "APP_DISPLAY_NAME", "Wayra") or "Wayra").strip()
         support_email = str(getattr(settings, "SUPPORT_EMAIL", "soporte@hotel.local") or "soporte@hotel.local").strip()
         primary_color = str(getattr(settings, "BRAND_PRIMARY_COLOR", "#0f1f41") or "#0f1f41").strip()
-        logo_url = str(getattr(settings, "BRAND_LOGO_URL", "") or "").strip()
+        logo_url, inline_logo_bytes, inline_logo_name, inline_logo_cid = build_wayra_logo_context()
 
         hotel_settings_obj = getattr(user, "hotel_settings", None)
-        using_hotel_logo = False
-        if not logo_url:
-            hotel_logo = str(getattr(hotel_settings_obj, "logo", "") or "").strip()
-            if hotel_logo:
-                logo_url = hotel_logo
-                using_hotel_logo = True
-
-        inline_logo_bytes = None
-        inline_logo_name = "logo.png"
-        inline_logo_cid = "platform-logo"
-        if not logo_url:
-            logo_candidates = [
-                Path(settings.BASE_DIR).parent / "frontend" / "public" / "logo.png",
-                Path(settings.BASE_DIR) / "static" / "logo.png",
-            ]
-            for candidate in logo_candidates:
-                if candidate.exists() and candidate.is_file():
-                    try:
-                        inline_logo_bytes = candidate.read_bytes()
-                        inline_logo_name = candidate.name
-                        logo_url = f"cid:{inline_logo_cid}"
-                    except OSError:
-                        inline_logo_bytes = None
-                    break
 
         address_parts = [
             str(getattr(hotel_settings_obj, "address", "") or "").strip(),
@@ -723,7 +698,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
             "support_email": support_email,
             "primary_color": primary_color,
             "logo_url": logo_url or None,
-            "logo_alt": "Logo del hotel" if using_hotel_logo else f"{app_name} logo",
+            "logo_alt": f"{app_name} logo",
             "hotel_footer_address": hotel_footer_address or None,
         }
 
@@ -743,15 +718,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@hotel.local")
         msg = EmailMultiAlternatives(subject, text_body, from_email, [email])
         msg.attach_alternative(html_body, "text/html")
-        if inline_logo_bytes:
-            logo_attachment = MIMEImage(inline_logo_bytes)
-            logo_attachment.add_header("Content-ID", f"<{inline_logo_cid}>")
-            logo_attachment.add_header(
-                "Content-Disposition",
-                "inline",
-                filename=inline_logo_name,
-            )
-            msg.attach(logo_attachment)
+        attach_inline_logo(msg, inline_logo_bytes, inline_logo_name, inline_logo_cid)
         configuration_error = email_backend_configuration_error()
         if configuration_error:
             logger.error(

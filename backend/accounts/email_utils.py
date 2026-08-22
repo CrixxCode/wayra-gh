@@ -17,6 +17,7 @@ NON_INBOX_EMAIL_BACKENDS = {
 
 RESEND_EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
 RESEND_TEST_DOMAIN = "resend.dev"
+WAYRA_LOGO_RELATIVE_PATH = Path("frontend") / "public" / "logo.png"
 
 
 def resend_api_key_is_configured() -> bool:
@@ -71,36 +72,28 @@ def email_backend_delivers_to_inbox() -> bool:
     return backend not in NON_INBOX_EMAIL_BACKENDS
 
 
+def wayra_logo_path() -> Path:
+    return Path(settings.BASE_DIR).parent / WAYRA_LOGO_RELATIVE_PATH
+
+
+def build_wayra_logo_context(inline_logo_cid: str = "platform-logo") -> tuple[str | None, bytes | None, str, str]:
+    inline_logo_name = "logo.png"
+    logo_path = wayra_logo_path()
+    if logo_path.exists() and logo_path.is_file():
+        try:
+            return f"cid:{inline_logo_cid}", logo_path.read_bytes(), logo_path.name, inline_logo_cid
+        except OSError:
+            pass
+
+    logo_url = str(getattr(settings, "BRAND_LOGO_URL", "") or "").strip()
+    return logo_url or None, None, inline_logo_name, inline_logo_cid
+
+
 def build_email_brand_context(hotel_settings_obj=None) -> tuple[dict, bytes | None, str, str]:
     app_name = str(getattr(settings, "APP_DISPLAY_NAME", "Wayra") or "Wayra").strip()
     support_email = str(getattr(settings, "SUPPORT_EMAIL", "soporte@hotel.local") or "soporte@hotel.local").strip()
     primary_color = str(getattr(settings, "BRAND_PRIMARY_COLOR", "#0f1f41") or "#0f1f41").strip()
-    logo_url = str(getattr(settings, "BRAND_LOGO_URL", "") or "").strip()
-
-    using_hotel_logo = False
-    if not logo_url and hotel_settings_obj is not None:
-        hotel_logo = str(getattr(hotel_settings_obj, "logo", "") or "").strip()
-        if hotel_logo:
-            logo_url = hotel_logo
-            using_hotel_logo = True
-
-    inline_logo_bytes = None
-    inline_logo_name = "logo.png"
-    inline_logo_cid = "platform-logo"
-    if not logo_url:
-        logo_candidates = [
-            Path(settings.BASE_DIR).parent / "frontend" / "public" / "logo.png",
-            Path(settings.BASE_DIR) / "static" / "logo.png",
-        ]
-        for candidate in logo_candidates:
-            if candidate.exists() and candidate.is_file():
-                try:
-                    inline_logo_bytes = candidate.read_bytes()
-                    inline_logo_name = candidate.name
-                    logo_url = f"cid:{inline_logo_cid}"
-                except OSError:
-                    inline_logo_bytes = None
-                break
+    logo_url, inline_logo_bytes, inline_logo_name, inline_logo_cid = build_wayra_logo_context()
 
     address_parts = [
         str(getattr(hotel_settings_obj, "address", "") or "").strip(),
@@ -115,7 +108,7 @@ def build_email_brand_context(hotel_settings_obj=None) -> tuple[dict, bytes | No
             "support_email": support_email,
             "primary_color": primary_color,
             "logo_url": logo_url or None,
-            "logo_alt": "Logo del hotel" if using_hotel_logo else f"{app_name} logo",
+            "logo_alt": f"{app_name} logo",
             "hotel_footer_address": hotel_footer_address or None,
         },
         inline_logo_bytes,

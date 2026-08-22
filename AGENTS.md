@@ -1152,7 +1152,9 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
   de hotel seleccionado del administrador de plataforma no provoque falsos 404 al editar, administrar
   roles, restaurar, eliminar o enviar correo a usuarios de otro hotel. Ademas, `send-email` resuelve
   el usuario por ID despues de comprobar que el actor es administrador global, de modo que un
-  `hotel_settings` inyectado por el interceptor no pueda filtrar falsamente al destinatario.
+  `hotel_settings` inyectado por el interceptor no pueda filtrar falsamente al destinatario. La
+  plantilla base de correo muestra el icono de `frontend/public/logo.png` junto al texto `Wayra` en
+  el encabezado y el pie, con un monograma como fallback si el archivo no existe.
 - **Por qué:** el administrador de plataforma necesitaba comunicarse con un usuario sin salir de
   Wayra ni perder la identidad visual de los correos transaccionales.
 - **Archivos/áreas afectadas:** `backend/accounts/{views.py,serializers.py,email_utils.py,tests.py}`,
