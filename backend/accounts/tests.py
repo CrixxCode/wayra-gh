@@ -130,6 +130,12 @@ class RoleTenantIsolationTests(APITestCase):
         self.manager_superuser.save(update_fields=["hotel_settings"])
         self.manager_superuser.roles.add(self.manager_slug_role)
 
+        self.platform_admin = User.objects.create_superuser(
+            username="platform_role_admin",
+            email="platform_role_admin@example.com",
+            password="pass12345",
+        )
+
         self.user_a = User.objects.create_user(
             username="user_a",
             email="user_a@example.com",
@@ -179,6 +185,30 @@ class RoleTenantIsolationTests(APITestCase):
         self.assertIn(str(self.manager.id), returned_ids)
         self.assertIn(str(self.user_a.id), returned_ids)
         self.assertNotIn(str(self.user_b.id), returned_ids)
+
+    def test_platform_admin_users_catalog_ignores_selected_hotel_context(self):
+        self.client.force_login(self.platform_admin)
+
+        response = self.client.get(f"/api/roles/users-catalog/?hotel_settings={self.hotel_a.id}")
+        self.assertEqual(response.status_code, 200)
+
+        returned_ids = {entry["id"] for entry in response.data}
+        self.assertIn(str(self.user_a.id), returned_ids)
+        self.assertIn(str(self.user_b.id), returned_ids)
+
+    def test_platform_admin_role_users_ignores_selected_hotel_context(self):
+        self.user_a.roles.add(self.target_role)
+        self.user_b.roles.add(self.target_role)
+        self.client.force_login(self.platform_admin)
+
+        response = self.client.get(
+            f"/api/roles/{self.target_role.id}/users/?hotel_settings={self.hotel_a.id}"
+        )
+        self.assertEqual(response.status_code, 200)
+
+        returned_ids = {entry["id"] for entry in response.data}
+        self.assertIn(str(self.user_a.id), returned_ids)
+        self.assertIn(str(self.user_b.id), returned_ids)
 
 
 class ScopeAliasPermissionTests(APITestCase):

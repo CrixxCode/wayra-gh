@@ -379,6 +379,9 @@ class RoleViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
         if not user or not user.is_authenticated:
             return queryset.none()
 
+        if is_effective_global_admin(user):
+            return queryset
+
         return scope_queryset_to_hotel(
             queryset,
             request=self.request,

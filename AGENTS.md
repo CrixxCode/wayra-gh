@@ -584,7 +584,9 @@ propio hotel y poblar el selector de roles. No tiene `roles.write` ni `resources
 **Consecuencia operativa:** un administrador de hotel puede crear, editar, desactivar, restaurar y
 listar solo usuarios de su hotel. No puede mover usuarios entre hoteles ni asignar roles de
 plataforma. La vista global de usuarios debe pedir `scope=global` y solo debe usarse desde
-`/usuarios` con `platformAdminOnly`.
+`/usuarios` con `platformAdminOnly`. La vista `/roles` es exclusivamente de plataforma: el catálogo
+de usuarios y los usuarios asignados por rol cargan usuarios de todos los hoteles aunque el selector
+global tenga un hotel activo.
 
 ### 5.18 Catálogo comercial: una vista con pestañas, no tres rutas
 
@@ -1125,6 +1127,20 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > debe escribirse en el momento del cambio.
 
 ---
+
+### 2026-08-22 — Roles carga usuarios globales en vista de plataforma
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix
+- **Qué se hizo:** las acciones de usuarios del `RoleViewSet` (`users-catalog`, usuarios asignados
+  por rol y asignación/remoción) ahora ignoran el contexto `hotel_settings` cuando el actor es
+  administrador de plataforma.
+- **Por qué:** `/roles` solo la ve el administrador de plataforma y debe mostrar todos los usuarios
+  de la plataforma, incluso si el selector global tiene un hotel activo.
+- **Archivos/áreas afectadas:** `backend/accounts/views.py`, `backend/accounts/tests.py`,
+  `AGENTS.md`.
+- **Impacto:** sin migraciones nuevas.
 
 ### 2026-08-22 — Vistas separadas de usuarios de hotel y plataforma
 
