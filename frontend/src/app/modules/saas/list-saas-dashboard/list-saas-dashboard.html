@@ -2,25 +2,17 @@
   <header class="page-header">
     <div>
       <h1>Panel SaaS</h1>
-      <p>Vista global de lectura para supervision de hoteles, usuarios, reservas e ingresos.</p>
+      <p>Resumen inicial del panel de administracion de la plataforma.</p>
     </div>
 
     <div class="header-actions">
-      <a routerLink="/saas-solicitudes-demo" class="btn btn-light">
+      <span class="updated-chip" *ngIf="lastUpdatedLabel">
+        <i class="fa-regular fa-clock" aria-hidden="true"></i>
+        Actualizado {{ lastUpdatedLabel }}
+      </span>
+      <a routerLink="/saas-solicitudes-demo" class="gh-mbtn gh-mbtn-dark">
         <i class="fa-solid fa-inbox"></i>
-        Solicitudes demo
-      </a>
-      <a routerLink="/saas-hoteles" class="btn btn-light">
-        <i class="fa-solid fa-hotel"></i>
-        Hoteles globales
-      </a>
-      <a routerLink="/saas-amenidades" class="btn btn-light">
-        <i class="fa-solid fa-star"></i>
-        Amenidades globales
-      </a>
-      <a routerLink="/dashboard" class="btn btn-light">
-        <i class="fa-solid fa-arrow-left"></i>
-        Volver al dashboard
+        Solicitudes nuevas
       </a>
     </div>
   </header>
@@ -35,92 +27,152 @@
 
   <ng-container *ngIf="!loading && !loadError && isPlatformAdmin">
     <section class="stats-grid">
-      <article class="stat-card" *ngFor="let card of kpis; let i = index">
+      <article class="stat-card" *ngFor="let card of kpis">
         <div class="stat-head">
           <span>{{ card.label }}</span>
-          <span class="stat-icon" [ngClass]="{
-            'blue': i === 0,
-            'green': i === 1,
-            'gold': i === 2,
-            'purple': i === 3
-          }">
-            <i [class]="card.icon"></i>
+          <span class="stat-icon" [ngClass]="card.tone">
+            <i [class]="card.icon" aria-hidden="true"></i>
           </span>
         </div>
-        <div class="stat-value" [class.stat-money]="i === 3">{{ card.value }}</div>
+        <div class="stat-value" [class.stat-money]="card.label === 'Ingresos del mes'">
+          {{ card.value }}
+        </div>
         <div class="stat-note">{{ card.note }}</div>
       </article>
     </section>
 
-    <section class="content-grid">
-      <article class="table-card">
-        <div class="section-head">
-          <h2>Estado de hoteles</h2>
-          <p>{{ healthSummary }}</p>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Hotel</th>
-                <th>Ubicacion</th>
-                <th>Contacto</th>
-                <th>Ultima actualizacion</th>
-                <th>Salud</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let hotel of hotels">
-                <td>{{ hotel.name }}</td>
-                <td>{{ hotel.location }}</td>
-                <td>
-                  <span class="status-chip" [ngClass]="{
-                    'ok': hotel.hasContact && hotel.hasReservationsEmail,
-                    'warn': !hotel.hasContact || !hotel.hasReservationsEmail
-                  }">
-                    {{ hotel.hasContact && hotel.hasReservationsEmail ? 'Completo' : 'Incompleto' }}
-                  </span>
-                </td>
-                <td>{{ hotel.lastUpdatedLabel }}</td>
-                <td>
-                  <span class="status-chip" [ngClass]="{
-                    'ok': hotel.health === 'healthy',
-                    'warn': hotel.health === 'warning',
-                    'risk': hotel.health === 'risk'
-                  }">
-                    {{ getHealthLabel(hotel.health) }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </article>
-
-      <article class="country-card">
-        <div class="section-head">
-          <h2>Distribucion por pais</h2>
-          <p>Top de paises con hoteles activos.</p>
-        </div>
-
-        <div class="country-list" *ngIf="countries.length; else noCountries">
-          <div class="country-row" *ngFor="let row of countries">
-            <div class="country-label">
-              <strong>{{ row.country }}</strong>
-              <span>{{ row.hotels }} hoteles</span>
-            </div>
-            <div class="country-meter">
-              <div class="country-meter-fill" [style.width.%]="row.ratio"></div>
-            </div>
-            <span class="country-ratio">{{ row.ratio }}%</span>
+    <section class="home-grid">
+      <div class="home-main">
+        <article class="home-panel">
+          <div class="section-head">
+            <h2>Pendiente por revisar</h2>
+            <p>Prioridades de entrada antes de abrir las vistas especializadas.</p>
           </div>
-        </div>
 
-        <ng-template #noCountries>
-          <p class="empty-message">No hay informacion de paises disponible.</p>
-        </ng-template>
-      </article>
+          <div class="priority-list">
+            <a
+              *ngFor="let item of priorityItems"
+              [routerLink]="item.routerLink"
+              class="priority-item"
+              [ngClass]="getPriorityClass(item.tone)"
+            >
+              <span class="priority-icon">
+                <i [class]="item.icon" aria-hidden="true"></i>
+              </span>
+              <span class="priority-copy">
+                <strong>{{ item.title }}</strong>
+                <small>{{ item.detail }}</small>
+              </span>
+              <span class="priority-action">
+                {{ item.actionLabel }}
+                <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+              </span>
+            </a>
+          </div>
+        </article>
+
+        <article class="home-panel">
+          <div class="section-head">
+            <h2>Accesos rapidos</h2>
+            <p>Entradas principales del panel de administracion SaaS.</p>
+          </div>
+
+          <div class="quick-grid">
+            <a
+              *ngFor="let action of quickActions"
+              [routerLink]="action.routerLink"
+              class="quick-card"
+              [ngClass]="action.tone"
+            >
+              <span class="quick-icon">
+                <i [class]="action.icon" aria-hidden="true"></i>
+              </span>
+              <span class="quick-copy">
+                <strong>{{ action.label }}</strong>
+                <small>{{ action.description }}</small>
+              </span>
+              <span class="quick-metric">{{ action.metric }}</span>
+            </a>
+          </div>
+        </article>
+
+        <article class="home-panel">
+          <div class="section-head section-head-row">
+            <div>
+              <h2>Hoteles que requieren atencion</h2>
+              <p>{{ healthSummary }}</p>
+            </div>
+            <a routerLink="/saas-hoteles" class="gh-mbtn gh-mbtn-light">
+              Ver todos
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </a>
+          </div>
+
+          <div class="attention-list" *ngIf="hotels.length; else noAttentionHotels">
+            <a
+              *ngFor="let hotel of hotels"
+              routerLink="/saas-hoteles"
+              class="attention-row"
+            >
+              <span class="attention-main">
+                <strong>{{ hotel.name }}</strong>
+                <small>{{ hotel.location }}</small>
+              </span>
+              <span class="attention-reason">{{ getAttentionReason(hotel) }}</span>
+              <span class="status-chip" [ngClass]="{
+                'ok': hotel.health === 'healthy',
+                'warn': hotel.health === 'warning',
+                'risk': hotel.health === 'risk'
+              }">
+                {{ getHealthLabel(hotel.health) }}
+              </span>
+            </a>
+          </div>
+
+          <ng-template #noAttentionHotels>
+            <p class="empty-message">No hay hoteles con alertas criticas en este momento.</p>
+          </ng-template>
+        </article>
+      </div>
+
+      <aside class="home-side">
+        <article class="home-panel">
+          <div class="section-head">
+            <h2>Distribucion por pais</h2>
+            <p>Resumen compacto de hoteles registrados.</p>
+          </div>
+
+          <div class="country-list" *ngIf="countries.length; else noCountries">
+            <div class="country-row" *ngFor="let row of countries">
+              <div class="country-label">
+                <strong>{{ row.country }}</strong>
+                <span>{{ row.hotels }} hoteles</span>
+              </div>
+              <div class="country-meter" aria-hidden="true">
+                <div class="country-meter-fill" [style.width.%]="row.ratio"></div>
+              </div>
+              <span class="country-ratio">{{ row.ratio }}%</span>
+            </div>
+          </div>
+
+          <ng-template #noCountries>
+            <p class="empty-message">No hay informacion de paises disponible.</p>
+          </ng-template>
+        </article>
+
+        <article class="home-panel is-compact">
+          <div class="section-head">
+            <h2>Operacion SaaS</h2>
+            <p>Usa este inicio para orientarte. La gestion completa vive en cada modulo.</p>
+          </div>
+          <div class="side-links">
+            <a routerLink="/usuarios">Usuarios plataforma</a>
+            <a routerLink="/roles">Roles</a>
+            <a routerLink="/recursos">Recursos</a>
+            <a routerLink="/master-data">Master Data</a>
+          </div>
+        </article>
+      </aside>
     </section>
   </ng-container>
 </div>

@@ -6,6 +6,7 @@ export type SaasHotelSnapshot = {
   city: string;
   country: string;
   location: string;
+  isActive: boolean;
   generalEmail: string;
   reservationsEmail: string;
   primaryPhone: string;
@@ -13,11 +14,14 @@ export type SaasHotelSnapshot = {
   hasReservationsEmail: boolean;
   hasPhone: boolean;
   contactCompleteness: 'full' | 'partial' | 'none';
+  totalFloors: number;
+  totalRooms: number;
   lastUpdatedLabel: string;
   lastUpdatedDays: number | null;
   lastUpdatedAt: string | null;
   createdAt: string | null;
   health: SaasHotelHealth;
+  attentionReason: string;
 };
 
 export type SaasCountrySummary = {

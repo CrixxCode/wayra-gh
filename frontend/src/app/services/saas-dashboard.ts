@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, forkJoin, map, of, switchMap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
+import { AuthService } from './auth/auth';
 import {
   SaasCountrySummary,
   SaasDashboardSnapshot,
@@ -24,6 +25,9 @@ type HotelRow = {
   general_email?: string | null;
   reservations_email?: string | null;
   primary_phone?: string | null;
+  is_active?: boolean;
+  total_floors?: number | string | null;
+  total_rooms?: number | string | null;
   updated_at?: string;
   created_at?: string;
 };
@@ -66,7 +70,10 @@ export class SaasDashboardService {
   private readonly invoicesUrl = `${this.apiBase}/api/invoices/`;
   private readonly paymentsUrl = `${this.apiBase}/api/payments/`;
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private auth: AuthService
+  ) {}
 
   getSnapshot(): Observable<SaasDashboardSnapshot> {
     return forkJoin({
@@ -170,6 +177,17 @@ export class SaasDashboardService {
     );
   }
 
+  updateHotelStatus(id: number, isActive: boolean): Observable<SaasHotelSnapshot> {
+    const now = new Date();
+    return this.http
+      .patch<HotelRow>(
+        `${this.hotelSettingsUrl}${id}/`,
+        { is_active: isActive },
+        this.auth.buildCsrfRequestOptions()
+      )
+      .pipe(map((hotel) => this.buildHotelSnapshot(hotel, now)));
+  }
+
   private withPaginationParams(extra?: Record<string, string>): HttpParams {
     let params = new HttpParams().set('page_size', '200');
     Object.entries(extra || {}).forEach(([key, value]) => {
@@ -220,6 +238,9 @@ export class SaasDashboardService {
     const generalEmail = String(hotel.general_email || '').trim();
     const reservationsEmail = String(hotel.reservations_email || '').trim();
     const primaryPhone = String(hotel.primary_phone || '').trim();
+    const isActive = hotel.is_active !== false;
+    const totalFloors = this.toNumber(hotel.total_floors);
+    const totalRooms = this.toNumber(hotel.total_rooms);
     const hasContact = Boolean(generalEmail);
     const hasReservationsEmail = Boolean(reservationsEmail);
     const hasPhone = Boolean(primaryPhone);
@@ -231,10 +252,12 @@ export class SaasDashboardService {
     const staleConfig = updated ? now.getTime() - updated.getTime() > 1000 * 60 * 60 * 24 * 45 : true;
     let health: SaasHotelHealth = 'healthy';
 
-    if (missingContact || staleConfig) {
+    if (!isActive) {
+      health = 'risk';
+    } else if (missingContact || staleConfig || totalRooms <= 0) {
       health = 'warning';
     }
-    if (!hasContact && !hasReservationsEmail) {
+    if (isActive && !hasContact && !hasReservationsEmail) {
       health = 'risk';
     }
 
@@ -251,6 +274,7 @@ export class SaasDashboardService {
       city,
       country,
       location,
+      isActive,
       generalEmail,
       reservationsEmail,
       primaryPhone,
@@ -258,12 +282,44 @@ export class SaasDashboardService {
       hasReservationsEmail,
       hasPhone,
       contactCompleteness,
+      totalFloors,
+      totalRooms,
       lastUpdatedLabel,
       lastUpdatedDays,
       lastUpdatedAt: hotel.updated_at || null,
       createdAt: hotel.created_at || null,
       health,
+      attentionReason: this.buildAttentionReason({
+        isActive,
+        contactCompleteness,
+        hasContact,
+        hasReservationsEmail,
+        hasPhone,
+        totalRooms,
+        lastUpdatedDays,
+      }),
     };
+  }
+
+  private buildAttentionReason(input: {
+    isActive: boolean;
+    contactCompleteness: SaasHotelSnapshot['contactCompleteness'];
+    hasContact: boolean;
+    hasReservationsEmail: boolean;
+    hasPhone: boolean;
+    totalRooms: number;
+    lastUpdatedDays: number | null;
+  }): string {
+    if (!input.isActive) return 'Hotel suspendido: sus usuarios no pueden ingresar';
+    if (input.contactCompleteness === 'none') return 'Sin email ni telefono operativo';
+    if (!input.hasReservationsEmail) return 'Sin correo de reservas';
+    if (!input.hasPhone) return 'Sin telefono principal';
+    if (!input.hasContact) return 'Sin correo general';
+    if (input.totalRooms <= 0) return 'Sin habitaciones configuradas';
+    if (input.lastUpdatedDays !== null && input.lastUpdatedDays > 45) {
+      return `Configuracion sin actualizar hace ${input.lastUpdatedDays} dias`;
+    }
+    return 'Configuracion operativa completa';
   }
 
   private buildCountrySummary(hotels: SaasHotelSnapshot[]): SaasCountrySummary[] {

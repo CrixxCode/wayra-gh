@@ -1,18 +1,18 @@
 <div class="saas-hotels-page">
   <header class="page-header">
     <div>
-      <h1>Listado Global de Hoteles</h1>
+      <h1>Hoteles SaaS</h1>
       <p>Vista SaaS para auditar configuracion, contacto y estado operativo de todos los hoteles.</p>
     </div>
 
     <div class="header-actions">
-      <a routerLink="/saas-panel" class="gh-btn gh-btn-light">
-        <i class="fa-solid fa-chart-line"></i>
-        Ir a panel SaaS
-      </a>
-      <a routerLink="/dashboard" class="gh-btn gh-btn-light">
-        <i class="fa-solid fa-arrow-left"></i>
-        Volver
+      <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="openCreateHotelModal()">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+        Nuevo hotel
+      </button>
+      <a routerLink="/saas-panel" class="gh-mbtn gh-mbtn-light">
+        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+        Panel SaaS
       </a>
     </div>
   </header>
@@ -26,12 +26,20 @@
   </section>
 
   <ng-container *ngIf="!loading && !loadError && isPlatformAdmin">
+    <section
+      class="action-message"
+      *ngIf="actionMessage"
+      [ngClass]="actionMessageType === 'success' ? 'is-success' : 'is-warning'"
+    >
+      {{ actionMessage }}
+    </section>
+
     <section class="stats-grid">
       <article class="stat-card" *ngFor="let card of statCards">
         <div class="stat-head">
           <span>{{ card.label }}</span>
           <span class="stat-icon" [ngClass]="card.tone">
-            <i [class]="card.icon"></i>
+            <i [class]="card.icon" aria-hidden="true"></i>
           </span>
         </div>
         <div class="stat-value">{{ card.value }}</div>
@@ -44,7 +52,7 @@
         <label class="search-field search-wrap gh-search-wrap">
           <span>Buscar</span>
           <div class="search-control gh-search-control">
-            <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+            <i class="fa-solid fa-magnifying-glass gh-search-icon" aria-hidden="true"></i>
             <input
               class="gh-search-input"
               type="text"
@@ -53,6 +61,15 @@
               placeholder="Buscar por hotel, ubicacion, contacto o id"
             />
           </div>
+        </label>
+
+        <label class="gh-filter-field">
+          <span>Estado</span>
+          <select class="gh-filter-select" [(ngModel)]="activeFilter" (change)="applyFilters()">
+            <option value="ALL">Todos</option>
+            <option value="ACTIVE">Activos</option>
+            <option value="INACTIVE">Suspendidos</option>
+          </select>
         </label>
 
         <label class="gh-filter-field">
@@ -90,12 +107,26 @@
         </p>
 
         <div class="gh-action-group">
-          <button type="button" class="gh-btn gh-btn-light" (click)="loadHotels()">
-            <i class="fa-solid fa-rotate-right"></i>
+          <button
+            type="button"
+            class="gh-mbtn gh-mbtn-light"
+            (click)="clearFilters()"
+            [disabled]="!hasActiveFilters"
+          >
+            <i class="fa-solid fa-filter-circle-xmark" aria-hidden="true"></i>
+            Limpiar filtros
+          </button>
+          <button type="button" class="gh-mbtn gh-mbtn-light" (click)="loadHotels()">
+            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
             Actualizar
           </button>
-          <button type="button" class="gh-btn gh-btn-light" (click)="exportCsv()" [disabled]="filteredHotels.length === 0">
-            <i class="fa-solid fa-file-export"></i>
+          <button
+            type="button"
+            class="gh-mbtn gh-mbtn-light"
+            (click)="exportCsv()"
+            [disabled]="filteredHotels.length === 0"
+          >
+            <i class="fa-solid fa-file-export" aria-hidden="true"></i>
             Exportar CSV
           </button>
         </div>
@@ -108,30 +139,50 @@
           <thead>
             <tr>
               <th>Hotel</th>
+              <th>Estado operativo</th>
               <th>Ubicacion</th>
-              <th>Contacto general</th>
-              <th>Correo reservas</th>
-              <th>Telefono</th>
+              <th>Contacto</th>
+              <th>Estructura</th>
+              <th>Motivo</th>
               <th>Ultima actualizacion</th>
-              <th>Estado contacto</th>
               <th>Salud</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngIf="paginatedHotels.length === 0">
-              <td colspan="8" class="table-empty">No se encontraron hoteles con los filtros actuales.</td>
+              <td colspan="9" class="table-empty">No se encontraron hoteles con los filtros actuales.</td>
             </tr>
 
-            <tr *ngFor="let hotel of paginatedHotels; trackBy: trackByHotel">
+            <tr
+              *ngFor="let hotel of paginatedHotels; let last = last; trackBy: trackByHotel"
+              [class.is-last-row]="last"
+            >
               <td>
                 <div class="hotel-cell">
                   <p class="hotel-name">{{ hotel.name }}</p>
+                  <span class="hotel-id">ID {{ hotel.id }}</span>
                 </div>
               </td>
+              <td>
+                <span class="status-chip" [ngClass]="getActiveClass(hotel)">
+                  {{ getActiveLabel(hotel) }}
+                </span>
+              </td>
               <td>{{ hotel.location }}</td>
-              <td>{{ hotel.generalEmail || 'Sin correo' }}</td>
-              <td>{{ hotel.reservationsEmail || 'Sin correo' }}</td>
-              <td>{{ hotel.primaryPhone || 'Sin telefono' }}</td>
+              <td>
+                <div class="contact-cell">
+                  <span>{{ hotel.generalEmail || 'Sin correo general' }}</span>
+                  <span>{{ hotel.primaryPhone || 'Sin telefono' }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="structure-cell">
+                  <strong>{{ hotel.totalRooms }}</strong>
+                  <span>{{ hotel.totalFloors }} pisos</span>
+                </div>
+              </td>
+              <td class="reason-cell">{{ hotel.attentionReason }}</td>
               <td>
                 <div class="updated-cell">
                   <strong>{{ hotel.lastUpdatedLabel }}</strong>
@@ -139,18 +190,133 @@
                 </div>
               </td>
               <td>
-                <span class="status-chip" [ngClass]="getContactClass(hotel.contactCompleteness)">
-                  {{ getContactLabel(hotel.contactCompleteness) }}
-                </span>
-              </td>
-              <td>
                 <span class="status-chip" [ngClass]="getHealthClass(hotel.health)">
                   {{ getHealthLabel(hotel.health) }}
                 </span>
               </td>
+              <td>
+                <div class="action-menu-shell">
+                  <button
+                    type="button"
+                    class="dots-btn"
+                    [attr.aria-expanded]="openActionMenuHotelId === hotel.id"
+                    [attr.aria-label]="'Abrir acciones de ' + hotel.name"
+                    (click)="toggleActionMenu(hotel)"
+                  >
+                    <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+                  </button>
+
+                  <div class="action-menu" *ngIf="openActionMenuHotelId === hotel.id">
+                    <button type="button" class="menu-action" (click)="openHotelDetails(hotel)">
+                      <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                      Ver detalles
+                    </button>
+                    <button type="button" class="menu-action" (click)="openHotelConfiguration(hotel)">
+                      <i class="fa-solid fa-gear" aria-hidden="true"></i>
+                      Configurar hotel
+                    </button>
+                    <button
+                      type="button"
+                      class="menu-action"
+                      [ngClass]="hotel.isActive ? 'is-danger' : 'is-success'"
+                      [disabled]="updatingHotelId === hotel.id"
+                      (click)="toggleHotelActive(hotel)"
+                    >
+                      <i
+                        [class]="hotel.isActive ? 'fa-solid fa-ban' : 'fa-solid fa-circle-check'"
+                        aria-hidden="true"
+                      ></i>
+                      <span *ngIf="updatingHotelId !== hotel.id">
+                        {{ hotel.isActive ? 'Suspender acceso' : 'Reactivar acceso' }}
+                      </span>
+                      <span *ngIf="updatingHotelId === hotel.id">Guardando...</span>
+                    </button>
+                  </div>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="hotel-card-list">
+        <article class="hotel-card" *ngFor="let hotel of paginatedHotels; trackBy: trackByHotel">
+          <div class="hotel-card-head">
+            <div>
+              <h2>{{ hotel.name }}</h2>
+              <p>{{ hotel.location }}</p>
+            </div>
+            <span class="status-chip" [ngClass]="getActiveClass(hotel)">
+              {{ getActiveLabel(hotel) }}
+            </span>
+          </div>
+
+          <p class="hotel-card-reason">{{ hotel.attentionReason }}</p>
+
+          <dl class="hotel-card-meta">
+            <div>
+              <dt>Contacto</dt>
+              <dd>{{ getContactLabel(hotel.contactCompleteness) }}</dd>
+            </div>
+            <div>
+              <dt>Salud</dt>
+              <dd>{{ getHealthLabel(hotel.health) }}</dd>
+            </div>
+            <div>
+              <dt>Habitaciones</dt>
+              <dd>{{ hotel.totalRooms }} en {{ hotel.totalFloors }} pisos</dd>
+            </div>
+            <div>
+              <dt>Actualizacion</dt>
+              <dd>{{ hotel.lastUpdatedLabel }}</dd>
+            </div>
+          </dl>
+
+          <div class="hotel-card-contact">
+            <span>{{ hotel.generalEmail || 'Sin correo general' }}</span>
+            <span>{{ hotel.primaryPhone || 'Sin telefono' }}</span>
+          </div>
+
+          <div class="hotel-card-actions">
+            <button
+              type="button"
+              class="dots-btn dots-btn-card"
+              [attr.aria-expanded]="openActionMenuHotelId === hotel.id"
+              [attr.aria-label]="'Abrir acciones de ' + hotel.name"
+              (click)="toggleActionMenu(hotel)"
+            >
+              <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+            </button>
+
+            <div class="action-menu card-action-menu" *ngIf="openActionMenuHotelId === hotel.id">
+              <button type="button" class="menu-action" (click)="openHotelDetails(hotel)">
+                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                Ver detalles
+              </button>
+              <button type="button" class="menu-action" (click)="openHotelConfiguration(hotel)">
+                <i class="fa-solid fa-gear" aria-hidden="true"></i>
+                Configurar hotel
+              </button>
+              <button
+                type="button"
+                class="menu-action"
+                [ngClass]="hotel.isActive ? 'is-danger' : 'is-success'"
+                [disabled]="updatingHotelId === hotel.id"
+                (click)="toggleHotelActive(hotel)"
+              >
+                <i
+                  [class]="hotel.isActive ? 'fa-solid fa-ban' : 'fa-solid fa-circle-check'"
+                  aria-hidden="true"
+                ></i>
+                {{ updatingHotelId === hotel.id ? 'Guardando...' : (hotel.isActive ? 'Suspender acceso' : 'Reactivar acceso') }}
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <p class="table-empty" *ngIf="paginatedHotels.length === 0">
+          No se encontraron hoteles con los filtros actuales.
+        </p>
       </div>
 
       <footer class="table-footer">
@@ -161,15 +327,243 @@
         <div class="pager">
           <button (click)="changePage(currentPage - 1)" [disabled]="currentPage === 1">Anterior</button>
 
-          <button *ngFor="let page of pages" (click)="changePage(page)" [class.active]="currentPage === page">
-            {{ page }}
-          </button>
+          <ng-container *ngFor="let page of pages">
+            <span *ngIf="page === 'ellipsis'" class="pager-ellipsis">...</span>
+            <button
+              *ngIf="page !== 'ellipsis'"
+              (click)="changePageControl(page)"
+              [class.active]="currentPage === page"
+            >
+              {{ page }}
+            </button>
+          </ng-container>
 
           <button (click)="changePage(currentPage + 1)" [disabled]="currentPage === totalPages || totalPages === 0">
             Siguiente
           </button>
         </div>
       </footer>
+    </section>
+
+    <section class="hotel-modal-backdrop" *ngIf="modalMode" (click)="closeHotelModal()">
+      <div class="hotel-modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+        <header class="hotel-modal-header">
+          <div>
+            <h2 *ngIf="modalMode === 'create'">Nuevo hotel</h2>
+            <h2 *ngIf="modalMode === 'detail'">Detalle del hotel</h2>
+            <h2 *ngIf="modalMode === 'edit'">Configurar hotel</h2>
+            <p *ngIf="modalMode === 'create'">Crea el registro base del hotel en la plataforma.</p>
+            <p *ngIf="modalMode === 'detail'">{{ modalDetails?.hotel_name || modalHotel?.name }}</p>
+            <p *ngIf="modalMode === 'edit'">{{ modalDetails?.hotel_name || modalHotel?.name }}</p>
+          </div>
+          <button type="button" class="modal-close-btn" aria-label="Cerrar modal" (click)="closeHotelModal()">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          </button>
+        </header>
+
+        <div class="hotel-modal-body">
+          <div class="modal-state" *ngIf="modalLoading">Cargando informacion del hotel...</div>
+          <div class="modal-error" *ngIf="modalError">{{ modalError }}</div>
+
+          <ng-container *ngIf="modalMode === 'detail' && !modalLoading">
+            <div class="detail-summary">
+              <span class="status-chip" [ngClass]="modalDetails?.is_active === false ? 'risk' : 'ok'">
+                {{ modalDetails?.is_active === false ? 'Suspendido' : 'Activo' }}
+              </span>
+              <span>{{ modalDetails?.total_rooms || 0 }} habitaciones</span>
+              <span>{{ modalDetails?.total_floors || 0 }} pisos</span>
+            </div>
+
+            <dl class="detail-grid">
+              <div>
+                <dt>Nombre comercial</dt>
+                <dd>{{ modalDetails?.hotel_name || 'Sin nombre' }}</dd>
+              </div>
+              <div>
+                <dt>Razon social</dt>
+                <dd>{{ modalDetails?.legal_name || 'Sin razon social' }}</dd>
+              </div>
+              <div>
+                <dt>Ubicacion</dt>
+                <dd>{{ modalDetails?.city || 'Sin ciudad' }}, {{ modalDetails?.state || modalDetails?.country || 'Sin pais' }}</dd>
+              </div>
+              <div>
+                <dt>Direccion</dt>
+                <dd>{{ modalDetails?.address || 'Sin direccion' }}</dd>
+              </div>
+              <div>
+                <dt>Correo general</dt>
+                <dd>{{ modalDetails?.general_email || 'Sin correo' }}</dd>
+              </div>
+              <div>
+                <dt>Correo reservas</dt>
+                <dd>{{ modalDetails?.reservations_email || 'Sin correo' }}</dd>
+              </div>
+              <div>
+                <dt>Telefono principal</dt>
+                <dd>{{ modalDetails?.primary_phone || 'Sin telefono' }}</dd>
+              </div>
+              <div>
+                <dt>Sitio web</dt>
+                <dd>{{ modalDetails?.website || 'Sin sitio web' }}</dd>
+              </div>
+              <div>
+                <dt>Horario</dt>
+                <dd>{{ modalDetails?.check_in_time || 'N/D' }} - {{ modalDetails?.check_out_time || 'N/D' }}</dd>
+              </div>
+              <div>
+                <dt>Moneda / impuesto</dt>
+                <dd>{{ modalDetails?.currency || 'COP' }} - {{ modalDetails?.tax_rate || 0 }}%</dd>
+              </div>
+              <div>
+                <dt>Zona horaria</dt>
+                <dd>{{ modalDetails?.timezone || 'America/Bogota' }}</dd>
+              </div>
+              <div>
+                <dt>Actualizacion</dt>
+                <dd>{{ formatDate(modalDetails?.updated_at || null) || 'Sin fecha' }}</dd>
+              </div>
+            </dl>
+
+            <section class="detail-description" *ngIf="modalDetails?.description || modalDetails?.slogan">
+              <strong>{{ modalDetails?.slogan || 'Descripcion' }}</strong>
+              <p>{{ modalDetails?.description || 'Sin descripcion registrada.' }}</p>
+            </section>
+
+            <footer class="modal-footer" *ngIf="modalHotel">
+              <button type="button" class="gh-mbtn gh-mbtn-light" (click)="closeHotelModal()">
+                Cerrar
+              </button>
+              <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="openHotelConfiguration(modalHotel)">
+                <i class="fa-solid fa-gear" aria-hidden="true"></i>
+                Configurar hotel
+              </button>
+            </footer>
+          </ng-container>
+
+          <form
+            *ngIf="modalMode === 'create' || modalMode === 'edit'"
+            class="hotel-form"
+            (ngSubmit)="saveHotelModal()"
+          >
+            <div class="modal-section">
+              <h3>Informacion general</h3>
+              <div class="hotel-form-grid">
+                <label>
+                  <span>Nombre comercial</span>
+                  <input type="text" name="hotel_name" [(ngModel)]="hotelForm.hotel_name" required />
+                </label>
+                <label>
+                  <span>Razon social</span>
+                  <input type="text" name="legal_name" [(ngModel)]="hotelForm.legal_name" />
+                </label>
+                <label>
+                  <span>Eslogan</span>
+                  <input type="text" name="slogan" [(ngModel)]="hotelForm.slogan" />
+                </label>
+                <label>
+                  <span>Estrellas</span>
+                  <input type="number" name="stars" min="1" max="5" [(ngModel)]="hotelForm.stars" />
+                </label>
+                <label class="field-wide">
+                  <span>Descripcion</span>
+                  <textarea name="description" rows="3" [(ngModel)]="hotelForm.description"></textarea>
+                </label>
+              </div>
+            </div>
+
+            <div class="modal-section">
+              <h3>Ubicacion y contacto</h3>
+              <div class="hotel-form-grid">
+                <label>
+                  <span>Pais</span>
+                  <input type="text" name="country" [(ngModel)]="hotelForm.country" />
+                </label>
+                <label>
+                  <span>Departamento / estado</span>
+                  <input type="text" name="state" [(ngModel)]="hotelForm.state" />
+                </label>
+                <label>
+                  <span>Ciudad</span>
+                  <input type="text" name="city" [(ngModel)]="hotelForm.city" />
+                </label>
+                <label>
+                  <span>Codigo postal</span>
+                  <input type="text" name="postal_code" [(ngModel)]="hotelForm.postal_code" />
+                </label>
+                <label class="field-wide">
+                  <span>Direccion</span>
+                  <input type="text" name="address" [(ngModel)]="hotelForm.address" />
+                </label>
+                <label>
+                  <span>Telefono principal</span>
+                  <input type="tel" name="primary_phone" [(ngModel)]="hotelForm.primary_phone" />
+                </label>
+                <label>
+                  <span>Telefono secundario</span>
+                  <input type="tel" name="secondary_phone" [(ngModel)]="hotelForm.secondary_phone" />
+                </label>
+                <label>
+                  <span>Correo general</span>
+                  <input type="email" name="general_email" [(ngModel)]="hotelForm.general_email" />
+                </label>
+                <label>
+                  <span>Correo reservas</span>
+                  <input type="email" name="reservations_email" [(ngModel)]="hotelForm.reservations_email" />
+                </label>
+                <label class="field-wide">
+                  <span>Sitio web</span>
+                  <input type="url" name="website" [(ngModel)]="hotelForm.website" />
+                </label>
+              </div>
+            </div>
+
+            <div class="modal-section">
+              <h3>Operacion</h3>
+              <div class="hotel-form-grid">
+                <label>
+                  <span>Check-in</span>
+                  <input type="time" name="check_in_time" [(ngModel)]="hotelForm.check_in_time" />
+                </label>
+                <label>
+                  <span>Check-out</span>
+                  <input type="time" name="check_out_time" [(ngModel)]="hotelForm.check_out_time" />
+                </label>
+                <label>
+                  <span>Max. huespedes por habitacion</span>
+                  <input type="number" min="1" name="max_guests_per_room" [(ngModel)]="hotelForm.max_guests_per_room" />
+                </label>
+                <label>
+                  <span>Moneda</span>
+                  <input type="text" name="currency" [(ngModel)]="hotelForm.currency" />
+                </label>
+                <label>
+                  <span>Impuesto (%)</span>
+                  <input type="number" min="0" max="100" step="0.01" name="tax_rate" [(ngModel)]="hotelForm.tax_rate" />
+                </label>
+                <label>
+                  <span>Zona horaria</span>
+                  <input type="text" name="timezone" [(ngModel)]="hotelForm.timezone" />
+                </label>
+                <label class="toggle-field">
+                  <input type="checkbox" name="is_active" [(ngModel)]="hotelForm.is_active" />
+                  <span>Hotel activo</span>
+                </label>
+              </div>
+            </div>
+
+            <footer class="modal-footer">
+              <button type="button" class="gh-mbtn gh-mbtn-light" (click)="closeHotelModal()" [disabled]="modalSaving">
+                Cancelar
+              </button>
+              <button type="submit" class="gh-mbtn gh-mbtn-dark" [disabled]="modalSaving || modalLoading">
+                <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+                {{ modalSaving ? 'Guardando...' : (modalMode === 'create' ? 'Crear hotel' : 'Guardar cambios') }}
+              </button>
+            </footer>
+          </form>
+        </div>
+      </div>
     </section>
   </ng-container>
 </div>

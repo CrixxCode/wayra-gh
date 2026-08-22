@@ -2,42 +2,40 @@
   <header class="page-header">
     <div>
       <h1>Solicitudes de demo</h1>
-      <p>Revisa los hoteles interesados y da seguimiento al primer usuario propuesto para cada cuenta.</p>
+      <p>Revisa interesados, avanza el seguimiento y convierte una solicitud solo cuando este lista para crear el hotel.</p>
     </div>
 
     <div class="header-actions">
-      <a routerLink="/saas-panel" class="gh-btn gh-btn-light">
-        <i class="fa-solid fa-chart-line"></i>
+      <a routerLink="/saas-panel" class="gh-mbtn gh-mbtn-light">
+        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
         Panel SaaS
-      </a>
-      <a routerLink="/dashboard" class="gh-btn gh-btn-light">
-        <i class="fa-solid fa-arrow-left"></i>
-        Volver
       </a>
     </div>
   </header>
 
-  <section class="state-message" *ngIf="loading || loadError || actionMessage || !isPlatformAdmin">
+  <section class="state-message" *ngIf="loading || loadError || !isPlatformAdmin">
     <p *ngIf="loading">Cargando solicitudes de demo...</p>
     <p class="error" *ngIf="!loading && loadError">{{ loadError }}</p>
-    <p
-      *ngIf="!loading && !loadError && actionMessage"
-      [class.success]="actionMessageType === 'success'"
-      [class.warning]="actionMessageType === 'warning'">
-      {{ actionMessage }}
-    </p>
     <p class="warning" *ngIf="!loading && !loadError && !isPlatformAdmin">
       Esta vista solo esta disponible para administradores globales de la plataforma.
     </p>
   </section>
 
   <ng-container *ngIf="!loading && !loadError && isPlatformAdmin">
+    <section
+      class="action-message"
+      *ngIf="actionMessage"
+      [ngClass]="actionMessageType === 'success' ? 'is-success' : 'is-warning'"
+    >
+      {{ actionMessage }}
+    </section>
+
     <section class="stats-grid">
       <article class="stat-card" *ngFor="let card of statCards">
         <div class="stat-head">
           <span>{{ card.label }}</span>
           <span class="stat-icon" [ngClass]="card.tone">
-            <i [class]="card.icon"></i>
+            <i [class]="card.icon" aria-hidden="true"></i>
           </span>
         </div>
         <div class="stat-value">{{ card.value }}</div>
@@ -50,11 +48,12 @@
         <label class="search-field search-wrap gh-search-wrap">
           <span>Buscar</span>
           <div class="search-control gh-search-control">
-            <i class="fa-solid fa-magnifying-glass gh-search-icon"></i>
+            <i class="fa-solid fa-magnifying-glass gh-search-icon" aria-hidden="true"></i>
             <input
               class="gh-search-input"
               type="text"
               [(ngModel)]="search"
+              (input)="onSearchInput()"
               (keyup.enter)="applyFilters()"
               placeholder="Hotel, ubicacion, usuario, correo o telefono"
             />
@@ -76,12 +75,17 @@
         </p>
 
         <div class="gh-action-group">
-          <button type="button" class="gh-btn gh-btn-light" (click)="applyFilters()">
-            <i class="fa-solid fa-filter"></i>
-            Aplicar
+          <button
+            type="button"
+            class="gh-mbtn gh-mbtn-light"
+            (click)="clearFilters()"
+            [disabled]="!hasActiveFilters"
+          >
+            <i class="fa-solid fa-filter-circle-xmark" aria-hidden="true"></i>
+            Limpiar filtros
           </button>
-          <button type="button" class="gh-btn gh-btn-light" (click)="loadRequests()">
-            <i class="fa-solid fa-rotate-right"></i>
+          <button type="button" class="gh-mbtn gh-mbtn-light" (click)="loadRequests()">
+            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
             Actualizar
           </button>
         </div>
@@ -93,29 +97,30 @@
         <table>
           <thead>
             <tr>
-              <th>Hotel</th>
+              <th>Solicitud</th>
               <th>Primer usuario</th>
               <th>Contacto</th>
-              <th>Habitaciones</th>
+              <th>Operacion</th>
               <th>Fecha</th>
               <th>Estado</th>
-              <th>Accion</th>
+              <th>Seguimiento</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngIf="requests.length === 0">
-              <td colspan="7" class="table-empty">No hay solicitudes con los filtros actuales.</td>
+              <td colspan="8" class="table-empty">No hay solicitudes con los filtros actuales.</td>
             </tr>
 
-            <tr *ngFor="let request of requests; trackBy: trackByRequest">
+            <tr
+              *ngFor="let request of requests; let last = last; trackBy: trackByRequest"
+              [class.is-last-row]="last"
+            >
               <td>
                 <div class="primary-cell">
                   <p class="primary-title">{{ request.hotel_name }}</p>
                   <p class="primary-meta">{{ request.hotel_type }} - {{ request.city }}, {{ request.state || request.country }}</p>
                   <p class="primary-meta" *ngIf="request.address">{{ request.address }}</p>
-                  <p class="primary-meta" *ngIf="request.check_in_time || request.check_out_time">
-                    Check-in {{ request.check_in_time || 'N/D' }} - Check-out {{ request.check_out_time || 'N/D' }}
-                  </p>
                   <a *ngIf="request.website" [href]="request.website" target="_blank" rel="noopener noreferrer">
                     {{ request.website }}
                   </a>
@@ -124,7 +129,8 @@
               <td>
                 <div class="primary-cell">
                   <p class="primary-title">{{ request.requester_first_name }} {{ request.requester_last_name }}</p>
-                  <p class="primary-meta">{{ request.requester_username }} - {{ request.requester_job_title }}</p>
+                  <p class="primary-meta">{{ request.requester_username }}</p>
+                  <p class="primary-meta">{{ request.requester_job_title || 'Cargo no indicado' }}</p>
                 </div>
               </td>
               <td>
@@ -134,14 +140,22 @@
                   <span *ngIf="request.message">{{ request.message }}</span>
                 </div>
               </td>
-              <td>{{ request.rooms }}</td>
+              <td>
+                <div class="operation-cell">
+                  <strong>{{ request.rooms }}</strong>
+                  <span>habitaciones</span>
+                  <span *ngIf="request.check_in_time || request.check_out_time">
+                    {{ request.check_in_time || 'N/D' }} - {{ request.check_out_time || 'N/D' }}
+                  </span>
+                </div>
+              </td>
               <td>{{ formatDate(request.created_at) }}</td>
               <td>
                 <span class="status-chip" [ngClass]="getStatusClass(request.status)">
                   {{ getStatusLabel(request.status) }}
                 </span>
                 <p class="conversion-note" *ngIf="request.converted_hotel_settings && request.converted_user">
-                  Hotel #{{ request.converted_hotel_settings }} - Usuario creado
+                  Hotel #{{ request.converted_hotel_settings }} - usuario creado
                   <span *ngIf="request.email_delivery_enabled === false"> - correo no configurado</span>
                   <span *ngIf="request.email_delivery_enabled !== false && request.password_reset_sent"> - clave enviada</span>
                   <span *ngIf="request.email_delivery_enabled !== false && !request.password_reset_sent"> - clave pendiente</span>
@@ -150,37 +164,210 @@
               <td>
                 <div class="row-actions">
                   <select
+                    *ngIf="!isConverted(request)"
                     class="status-select"
                     [ngModel]="request.status"
-                    [disabled]="updatingId === request.id || resendingId === request.id || linkingId === request.id"
-                    (ngModelChange)="updateStatus(request, $event)">
-                    <option *ngFor="let option of statusOptions" [value]="option.value">{{ option.label }}</option>
+                    [disabled]="isBusy(request)"
+                    (ngModelChange)="updateStatus(request, $event)"
+                  >
+                    <option *ngFor="let option of workflowStatusOptions" [value]="option.value">{{ option.label }}</option>
                   </select>
-
+                  <span class="locked-note" *ngIf="isConverted(request)">
+                    Flujo cerrado
+                  </span>
+                </div>
+              </td>
+              <td>
+                <div class="action-menu-shell">
                   <button
-                    *ngIf="canResendAccessEmail(request)"
                     type="button"
-                    class="link-action"
-                    [disabled]="updatingId === request.id || resendingId === request.id || linkingId === request.id"
-                    (click)="copyAccessLink(request)">
-                    <i class="fa-solid fa-link"></i>
-                    <span>{{ linkingId === request.id ? 'Copiando...' : 'Copiar ingreso' }}</span>
+                    class="dots-btn"
+                    [attr.aria-expanded]="openActionMenuRequestId === request.id"
+                    [attr.aria-label]="'Abrir acciones de ' + request.hotel_name"
+                    [disabled]="isBusy(request)"
+                    (click)="toggleActionMenu(request)"
+                  >
+                    <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
                   </button>
 
-                  <button
-                    *ngIf="canResendAccessEmail(request)"
-                    type="button"
-                    class="link-action"
-                    [disabled]="updatingId === request.id || resendingId === request.id || linkingId === request.id"
-                    (click)="resendAccessEmail(request)">
-                    <i class="fa-solid fa-paper-plane"></i>
-                    <span>{{ resendingId === request.id ? 'Enviando...' : 'Reenviar clave' }}</span>
-                  </button>
+                  <div class="action-menu" *ngIf="openActionMenuRequestId === request.id">
+                    <button
+                      *ngIf="canConvert(request)"
+                      type="button"
+                      class="menu-action is-primary"
+                      [disabled]="isBusy(request)"
+                      (click)="convertRequest(request)"
+                    >
+                      <i class="fa-solid fa-hotel" aria-hidden="true"></i>
+                      <span>{{ updatingId === request.id ? 'Convirtiendo...' : 'Convertir a hotel' }}</span>
+                    </button>
+
+                    <button
+                      *ngIf="request.converted_hotel_settings"
+                      type="button"
+                      class="menu-action"
+                      [disabled]="isBusy(request)"
+                      (click)="openConvertedHotel(request)"
+                    >
+                      <i class="fa-solid fa-gear" aria-hidden="true"></i>
+                      Configurar hotel
+                    </button>
+
+                    <button
+                      *ngIf="canResendAccessEmail(request)"
+                      type="button"
+                      class="menu-action"
+                      [disabled]="isBusy(request)"
+                      (click)="copyAccessLink(request)"
+                    >
+                      <i class="fa-solid fa-link" aria-hidden="true"></i>
+                      <span>{{ linkingId === request.id ? 'Copiando...' : 'Copiar ingreso' }}</span>
+                    </button>
+
+                    <button
+                      *ngIf="canResendAccessEmail(request)"
+                      type="button"
+                      class="menu-action"
+                      [disabled]="isBusy(request)"
+                      (click)="resendAccessEmail(request)"
+                    >
+                      <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+                      <span>{{ resendingId === request.id ? 'Enviando...' : 'Reenviar clave' }}</span>
+                    </button>
+
+                    <span class="menu-empty" *ngIf="!canConvert(request) && !request.converted_hotel_settings && !canResendAccessEmail(request)">
+                      Sin acciones disponibles
+                    </span>
+                  </div>
                 </div>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="request-card-list">
+        <article class="request-card" *ngFor="let request of requests; trackBy: trackByRequest">
+          <div class="request-card-head">
+            <div>
+              <h2>{{ request.hotel_name }}</h2>
+              <p>{{ request.hotel_type }} - {{ request.city }}, {{ request.state || request.country }}</p>
+            </div>
+            <span class="status-chip" [ngClass]="getStatusClass(request.status)">
+              {{ getStatusLabel(request.status) }}
+            </span>
+          </div>
+
+          <dl class="request-card-meta">
+            <div>
+              <dt>Contacto</dt>
+              <dd>{{ request.requester_first_name }} {{ request.requester_last_name }}</dd>
+            </div>
+            <div>
+              <dt>Habitaciones</dt>
+              <dd>{{ request.rooms }}</dd>
+            </div>
+            <div>
+              <dt>Fecha</dt>
+              <dd>{{ formatDate(request.created_at) }}</dd>
+            </div>
+            <div>
+              <dt>Horario</dt>
+              <dd>{{ request.check_in_time || 'N/D' }} - {{ request.check_out_time || 'N/D' }}</dd>
+            </div>
+          </dl>
+
+          <div class="request-card-contact">
+            <a [href]="'mailto:' + request.requester_email">{{ request.requester_email }}</a>
+            <a [href]="'tel:' + request.requester_phone">{{ request.requester_phone }}</a>
+          </div>
+
+          <p class="conversion-note" *ngIf="request.converted_hotel_settings && request.converted_user">
+            Hotel #{{ request.converted_hotel_settings }} - usuario creado.
+          </p>
+
+          <div class="request-card-actions">
+            <select
+              *ngIf="!isConverted(request)"
+              class="status-select"
+              [ngModel]="request.status"
+              [disabled]="isBusy(request)"
+              (ngModelChange)="updateStatus(request, $event)"
+            >
+              <option *ngFor="let option of workflowStatusOptions" [value]="option.value">{{ option.label }}</option>
+            </select>
+            <span class="locked-note" *ngIf="isConverted(request)">
+              Flujo cerrado
+            </span>
+
+            <div class="action-menu-shell card-action-menu-shell">
+              <button
+                type="button"
+                class="dots-btn dots-btn-card"
+                [attr.aria-expanded]="openActionMenuRequestId === request.id"
+                [attr.aria-label]="'Abrir acciones de ' + request.hotel_name"
+                [disabled]="isBusy(request)"
+                (click)="toggleActionMenu(request)"
+              >
+                <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+              </button>
+
+              <div class="action-menu card-action-menu" *ngIf="openActionMenuRequestId === request.id">
+                <button
+                  *ngIf="canConvert(request)"
+                  type="button"
+                  class="menu-action is-primary"
+                  [disabled]="isBusy(request)"
+                  (click)="convertRequest(request)"
+                >
+                  <i class="fa-solid fa-hotel" aria-hidden="true"></i>
+                  {{ updatingId === request.id ? 'Convirtiendo...' : 'Convertir a hotel' }}
+                </button>
+
+                <button
+                  *ngIf="request.converted_hotel_settings"
+                  type="button"
+                  class="menu-action"
+                  [disabled]="isBusy(request)"
+                  (click)="openConvertedHotel(request)"
+                >
+                  <i class="fa-solid fa-gear" aria-hidden="true"></i>
+                  Configurar hotel
+                </button>
+
+                <button
+                  *ngIf="canResendAccessEmail(request)"
+                  type="button"
+                  class="menu-action"
+                  [disabled]="isBusy(request)"
+                  (click)="copyAccessLink(request)"
+                >
+                  <i class="fa-solid fa-link" aria-hidden="true"></i>
+                  Copiar ingreso
+                </button>
+
+                <button
+                  *ngIf="canResendAccessEmail(request)"
+                  type="button"
+                  class="menu-action"
+                  [disabled]="isBusy(request)"
+                  (click)="resendAccessEmail(request)"
+                >
+                  <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+                  Reenviar clave
+                </button>
+
+                <span class="menu-empty" *ngIf="!canConvert(request) && !request.converted_hotel_settings && !canResendAccessEmail(request)">
+                  Sin acciones disponibles
+                </span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <p class="table-empty" *ngIf="requests.length === 0">
+          No hay solicitudes con los filtros actuales.
+        </p>
       </div>
 
       <footer class="table-footer">
@@ -191,18 +378,23 @@
             Anterior
           </button>
 
-          <button
-            type="button"
-            *ngFor="let page of pages"
-            (click)="changePage(page)"
-            [class.active]="currentPage === page">
-            {{ page }}
-          </button>
+          <ng-container *ngFor="let page of pages">
+            <span *ngIf="page === 'ellipsis'" class="pager-ellipsis">...</span>
+            <button
+              type="button"
+              *ngIf="page !== 'ellipsis'"
+              (click)="changePageControl(page)"
+              [class.active]="currentPage === page"
+            >
+              {{ page }}
+            </button>
+          </ng-container>
 
           <button
             type="button"
             (click)="changePage(currentPage + 1)"
-            [disabled]="currentPage === totalPages || totalPages === 0">
+            [disabled]="currentPage === totalPages || totalPages === 0"
+          >
             Siguiente
           </button>
         </div>

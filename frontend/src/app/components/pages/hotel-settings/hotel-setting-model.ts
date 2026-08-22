@@ -42,6 +42,7 @@ export interface HotelSettings {
     city?: string;
     state?: string;
     country?: string;
+    postal_code?: string;
     /** Punto exacto en el mapa. El backend los manda como texto decimal. */
     latitude?: string | number | null;
     longitude?: string | number | null;
@@ -56,14 +57,18 @@ export interface HotelSettings {
     // Operación
     check_in_time?: string;
     check_out_time?: string;
+    max_guests_per_room?: number;
 
     // Configuración financiera
     currency?: string;
     tax_rate?: number;
+    system_language?: string;
 
     // Sistema
     timezone?: string;
     is_active?: boolean;
+    created_at?: string;
+    updated_at?: string;
 
     // Estructura del hotel
     floors?: HotelFloor[];

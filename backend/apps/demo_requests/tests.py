@@ -186,6 +186,48 @@ class DemoRequestFlowTests(APITestCase):
         self.assertIn("access_url", link_response.data)
         self.assertEqual(link_response.data["access_url"], "http://localhost:4200/login")
 
+    def test_converted_request_cannot_return_to_followup_status(self):
+        User = get_user_model()
+        admin = User.objects.create_superuser(
+            username="platform-admin-lock-converted",
+            email="platform-admin-lock-converted@example.com",
+            password="TempPass123!",
+        )
+        hotel = HotelSettings.objects.create(
+            hotel_name="Hotel Convertido",
+            city="Riohacha",
+            country="Colombia",
+            general_email="converted@example.com",
+        )
+        converted_user = User.objects.create_user(
+            username="converted-demo-user",
+            email="converted@example.com",
+            password="TempPass123!",
+            hotel_settings=hotel,
+        )
+        demo_request = DemoRequest.objects.create(
+            **{
+                **self.payload,
+                "status": DemoRequest.Status.CONVERTED,
+                "requester_username": "converted-demo-user",
+                "requester_email": "converted@example.com",
+                "converted_hotel_settings": hotel,
+                "converted_user": converted_user,
+            }
+        )
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.patch(
+            f"/api/demo-requests/{demo_request.id}/",
+            {"status": "CONTACTED"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("status", response.data["errors"])
+        demo_request.refresh_from_db()
+        self.assertEqual(demo_request.status, DemoRequest.Status.CONVERTED)
+
     @override_settings(
         EMAIL_BACKEND="anymail.backends.resend.EmailBackend",
         RESEND_API_KEY="",

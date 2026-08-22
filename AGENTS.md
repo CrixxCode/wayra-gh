@@ -1120,6 +1120,161 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ## 12. Registro de cambios
 
+### 2026-08-22 — Acciones desplegables en Solicitudes de demo
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Qué se hizo:** las acciones de cada solicitud de demo se agruparon detrás de un botón de tres
+  puntos, siguiendo el patrón visual de `Hoteles SaaS`. El menú incluye convertir a hotel,
+  configurar hotel, copiar ingreso y reenviar clave según corresponda; en tarjetas móviles también
+  reemplaza los botones visibles por el mismo desplegable.
+- **Por qué:** la columna de acciones acumulaba varios botones visibles y debía mantener
+  consistencia con la vista de hoteles.
+- **Archivos/áreas afectadas:** `frontend/src/app/modules/saas/list-demo-requests/`, `AGENTS.md`.
+- **Impacto:** cambio frontend sin migraciones, cambios de API ni recursos RBAC nuevos.
+
+### 2026-08-22 — Rediseño de plantilla de correos transaccionales según mockup
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez (ajustar el diseño de los correos
+  enviados para que coincida con una imagen de referencia, usando el logo real de Wayra en vez de
+  un placeholder)
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix / ux
+- **Qué se hizo:**
+  - `base_email.html`: la insignia de estado (`badge_label`) ahora comparte la misma fila que el
+    logo y el nombre de marca (antes iba apilada arriba), alineada a la derecha, con nuevas reglas
+    responsive (`wy-brand-cell`/`wy-badge-cell`) que la apilan debajo en pantallas angostas. Se
+    agregó una segunda franja de pie oscura (mismo degradado que el encabezado) dentro de la
+    tarjeta redondeada, con el nombre de la app, el texto de `outer_caption` seguido de la
+    dirección del hotel cuando existe (`hotel_footer_address`), y una fila de enlaces de marca no
+    funcionales ("Centro de ayuda · Privacidad · Preferencias de correo") — el mismo patrón de
+    texto decorativo sin enlace real que ya usa `public-footer.html`. Se eliminó el párrafo de
+    caption que quedaba fuera de la tarjeta, ahora duplicado con el nuevo pie.
+  - El adjunto de logo embebido por CID (último recurso cuando no hay logo de plataforma ni de
+    hotel) pasó de `logo-white.png` a `logo.png`: el primero trae el wordmark "Wayra" ya dibujado
+    dentro de la imagen, que se duplicaba visualmente con el texto `{{ app_name }}` ("Wayra") que
+    la plantilla ya renderiza al lado; `logo.png` es solo el ícono, sin texto. Se cambió en las tres
+    copias de esta lógica (`apps/reservations/emails.py`, `apps/demo_requests/views.py`,
+    `accounts/serializers.py`).
+  - `send_reservation_confirmed_email` ahora pasa `badge_bg`/`badge_text_color` en tono verde
+    esmeralda para la insignia "Reserva confirmada", igual que en la imagen de referencia; el resto
+    de correos conserva el tono dorado por defecto de `base_email.html`.
+  - Se agregó `hotel_footer_address` (dirección + ciudad + país de `HotelSettings`, cuando existen)
+    al diccionario de marca (`brand`) que ya viajaba completo a las plantillas.
+  - Se corrigió la pluralización de "habitación(es)" y "huésped(es)" (sin tilde, por convención ya
+    establecida en estos correos) en `reservation_confirmed.html` y `reservation_registered.html`:
+    usaban el filtro `|pluralize` sin argumento, que solo agrega "s" y producía "habitacions" y
+    "huespeds" en plural; ahora usan `|pluralize:"es"`.
+- **Por qué:** el usuario compartió una captura de un correo de confirmación de reserva y pidió que
+  los correos reales se vean así, aclarando explícitamente usar el logo real de Wayra y no el
+  placeholder del mockup.
+- **Archivos/áreas afectadas:** `backend/templates/email/base_email.html`,
+  `backend/templates/email/reservation_confirmed.html`,
+  `backend/templates/email/reservation_registered.html`, `backend/apps/reservations/emails.py`,
+  `backend/apps/demo_requests/views.py`, `backend/accounts/serializers.py`, `AGENTS.md`.
+- **Impacto:** ninguna migración, variable de entorno ni endpoint nuevo. El color del botón/enlaces
+  de cada correo sigue derivándose de `HotelSettings.primary_color` por hotel (sin cambios en esa
+  lógica); el azul del botón en la imagen de referencia, distinto del azul marino del encabezado,
+  corresponde a ese color configurado por el hotel de la captura, no a un valor nuevo agregado aquí.
+  Verificado renderizando las cinco plantillas con `render_to_string` y datos de ejemplo (sin
+  errores de plantilla, pluralización correcta en singular y plural) y con la suite completa de
+  `apps.reservations`, `apps.demo_requests` y `accounts` (132 tests, `OK`). No se verificó
+  visualmente en un cliente de correo real por no tener disponible un renderizador de HTML/navegador
+  en esta sesión.
+
+---
+
+### 2026-08-22 - Modales de administracion en Hoteles SaaS
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** funcional / ux
+- **Que se hizo:** la vista `Hoteles SaaS` ahora permite crear hoteles desde un modal, ver el
+  detalle de un hotel en modal y abrir `Configurar hotel` como modal de edicion de informacion
+  general, ubicacion, contacto, operacion, moneda, impuesto, zona horaria y estado activo. El flujo
+  usa los endpoints existentes de `HotelSettings` y recarga el directorio SaaS despues de guardar.
+- **Por que:** el administrador de plataforma necesita resolver alta, revision y configuracion
+  basica de hoteles desde la vista SaaS sin saltar a la pantalla operativa completa del hotel.
+- **Archivos/areas afectadas:** `frontend/src/app/modules/saas/list-saas-hotels/`,
+  `frontend/src/app/components/pages/hotel-settings/hotel-setting-model.ts`, `AGENTS.md`.
+- **Impacto:** cambio frontend sin migraciones, cambios de API ni recursos RBAC nuevos. Reutiliza
+  `POST /api/hotel-settings/`, `PATCH /api/hotel-settings/<id>/` y
+  `GET /api/hotel-settings/current/?hotel_settings=<id>`.
+
+### 2026-08-22 - Tabla simplificada en Hoteles SaaS
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** la tabla de `Hoteles SaaS` se redujo a columnas de lectura operativa:
+  hotel, estado, ubicacion, contacto combinado, estructura, motivo, actualizacion, salud y un menu
+  de acciones. Se quitaron de la tabla el correo de reservas y el estado de contacto, y las acciones
+  de configurar/suspender/reactivar quedaron agrupadas detras de un boton de tres puntos. El menu
+  se ajusto para abrir como overlay hacia la tabla, sin quedar visualmente anclado al lado derecho
+  ni cambiar la altura de los registros; en la ultima fila abre hacia arriba para no recortarse con
+  el pie de la tabla.
+- **Por que:** la tabla anterior mostraba demasiadas columnas de igual peso, duplicaba datos de
+  contacto y hacia dificil identificar rapidamente que hotel requiere atencion y que accion tomar.
+- **Archivos/areas afectadas:** `frontend/src/app/modules/saas/list-saas-hotels/`, `AGENTS.md`.
+- **Impacto:** cambio frontend sin migraciones, cambios de API ni recursos RBAC nuevos.
+
+### 2026-08-22 - Correcciones en Solicitudes de demo SaaS
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** funcional / ux
+- **Que se hizo:** la vista `Solicitudes de demo` se reorganizo como consola de seguimiento:
+  separa la conversion a hotel en una accion explicita con confirmacion, deja el selector solo para
+  estados de seguimiento, agrega limpiar filtros, busqueda con debounce, paginacion compacta,
+  mensajes de accion no bloqueantes, tarjetas responsivas en movil y acciones post-conversion para
+  configurar el hotel, copiar ingreso o reenviar clave.
+- **Por que:** convertir una solicitud crea hotel, piso inicial, habitaciones, primer usuario y
+  correo de acceso; no debe ejecutarse accidentalmente desde un selector comun ni permitir que una
+  solicitud ya convertida vuelva a estados de seguimiento.
+- **Archivos/areas afectadas:** `frontend/src/app/modules/saas/list-demo-requests/`,
+  `backend/apps/demo_requests/views.py`, `backend/apps/demo_requests/tests.py`, `AGENTS.md`.
+- **Impacto:** no agrega migraciones ni recursos RBAC nuevos. El backend ahora rechaza cambios de
+  estado desde una solicitud ya convertida hacia estados no convertidos.
+
+### 2026-08-22 - Gestion operativa en Hoteles SaaS
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** funcional / ux
+- **Que se hizo:** la vista `Hoteles SaaS` se ajusto como consola de administracion: agrega filtro
+  por estado operativo, acciones para abrir la configuracion del hotel seleccionado, suspender o
+  reactivar hoteles usando `HotelSettings.is_active`, limpiar filtros, exportar mas contexto y
+  mostrar estructura, motivo de atencion y tarjetas responsivas en movil.
+- **Por que:** la vista no solo debe listar registros; para un administrador de plataforma debe
+  permitir detectar hoteles con riesgo operativo, actuar sobre el acceso del hotel y saltar a la
+  configuracion correcta sin perder contexto.
+- **Archivos/areas afectadas:** `frontend/src/app/modules/saas/list-saas-hotels/`,
+  `frontend/src/app/services/saas-dashboard.ts`,
+  `frontend/src/app/modules/saas/saas-dashboard-model.ts`,
+  `frontend/src/app/modules/saas/list-saas-dashboard/list-saas-dashboard.ts`,
+  `AGENTS.md`.
+- **Impacto:** cambio frontend sobre endpoints existentes. Usa `PATCH /api/hotel-settings/<id>/`
+  con CSRF para actualizar `is_active`; no agrega migraciones ni recursos RBAC nuevos.
+
+### 2026-08-22 - Home del Panel SaaS
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** la vista `Panel SaaS` se reoriento como Home para administradores de
+  plataforma: mantiene KPIs de entrada, muestra pendientes compactos, accesos rapidos a los
+  modulos SaaS, hoteles que requieren atencion y distribucion por pais como informacion
+  secundaria. Se quito la tabla pesada como centro de la pagina y se sustituyeron botones locales
+  por patrones globales `gh-mbtn`.
+- **Por que:** el panel principal no debe duplicar las vistas especializadas de solicitudes,
+  hoteles, usuarios o catalogos; debe servir como punto de entrada escaneable para entender que
+  revisar y a donde ir.
+- **Archivos/areas afectadas:** `frontend/src/app/modules/saas/list-saas-dashboard/`,
+  `AGENTS.md`.
+- **Impacto:** cambio frontend sin migraciones, cambios de API ni recursos RBAC nuevos. La vista
+  consulta el conteo de solicitudes nuevas usando el endpoint existente de solicitudes de demo.
+
 > **Nota sobre el histórico:** las entradas anteriores a la creación de esta bitácora (2026-08-10)
 > fueron reconstruidas a partir del historial de Git y del estado del código. Los mensajes de commit
 > originales eran breves, por lo que el campo "Por qué" de esas entradas es una reconstrucción

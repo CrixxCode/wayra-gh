@@ -36,12 +36,12 @@ def _build_hotel_email_brand(hotel_settings) -> tuple[dict, bytes | None, str, s
         logo_url = str(getattr(settings, "BRAND_LOGO_URL", "") or "").strip()
 
     inline_logo_bytes = None
-    inline_logo_name = "logo-white.png"
+    inline_logo_name = "logo.png"
     inline_logo_cid = "platform-logo"
     if not logo_url:
         logo_candidates = [
-            Path(settings.BASE_DIR).parent / "frontend" / "public" / "logo-white.png",
-            Path(settings.BASE_DIR) / "static" / "logo-white.png",
+            Path(settings.BASE_DIR).parent / "frontend" / "public" / "logo.png",
+            Path(settings.BASE_DIR) / "static" / "logo.png",
         ]
         for candidate in logo_candidates:
             if candidate.exists() and candidate.is_file():
@@ -53,6 +53,13 @@ def _build_hotel_email_brand(hotel_settings) -> tuple[dict, bytes | None, str, s
                     inline_logo_bytes = None
                 break
 
+    address_parts = [
+        str(getattr(hotel_settings, "address", "") or "").strip(),
+        str(getattr(hotel_settings, "city", "") or "").strip(),
+        str(getattr(hotel_settings, "country", "") or "").strip(),
+    ]
+    hotel_footer_address = ", ".join(part for part in address_parts if part)
+
     brand = {
         "app_name": app_name,
         "support_email": support_email,
@@ -60,6 +67,7 @@ def _build_hotel_email_brand(hotel_settings) -> tuple[dict, bytes | None, str, s
         "logo_url": logo_url or None,
         "logo_alt": "Logo del hotel" if using_hotel_logo else f"{app_name} logo",
         "hotel_name": hotel_name or app_name,
+        "hotel_footer_address": hotel_footer_address or None,
     }
     return brand, inline_logo_bytes, inline_logo_name, inline_logo_cid
 
@@ -223,6 +231,8 @@ def send_reservation_confirmed_email(
             "room_type_name": _resolve_room_type_name(reservation),
             "online_check_in_available_from": online_check_in_available_from,
             "check_in_online_url": check_in_online_url,
+            "badge_bg": "rgba(52,211,153,0.16)",
+            "badge_text_color": "#34d399",
         }
 
         subject = f"Tu reserva en {hotel_name} quedo confirmada"
