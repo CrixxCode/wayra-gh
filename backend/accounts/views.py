@@ -39,6 +39,15 @@ from django.db import models
 
 User = get_user_model()
 
+HOTEL_MANAGEMENT_ROLE_SLUGS = {"admin", "manager", "staff"}
+
+
+def assignable_roles_for_actor(actor):
+    queryset = Role.objects.filter(is_active=True)
+    if is_effective_global_admin(actor):
+        return queryset
+    return queryset.filter(slug__in=HOTEL_MANAGEMENT_ROLE_SLUGS)
+
 
 def _require_public_registration_token(request, *, setting_name: str) -> None:
     expected_token = str(getattr(settings, setting_name, "") or "").strip()
@@ -276,6 +285,11 @@ class UserViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
         if not user.is_authenticated:
             return User.objects.none()
 
+        if is_effective_global_admin(user):
+            scope = (self.request.query_params.get("scope") or "").strip().lower()
+            if scope in {"global", "platform"}:
+                return qs
+
         return scope_queryset_to_hotel(
             qs,
             request=self.request,
@@ -333,11 +347,16 @@ class UserViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
 
 
 class RoleViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
-    queryset = Role.objects.all().order_by("name")
     serializer_class = RoleSerializer
     pagination_class = OptionalPageNumberPagination
     permission_classes = [HasResourcePermission]
     required_scopes = ["roles.read"]
+
+    def get_queryset(self):
+        queryset = Role.objects.all()
+        if getattr(self, "action", "") in {"list", "job_titles"}:
+            queryset = assignable_roles_for_actor(self.request.user)
+        return queryset.order_by("name")
 
     def get_required_scopes(self):
         # CRUD y acciones de asignación requieren roles.write

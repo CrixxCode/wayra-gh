@@ -188,6 +188,13 @@ NAV_RESOURCES = [
         "periodo. La API sigue protegida por reports.read y expenses.*.",
         "",
     ),
+    (
+        "hotel_users.read",
+        "Usuarios del hotel",
+        "Entrada de menu para administrar solo los usuarios del hotel autenticado. La API "
+        "sigue protegida por users.* y aislada por hotel_settings.",
+        "",
+    ),
     # Panel SaaS. Solo sirven para pintar el menu: el administrador de plataforma es
     # superusuario sin hotel y `HasResourcePermission` lo deja pasar sin consultar RBAC.
     ("saasadmin.button", "SaaS Admin", "Grupo de menu del panel de plataforma.", ""),
@@ -197,7 +204,7 @@ NAV_RESOURCES = [
     ("saas_amenities.read", "Amenidades globales", "Catalogo global de amenidades.", ""),
     # Administracion de la plataforma. Son entradas de menu, no scopes: la API sigue
     # protegida por `users.*`, `roles.*`, `resources.*` y `master_data.*`.
-    ("saas_users.read", "Usuarios", "Gestion de usuarios desde el panel de plataforma.", ""),
+    ("saas_users.read", "Usuarios plataforma", "Gestion global de usuarios desde el panel de plataforma.", ""),
     ("saas_roles.read", "Roles", "Gestion de roles desde el panel de plataforma.", ""),
     ("saas_resources.read", "Recursos", "Gestion de recursos RBAC.", ""),
     ("saas_master_data.read", "Master Data", "Catalogos y enums del sistema.", ""),
@@ -281,7 +288,8 @@ MENU = [
         13,
         None,
     ),
-    ("saasadmin.button", "SaaS Admin", "fa-solid fa-sliders", "", 14, None),
+    ("hotel_users.read", "Usuarios del hotel", "pi pi-users", "/usuarios-hotel", 14, None),
+    ("saasadmin.button", "SaaS Admin", "fa-solid fa-sliders", "", 15, None),
     ("saas.panel.read", "Panel SaaS", "fa-solid fa-chart-line", "/saas-panel", 1, "saasadmin.button"),
     ("saas_hotels.read", "Hoteles", "fa-solid fa-hotel", "/saas-hoteles", 2, "saasadmin.button"),
     (
@@ -300,7 +308,7 @@ MENU = [
         4,
         "saasadmin.button",
     ),
-    ("saas_users.read", "Usuarios", "pi pi-users", "/usuarios", 5, "saasadmin.button"),
+    ("saas_users.read", "Usuarios plataforma", "pi pi-users", "/usuarios", 5, "saasadmin.button"),
     ("saas_roles.read", "Roles", "pi pi-shield", "/roles", 6, "saasadmin.button"),
     ("saas_resources.read", "Recursos", "pi pi-list", "/recursos", 7, "saasadmin.button"),
     (
@@ -455,9 +463,11 @@ def _menu_keys_for(allowed_prefixes, include_saas=False):
 
 
 # Dominios cuya administracion pasa al panel SaaS: un usuario de hotel no los necesita
-# ni siquiera por API. `master_data` NO esta aqui a proposito -- su lectura la usan doce
-# pantallas de hotel (facturas, limpieza, inventario, reservas...).
-PLATFORM_ONLY_DOMAINS = {"users", "roles", "resources"}
+# ni siquiera por API. `users` no esta aqui porque el administrador de hotel gestiona
+# las cuentas de su propio hotel; el aislamiento real lo aplica `UserViewSet`.
+# `master_data` NO esta aqui a proposito -- su lectura la usan doce pantallas de hotel
+# (facturas, limpieza, inventario, reservas...).
+PLATFORM_ONLY_DOMAINS = {"roles", "resources"}
 
 
 def _admin_keys():
@@ -476,6 +486,8 @@ def _admin_keys():
         "income_consolidated.read",
         "payment-refunds.read",
         "audit.read",
+        "roles.read",
+        "hotel_users.read",
         "commercial_catalog.read",
         "billing_center.read",
         "inventory_center.read",

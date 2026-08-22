@@ -165,7 +165,8 @@ export const routes: Routes = [
         component: LayoutMain,
         canActivateChild: [authChildGuard, permissionChildGuard],
         children: [
-            { path: 'usuarios', component: UserList, title: 'Usuarios', data: { platformAdminOnly: true } },
+            { path: 'usuarios-hotel', component: UserList, title: 'Usuarios del hotel', data: { breadcrumbLabel: 'Usuarios del hotel', userScope: 'hotel' } },
+            { path: 'usuarios', component: UserList, title: 'Usuarios plataforma', data: { breadcrumbLabel: 'Usuarios plataforma', platformAdminOnly: true, userScope: 'platform' } },
             { path: 'dashboard', component: Dashboard, title: 'Dashboard' },
             { path: 'roles', component: RolesComponent, title: 'Roles', data: { platformAdminOnly: true } },
             { path: 'recursos', component: RecursosComponent, title: 'Recursos', data: { platformAdminOnly: true } },

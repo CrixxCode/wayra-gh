@@ -25,8 +25,8 @@
 <div class="users-page">
   <header class="page-header">
     <div>
-      <h1>Usuarios</h1>
-      <p>Gestiona cuentas de acceso, roles y estado de disponibilidad</p>
+      <h1>{{ pageTitle }}</h1>
+      <p>{{ pageSubtitle }}</p>
     </div>
 
     <button type="button" class="btn btn-dark" (click)="openRegisterDialog()">
@@ -114,6 +114,7 @@
               <th>Usuario</th>
               <th>Nombre</th>
               <th>Correo</th>
+              <th *ngIf="isPlatformScope">Hotel</th>
               <th>Rol</th>
               <th>Estado operativo</th>
               <th>Accion</th>
@@ -124,6 +125,7 @@
               <td>&#64;{{ user.username }}</td>
               <td>{{ user.first_name }} {{ user.last_name }}</td>
               <td>{{ user.email || 'Sin correo' }}</td>
+              <td *ngIf="isPlatformScope">{{ getHotelLabel(user) }}</td>
               <td>{{ getRoleLabel(user) }}</td>
               <td>{{ isActive(user) ? 'Activo' : 'Inactivo' }}</td>
               <td>
@@ -148,6 +150,7 @@
           <tr>
             <th>Usuario</th>
             <th>Contacto</th>
+            <th *ngIf="isPlatformScope">Hotel</th>
             <th>Rol</th>
             <th>Estado</th>
             <th>Acciones</th>
@@ -156,11 +159,11 @@
 
         <tbody>
           <tr *ngIf="loading">
-            <td colspan="5" class="table-empty">Cargando usuarios...</td>
+            <td [attr.colspan]="tableColspan" class="table-empty">Cargando usuarios...</td>
           </tr>
 
           <tr *ngIf="!loading && visibleUsers.length === 0">
-            <td colspan="5" class="table-empty">No se encontraron usuarios</td>
+            <td [attr.colspan]="tableColspan" class="table-empty">No se encontraron usuarios</td>
           </tr>
 
           <tr *ngFor="let user of visibleUsers" (click)="onView(user)">
@@ -183,6 +186,13 @@
             <td>
               <p class="contact-main">{{ user.email }}</p>
               <p class="contact-sub">{{ isActive(user) ? 'Acceso activo' : 'Acceso deshabilitado' }}</p>
+            </td>
+
+            <td *ngIf="isPlatformScope">
+              <p class="contact-main">{{ getHotelLabel(user) }}</p>
+              <p class="contact-sub">
+                {{ user.hotel_settings && user.hotel_settings !== null ? 'Hotel asignado' : 'Cuenta de plataforma' }}
+              </p>
             </td>
 
             <td>

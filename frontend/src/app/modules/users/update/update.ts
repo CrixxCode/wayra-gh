@@ -5,7 +5,7 @@ import { UserI } from '../user-model';
 import { UserService } from '../../../services/user';
 import { MessageService } from 'primeng/api';
 import { environment } from '../../../../enviorements/environment';
-import { AuthService, MeResponse } from '../../../services/auth/auth';
+import { AuthService, MeResponse, isEffectivePlatformAdmin } from '../../../services/auth/auth';
 import { HotelSettingsService } from '../../../services/hotel-settings';
 import { HotelSettings } from '../../../components/pages/hotel-settings/hotel-setting-model';
 import { JobTitle, Role, RolesService } from '../../../services/roles.service';
@@ -167,13 +167,7 @@ export class UserUpdate implements OnChanges {
       .pipe(catchError(() => of(null as MeResponse | null)))
       .subscribe((user) => {
         this.isSuperAdmin = this.resolveIsSuperAdmin(user);
-        const roles = Array.isArray(user?.roles) ? user?.roles : [];
-        const isAdminRole = roles.some((role) => {
-          const slug = String((role as { slug?: string })?.slug || '').trim().toLowerCase();
-          return slug === 'admin' || slug === 'superadmin' || slug === 'super-admin';
-        });
-
-        this.canSelectHotel = this.isSuperAdmin || isAdminRole;
+        this.canSelectHotel = this.isSuperAdmin;
 
         const hotelControl = this.form.get('hotel_settings');
         if (this.isSuperAdmin) {
@@ -289,20 +283,6 @@ export class UserUpdate implements OnChanges {
   }
 
   private resolveIsSuperAdmin(user: MeResponse | null): boolean {
-    if (!user || typeof user !== 'object') return false;
-
-    const normalizedUser = user as unknown as {
-      is_superuser?: boolean;
-      is_staff?: boolean;
-      hotel_settings?: unknown;
-    };
-
-    if (typeof normalizedUser.is_superuser === 'boolean') {
-      return normalizedUser.is_superuser;
-    }
-
-    const isStaff = Boolean(normalizedUser.is_staff);
-    const hasHotel = Boolean(normalizedUser.hotel_settings);
-    return isStaff && !hasHotel;
+    return isEffectivePlatformAdmin(user);
   }
 }

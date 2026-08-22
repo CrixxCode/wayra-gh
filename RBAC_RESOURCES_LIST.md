@@ -8,6 +8,11 @@
 > refleja los recursos de navegación ni el menú. La cobertura real la verifica la prueba
 > `accounts.tests.SeedRbacCoverageTests`.
 
+> Nota 2026-08-22: la administración de usuarios quedó separada en dos entradas de menú:
+> `hotel_users.read` para `/usuarios-hotel` (administradores de hotel, usando `users.*` con
+> aislamiento por `hotel_settings`) y `saas_users.read` para `/usuarios` (administradores de
+> plataforma, vista global).
+
 ## Búsqueda Realizada
 - **Patrón:** `required_scopes` y `permission_classes = [HasResourcePermission]`
 - **Total de Archivos:** 12

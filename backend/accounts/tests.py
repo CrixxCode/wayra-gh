@@ -490,7 +490,7 @@ class UserHotelAssignmentByRoleTests(APITestCase):
 
         self.operator_role = Role.objects.create(name="Operador", slug="operator")
         self.operator_role.resources.add(users_read, users_write)
-        self.reception_role = Role.objects.create(name="Recepcion", slug="reception")
+        self.reception_role = Role.objects.create(name="Recepcion", slug="staff")
         self.reception_role.resources.add(users_read, users_write)
 
         self.reception_title = JobTitle.objects.create(
@@ -526,7 +526,19 @@ class UserHotelAssignmentByRoleTests(APITestCase):
         )
         self.target_user.roles.add(self.operator_role)
 
-    def test_admin_role_can_assign_target_hotel_on_user_create(self):
+        self.other_hotel_user = User.objects.create_user(
+            username="other_hotel_user_assignment",
+            email="other_hotel_user_assignment@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel_b,
+        )
+        self.platform_admin = User.objects.create_superuser(
+            username="platform_users_admin",
+            email="platform_users_admin@example.com",
+            password="pass12345",
+        )
+
+    def test_admin_role_keeps_actor_hotel_on_user_create(self):
         self.client.force_login(self.admin_user)
 
         response = self.client.post(
@@ -543,7 +555,38 @@ class UserHotelAssignmentByRoleTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data["hotel_settings"]["id"], self.hotel_b.id)
+        self.assertEqual(response.data["hotel_settings"]["id"], self.hotel_a.id)
+
+    def test_hotel_user_list_is_scoped_to_actor_hotel(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.get("/api/users/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = (
+            response.data["results"]
+            if isinstance(response.data, dict) and "results" in response.data
+            else response.data
+        )
+        returned_ids = {entry["id"] for entry in payload}
+        self.assertIn(str(self.admin_user.id), returned_ids)
+        self.assertIn(str(self.target_user.id), returned_ids)
+        self.assertNotIn(str(self.other_hotel_user.id), returned_ids)
+
+    def test_platform_user_list_scope_global_ignores_selected_hotel_filter(self):
+        self.client.force_login(self.platform_admin)
+
+        response = self.client.get(f"/api/users/?scope=global&hotel_settings={self.hotel_a.id}")
+
+        self.assertEqual(response.status_code, 200)
+        payload = (
+            response.data["results"]
+            if isinstance(response.data, dict) and "results" in response.data
+            else response.data
+        )
+        returned_ids = {entry["id"] for entry in payload}
+        self.assertIn(str(self.admin_user.id), returned_ids)
+        self.assertIn(str(self.other_hotel_user.id), returned_ids)
 
     def test_non_admin_role_keeps_actor_hotel_on_user_create(self):
         self.client.force_login(self.operator_user)
@@ -564,7 +607,7 @@ class UserHotelAssignmentByRoleTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["hotel_settings"]["id"], self.hotel_a.id)
 
-    def test_admin_role_can_update_user_with_create_fields(self):
+    def test_admin_role_can_update_user_with_create_fields_without_moving_hotel(self):
         self.client.force_login(self.admin_user)
 
         response = self.client.patch(
@@ -590,7 +633,7 @@ class UserHotelAssignmentByRoleTests(APITestCase):
         self.assertEqual(self.target_user.username, "target_user_editado")
         self.assertEqual(self.target_user.email, "target_user_editado@example.com")
         self.assertEqual(self.target_user.job_title, "Recepcionista")
-        self.assertEqual(self.target_user.hotel_settings_id, self.hotel_b.id)
+        self.assertEqual(self.target_user.hotel_settings_id, self.hotel_a.id)
         self.assertFalse(self.target_user.is_active)
         self.assertTrue(self.target_user.check_password("pass12345"))
         self.assertFalse(self.target_user.must_change_password)
@@ -774,6 +817,7 @@ class SeedRbacCoverageTests(TestCase):
         "/limpieza-mantenimiento",
         "/reportes",
         "/hotel-config",
+        "/usuarios-hotel",
     }
 
     # Administracion de la plataforma: definen quien entra, con que permisos y sobre que
@@ -836,11 +880,12 @@ class SeedRbacCoverageTests(TestCase):
 
         # Exclusiones deliberadas:
         # - `amenities.write`: catalogo global, solo el admin de plataforma (5.14).
-        # - `users.*`, `roles.*`, `resources.*`: administracion de la plataforma (5.17).
+        # - `roles.write/roles.read_deleted/resources.*`: administracion de la plataforma (5.17).
         platform_only = {
             scope
             for scope in _collect_declared_scopes()
-            if scope.split(".")[0] in {"users", "roles", "resources"}
+            if scope.split(".")[0] in {"resources"}
+            or scope in {"roles.write", "roles.read_deleted"}
         }
         missing = sorted(
             _collect_declared_scopes() - keys - {"amenities.write"} - platform_only

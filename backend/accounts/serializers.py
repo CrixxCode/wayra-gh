@@ -27,6 +27,15 @@ from .models import JobTitle, Role, Resource, UserRole
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
+HOTEL_MANAGEMENT_ROLE_SLUGS = {"admin", "manager", "staff"}
+
+
+def assignable_roles_for_actor(actor):
+    queryset = Role.objects.filter(is_active=True)
+    if is_effective_global_admin(actor):
+        return queryset
+    return queryset.filter(slug__in=HOTEL_MANAGEMENT_ROLE_SLUGS)
+
 
 # -----------------------------
 # RBAC
@@ -134,6 +143,7 @@ class UserSerializer(serializers.ModelSerializer):
             "is_staff",
             "is_superuser",
             "must_change_password",
+            "date_joined",
             "hotel_settings",
             "roles",
             "resource_keys",
@@ -145,6 +155,7 @@ class UserSerializer(serializers.ModelSerializer):
             "is_staff",
             "is_superuser",
             "must_change_password",
+            "date_joined",
             "roles",
             "resource_keys",
             "menu",
@@ -366,21 +377,17 @@ class RegisterSerializer(serializers.ModelSerializer):
                 {"job_title_option": "El cargo seleccionado no pertenece al rol elegido."}
             )
 
+        request = self.context.get("request")
+        actor = getattr(request, "user", None)
+        if selected_role and not assignable_roles_for_actor(actor).filter(pk=selected_role.pk).exists():
+            raise serializers.ValidationError(
+                {"role": "No puedes asignar este rol desde la vista de usuarios del hotel."}
+            )
+
         return attrs
 
     def _actor_can_assign_hotel(self, actor) -> bool:
-        if not actor or not actor.is_authenticated:
-            return False
-
-        if is_effective_global_admin(actor):
-            return True
-
-        return Role.objects.filter(
-            is_active=True,
-            slug__in=["admin", "superadmin", "super-admin"],
-            userrole__user=actor,
-            userrole__is_active=True,
-        ).exists()
+        return is_effective_global_admin(actor)
 
     def create(self, validated_data):
         request = self.context.get("request")
@@ -562,21 +569,17 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                 {"job_title_option": "El cargo seleccionado no pertenece al rol elegido."}
             )
 
+        request = self.context.get("request")
+        actor = getattr(request, "user", None)
+        if selected_role and not assignable_roles_for_actor(actor).filter(pk=selected_role.pk).exists():
+            raise serializers.ValidationError(
+                {"role": "No puedes asignar este rol desde la vista de usuarios del hotel."}
+            )
+
         return attrs
 
     def _actor_can_assign_hotel(self, actor) -> bool:
-        if not actor or not actor.is_authenticated:
-            return False
-
-        if is_effective_global_admin(actor):
-            return True
-
-        return Role.objects.filter(
-            is_active=True,
-            slug__in=["admin", "superadmin", "super-admin"],
-            userrole__user=actor,
-            userrole__is_active=True,
-        ).exists()
+        return is_effective_global_admin(actor)
 
     def update(self, instance, validated_data):
         request = self.context.get("request")

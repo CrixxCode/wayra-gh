@@ -26,6 +26,7 @@ export class UserService {
   getUsers(filters?: {
     include_inactive?: boolean;
     include_deleted?: boolean;
+    scope?: 'global';
   }): Observable<UserI[]> {
     let params = new HttpParams();
 
@@ -35,6 +36,10 @@ export class UserService {
 
     if (typeof filters?.include_deleted === 'boolean') {
       params = params.set('include_deleted', String(filters.include_deleted));
+    }
+
+    if (filters?.scope === 'global') {
+      params = params.set('scope', 'global');
     }
 
     return this.http

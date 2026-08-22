@@ -12,6 +12,7 @@ export interface UserHotelSettingsI {
   country?: string;
   timezone?: string;
   currency?: string;
+  is_active?: boolean;
 }
 
 export interface UserI {
@@ -29,5 +30,6 @@ export interface UserI {
   status?: 'ACTIVE' | 'INACTIVE';
   is_active?: boolean;
   is_staff?: boolean;
+  date_joined?: string;
   hotel_settings?: number | UserHotelSettingsI | null;
 }

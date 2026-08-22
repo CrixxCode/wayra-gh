@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-08-21
+**Última actualización:** 2026-08-22
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -554,9 +554,12 @@ camino ya está trazado por este cambio.
 
 ### 5.17 La administración de la plataforma no la ve un hotel
 
-**Decisión:** **Usuarios**, **Roles**, **Recursos** y **Master Data** viven bajo *SaaS Admin* y solo
-las ve el administrador de plataforma. Sus rutas (`/usuarios`, `/roles`, `/recursos`,
-`/master-data`) están marcadas con `data: { platformAdminOnly: true }`.
+**Decisión:** la administración de usuarios está separada en dos vistas. **Usuarios del hotel**
+vive en `/usuarios-hotel`, aparece solo a administradores de hotel y usa `users.*` con aislamiento
+por `hotel_settings`. **Usuarios plataforma** vive en `/usuarios`, está bajo *SaaS Admin* y solo
+la ve el administrador de plataforma. **Roles**, **Recursos** y **Master Data** siguen bajo *SaaS
+Admin* y sus rutas (`/roles`, `/recursos`, `/master-data`) están marcadas con
+`data: { platformAdminOnly: true }`.
 
 **Por qué:** definen **quién entra al sistema, con qué permisos y sobre qué enums opera el código**.
 Un hotel que edite `ROOM_STATUS` o `RESERVATION_STATUS` rompe la lógica de todos los demás, porque
@@ -565,21 +568,23 @@ Un hotel que edite `ROOM_STATUS` o `RESERVATION_STATUS` rompe la lógica de todo
 **La distinción que hay que respetar al programar aquí:** *ver la página* y *usar la API* son cosas
 distintas y se controlan por separado.
 
-- Las **entradas de menú** son recursos propios y sin `link_backend`: `saas_users.read`,
-  `saas_roles.read`, `saas_resources.read`, `saas_master_data.read`. Solo el rol `platform_admin`
-  los tiene.
+- Las **entradas de menú** son recursos propios y sin `link_backend`: `hotel_users.read` para
+  `/usuarios-hotel`; y `saas_users.read`, `saas_roles.read`, `saas_resources.read`,
+  `saas_master_data.read` para el panel SaaS. Solo el rol `platform_admin` tiene las entradas
+  `saas_*`.
 - Los **scopes de dominio** (`users.*`, `roles.*`, `resources.*`, `master_data.*`) siguen siendo
   quienes protegen la API y ya **no son entradas de menú**.
 
 **`master_data.read` sigue asignado a los roles de hotel**, y no es un descuido: lo consumen doce
 pantallas —facturas, limpieza, egresos, inventario, ítems, mantenimiento, promociones, reservas…—
-para leer sus catálogos. Quitárselo las rompe con 403. Lo que se les retiró fue `users.*`, `roles.*`
-y `resources.*`, que solo usaban esas cuatro páginas.
+para leer sus catálogos. Quitárselo las rompe con 403. El rol `admin` de hotel tiene
+`users.read`, `users.write`, `users.read_deleted` y `roles.read` para administrar usuarios de su
+propio hotel y poblar el selector de roles. No tiene `roles.write` ni `resources.*`.
 
-**Consecuencia operativa:** un administrador de hotel **ya no crea usuarios de su hotel**; eso pasa
-a ser trabajo del administrador de plataforma. Si en el futuro se quiere devolver esa capacidad sin
-devolver el resto, el camino es un recurso de menú propio (`hotel_users.read`) apuntando a
-`/usuarios`, más una vista filtrada por hotel — no reactivar el grupo *Seguridad*.
+**Consecuencia operativa:** un administrador de hotel puede crear, editar, desactivar, restaurar y
+listar solo usuarios de su hotel. No puede mover usuarios entre hoteles ni asignar roles de
+plataforma. La vista global de usuarios debe pedir `scope=global` y solo debe usarse desde
+`/usuarios` con `platformAdminOnly`.
 
 ### 5.18 Catálogo comercial: una vista con pestañas, no tres rutas
 
@@ -1120,6 +1125,29 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 > debe escribirse en el momento del cambio.
 
 ---
+
+### 2026-08-22 — Vistas separadas de usuarios de hotel y plataforma
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** funcional / seguridad
+- **Qué se hizo:** se separó la gestión de usuarios en `/usuarios-hotel` para administradores de
+  hotel y `/usuarios` para administradores de plataforma. El menú usa `hotel_users.read` para la
+  vista del hotel y `saas_users.read` para la vista global. La API de usuarios conserva
+  `users.*`, filtra por `hotel_settings` por defecto y solo permite `scope=global` al
+  administrador de plataforma. Los formularios de usuario ya no permiten que un administrador de
+  hotel elija otro hotel ni asigne roles de plataforma.
+- **Por qué:** el hotel necesita administrar sus propias cuentas sin recuperar acceso a la
+  administración global de roles, recursos o datos maestros. La plataforma necesita una vista
+  general de todos los usuarios.
+- **Archivos/áreas afectadas:** `backend/accounts/views.py`, `backend/accounts/serializers.py`,
+  `backend/accounts/management/commands/seed_rbac.py`,
+  `backend/accounts/migrations/0030_split_hotel_and_platform_users_menu.py`,
+  `backend/apps/notifications/services.py`, `frontend/src/app/app.routes.ts`,
+  `frontend/src/app/modules/users/`, `frontend/src/app/services/user.ts`,
+  `RBAC_RESOURCES_LIST.md`.
+- **Impacto:** requiere migración `accounts.0030_split_hotel_and_platform_users_menu`; tras
+  desplegar, correr `seed_rbac` mantiene el mismo estado de menú y roles base de forma idempotente.
 
 ### 2026-08-21 — Galerías de fotos por hotel y habitación
 

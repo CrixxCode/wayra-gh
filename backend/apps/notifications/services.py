@@ -764,7 +764,7 @@ def notify_user_created(user) -> list[Notification]:
         message=message,
         notification_type=Notification.NotificationType.USER,
         priority=Notification.Priority.MEDIUM,
-        action_url="/usuarios",
+        action_url="/usuarios-hotel",
         related_object=user,
     )
 

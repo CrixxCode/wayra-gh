@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, NgClass } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { UserService } from '../../../services/user';
 import { UserI } from '../user-model';
 import { environment } from '../../../../enviorements/environment';
@@ -44,6 +45,10 @@ import { UserUpdate } from '../update/update';
   providers: [MessageService, ConfirmationService]
 })
 export class UserList implements OnInit {
+  pageScope: 'hotel' | 'platform' = 'hotel';
+  pageTitle = 'Usuarios del hotel';
+  pageSubtitle = 'Gestiona las cuentas de acceso, roles y estado del equipo de este hotel';
+
   users: UserI[] = [];
   deletedUsers: UserI[] = [];
   filteredUsers: UserI[] = [];
@@ -108,27 +113,47 @@ export class UserList implements OnInit {
   ];
 
   constructor(
+    private route: ActivatedRoute,
     private userService: UserService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService
   ) {}
 
   ngOnInit(): void {
-    this.loadUsers();
+    this.route.data.subscribe((data) => {
+      const nextScope = data['userScope'] === 'platform' ? 'platform' : 'hotel';
+      const scopeChanged = this.pageScope !== nextScope;
+      this.pageScope = nextScope;
+      this.updatePageCopy();
+      if (scopeChanged || this.loading) {
+        this.loadUsers();
+      }
+    });
   }
 
   get deletedUsersCount(): number {
     return this.deletedUsers.length;
   }
 
+  get isPlatformScope(): boolean {
+    return this.pageScope === 'platform';
+  }
+
+  get tableColspan(): number {
+    return this.isPlatformScope ? 6 : 5;
+  }
+
   loadUsers(): void {
     this.loading = true;
+    const filters = this.getUserFilters(false);
+    const deletedFilters = this.getUserFilters(true);
+
     forkJoin({
       users: this.userService
-        .getUsers({ include_inactive: true })
+        .getUsers(filters)
         .pipe(catchError(() => of([] as UserI[]))),
       allUsers: this.userService
-        .getUsers({ include_inactive: true, include_deleted: true })
+        .getUsers(deletedFilters)
         .pipe(catchError(() => of([] as UserI[])))
     }).subscribe({
       next: ({ users, allUsers }) => {
@@ -221,7 +246,7 @@ export class UserList implements OnInit {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `usuarios-${this.formatFileDate(new Date())}.csv`;
+    link.download = `${this.isPlatformScope ? 'usuarios-plataforma' : 'usuarios-hotel'}-${this.formatFileDate(new Date())}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -380,6 +405,13 @@ export class UserList implements OnInit {
     return user.role?.name || 'Sin rol';
   }
 
+  getHotelLabel(user: UserI): string {
+    const hotel = user.hotel_settings;
+    if (!hotel) return 'Sin hotel';
+    if (typeof hotel === 'number') return `Hotel #${hotel}`;
+    return hotel.hotel_name || (hotel.id ? `Hotel #${hotel.id}` : 'Sin hotel');
+  }
+
   getExtraRolesCount(user: UserI): number {
     if (!user.roles || user.roles.length <= 1) return 0;
     return user.roles.length - 1;
@@ -410,6 +442,37 @@ export class UserList implements OnInit {
     this.statCards[3].value = `${this.getNewThisMonthCount()}`;
   }
 
+  private updatePageCopy(): void {
+    if (this.isPlatformScope) {
+      this.pageTitle = 'Usuarios plataforma';
+      this.pageSubtitle = 'Gestiona todas las cuentas de usuario registradas en la plataforma';
+      this.statCards[0].sub = 'Cuentas de la plataforma';
+      this.statCards[1].sub = 'Acceso habilitado';
+      this.statCards[2].sub = 'Permisos asignados';
+      this.statCards[3].sub = 'Altas recientes';
+      return;
+    }
+
+    this.pageTitle = 'Usuarios del hotel';
+    this.pageSubtitle = 'Gestiona las cuentas de acceso, roles y estado del equipo de este hotel';
+    this.statCards[0].sub = 'Cuentas del hotel';
+    this.statCards[1].sub = 'Acceso habilitado';
+    this.statCards[2].sub = 'Permisos asignados';
+    this.statCards[3].sub = 'Altas recientes';
+  }
+
+  private getUserFilters(includeDeleted: boolean): {
+    include_inactive: boolean;
+    include_deleted?: boolean;
+    scope?: 'global';
+  } {
+    return {
+      include_inactive: true,
+      ...(includeDeleted ? { include_deleted: true } : {}),
+      ...(this.isPlatformScope ? { scope: 'global' as const } : {}),
+    };
+  }
+
   private matchesSearch(user: UserI, query: string): boolean {
     if (!query) return true;
 
@@ -418,7 +481,8 @@ export class UserList implements OnInit {
       user.email,
       user.first_name,
       user.last_name,
-      this.getRoleLabel(user)
+      this.getRoleLabel(user),
+      this.getHotelLabel(user)
     ]
       .join(' ')
       .toLowerCase();
