@@ -649,6 +649,24 @@ class UserHotelAssignmentByRoleTests(APITestCase):
         self.assertEqual(len(message.alternatives), 1)
         self.assertIn("Mensaje de plataforma", message.alternatives[0][0])
 
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        DEFAULT_FROM_EMAIL="Wayra <no-reply@example.com>",
+    )
+    def test_platform_admin_direct_email_ignores_selected_hotel_context(self):
+        self.client.force_login(self.platform_admin)
+
+        response = self.client.post(
+            f"/api/users/{self.target_user.id}/send-email/?hotel_settings={self.hotel_b.id}",
+            {"subject": "Aviso de cuenta", "message": "Mensaje"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["sent"])
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.target_user.email])
+
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
     def test_hotel_user_cannot_send_direct_email_from_user_detail(self):
         self.client.force_login(self.admin_user)

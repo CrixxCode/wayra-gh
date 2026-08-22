@@ -444,123 +444,315 @@
           <form
             *ngIf="modalMode === 'create' || modalMode === 'edit'"
             class="hotel-form"
+            [class.is-create-wizard]="modalMode === 'create'"
             (ngSubmit)="saveHotelModal()"
           >
-            <div class="modal-section">
-              <h3>Informacion general</h3>
-              <div class="hotel-form-grid">
-                <label>
-                  <span>Nombre comercial</span>
-                  <input type="text" name="hotel_name" [(ngModel)]="hotelForm.hotel_name" required />
-                </label>
-                <label>
-                  <span>Razon social</span>
-                  <input type="text" name="legal_name" [(ngModel)]="hotelForm.legal_name" />
-                </label>
-                <label>
-                  <span>Eslogan</span>
-                  <input type="text" name="slogan" [(ngModel)]="hotelForm.slogan" />
-                </label>
-                <label>
-                  <span>Estrellas</span>
-                  <input type="number" name="stars" min="1" max="5" [(ngModel)]="hotelForm.stars" />
-                </label>
-                <label class="field-wide">
-                  <span>Descripcion</span>
-                  <textarea name="description" rows="3" [(ngModel)]="hotelForm.description"></textarea>
-                </label>
-              </div>
-            </div>
+            <ng-container *ngIf="modalMode === 'create'; else editHotelForm">
+              <div class="wizard-shell">
+                <aside class="wizard-rail" aria-label="Progreso de creacion del hotel">
+                  <button
+                    type="button"
+                    class="wizard-step"
+                    *ngFor="let step of createHotelSteps; let index = index"
+                    [ngClass]="getCreateHotelStepClass(index)"
+                    (click)="goToCreateHotelStep(index)"
+                  >
+                    <span class="wizard-step-icon">
+                      <i [class]="step.icon" aria-hidden="true"></i>
+                    </span>
+                    <span class="wizard-step-copy">
+                      <strong>{{ step.label }}</strong>
+                      <small>{{ step.description }}</small>
+                    </span>
+                  </button>
+                </aside>
 
-            <div class="modal-section">
-              <h3>Ubicacion y contacto</h3>
-              <div class="hotel-form-grid">
-                <label>
-                  <span>Pais</span>
-                  <input type="text" name="country" [(ngModel)]="hotelForm.country" />
-                </label>
-                <label>
-                  <span>Departamento / estado</span>
-                  <input type="text" name="state" [(ngModel)]="hotelForm.state" />
-                </label>
-                <label>
-                  <span>Ciudad</span>
-                  <input type="text" name="city" [(ngModel)]="hotelForm.city" />
-                </label>
-                <label>
-                  <span>Codigo postal</span>
-                  <input type="text" name="postal_code" [(ngModel)]="hotelForm.postal_code" />
-                </label>
-                <label class="field-wide">
-                  <span>Direccion</span>
-                  <input type="text" name="address" [(ngModel)]="hotelForm.address" />
-                </label>
-                <label>
-                  <span>Telefono principal</span>
-                  <input type="tel" name="primary_phone" [(ngModel)]="hotelForm.primary_phone" />
-                </label>
-                <label>
-                  <span>Telefono secundario</span>
-                  <input type="tel" name="secondary_phone" [(ngModel)]="hotelForm.secondary_phone" />
-                </label>
-                <label>
-                  <span>Correo general</span>
-                  <input type="email" name="general_email" [(ngModel)]="hotelForm.general_email" />
-                </label>
-                <label>
-                  <span>Correo reservas</span>
-                  <input type="email" name="reservations_email" [(ngModel)]="hotelForm.reservations_email" />
-                </label>
-                <label class="field-wide">
-                  <span>Sitio web</span>
-                  <input type="url" name="website" [(ngModel)]="hotelForm.website" />
-                </label>
-              </div>
-            </div>
+                <section class="wizard-panel">
+                  <header class="wizard-panel-head">
+                    <div>
+                      <span>{{ getCreateHotelStepCounter() }}</span>
+                      <h3>{{ createHotelSteps[createHotelStep].label }}</h3>
+                    </div>
+                    <p>{{ createHotelSteps[createHotelStep].description }}</p>
+                  </header>
 
-            <div class="modal-section">
-              <h3>Operacion</h3>
-              <div class="hotel-form-grid">
-                <label>
-                  <span>Check-in</span>
-                  <input type="time" name="check_in_time" [(ngModel)]="hotelForm.check_in_time" />
-                </label>
-                <label>
-                  <span>Check-out</span>
-                  <input type="time" name="check_out_time" [(ngModel)]="hotelForm.check_out_time" />
-                </label>
-                <label>
-                  <span>Max. huespedes por habitacion</span>
-                  <input type="number" min="1" name="max_guests_per_room" [(ngModel)]="hotelForm.max_guests_per_room" />
-                </label>
-                <label>
-                  <span>Moneda</span>
-                  <input type="text" name="currency" [(ngModel)]="hotelForm.currency" />
-                </label>
-                <label>
-                  <span>Impuesto (%)</span>
-                  <input type="number" min="0" max="100" step="0.01" name="tax_rate" [(ngModel)]="hotelForm.tax_rate" />
-                </label>
-                <label>
-                  <span>Zona horaria</span>
-                  <input type="text" name="timezone" [(ngModel)]="hotelForm.timezone" />
-                </label>
-                <label class="toggle-field">
-                  <input type="checkbox" name="is_active" [(ngModel)]="hotelForm.is_active" />
-                  <span>Hotel activo</span>
-                </label>
-              </div>
-            </div>
+                  <div class="wizard-step-body" *ngIf="createHotelStep === 0">
+                    <div class="hotel-form-grid">
+                      <label class="field-wide">
+                        <span>Nombre comercial</span>
+                        <input
+                          type="text"
+                          name="hotel_name"
+                          [(ngModel)]="hotelForm.hotel_name"
+                          required
+                          autocomplete="organization"
+                          placeholder="Hotel Wayra Centro"
+                        />
+                      </label>
+                      <label>
+                        <span>Razon social</span>
+                        <input type="text" name="legal_name" [(ngModel)]="hotelForm.legal_name" />
+                      </label>
+                      <label>
+                        <span>Estrellas</span>
+                        <input type="number" name="stars" min="1" max="5" [(ngModel)]="hotelForm.stars" />
+                      </label>
+                      <label class="field-wide">
+                        <span>Eslogan</span>
+                        <input type="text" name="slogan" [(ngModel)]="hotelForm.slogan" />
+                      </label>
+                      <label class="field-wide">
+                        <span>Descripcion</span>
+                        <textarea name="description" rows="3" [(ngModel)]="hotelForm.description"></textarea>
+                      </label>
+                    </div>
+                  </div>
 
-            <footer class="modal-footer">
-              <button type="button" class="gh-mbtn gh-mbtn-light" (click)="closeHotelModal()" [disabled]="modalSaving">
-                Cancelar
-              </button>
-              <button type="submit" class="gh-mbtn gh-mbtn-dark" [disabled]="modalSaving || modalLoading">
-                <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
-                {{ modalSaving ? 'Guardando...' : (modalMode === 'create' ? 'Crear hotel' : 'Guardar cambios') }}
-              </button>
-            </footer>
+                  <div class="wizard-step-body" *ngIf="createHotelStep === 1">
+                    <div class="hotel-form-grid">
+                      <label>
+                        <span>Pais</span>
+                        <input type="text" name="country" [(ngModel)]="hotelForm.country" />
+                      </label>
+                      <label>
+                        <span>Departamento / estado</span>
+                        <input type="text" name="state" [(ngModel)]="hotelForm.state" />
+                      </label>
+                      <label>
+                        <span>Ciudad</span>
+                        <input type="text" name="city" [(ngModel)]="hotelForm.city" />
+                      </label>
+                      <label>
+                        <span>Codigo postal</span>
+                        <input type="text" name="postal_code" [(ngModel)]="hotelForm.postal_code" />
+                      </label>
+                      <label class="field-wide">
+                        <span>Direccion</span>
+                        <input type="text" name="address" [(ngModel)]="hotelForm.address" />
+                      </label>
+                      <label>
+                        <span>Telefono principal</span>
+                        <input type="tel" name="primary_phone" [(ngModel)]="hotelForm.primary_phone" />
+                      </label>
+                      <label>
+                        <span>Correo general</span>
+                        <input type="email" name="general_email" [(ngModel)]="hotelForm.general_email" />
+                      </label>
+                      <label>
+                        <span>Correo reservas</span>
+                        <input type="email" name="reservations_email" [(ngModel)]="hotelForm.reservations_email" />
+                      </label>
+                      <label>
+                        <span>Sitio web</span>
+                        <input type="url" name="website" [(ngModel)]="hotelForm.website" />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="wizard-step-body" *ngIf="createHotelStep === 2">
+                    <div class="hotel-form-grid">
+                      <label>
+                        <span>Check-in</span>
+                        <input type="time" name="check_in_time" [(ngModel)]="hotelForm.check_in_time" />
+                      </label>
+                      <label>
+                        <span>Check-out</span>
+                        <input type="time" name="check_out_time" [(ngModel)]="hotelForm.check_out_time" />
+                      </label>
+                      <label>
+                        <span>Max. huespedes por habitacion</span>
+                        <input type="number" min="1" name="max_guests_per_room" [(ngModel)]="hotelForm.max_guests_per_room" />
+                      </label>
+                      <label>
+                        <span>Moneda</span>
+                        <input type="text" name="currency" [(ngModel)]="hotelForm.currency" />
+                      </label>
+                      <label>
+                        <span>Impuesto (%)</span>
+                        <input type="number" min="0" max="100" step="0.01" name="tax_rate" [(ngModel)]="hotelForm.tax_rate" />
+                      </label>
+                      <label>
+                        <span>Zona horaria</span>
+                        <input type="text" name="timezone" [(ngModel)]="hotelForm.timezone" />
+                      </label>
+                      <label class="toggle-field field-wide">
+                        <input type="checkbox" name="is_active" [(ngModel)]="hotelForm.is_active" />
+                        <span>Hotel activo desde el inicio</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="wizard-step-body" *ngIf="createHotelStep === 3">
+                    <div class="wizard-review">
+                      <article>
+                        <span>Hotel</span>
+                        <strong>{{ getCreateHotelReviewValue(hotelForm.hotel_name, 'Sin nombre') }}</strong>
+                        <small>{{ getCreateHotelReviewValue(hotelForm.legal_name, 'Sin razon social') }}</small>
+                      </article>
+                      <article>
+                        <span>Ubicacion</span>
+                        <strong>{{ getCreateHotelReviewValue(hotelForm.city) }}</strong>
+                        <small>{{ getCreateHotelReviewValue(hotelForm.country) }}</small>
+                      </article>
+                      <article>
+                        <span>Contacto</span>
+                        <strong>{{ getCreateHotelReviewValue(hotelForm.general_email, 'Sin correo general') }}</strong>
+                        <small>{{ getCreateHotelReviewValue(hotelForm.primary_phone, 'Sin telefono') }}</small>
+                      </article>
+                      <article>
+                        <span>Operacion</span>
+                        <strong>{{ hotelForm.check_in_time || 'N/D' }} - {{ hotelForm.check_out_time || 'N/D' }}</strong>
+                        <small>{{ hotelForm.currency || 'COP' }} - {{ hotelForm.tax_rate || 0 }}% impuesto</small>
+                      </article>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <footer class="modal-footer wizard-footer">
+                <button type="button" class="gh-mbtn gh-mbtn-light" (click)="closeHotelModal()" [disabled]="modalSaving">
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  class="gh-mbtn gh-mbtn-light"
+                  (click)="goToPreviousCreateHotelStep()"
+                  [disabled]="modalSaving || createHotelStep === 0"
+                >
+                  <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                  Anterior
+                </button>
+                <button type="submit" class="gh-mbtn gh-mbtn-dark" [disabled]="modalSaving || modalLoading">
+                  <i
+                    [class]="createHotelStep === lastCreateHotelStepIndex ? 'fa-solid fa-floppy-disk' : 'fa-solid fa-arrow-right'"
+                    aria-hidden="true"
+                  ></i>
+                  {{
+                    modalSaving
+                      ? 'Guardando...'
+                      : (createHotelStep === lastCreateHotelStepIndex ? 'Crear hotel' : 'Continuar')
+                  }}
+                </button>
+              </footer>
+            </ng-container>
+
+            <ng-template #editHotelForm>
+              <div class="modal-section">
+                <h3>Informacion general</h3>
+                <div class="hotel-form-grid">
+                  <label>
+                    <span>Nombre comercial</span>
+                    <input type="text" name="hotel_name" [(ngModel)]="hotelForm.hotel_name" required />
+                  </label>
+                  <label>
+                    <span>Razon social</span>
+                    <input type="text" name="legal_name" [(ngModel)]="hotelForm.legal_name" />
+                  </label>
+                  <label>
+                    <span>Eslogan</span>
+                    <input type="text" name="slogan" [(ngModel)]="hotelForm.slogan" />
+                  </label>
+                  <label>
+                    <span>Estrellas</span>
+                    <input type="number" name="stars" min="1" max="5" [(ngModel)]="hotelForm.stars" />
+                  </label>
+                  <label class="field-wide">
+                    <span>Descripcion</span>
+                    <textarea name="description" rows="3" [(ngModel)]="hotelForm.description"></textarea>
+                  </label>
+                </div>
+              </div>
+
+              <div class="modal-section">
+                <h3>Ubicacion y contacto</h3>
+                <div class="hotel-form-grid">
+                  <label>
+                    <span>Pais</span>
+                    <input type="text" name="country" [(ngModel)]="hotelForm.country" />
+                  </label>
+                  <label>
+                    <span>Departamento / estado</span>
+                    <input type="text" name="state" [(ngModel)]="hotelForm.state" />
+                  </label>
+                  <label>
+                    <span>Ciudad</span>
+                    <input type="text" name="city" [(ngModel)]="hotelForm.city" />
+                  </label>
+                  <label>
+                    <span>Codigo postal</span>
+                    <input type="text" name="postal_code" [(ngModel)]="hotelForm.postal_code" />
+                  </label>
+                  <label class="field-wide">
+                    <span>Direccion</span>
+                    <input type="text" name="address" [(ngModel)]="hotelForm.address" />
+                  </label>
+                  <label>
+                    <span>Telefono principal</span>
+                    <input type="tel" name="primary_phone" [(ngModel)]="hotelForm.primary_phone" />
+                  </label>
+                  <label>
+                    <span>Telefono secundario</span>
+                    <input type="tel" name="secondary_phone" [(ngModel)]="hotelForm.secondary_phone" />
+                  </label>
+                  <label>
+                    <span>Correo general</span>
+                    <input type="email" name="general_email" [(ngModel)]="hotelForm.general_email" />
+                  </label>
+                  <label>
+                    <span>Correo reservas</span>
+                    <input type="email" name="reservations_email" [(ngModel)]="hotelForm.reservations_email" />
+                  </label>
+                  <label class="field-wide">
+                    <span>Sitio web</span>
+                    <input type="url" name="website" [(ngModel)]="hotelForm.website" />
+                  </label>
+                </div>
+              </div>
+
+              <div class="modal-section">
+                <h3>Operacion</h3>
+                <div class="hotel-form-grid">
+                  <label>
+                    <span>Check-in</span>
+                    <input type="time" name="check_in_time" [(ngModel)]="hotelForm.check_in_time" />
+                  </label>
+                  <label>
+                    <span>Check-out</span>
+                    <input type="time" name="check_out_time" [(ngModel)]="hotelForm.check_out_time" />
+                  </label>
+                  <label>
+                    <span>Max. huespedes por habitacion</span>
+                    <input type="number" min="1" name="max_guests_per_room" [(ngModel)]="hotelForm.max_guests_per_room" />
+                  </label>
+                  <label>
+                    <span>Moneda</span>
+                    <input type="text" name="currency" [(ngModel)]="hotelForm.currency" />
+                  </label>
+                  <label>
+                    <span>Impuesto (%)</span>
+                    <input type="number" min="0" max="100" step="0.01" name="tax_rate" [(ngModel)]="hotelForm.tax_rate" />
+                  </label>
+                  <label>
+                    <span>Zona horaria</span>
+                    <input type="text" name="timezone" [(ngModel)]="hotelForm.timezone" />
+                  </label>
+                  <label class="toggle-field">
+                    <input type="checkbox" name="is_active" [(ngModel)]="hotelForm.is_active" />
+                    <span>Hotel activo</span>
+                  </label>
+                </div>
+              </div>
+
+              <footer class="modal-footer">
+                <button type="button" class="gh-mbtn gh-mbtn-light" (click)="closeHotelModal()" [disabled]="modalSaving">
+                  Cancelar
+                </button>
+                <button type="submit" class="gh-mbtn gh-mbtn-dark" [disabled]="modalSaving || modalLoading">
+                  <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+                  {{ modalSaving ? 'Guardando...' : 'Guardar cambios' }}
+                </button>
+              </footer>
+            </ng-template>
           </form>
         </div>
       </div>

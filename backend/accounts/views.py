@@ -8,6 +8,7 @@ from django.contrib.auth import (
     update_session_auth_hash,
 )
 from django.conf import settings
+from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import ensure_csrf_cookie
 import logging
 logger = logging.getLogger(__name__)
@@ -423,7 +424,7 @@ class UserViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
         if not is_effective_global_admin(request.user):
             raise PermissionDenied("Solo el administrador de plataforma puede enviar correos directos.")
 
-        target_user = self.get_object()
+        target_user = get_object_or_404(User.objects.select_related("hotel_settings"), pk=pk)
         serializer = UserDirectEmailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = serializer.save(target_user=target_user, actor=request.user)

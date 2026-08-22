@@ -20,6 +20,14 @@ type SaasHotelsKpiCard = {
 type HotelActiveFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 type HotelPageControl = number | 'ellipsis';
 type HotelModalMode = 'create' | 'detail' | 'edit' | null;
+type CreateHotelStepKey = 'identity' | 'location' | 'operation' | 'review';
+
+type CreateHotelStep = {
+  key: CreateHotelStepKey;
+  label: string;
+  description: string;
+  icon: string;
+};
 
 type SaasHotelForm = {
   hotel_name: string;
@@ -69,6 +77,33 @@ export class ListSaasHotels implements OnInit {
   modalSaving = false;
   modalError = '';
   hotelForm: SaasHotelForm = this.buildEmptyHotelForm();
+  createHotelStep = 0;
+  readonly createHotelSteps: CreateHotelStep[] = [
+    {
+      key: 'identity',
+      label: 'Identidad',
+      description: 'Nombre, razon social y presencia comercial.',
+      icon: 'fa-solid fa-hotel',
+    },
+    {
+      key: 'location',
+      label: 'Ubicacion',
+      description: 'Ciudad, direccion y canales de contacto.',
+      icon: 'fa-solid fa-location-dot',
+    },
+    {
+      key: 'operation',
+      label: 'Operacion',
+      description: 'Horarios, moneda, impuesto y estado inicial.',
+      icon: 'fa-solid fa-sliders',
+    },
+    {
+      key: 'review',
+      label: 'Revision',
+      description: 'Confirmacion final antes de crear el hotel.',
+      icon: 'fa-solid fa-list-check',
+    },
+  ];
 
   hotels: SaasHotelSnapshot[] = [];
   filteredHotels: SaasHotelSnapshot[] = [];
@@ -214,6 +249,7 @@ export class ListSaasHotels implements OnInit {
     this.modalDetails = null;
     this.modalError = '';
     this.modalLoading = false;
+    this.createHotelStep = 0;
     this.hotelForm = this.buildEmptyHotelForm();
   }
 
@@ -232,6 +268,7 @@ export class ListSaasHotels implements OnInit {
     this.modalDetails = null;
     this.modalError = '';
     this.modalLoading = false;
+    this.createHotelStep = 0;
     this.hotelForm = this.buildEmptyHotelForm();
   }
 
@@ -287,9 +324,15 @@ export class ListSaasHotels implements OnInit {
   saveHotelModal(): void {
     if (!this.modalMode || this.modalMode === 'detail' || this.modalSaving) return;
 
+    if (this.modalMode === 'create' && this.createHotelStep < this.lastCreateHotelStepIndex) {
+      this.goToNextCreateHotelStep();
+      return;
+    }
+
     const payload = this.buildHotelPayload();
     if (!payload.hotel_name) {
       this.modalError = 'El nombre comercial del hotel es obligatorio.';
+      this.createHotelStep = 0;
       return;
     }
 
@@ -327,6 +370,51 @@ export class ListSaasHotels implements OnInit {
             ? `${hotelName} fue creado.`
             : `${hotelName} fue actualizado.`;
       });
+  }
+
+  goToCreateHotelStep(index: number): void {
+    if (this.modalMode !== 'create') return;
+    if (index < 0 || index > this.lastCreateHotelStepIndex) return;
+    if (index > this.createHotelStep && !this.validateCurrentCreateHotelStep()) return;
+    this.modalError = '';
+    this.createHotelStep = index;
+  }
+
+  goToNextCreateHotelStep(): void {
+    if (this.modalMode !== 'create') return;
+    if (!this.validateCurrentCreateHotelStep()) return;
+    this.modalError = '';
+    this.createHotelStep = Math.min(this.createHotelStep + 1, this.lastCreateHotelStepIndex);
+  }
+
+  goToPreviousCreateHotelStep(): void {
+    if (this.modalMode !== 'create') return;
+    this.modalError = '';
+    this.createHotelStep = Math.max(this.createHotelStep - 1, 0);
+  }
+
+  getCreateHotelStepClass(index: number): Record<string, boolean> {
+    return {
+      'is-current': index === this.createHotelStep,
+      'is-complete': index < this.createHotelStep,
+    };
+  }
+
+  getCreateHotelStepCounter(): string {
+    return `${this.createHotelStep + 1} de ${this.createHotelSteps.length}`;
+  }
+
+  getCreateHotelReviewValue(value: unknown, fallback = 'Sin definir'): string {
+    const normalized = String(value ?? '').trim();
+    return normalized || fallback;
+  }
+
+  get lastCreateHotelStepIndex(): number {
+    return this.createHotelSteps.length - 1;
+  }
+
+  get canCreateHotelFromWizard(): boolean {
+    return Boolean(this.cleanText(this.hotelForm.hotel_name));
   }
 
   exportCsv(): void {
@@ -709,5 +797,13 @@ export class ListSaasHotels implements OnInit {
     const normalized = String(value ?? '');
     const escaped = normalized.replace(/"/g, '""');
     return `"${escaped}"`;
+  }
+
+  private validateCurrentCreateHotelStep(): boolean {
+    if (this.createHotelStep === 0 && !this.canCreateHotelFromWizard) {
+      this.modalError = 'Escribe el nombre comercial del hotel para continuar.';
+      return false;
+    }
+    return true;
   }
 }

@@ -1120,6 +1120,22 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ## 12. Registro de cambios
 
+### 2026-08-22 - Paso a paso para crear hotel SaaS
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** el modal `Nuevo hotel` de la vista `Hoteles SaaS` ahora usa un flujo paso a paso
+  para crear hoteles: Identidad, Ubicacion, Operacion y Revision. El alta valida el nombre comercial
+  antes de avanzar, permite volver entre pasos, muestra una revision compacta antes de guardar y
+  conserva el formulario completo para editar hoteles existentes.
+- **Por que:** el formulario de alta de hotel era largo y concentraba demasiados campos en una sola
+  pantalla; dividirlo reduce carga visual y hace que el primer registro se sienta guiado.
+- **Archivos/areas afectadas:** `frontend/src/app/modules/saas/list-saas-hotels/`, `AGENTS.md`.
+- **Impacto:** cambio frontend sin migraciones, cambios de API ni recursos RBAC nuevos. Verificado
+  con `npm run build`; el detector Impeccable se ejecuto en modo regex degradado por dependencias
+  opcionales faltantes y no reporto hallazgos.
+
 ### 2026-08-22 — Correo directo desde Usuarios plataforma
 
 - **Autor:** Codex, a solicitud de Cristian Ramirez
@@ -1134,7 +1150,9 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
   de detalle; el modal de correo usa un ancho mayor para que el destinatario y los botones del pie
   no queden apretados. Las acciones de detalle de usuario envian `scope=global` para que el contexto
   de hotel seleccionado del administrador de plataforma no provoque falsos 404 al editar, administrar
-  roles, restaurar, eliminar o enviar correo a usuarios de otro hotel.
+  roles, restaurar, eliminar o enviar correo a usuarios de otro hotel. Ademas, `send-email` resuelve
+  el usuario por ID despues de comprobar que el actor es administrador global, de modo que un
+  `hotel_settings` inyectado por el interceptor no pueda filtrar falsamente al destinatario.
 - **Por qué:** el administrador de plataforma necesitaba comunicarse con un usuario sin salir de
   Wayra ni perder la identidad visual de los correos transaccionales.
 - **Archivos/áreas afectadas:** `backend/accounts/{views.py,serializers.py,email_utils.py,tests.py}`,
