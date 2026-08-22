@@ -2,6 +2,7 @@ import logging
 import random
 import secrets
 import string
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model, password_validation
@@ -19,6 +20,7 @@ from rest_framework.response import Response
 
 from accounts.email_utils import (
     attach_inline_logo,
+    build_email_brand_context,
     build_wayra_logo_context,
     describe_email_send_failure,
     email_backend_configuration_error,
@@ -28,9 +30,14 @@ from accounts.models import Role, UserRole
 from apps.hotel_settings.models import HotelFloor, HotelSettings
 from apps.master_data.models import MasterData
 from apps.rooms.models import Room
-from .models import DemoRequest
+from .models import DemoRequest, DemoRequestEmailVerification
 from .permissions import IsPlatformAdmin
-from .serializers import DemoRequestCreateSerializer, DemoRequestSerializer, DemoRequestStatusSerializer
+from .serializers import (
+    DemoRequestCreateSerializer,
+    DemoRequestEmailVerificationRequestSerializer,
+    DemoRequestSerializer,
+    DemoRequestStatusSerializer,
+)
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -38,6 +45,10 @@ logger = logging.getLogger(__name__)
 TEMPORARY_ACCESS_PASSWORD_LENGTH = 14
 TEMPORARY_ACCESS_PASSWORD_SPECIALS = "!@#$%*-_"
 DEFAULT_ROOM_STATUS_CODE = "DISPONIBLE"
+DEMO_EMAIL_VERIFICATION_CODE_LENGTH = 6
+DEMO_EMAIL_VERIFICATION_TTL_MINUTES = 15
+DEMO_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60
+DEMO_EMAIL_VERIFICATION_MAX_ATTEMPTS = 5
 
 
 def generate_temporary_access_password(user=None, length: int = TEMPORARY_ACCESS_PASSWORD_LENGTH) -> str:
@@ -67,6 +78,10 @@ def generate_temporary_access_password(user=None, length: int = TEMPORARY_ACCESS
         return password
 
     raise DjangoValidationError("No fue posible generar una contrasena temporal valida.")
+
+
+def generate_demo_email_verification_code(length: int = DEMO_EMAIL_VERIFICATION_CODE_LENGTH) -> str:
+    return "".join(str(secrets.randbelow(10)) for _ in range(length))
 
 
 def build_demo_access_login_url(request=None, base_url=None) -> str:
@@ -181,6 +196,61 @@ def send_demo_temporary_password_email(
     return {"sent": bool(sent_count) and email_backend_delivers_to_inbox(), "error_detail": ""}
 
 
+def send_demo_email_verification_code(
+    *,
+    email: str,
+    code: str,
+    request=None,
+) -> dict:
+    normalized_email = str(email or "").strip().lower()
+    brand, inline_logo_bytes, inline_logo_name, inline_logo_cid = build_email_brand_context()
+
+    subject = f"Codigo de verificacion para tu demo de {brand['app_name']}"
+    text_body = (
+        f"Hola,\n\n"
+        f"Usa este codigo para confirmar tu solicitud de demo en {brand['app_name']}:\n\n"
+        f"{code}\n\n"
+        f"El codigo vence en {DEMO_EMAIL_VERIFICATION_TTL_MINUTES} minutos. "
+        "Si no solicitaste esta demo, ignora este correo.\n\n"
+        f"Equipo {brand['app_name']}\n"
+    )
+    html_body = render_to_string(
+        "email/demo_email_verification.html",
+        {
+            "code": code,
+            "expires_minutes": DEMO_EMAIL_VERIFICATION_TTL_MINUTES,
+            **brand,
+        },
+    )
+
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@hotel.local")
+    msg = EmailMultiAlternatives(subject, text_body, from_email, [normalized_email])
+    msg.attach_alternative(html_body, "text/html")
+    attach_inline_logo(msg, inline_logo_bytes, inline_logo_name, inline_logo_cid)
+
+    configuration_error = email_backend_configuration_error()
+    if configuration_error:
+        logger.error(
+            "Demo email verification could not be sent to email=%s: %s",
+            normalized_email,
+            configuration_error,
+        )
+        return {"sent": False, "error_detail": configuration_error}
+
+    try:
+        sent_count = msg.send(fail_silently=False)
+    except Exception as exc:
+        error_detail = describe_email_send_failure(exc)
+        logger.exception(
+            "Demo email verification could not be sent to email=%s: %s",
+            normalized_email,
+            error_detail,
+        )
+        return {"sent": False, "error_detail": error_detail}
+
+    return {"sent": bool(sent_count), "error_detail": ""}
+
+
 def get_default_room_status():
     status_obj = MasterData.objects.filter(
         group=MasterData.Group.ROOM_STATUS,
@@ -247,17 +317,23 @@ class DemoRequestViewSet(
     ordering = ["-created_at", "-id"]
 
     def get_permissions(self):
-        if self.action == "create":
+        if self.action in {"create", "request_email_verification"}:
             return [AllowAny()]
         return [IsPlatformAdmin()]
 
     def get_throttles(self):
-        self.throttle_scope = "demo_request" if self.action == "create" else None
+        self.throttle_scope = (
+            "demo_request"
+            if self.action in {"create", "request_email_verification"}
+            else None
+        )
         return super().get_throttles()
 
     def get_serializer_class(self):
         if self.action == "create":
             return DemoRequestCreateSerializer
+        if self.action == "request_email_verification":
+            return DemoRequestEmailVerificationRequestSerializer
         if self.action in {"update", "partial_update"}:
             return DemoRequestStatusSerializer
         return DemoRequestSerializer
@@ -295,6 +371,14 @@ class DemoRequestViewSet(
         instance.refresh_from_db()
         return Response(DemoRequestSerializer(instance).data, status=status.HTTP_200_OK)
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.validate_email_verification(serializer.validated_data)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     def perform_create(self, serializer):
         request = self.request
         forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR", "")
@@ -302,6 +386,143 @@ class DemoRequestViewSet(
         user_agent = str(request.META.get("HTTP_USER_AGENT", "") or "")[:255]
 
         serializer.save(source_ip=source_ip or None, user_agent=user_agent)
+
+    @action(detail=False, methods=["post"], url_path="request-email-verification")
+    def request_email_verification(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["requester_email"]
+        now = timezone.now()
+        forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        source_ip = forwarded_for.split(",")[0].strip() if forwarded_for else request.META.get("REMOTE_ADDR")
+        user_agent = str(request.META.get("HTTP_USER_AGENT", "") or "")[:255]
+
+        active_verification = (
+            DemoRequestEmailVerification.objects.filter(
+                email=email,
+                used_at__isnull=True,
+                expires_at__gt=now,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if active_verification:
+            cooldown_until = active_verification.created_at + timedelta(
+                seconds=DEMO_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS
+            )
+            if cooldown_until > now:
+                return Response(
+                    {
+                        "email_verification_token": str(active_verification.token),
+                        "expires_at": active_verification.expires_at,
+                        "resend_available_in": int((cooldown_until - now).total_seconds()),
+                        "detail": "Ya enviamos un codigo a este correo. Revisa tu bandeja de entrada.",
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+        DemoRequestEmailVerification.objects.filter(
+            email=email,
+            used_at__isnull=True,
+            expires_at__gt=now,
+        ).update(used_at=now, updated_at=now)
+
+        code = generate_demo_email_verification_code()
+        expires_at = now + timedelta(minutes=DEMO_EMAIL_VERIFICATION_TTL_MINUTES)
+        verification = DemoRequestEmailVerification.create_for_email(
+            email=email,
+            code=code,
+            expires_at=expires_at,
+            source_ip=source_ip or None,
+            user_agent=user_agent,
+        )
+
+        email_result = send_demo_email_verification_code(
+            email=email,
+            code=code,
+            request=request,
+        )
+        if not email_result.get("sent"):
+            verification.delete()
+            return Response(
+                {
+                    "detail": (
+                        email_result.get("error_detail")
+                        or "No fue posible enviar el codigo de verificacion."
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            {
+                "email_verification_token": str(verification.token),
+                "expires_at": verification.expires_at,
+                "resend_available_in": DEMO_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS,
+                "detail": "Enviamos un codigo de verificacion a tu correo.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def validate_email_verification(self, validated_data) -> None:
+        email = str(validated_data.get("requester_email") or "").strip().lower()
+        token = validated_data.get("email_verification_token")
+        code = str(validated_data.get("email_verification_code") or "").strip()
+
+        if not token or not code:
+            raise ValidationError(
+                {
+                    "email_verification_code": (
+                        "Solicita el codigo enviado a tu correo antes de confirmar la demo."
+                    )
+                }
+            )
+
+        if not code.isdigit():
+            raise ValidationError({"email_verification_code": "Ingresa el codigo numerico de 6 digitos."})
+
+        error_detail = None
+
+        with transaction.atomic():
+            verification = (
+                DemoRequestEmailVerification.objects.select_for_update()
+                .filter(token=token)
+                .first()
+            )
+            if verification is None:
+                raise ValidationError({"email_verification_code": "El codigo de verificacion no es valido."})
+
+            if verification.used_at:
+                raise ValidationError({"email_verification_code": "Este codigo ya fue usado. Solicita uno nuevo."})
+
+            if verification.is_expired:
+                raise ValidationError({"email_verification_code": "El codigo vencio. Solicita uno nuevo."})
+
+            if verification.email != email:
+                raise ValidationError(
+                    {
+                        "requester_email": (
+                            "El codigo fue enviado a otro correo. Solicita un codigo para este correo."
+                        )
+                    }
+                )
+
+            if verification.attempts >= DEMO_EMAIL_VERIFICATION_MAX_ATTEMPTS:
+                raise ValidationError(
+                    {"email_verification_code": "Se agotaron los intentos para este codigo. Solicita uno nuevo."}
+                )
+
+            if not verification.code_matches(code):
+                verification.attempts += 1
+                verification.save(update_fields=["attempts", "updated_at"])
+                error_detail = {"email_verification_code": "El codigo ingresado no coincide."}
+            else:
+                verification.used_at = timezone.now()
+                verification.save(update_fields=["used_at", "updated_at"])
+
+        if error_detail:
+            raise ValidationError(error_detail)
 
     @action(detail=True, methods=["post"], url_path="resend-access-email")
     def resend_access_email(self, request, *args, **kwargs):

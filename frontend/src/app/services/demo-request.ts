@@ -25,6 +25,8 @@ export interface DemoRequestPayload {
   requester_job_title: string;
   requester_phone: string;
   message?: string;
+  email_verification_token?: string;
+  email_verification_code?: string;
 }
 
 export interface DemoRequestResponse extends DemoRequestPayload {
@@ -61,6 +63,17 @@ export interface DemoRequestAccessLinkResponse {
   access_url: string;
 }
 
+export interface DemoEmailVerificationRequest {
+  requester_email: string;
+}
+
+export interface DemoEmailVerificationResponse {
+  email_verification_token: string;
+  expires_at: string;
+  resend_available_in?: number;
+  detail?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class DemoRequestService {
   private readonly apiBase = environment.API_URI.replace(/\/$/, '');
@@ -76,6 +89,20 @@ export class DemoRequestService {
       switchMap(() =>
         this.http.post<DemoRequestResponse>(
           this.demoRequestsUrl,
+          payload,
+          this.auth.buildCsrfRequestOptions()
+        )
+      )
+    );
+  }
+
+  requestEmailVerification(
+    payload: DemoEmailVerificationRequest
+  ): Observable<DemoEmailVerificationResponse> {
+    return this.auth.getCsrfToken().pipe(
+      switchMap(() =>
+        this.http.post<DemoEmailVerificationResponse>(
+          `${this.demoRequestsUrl}request-email-verification/`,
           payload,
           this.auth.buildCsrfRequestOptions()
         )

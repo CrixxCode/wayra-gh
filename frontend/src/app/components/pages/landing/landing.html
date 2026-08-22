@@ -251,7 +251,7 @@
       </header>
 
       <ng-container *ngIf="!demoSubmitted; else demoConfirmation">
-        <form [formGroup]="demoForm" (ngSubmit)="demoStep === 'agenda' ? submitDemoRequest() : goToNextDemoStep()">
+        <form [formGroup]="demoForm" (ngSubmit)="handleDemoFormSubmit()">
           <div
             *ngIf="demoStep === 'requester'"
             class="prototype-modal-grid prototype-contact-grid"
@@ -408,6 +408,45 @@
             </div>
           </section>
 
+          <section
+            *ngIf="demoStep === 'verification'"
+            class="prototype-demo-verification"
+            formGroupName="verification">
+            <div class="prototype-demo-verification-card">
+              <i class="pi pi-envelope" aria-hidden="true"></i>
+              <div>
+                <span>Verificacion de correo</span>
+                <strong>{{ demoVerificationEmail || demoForm.controls.requester.controls.email.value }}</strong>
+                <p>
+                  Escribe el codigo de 6 digitos que enviamos a tu correo para confirmar la solicitud.
+                </p>
+              </div>
+            </div>
+
+            <label>
+              <span>Codigo recibido</span>
+              <input
+                id="demo-email-code"
+                type="text"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                maxlength="6"
+                formControlName="code" />
+              <small *ngIf="isInvalid('verification', 'code')">Ingresa el codigo de 6 digitos.</small>
+            </label>
+
+            <div class="prototype-demo-verification-actions">
+              <p *ngIf="demoVerificationMessage">{{ demoVerificationMessage }}</p>
+              <button
+                type="button"
+                class="prototype-form-secondary"
+                [disabled]="demoSubmitting || demoResendingCode"
+                (click)="resendDemoVerificationCode()">
+                {{ demoResendingCode ? 'Reenviando...' : 'Reenviar codigo' }}
+              </button>
+            </div>
+          </section>
+
           <p *ngIf="demoSubmitError" class="prototype-modal-error">{{ demoSubmitError }}</p>
           <p *ngIf="locationLoadError" class="prototype-modal-error">{{ locationLoadError }}</p>
 
@@ -427,11 +466,7 @@
                 class="prototype-primary"
                 [disabled]="demoSubmitting">
                 {{
-                  demoSubmitting
-                    ? 'Guardando...'
-                    : demoStep === 'agenda'
-                      ? 'Enviar solicitud'
-                      : 'Continuar'
+                  demoPrimaryActionLabel
                 }}
               </button>
             </div>

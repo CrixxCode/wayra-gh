@@ -58,13 +58,15 @@ type DemoStep =
   | 'requester'
   | 'hotel'
   | 'operation'
-  | 'agenda';
+  | 'agenda'
+  | 'verification';
 
 type DemoFormSection =
   | 'hotel'
   | 'location'
   | 'operation'
-  | 'requester';
+  | 'requester'
+  | 'verification';
 
 interface DemoStepItem {
   id: DemoStep;
@@ -230,6 +232,18 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
       message: [''],
     }),
+
+    verification: this.formBuilder.group({
+      code: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(6),
+          Validators.maxLength(6),
+          Validators.pattern(/^[0-9]{6}$/),
+        ],
+      ],
+    }),
   });
 
   // =========================================================
@@ -386,6 +400,10 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
   demoSubmitError = '';
   demoRequestSummary = '';
+  demoVerificationToken = '';
+  demoVerificationEmail = '';
+  demoVerificationMessage = '';
+  demoResendingCode = false;
 
   readonly demoStepItems: DemoStepItem[] = [
     {
@@ -403,6 +421,10 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     {
       id: 'agenda',
       label: 'Agenda',
+    },
+    {
+      id: 'verification',
+      label: 'Correo',
     },
   ];
 
@@ -442,6 +464,8 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     requester_job_title: 'Cargo',
     requester_phone: 'Teléfono de contacto',
     message: 'Comentarios',
+    email_verification_code: 'Código de verificación',
+    email_verification_token: 'Código de verificación',
   };
 
   private readonly demoFieldSections: Record<string, DemoStep> = {
@@ -466,6 +490,8 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     requester_job_title: 'requester',
     requester_phone: 'requester',
     message: 'agenda',
+    email_verification_code: 'verification',
+    email_verification_token: 'verification',
   };
 
 
@@ -501,6 +527,30 @@ export class LandingPage implements AfterViewInit, OnDestroy {
       ),
       0
     );
+  }
+
+
+  get demoPrimaryActionLabel(): string {
+
+    if (this.demoSubmitting) {
+      return this.demoStep === 'verification'
+        ? 'Confirmando...'
+        : this.demoStep === 'agenda'
+          ? 'Enviando código...'
+          : 'Guardando...';
+    }
+
+    if (this.demoStep === 'agenda') {
+      return this.demoVerificationToken
+        ? 'Continuar con código'
+        : 'Enviar código';
+    }
+
+    if (this.demoStep === 'verification') {
+      return 'Confirmar solicitud';
+    }
+
+    return 'Continuar';
   }
 
 
@@ -768,6 +818,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     this.demoModalOpen = true;
     this.demoSubmitted = false;
     this.demoSubmitError = '';
+    this.demoVerificationMessage = '';
     this.demoStep = 'requester';
 
     this.lockPageScroll();
@@ -790,9 +841,13 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
     this.demoSubmitted = false;
     this.demoSubmitting = false;
+    this.demoResendingCode = false;
 
     this.demoSubmitError = '';
     this.demoRequestSummary = '';
+    this.demoVerificationToken = '';
+    this.demoVerificationEmail = '';
+    this.demoVerificationMessage = '';
 
     this.demoForm.reset();
 
@@ -972,6 +1027,11 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
     if (this.demoStep === 'operation') {
       this.goToAgendaStep();
+      return;
+    }
+
+    if (this.demoStep === 'agenda') {
+      this.requestDemoVerificationCode();
     }
   }
 
@@ -1018,6 +1078,13 @@ export class LandingPage implements AfterViewInit, OnDestroy {
       );
     }
 
+    if (step === 'verification') {
+      return (
+        this.canOpenDemoStep('agenda') &&
+        Boolean(this.demoVerificationToken)
+      );
+    }
+
     return false;
   }
 
@@ -1040,6 +1107,10 @@ export class LandingPage implements AfterViewInit, OnDestroy {
         this.demoForm.controls.operation.valid &&
         !this.hasSameDemoOperationTimes()
       );
+    }
+
+    if (step === 'agenda') {
+      return Boolean(this.demoVerificationToken);
     }
 
     return this.demoSubmitted;
@@ -1126,50 +1197,125 @@ export class LandingPage implements AfterViewInit, OnDestroy {
   // ENVÍO
   // =========================================================
 
+  handleDemoFormSubmit(): void {
+
+    if (this.demoStep === 'agenda') {
+      this.requestDemoVerificationCode();
+      return;
+    }
+
+    if (this.demoStep === 'verification') {
+      this.submitDemoRequest();
+      return;
+    }
+
+    this.goToNextDemoStep();
+  }
+
+
+  requestDemoVerificationCode(isResend = false): void {
+
+    if (this.demoSubmitting) {
+      return;
+    }
+
+    this.demoSubmitError = '';
+    this.demoVerificationMessage = '';
+
+    if (!this.validateDemoRequestFormBeforeSubmit()) {
+      return;
+    }
+
+    this.updateDemoRequestSummary();
+
+    const requesterEmail =
+      this.currentDemoRequesterEmail();
+
+    this.demoSubmitting = !isResend;
+    this.demoResendingCode = isResend;
+
+    this.demoRequestService
+      .requestEmailVerification({
+        requester_email: requesterEmail,
+      })
+      .pipe(
+        finalize(() => {
+          this.demoSubmitting = false;
+          this.demoResendingCode = false;
+        })
+      )
+      .subscribe({
+
+        next: (response) => {
+          this.demoVerificationToken =
+            response.email_verification_token;
+          this.demoVerificationEmail =
+            requesterEmail;
+          this.demoVerificationMessage =
+            response.detail ||
+            'Enviamos un código de verificación a tu correo.';
+          this.demoForm.controls.verification.reset();
+          this.demoStep = 'verification';
+          this.focusCurrentDemoStep();
+        },
+
+        error: (error) => {
+          this.applyDemoSubmitError(error);
+        },
+      });
+  }
+
+
   submitDemoRequest(): void {
 
     if (this.demoSubmitting) {
       return;
     }
 
-    this.demoForm.markAllAsTouched();
-
-    this.ensureDemoRequesterIdentity();
-
     this.demoSubmitError = '';
 
-    if (this.demoForm.controls.requester.invalid) {
-      this.demoStep = 'requester';
+    if (!this.validateDemoRequestFormBeforeSubmit()) {
       return;
     }
 
-    if (this.demoForm.controls.hotel.invalid) {
-      this.demoStep = 'hotel';
+    const verificationForm =
+      this.demoForm.controls.verification;
+
+    verificationForm.markAllAsTouched();
+
+    if (verificationForm.invalid) {
+      this.demoStep = 'verification';
+      this.focusCurrentDemoStep();
       return;
     }
 
-    if (this.demoForm.controls.location.invalid) {
-      this.demoStep = 'hotel';
+    if (!this.demoVerificationToken) {
+      this.demoStep = 'agenda';
+      this.demoSubmitError =
+        'Primero solicita el código de verificación enviado a tu correo.';
+      this.focusCurrentDemoStep();
       return;
     }
+
+    const requesterEmail =
+      this.currentDemoRequesterEmail();
 
     if (
-      this.demoForm.controls.operation.invalid ||
-      this.hasSameDemoOperationTimes()
+      this.demoVerificationEmail &&
+      this.demoVerificationEmail !== requesterEmail
     ) {
-      this.demoStep = 'operation';
+      this.demoStep = 'requester';
+      this.demoSubmitError =
+        'El correo cambió después de enviar el código. Solicita un código nuevo para este correo.';
+      this.demoVerificationToken = '';
+      this.demoVerificationEmail = '';
+      this.demoVerificationMessage = '';
+      this.demoForm.controls.verification.reset();
+      this.focusCurrentDemoStep();
       return;
     }
 
-    const hotelName =
-      String(
-        this.demoForm.controls.hotel.controls
-          .hotelName.value || ''
-      ).trim();
-
-    this.demoRequestSummary =
-      hotelName || 'tu hotel';
-
+    this.updateDemoRequestSummary();
     this.demoSubmitting = true;
 
     this.demoRequestService
@@ -1185,12 +1331,85 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
         next: () => {
           this.demoSubmitted = true;
+          this.demoVerificationMessage = '';
         },
 
         error: (error) => {
           this.applyDemoSubmitError(error);
         },
       });
+  }
+
+
+  resendDemoVerificationCode(): void {
+
+    if (
+      this.demoSubmitting ||
+      this.demoResendingCode
+    ) {
+      return;
+    }
+
+    this.requestDemoVerificationCode(true);
+  }
+
+
+  private validateDemoRequestFormBeforeSubmit(): boolean {
+
+    this.demoForm.markAllAsTouched();
+    this.ensureDemoRequesterIdentity();
+
+    if (this.demoForm.controls.requester.invalid) {
+      this.demoStep = 'requester';
+      this.focusCurrentDemoStep();
+      return false;
+    }
+
+    if (this.demoForm.controls.hotel.invalid) {
+      this.demoStep = 'hotel';
+      this.focusCurrentDemoStep();
+      return false;
+    }
+
+    if (this.demoForm.controls.location.invalid) {
+      this.demoStep = 'hotel';
+      this.focusCurrentDemoStep();
+      return false;
+    }
+
+    if (
+      this.demoForm.controls.operation.invalid ||
+      this.hasSameDemoOperationTimes()
+    ) {
+      this.demoStep = 'operation';
+      this.focusCurrentDemoStep();
+      return false;
+    }
+
+    return true;
+  }
+
+
+  private updateDemoRequestSummary(): void {
+
+    const hotelName =
+      String(
+        this.demoForm.controls.hotel.controls
+          .hotelName.value || ''
+      ).trim();
+
+    this.demoRequestSummary =
+      hotelName || 'tu hotel';
+  }
+
+
+  private currentDemoRequesterEmail(): string {
+
+    return String(
+      this.demoForm.controls.requester.controls.email.value || ''
+    )
+      .trim()
+      .toLowerCase();
   }
 
 
@@ -1213,7 +1432,10 @@ export class LandingPage implements AfterViewInit, OnDestroy {
           : sectionName === 'operation'
             ? this.demoForm.controls.operation.get(controlName)
 
-            : this.demoForm.controls.requester.get(controlName);
+            : sectionName === 'verification'
+              ? this.demoForm.controls.verification.get(controlName)
+
+              : this.demoForm.controls.requester.get(controlName);
 
     return Boolean(
       control &&
@@ -1664,6 +1886,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
       hotel: 'demo-hotel-name',
       operation: 'demo-check-in-time',
       agenda: 'demo-submit-request',
+      verification: 'demo-email-code',
     };
 
     window.setTimeout(() => {
@@ -1697,6 +1920,10 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
     const requester =
       this.demoForm.controls.requester
+        .getRawValue();
+
+    const verification =
+      this.demoForm.controls.verification
         .getRawValue();
 
     return {
@@ -1786,6 +2013,14 @@ export class LandingPage implements AfterViewInit, OnDestroy {
       message:
         String(
           requester.message || ''
+        ).trim(),
+
+      email_verification_token:
+        this.demoVerificationToken,
+
+      email_verification_code:
+        String(
+          verification.code || ''
         ).trim(),
     };
   }

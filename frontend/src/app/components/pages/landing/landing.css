@@ -748,7 +748,8 @@
 }
 
 .prototype-modal-grid,
-.prototype-demo-review {
+.prototype-demo-review,
+.prototype-demo-verification {
   padding: 2.05rem 2.1rem 1.1rem;
 }
 
@@ -846,6 +847,87 @@
   margin: 0.25rem 0 0;
   color: #667085;
   line-height: 1.5;
+}
+
+.prototype-demo-verification {
+  display: grid;
+  gap: 1rem;
+}
+
+.prototype-demo-verification-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.95rem;
+  min-width: 0;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 1rem 1.1rem;
+}
+
+.prototype-demo-verification-card i {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.45rem;
+  height: 2.45rem;
+  border-radius: 12px;
+  background: #e8f1ff;
+  color: #2f80ed;
+  font-size: 1.1rem;
+}
+
+.prototype-demo-verification-card div {
+  min-width: 0;
+}
+
+.prototype-demo-verification-card span {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #667085;
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.prototype-demo-verification-card strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #172033;
+  font-size: 1rem;
+}
+
+.prototype-demo-verification-card p,
+.prototype-demo-verification-actions p {
+  margin: 0.25rem 0 0;
+  color: #667085;
+  line-height: 1.5;
+}
+
+.prototype-demo-verification input {
+  max-width: 14rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.prototype-demo-verification-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.prototype-demo-verification-actions p {
+  min-width: 0;
+  font-size: 0.9rem;
+}
+
+.prototype-demo-verification-actions .prototype-form-secondary {
+  flex: 0 0 auto;
 }
 
 .prototype-modal footer {
@@ -972,6 +1054,7 @@
   .prototype-modal > .prototype-modal-hero,
   .prototype-modal-grid,
   .prototype-demo-review,
+  .prototype-demo-verification,
   .prototype-modal footer {
     padding-left: 1rem;
     padding-right: 1rem;
@@ -987,12 +1070,14 @@
   }
 
   .prototype-modal footer,
-  .prototype-modal footer div {
+  .prototype-modal footer div,
+  .prototype-demo-verification-actions {
     align-items: stretch;
     width: 100%;
   }
 
-  .prototype-modal footer div {
+  .prototype-modal footer div,
+  .prototype-demo-verification-actions {
     flex-direction: column;
   }
 }

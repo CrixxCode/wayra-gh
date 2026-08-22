@@ -1,4 +1,8 @@
+import uuid
+
+from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
+from django.utils import timezone
 
 
 class DemoRequest(models.Model):
@@ -60,3 +64,52 @@ class DemoRequest(models.Model):
 
     def __str__(self):
         return f"{self.hotel_name} - {self.requester_email}"
+
+
+class DemoRequestEmailVerification(models.Model):
+    email = models.EmailField(db_index=True)
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    code_hash = models.CharField(max_length=128)
+    expires_at = models.DateTimeField(db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    used_at = models.DateTimeField(blank=True, null=True)
+    source_ip = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "demo_request_email_verification"
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["email", "used_at", "expires_at"], name="demo_verif_email_state_idx"),
+            models.Index(fields=["token", "expires_at"], name="demo_verif_token_exp_idx"),
+        ]
+
+    @classmethod
+    def create_for_email(
+        cls,
+        *,
+        email: str,
+        code: str,
+        expires_at,
+        source_ip: str | None = None,
+        user_agent: str = "",
+    ):
+        return cls.objects.create(
+            email=str(email or "").strip().lower(),
+            code_hash=make_password(code),
+            expires_at=expires_at,
+            source_ip=source_ip or None,
+            user_agent=str(user_agent or "")[:255],
+        )
+
+    @property
+    def is_expired(self) -> bool:
+        return timezone.now() >= self.expires_at
+
+    def code_matches(self, code: str) -> bool:
+        return check_password(str(code or "").strip(), self.code_hash)
+
+    def __str__(self):
+        return f"{self.email} - {self.created_at:%Y-%m-%d %H:%M}"

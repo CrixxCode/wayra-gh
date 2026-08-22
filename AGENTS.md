@@ -1120,6 +1120,27 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ## 12. Registro de cambios
 
+### 2026-08-22 - Verificacion de correo en solicitudes de demo
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** security
+- **Que se hizo:** el flujo publico de solicitud de demo ahora exige validar el correo antes de crear
+  la solicitud. Se agrego el endpoint publico `POST /api/demo-requests/request-email-verification/`,
+  que envia un codigo de 6 digitos por correo, guarda solo su hash con token UUID, expiracion,
+  contador de intentos y marca de uso. `POST /api/demo-requests/` ahora requiere
+  `email_verification_token` y `email_verification_code`; el modal de la landing agrega el paso
+  Correo con input de codigo, reenvio y mensajes de error.
+- **Por que:** evitar que se creen solicitudes de demo con correos ajenos o basura y reducir spam en
+  el panel SaaS antes de que el equipo revise solicitudes innecesarias.
+- **Archivos/areas afectadas:** `backend/apps/demo_requests/`, `backend/templates/email/`,
+  `frontend/src/app/services/demo-request.ts`, `frontend/src/app/components/pages/landing/`.
+- **Impacto:** requiere migracion `demo_requests.0004_demo_request_email_verification`; cambia el
+  contrato publico de creacion de solicitudes de demo para exigir verificacion por correo. Sin
+  recursos RBAC nuevos porque ambos endpoints son publicos y conservan el throttle `demo_request`.
+  Verificado con `python backend\manage.py test apps.demo_requests`, `npm run lint` en frontend y
+  detector Impeccable en modo regex degradado sin hallazgos.
+
 ### 2026-08-22 - Paso a paso para crear hotel SaaS
 
 - **Autor:** Codex, a solicitud de Cristian Ramirez

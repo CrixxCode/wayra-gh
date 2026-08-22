@@ -8,6 +8,15 @@ User = get_user_model()
 
 
 class DemoRequestCreateSerializer(serializers.ModelSerializer):
+    email_verification_token = serializers.UUIDField(write_only=True, required=True)
+    email_verification_code = serializers.CharField(
+        write_only=True,
+        required=True,
+        min_length=6,
+        max_length=6,
+        trim_whitespace=True,
+    )
+
     class Meta:
         model = DemoRequest
         fields = [
@@ -29,6 +38,8 @@ class DemoRequestCreateSerializer(serializers.ModelSerializer):
             "requester_job_title",
             "requester_phone",
             "message",
+            "email_verification_token",
+            "email_verification_code",
             "status",
             "created_at",
         ]
@@ -84,6 +95,21 @@ class DemoRequestCreateSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+    def create(self, validated_data):
+        validated_data.pop("email_verification_token", None)
+        validated_data.pop("email_verification_code", None)
+        return super().create(validated_data)
+
+
+class DemoRequestEmailVerificationRequestSerializer(serializers.Serializer):
+    requester_email = serializers.EmailField()
+
+    def validate_requester_email(self, value):
+        email = str(value or "").strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError("Ya existe un usuario con este correo.")
+        return email
 
 
 class DemoRequestSerializer(DemoRequestCreateSerializer):

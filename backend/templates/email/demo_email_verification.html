@@ -1,0 +1,47 @@
+{% extends "email/base_email.html" %}
+
+{% block title %}Codigo de verificacion para la demo{% endblock %}
+
+{% block preheader %}Usa este codigo para confirmar tu solicitud de demo en {{ app_name }}.{% endblock %}
+
+{% block badge_label %}Verificacion{% endblock %}
+
+{% block brand_subtitle %}Confirmacion de correo para solicitud de demo.{% endblock %}
+
+{% block content %}
+              <h1 style="margin:0 0 12px 0;color:#111c3f;font-size:28px;line-height:1.2;font-weight:800;">
+                Confirma tu correo
+              </h1>
+              <p style="margin:0 0 18px 0;color:#334b72;font-size:15px;line-height:1.65;">
+                Recibimos una solicitud de demo en <strong style="color:#0f1f41;">{{ app_name }}</strong>.
+                Ingresa este codigo en el formulario para confirmar que este correo te pertenece.
+              </p>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;margin-bottom:20px;">
+                <tr>
+                  <td align="center" style="padding:18px 20px;border:1px solid #d7e0ef;border-radius:14px;background:#f7faff;">
+                    <p style="margin:0 0 10px 0;color:#42557f;font-size:12px;font-weight:700;line-height:1.4;text-transform:uppercase;letter-spacing:0.06em;">
+                      Codigo de verificacion
+                    </p>
+                    <p style="margin:0;">
+                      <strong style="display:inline-block;padding:12px 18px;border-radius:10px;background:#111c3f;color:#ffffff;font-family:'Courier New',Courier,monospace;font-size:28px;font-weight:800;letter-spacing:0.12em;max-width:100%;overflow-wrap:break-word;word-break:break-all;">
+                        {{ code }}
+                      </strong>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                <tr>
+                  <td style="padding:12px 14px;border:1px solid #d7e0ef;background:#fbf8ef;border-radius:12px;">
+                    <p style="margin:0;color:#5a5f70;font-size:12px;line-height:1.6;">
+                      El codigo vence en {{ expires_minutes }} minutos y solo sirve una vez. Si no solicitaste
+                      esta demo, ignora este mensaje.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+{% endblock %}
+
+{% block outer_caption %}Correo automatico de verificacion de demo de {{ app_name }}.{% endblock %}

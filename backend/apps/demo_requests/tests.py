@@ -1,11 +1,15 @@
 from unittest.mock import patch
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import check_password
+from django.core.cache import cache
 from django.test import override_settings
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from accounts.models import Role
-from apps.demo_requests.models import DemoRequest
+from apps.demo_requests.models import DemoRequest, DemoRequestEmailVerification
 from apps.hotel_settings.models import HotelFloor, HotelSettings
 from apps.master_data.models import MasterData
 from apps.rooms.models import Room
@@ -14,6 +18,7 @@ from backend.settings import resolve_email_backend
 
 class DemoRequestFlowTests(APITestCase):
     def setUp(self):
+        cache.clear()
         self.payload = {
             "hotel_name": "Hotel Demo Test",
             "hotel_type": "Hotel",
@@ -39,12 +44,64 @@ class DemoRequestFlowTests(APITestCase):
             defaults={"name": "Disponible", "sort_order": 1, "is_active": True},
         )
 
-    def test_public_user_can_create_demo_request(self):
+    def verified_payload(self, payload=None, code="123456"):
+        request_payload = {**self.payload, **(payload or {})}
+        verification = DemoRequestEmailVerification.create_for_email(
+            email=request_payload["requester_email"],
+            code=code,
+            expires_at=timezone.now() + timedelta(minutes=15),
+        )
+        return {
+            **request_payload,
+            "email_verification_token": str(verification.token),
+            "email_verification_code": code,
+        }
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    @patch("apps.demo_requests.views.generate_demo_email_verification_code", return_value="654321")
+    @patch("apps.demo_requests.views.EmailMultiAlternatives.send", return_value=1)
+    def test_public_user_can_request_demo_email_verification(self, send_mock, code_mock):
+        response = self.client.post(
+            "/api/demo-requests/request-email-verification/",
+            {"requester_email": self.payload["requester_email"]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("email_verification_token", response.data)
+        self.assertEqual(DemoRequestEmailVerification.objects.count(), 1)
+        verification = DemoRequestEmailVerification.objects.first()
+        self.assertEqual(verification.email, "laura.demo.test@example.com")
+        self.assertTrue(check_password("654321", verification.code_hash))
+        send_mock.assert_called_once()
+        code_mock.assert_called_once()
+
+    def test_public_request_rejects_missing_email_verification(self):
         response = self.client.post("/api/demo-requests/", self.payload, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("email_verification_token", response.data["errors"])
+        self.assertIn("email_verification_code", response.data["errors"])
+        self.assertEqual(DemoRequest.objects.count(), 0)
+
+    def test_public_user_can_create_demo_request_with_verified_email(self):
+        response = self.client.post("/api/demo-requests/", self.verified_payload(), format="json")
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(DemoRequest.objects.count(), 1)
         self.assertEqual(DemoRequest.objects.first().requester_email, "laura.demo.test@example.com")
+        self.assertIsNotNone(DemoRequestEmailVerification.objects.first().used_at)
+
+    def test_public_request_rejects_wrong_email_verification_code(self):
+        payload = self.verified_payload(code="123456")
+        payload["email_verification_code"] = "000000"
+
+        response = self.client.post("/api/demo-requests/", payload, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("email_verification_code", response.data["errors"])
+        self.assertEqual(DemoRequest.objects.count(), 0)
+        self.assertEqual(DemoRequestEmailVerification.objects.first().attempts, 1)
 
     def test_public_request_rejects_existing_username(self):
         User = get_user_model()
@@ -54,7 +111,7 @@ class DemoRequestFlowTests(APITestCase):
             password="TempPass123!",
         )
 
-        response = self.client.post("/api/demo-requests/", self.payload, format="json")
+        response = self.client.post("/api/demo-requests/", self.verified_payload(), format="json")
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("requester_username", response.data["errors"])
@@ -68,7 +125,7 @@ class DemoRequestFlowTests(APITestCase):
             password="TempPass123!",
         )
 
-        response = self.client.post("/api/demo-requests/", self.payload, format="json")
+        response = self.client.post("/api/demo-requests/", self.verified_payload(), format="json")
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("requester_email", response.data["errors"])
