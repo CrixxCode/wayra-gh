@@ -1,4 +1,6 @@
 from io import StringIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from django.core import mail
 from django.core.management import call_command
@@ -6,6 +8,7 @@ from django.test import TestCase, override_settings
 from django.urls import get_resolver, reverse
 from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory, APITestCase, APIClient
+from accounts.email_utils import build_wayra_logo_context
 from django.contrib.auth import get_user_model
 from accounts.models import JobTitle, Role, Resource, UserRole
 from accounts.serializers import UserSerializer
@@ -497,6 +500,30 @@ class HotelBrandColorSharedViaMeTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["hotel_settings"]["primary_color"], "#000000")
         self.assertEqual(response.data["hotel_settings"]["secondary_color"], "#111111")
+
+
+class WayraLogoContextTests(TestCase):
+    def test_uses_frontend_dist_logo_when_source_public_logo_is_not_available(self):
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            backend_base_dir = project_root / "backend"
+            dist_logo_path = project_root / "frontend_dist" / "logo.png"
+            dist_logo_path.parent.mkdir(parents=True)
+            dist_logo_path.write_bytes(b"fake-logo")
+
+            with override_settings(
+                BASE_DIR=backend_base_dir,
+                FRONTEND_DIST_DIR=project_root / "frontend_dist",
+                BRAND_LOGO_URL="",
+            ):
+                logo_url, inline_logo_bytes, inline_logo_name, inline_logo_cid = (
+                    build_wayra_logo_context()
+                )
+
+        self.assertEqual(logo_url, "cid:platform-logo")
+        self.assertEqual(inline_logo_bytes, b"fake-logo")
+        self.assertEqual(inline_logo_name, "logo.png")
+        self.assertEqual(inline_logo_cid, "platform-logo")
 
 
 class UserHotelAssignmentByRoleTests(APITestCase):

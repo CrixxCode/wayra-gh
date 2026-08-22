@@ -1154,7 +1154,9 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
   el usuario por ID despues de comprobar que el actor es administrador global, de modo que un
   `hotel_settings` inyectado por el interceptor no pueda filtrar falsamente al destinatario. La
   plantilla base de correo muestra el icono de `frontend/public/logo.png` junto al texto `Wayra` en
-  el encabezado y el pie, con un monograma como fallback si el archivo no existe.
+  el encabezado y el pie, con un monograma como fallback si el archivo no existe. Para produccion,
+  donde el Dockerfile no copia `frontend/public` sino el build de Angular, el helper tambien busca
+  `frontend_dist/logo.png` y `STATIC_ROOT/logo.png` antes de caer al monograma.
 - **Por qué:** el administrador de plataforma necesitaba comunicarse con un usuario sin salir de
   Wayra ni perder la identidad visual de los correos transaccionales.
 - **Archivos/áreas afectadas:** `backend/accounts/{views.py,serializers.py,email_utils.py,tests.py}`,

@@ -17,7 +17,8 @@ NON_INBOX_EMAIL_BACKENDS = {
 
 RESEND_EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
 RESEND_TEST_DOMAIN = "resend.dev"
-WAYRA_LOGO_RELATIVE_PATH = Path("frontend") / "public" / "logo.png"
+WAYRA_LOGO_SOURCE_RELATIVE_PATH = Path("frontend") / "public" / "logo.png"
+WAYRA_LOGO_DIST_RELATIVE_PATH = Path("frontend_dist") / "logo.png"
 
 
 def resend_api_key_is_configured() -> bool:
@@ -72,18 +73,44 @@ def email_backend_delivers_to_inbox() -> bool:
     return backend not in NON_INBOX_EMAIL_BACKENDS
 
 
+def wayra_logo_candidate_paths() -> list[Path]:
+    project_root = Path(settings.BASE_DIR).parent
+    candidates = [
+        project_root / WAYRA_LOGO_SOURCE_RELATIVE_PATH,
+        project_root / WAYRA_LOGO_DIST_RELATIVE_PATH,
+    ]
+
+    frontend_dist_dir = getattr(settings, "FRONTEND_DIST_DIR", None)
+    if frontend_dist_dir:
+        candidates.append(Path(frontend_dist_dir) / "logo.png")
+
+    static_root = getattr(settings, "STATIC_ROOT", None)
+    if static_root:
+        candidates.append(Path(static_root) / "logo.png")
+
+    unique_candidates: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = str(candidate)
+        if key not in seen:
+            unique_candidates.append(candidate)
+            seen.add(key)
+    return unique_candidates
+
+
 def wayra_logo_path() -> Path:
-    return Path(settings.BASE_DIR).parent / WAYRA_LOGO_RELATIVE_PATH
+    return wayra_logo_candidate_paths()[0]
 
 
 def build_wayra_logo_context(inline_logo_cid: str = "platform-logo") -> tuple[str | None, bytes | None, str, str]:
     inline_logo_name = "logo.png"
-    logo_path = wayra_logo_path()
-    if logo_path.exists() and logo_path.is_file():
+    for logo_path in wayra_logo_candidate_paths():
+        if not logo_path.exists() or not logo_path.is_file():
+            continue
         try:
             return f"cid:{inline_logo_cid}", logo_path.read_bytes(), logo_path.name, inline_logo_cid
         except OSError:
-            pass
+            continue
 
     logo_url = str(getattr(settings, "BRAND_LOGO_URL", "") or "").strip()
     return logo_url or None, None, inline_logo_name, inline_logo_cid
