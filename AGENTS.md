@@ -1127,10 +1127,10 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 - **Tipo:** fix / seguridad
 - **Que se hizo:** la asignacion de roles de usuarios ahora distingue entre cuentas de hotel y
   cuentas de plataforma. En `/usuarios-hotel`, incluso si opera un administrador de plataforma, el
-  catalogo y el endpoint `GET/POST /api/users/<id>/roles/` solo exponen roles operativos de hotel
-  (`admin`, `manager`, `staff`) para usuarios con `hotel_settings`. Los serializers de creacion y
-  edicion rechazan asignar `platform_admin` a usuarios de hotel, tambien cuando el request omite
-  `job_title_option`.
+  catalogo y el endpoint `GET/POST /api/users/<id>/roles/` exponen los roles activos que no son de
+  plataforma para usuarios con `hotel_settings`, incluidos roles operativos adicionales o
+  personalizados. Los serializers de creacion y edicion rechazan asignar `platform_admin` o roles
+  con recursos `saas*` a usuarios de hotel, tambien cuando el request omite `job_title_option`.
 - **Por que:** `platform_admin` da acceso al menu SaaS y no debe ser asignable al personal de un
   hotel. Ocultarlo solo en frontend no bastaba; la validacion de servidor cierra la ruta API.
 - **Archivos/areas afectadas:** `backend/accounts/role_assignment.py`,

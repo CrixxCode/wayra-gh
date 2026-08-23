@@ -736,15 +736,22 @@ class UserHotelAssignmentByRoleTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         slugs = {role["slug"] for role in response.data["roles"]}
-        self.assertEqual(slugs, {"admin", "manager", "staff"})
-        self.assertNotIn(str(self.operator_role.id), response.data["active_role_ids"])
+        self.assertEqual(slugs, {"admin", "manager", "operator", "staff"})
+        self.assertIn(str(self.operator_role.id), response.data["active_role_ids"])
+        self.assertNotIn(str(self.platform_role.id), response.data["active_role_ids"])
 
     def test_hotel_user_role_assignments_can_toggle_multiple_roles(self):
         self.client.force_login(self.admin_user)
 
         response = self.client.post(
             f"/api/users/{self.target_user.id}/roles/",
-            {"role_ids": [str(self.admin_role.id), str(self.reception_role.id)]},
+            {
+                "role_ids": [
+                    str(self.admin_role.id),
+                    str(self.operator_role.id),
+                    str(self.reception_role.id),
+                ]
+            },
             format="json",
         )
 
@@ -759,7 +766,7 @@ class UserHotelAssignmentByRoleTests(APITestCase):
 
         response = self.client.post(
             f"/api/users/{self.target_user.id}/roles/",
-            {"role_ids": [str(self.reception_role.id)]},
+            {"role_ids": [str(self.operator_role.id), str(self.reception_role.id)]},
             format="json",
         )
 
@@ -777,12 +784,12 @@ class UserHotelAssignmentByRoleTests(APITestCase):
 
         response = self.client.post(
             f"/api/users/{self.target_user.id}/roles/",
-            {"role_ids": [str(self.operator_role.id)]},
+            {"role_ids": [str(self.platform_role.id)]},
             format="json",
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn(str(self.operator_role.id), response.data["rejected_role_ids"])
+        self.assertIn(str(self.platform_role.id), response.data["rejected_role_ids"])
 
     def test_platform_admin_sees_only_hotel_roles_when_managing_hotel_user_roles(self):
         self.client.force_login(self.platform_admin)
@@ -791,7 +798,7 @@ class UserHotelAssignmentByRoleTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         slugs = {role["slug"] for role in response.data["roles"]}
-        self.assertEqual(slugs, {"admin", "manager", "staff"})
+        self.assertEqual(slugs, {"admin", "manager", "operator", "staff"})
         self.assertNotIn(str(self.platform_role.id), response.data["active_role_ids"])
 
     def test_platform_admin_cannot_assign_platform_role_to_hotel_user(self):
@@ -825,7 +832,7 @@ class UserHotelAssignmentByRoleTests(APITestCase):
             else response.data
         )
         slugs = {role["slug"] for role in payload}
-        self.assertEqual(slugs, {"admin", "manager", "staff"})
+        self.assertEqual(slugs, {"admin", "manager", "operator", "staff"})
 
     def test_platform_admin_cannot_update_hotel_user_to_platform_role_without_job_title(self):
         self.client.force_login(self.platform_admin)
