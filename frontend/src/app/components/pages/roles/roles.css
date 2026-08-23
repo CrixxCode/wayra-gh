@@ -681,6 +681,12 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
 }
 
+.input[readonly] {
+  background: var(--gh-surface-soft);
+  color: var(--gh-text-muted);
+  cursor: not-allowed;
+}
+
 .drawer-foot {
   padding: 14px 20px 20px;
   border-top: 1px solid var(--line);

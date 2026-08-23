@@ -301,6 +301,12 @@ textarea.input {
   box-shadow: 0 0 0 3px rgba(11, 94, 215, 0.12);
 }
 
+.input[readonly] {
+  color: var(--md-muted);
+  background: #eef4ff;
+  cursor: not-allowed;
+}
+
 .segmented {
   min-height: 38px;
   display: grid;

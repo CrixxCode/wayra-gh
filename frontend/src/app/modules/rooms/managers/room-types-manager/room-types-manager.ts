@@ -6,8 +6,9 @@ import { catchError, forkJoin, of } from 'rxjs';
 import { RoomService } from '../../../../services/room';
 import { errorActionAlert, successActionAlert } from '../../../../services/action-alerts';
 import { openActionConfirmation } from '../../../../services/action-confirmations';
-import { RateI, RoomI, RoomTypeFormPayload, RoomTypeI } from '../../room-model';
+import { RateI, RoomBillingMode, RoomI, RoomTypeFormPayload, RoomTypeI } from '../../room-model';
 import { extractApiErrorMessage } from '../../api-error';
+import { makeUniqueIdentifier } from '../../../../shared/auto-identifiers';
 
 type FormMode = 'closed' | 'create' | 'edit';
 
@@ -101,7 +102,13 @@ export class RoomTypesManager implements OnInit {
 
     this.filteredRoomTypes = this.roomTypes.filter((item) => {
       if (!query) return true;
-      const pool = [item.code, item.name, item.description || '', item.bed_type || '']
+      const pool = [
+        item.code,
+        item.name,
+        item.description || '',
+        item.bed_type || '',
+        this.getBillingModeLabel(item.billing_mode)
+      ]
         .join(' ')
         .toLowerCase();
       return pool.includes(query);
@@ -130,6 +137,7 @@ export class RoomTypesManager implements OnInit {
       capacity: item.capacity ?? 1,
       bed_count: item.bed_count ?? 1,
       bed_type: item.bed_type || '',
+      billing_mode: item.billing_mode || 'ROOM',
       is_active: item.is_active !== false,
       sort_order: item.sort_order ?? 0
     };
@@ -144,6 +152,7 @@ export class RoomTypesManager implements OnInit {
 
   save(): void {
     if (this.saving) return;
+    this.syncRoomTypeCode();
 
     const code = this.form.code.trim().toUpperCase();
     const name = this.form.name.trim();
@@ -170,6 +179,7 @@ export class RoomTypesManager implements OnInit {
       capacity: Number(this.form.capacity),
       bed_count: Number(this.form.bed_count),
       bed_type: this.form.bed_type.trim() || null,
+      billing_mode: this.form.billing_mode,
       is_active: this.form.is_active,
       sort_order: Number(this.form.sort_order) || 0
     };
@@ -297,6 +307,14 @@ export class RoomTypesManager implements OnInit {
     return this.activeRateByType.has(id);
   }
 
+  getBillingModeLabel(mode: RoomBillingMode | undefined): string {
+    return mode === 'PERSON' ? 'Por persona' : 'Habitacion completa';
+  }
+
+  onRoomTypeNameInput(): void {
+    this.syncRoomTypeCode();
+  }
+
   getBedSummary(item: RoomTypeI): string {
     const bedCount = item.bed_count ?? 0;
     const bedType = item.bed_type || 'cama';
@@ -315,6 +333,7 @@ export class RoomTypesManager implements OnInit {
       capacity: 2,
       bed_count: 1,
       bed_type: '',
+      billing_mode: 'ROOM' as RoomBillingMode,
       is_active: true,
       sort_order: 0
     };
@@ -362,5 +381,28 @@ export class RoomTypesManager implements OnInit {
       if (currentTime >= existingTime) map.set(rate.room_type, rate);
     }
     return map;
+  }
+
+  private syncRoomTypeCode(): void {
+    const name = this.form.name.trim();
+    if (!name) {
+      if (this.formMode === 'create') this.form.code = '';
+      return;
+    }
+
+    if (this.formMode === 'edit' && this.form.code) return;
+
+    this.form.code = makeUniqueIdentifier(
+      name,
+      [...this.roomTypes, ...this.deletedRoomTypes].map((item) => item.code),
+      {
+        currentValue: this.formMode === 'edit'
+          ? [...this.roomTypes, ...this.deletedRoomTypes].find((item) => item.id === this.editingId)?.code
+          : '',
+        fallback: 'TIPO',
+        maxLength: 80,
+        style: 'code',
+      }
+    );
   }
 }

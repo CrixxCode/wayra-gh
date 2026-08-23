@@ -29,8 +29,8 @@
           </label>
 
           <label>
-            <span>Codigo interno</span>
-            <input type="text" formControlName="code" placeholder="Ej: APRIL-WELCOME" [class.input-error]="code?.touched && code?.invalid" />
+            <span>Codigo automatico</span>
+            <input type="text" formControlName="code" readonly placeholder="DESCUENTO_BIENVENIDA" [class.input-error]="code?.touched && code?.invalid" />
             <small class="field-error" *ngIf="code?.touched && code?.hasError('maxlength')">Maximo 50 caracteres.</small>
           </label>
 

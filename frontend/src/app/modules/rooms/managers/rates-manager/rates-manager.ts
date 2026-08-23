@@ -6,7 +6,7 @@ import { catchError, forkJoin, of } from 'rxjs';
 import { RoomService } from '../../../../services/room';
 import { errorActionAlert, successActionAlert } from '../../../../services/action-alerts';
 import { openActionConfirmation } from '../../../../services/action-confirmations';
-import { RateFormPayload, RateI, RoomTypeI } from '../../room-model';
+import { RateFormPayload, RateI, RoomBillingMode, RoomTypeI } from '../../room-model';
 import { extractApiErrorMessage } from '../../api-error';
 
 type FormMode = 'closed' | 'create' | 'edit';
@@ -38,6 +38,7 @@ export class RatesManager implements OnInit {
 
   search = '';
   roomTypeFilter: number | 'ALL' = 'ALL';
+  billingModeFilter: RoomBillingMode | 'ALL' = 'ALL';
   showDeleted = false;
 
   formMode: FormMode = 'closed';
@@ -105,11 +106,19 @@ export class RatesManager implements OnInit {
     this.filteredRates = this.rates.filter((rate) => {
       const matchesType =
         this.roomTypeFilter === 'ALL' ? true : rate.room_type === this.roomTypeFilter;
+      const matchesBillingMode =
+        this.billingModeFilter === 'ALL'
+          ? true
+          : (rate.billing_mode || 'ROOM') === this.billingModeFilter;
 
-      if (!matchesType) return false;
+      if (!matchesType || !matchesBillingMode) return false;
       if (!query) return true;
 
-      const pool = [rate.name, rate.room_type_name || this.getRoomTypeName(rate.room_type)]
+      const pool = [
+        rate.name,
+        rate.room_type_name || this.getRoomTypeName(rate.room_type),
+        this.getBillingModeLabel(rate.billing_mode)
+      ]
         .join(' ')
         .toLowerCase();
       return pool.includes(query);
@@ -285,6 +294,25 @@ export class RatesManager implements OnInit {
   getRoomTypeName(id: number | null | undefined): string {
     if (typeof id !== 'number') return 'Sin tipo';
     return this.roomTypes.find((item) => item.id === id)?.name || 'Sin tipo';
+  }
+
+  getRoomTypeBillingMode(id: number | null | undefined): RoomBillingMode {
+    if (typeof id !== 'number') return 'ROOM';
+    return this.roomTypes.find((item) => item.id === id)?.billing_mode || 'ROOM';
+  }
+
+  getBillingModeLabel(mode: RoomBillingMode | undefined): string {
+    return mode === 'PERSON' ? 'Por persona' : 'Habitacion completa';
+  }
+
+  getSelectedBillingModeLabel(): string {
+    return this.getBillingModeLabel(this.getRoomTypeBillingMode(this.form.room_type));
+  }
+
+  getRatePriceUnitLabel(rate: RateI): string {
+    return (rate.billing_mode || 'ROOM') === 'PERSON'
+      ? 'por persona/noche'
+      : 'por habitacion/noche';
   }
 
   getPriceLabel(rate: RateI): string {

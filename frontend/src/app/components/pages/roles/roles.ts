@@ -6,6 +6,7 @@ import { catchError, forkJoin, map, of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
 import { errorActionAlert, successActionAlert } from '../../../services/action-alerts';
 import { openActionConfirmation } from '../../../services/action-confirmations';
+import { makeUniqueIdentifier } from '../../../shared/auto-identifiers';
 
 type ToastKind = 'success' | 'danger' | 'info';
 
@@ -192,6 +193,8 @@ export class RolesComponent implements OnInit {
   }
 
   saveRole(): void {
+    this.syncRoleSlug();
+
     const payload = {
       name: (this.roleForm.name || '').trim(),
       slug: (this.roleForm.slug || '').trim(),
@@ -371,6 +374,10 @@ export class RolesComponent implements OnInit {
     });
   }
 
+  onRoleNameInput(): void {
+    this.syncRoleSlug();
+  }
+
   private refreshRoleUserCounts(): void {
     const requestId = ++this.roleCountsRequestId;
 
@@ -396,5 +403,26 @@ export class RolesComponent implements OnInit {
         this.roleUserCounts.clear();
       },
     });
+  }
+
+  private syncRoleSlug(): void {
+    const name = (this.roleForm.name || '').trim();
+    if (!name) {
+      if (!this.isEditing) this.roleForm.slug = '';
+      return;
+    }
+
+    if (this.isEditing && this.roleForm.slug) return;
+
+    this.roleForm.slug = makeUniqueIdentifier(
+      name,
+      this.roles.map((role) => role.slug),
+      {
+        currentValue: this.isEditing ? this.selectedRole?.slug : '',
+        fallback: 'rol',
+        maxLength: 80,
+        style: 'slug',
+      }
+    );
   }
 }

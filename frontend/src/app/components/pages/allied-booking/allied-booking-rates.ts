@@ -239,6 +239,10 @@ export class AlliedBookingRatesPage implements OnInit {
     return getRateEstimatedTotal(rate, this.criteria);
   }
 
+  getRateUnitLabel(rate: AlliedRoomRate): string {
+    return rate.billingMode === 'PERSON' ? 'Por persona/noche' : 'Por habitacion/noche';
+  }
+
   isAvailableRoomRateCountEstimated(rate: AlliedRoomRate): boolean {
     return isAvailableRoomRateCountEstimated(rate);
   }

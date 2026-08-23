@@ -24,6 +24,7 @@ export interface AlliedRoomRate {
   imageUrl?: string;
   maxGuests: number;
   nightlyRate: number;
+  billingMode?: 'ROOM' | 'PERSON';
   availableRooms?: number | null;
 }
 

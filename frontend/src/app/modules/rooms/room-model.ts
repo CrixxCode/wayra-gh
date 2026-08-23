@@ -8,6 +8,8 @@ export type RoomStatus =
 
 export type RoomVisualStatus = RoomStatus | 'POR_SALIR_HOY' | 'SIN_CONFIGURAR';
 
+export type RoomBillingMode = 'ROOM' | 'PERSON';
+
 export interface AmenityI {
   id: number;
   name: string;
@@ -34,6 +36,7 @@ export interface RoomTypeI {
   capacity?: number;
   bed_count?: number;
   bed_type?: string | null;
+  billing_mode?: RoomBillingMode;
   is_active?: boolean;
   sort_order?: number;
   created_at?: string;
@@ -47,6 +50,7 @@ export interface RoomTypeFormPayload {
   capacity: number;
   bed_count: number;
   bed_type?: string | null;
+  billing_mode: RoomBillingMode;
   is_active: boolean;
   sort_order: number;
 }
@@ -57,6 +61,7 @@ export interface RateI {
   room_type_name?: string;
   name: string;
   price: string | number;
+  billing_mode?: RoomBillingMode;
   start_date?: string | null;
   end_date?: string | null;
   is_active?: boolean;

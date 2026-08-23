@@ -12,6 +12,10 @@ def room_photo_upload_to(instance, filename):
 
 
 class RoomType(models.Model):
+    class BillingMode(models.TextChoices):
+        ROOM = "ROOM", "Habitacion completa"
+        PERSON = "PERSON", "Por persona"
+
     hotel_settings = models.ForeignKey(
         "hotel_settings.HotelSettings",
         on_delete=models.PROTECT,
@@ -26,6 +30,11 @@ class RoomType(models.Model):
     capacity = models.PositiveIntegerField(default=1)
     bed_count = models.PositiveIntegerField(default=1)
     bed_type = models.CharField(max_length=50, blank=True, null=True)
+    billing_mode = models.CharField(
+        max_length=12,
+        choices=BillingMode.choices,
+        default=BillingMode.ROOM,
+    )
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -42,9 +51,24 @@ class RoomType(models.Model):
         ]
 
     def save(self, *args, **kwargs):
+        old_billing_mode = None
+        if self.pk:
+            old_billing_mode = (
+                type(self).objects.filter(pk=self.pk).values_list("billing_mode", flat=True).first()
+            )
+            update_fields = kwargs.get("update_fields")
+            if (
+                update_fields is not None
+                and old_billing_mode is not None
+                and old_billing_mode != self.billing_mode
+                and "billing_mode" not in update_fields
+            ):
+                kwargs["update_fields"] = set(update_fields) | {"billing_mode"}
         if self.code:
             self.code = str(self.code).strip().upper()
         super().save(*args, **kwargs)
+        if old_billing_mode is not None and old_billing_mode != self.billing_mode:
+            self.rates.update(billing_mode=self.billing_mode)
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -61,6 +85,11 @@ class Rate(models.Model):
     room_type = models.ForeignKey(RoomType, on_delete=models.CASCADE, related_name="rates")
     name = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    billing_mode = models.CharField(
+        max_length=12,
+        choices=RoomType.BillingMode.choices,
+        default=RoomType.BillingMode.ROOM,
+    )
     start_date = models.DateField(blank=True, null=True)
     end_date = models.DateField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
@@ -69,6 +98,14 @@ class Rate(models.Model):
     class Meta:
         db_table = "rate"
         ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if self.room_type_id:
+            self.billing_mode = self.room_type.billing_mode
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None and "billing_mode" not in update_fields:
+                kwargs["update_fields"] = set(update_fields) | {"billing_mode"}
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.name} - {self.room_type}"

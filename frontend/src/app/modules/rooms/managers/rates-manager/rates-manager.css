@@ -19,6 +19,10 @@
   flex: 0 1 220px;
 }
 
+.mode-filter {
+  flex: 0 1 200px;
+}
+
 .toolbar-actions {
   display: flex;
   align-items: center;
@@ -43,6 +47,17 @@
   justify-content: flex-end;
   gap: 10px;
   margin-top: 14px;
+}
+
+.mode-summary {
+  min-height: 74px;
+  justify-content: center;
+}
+
+.mode-summary strong {
+  color: var(--gh-text-strong);
+  font-size: 14px;
+  line-height: 1.2;
 }
 
 .cell-main {

@@ -33,6 +33,7 @@ import {
   AmenityI,
   HotelFloorI,
   RateI,
+  RoomBillingMode,
   RoomActiveReservationI,
   RoomI,
   RoomPhotoI,
@@ -75,6 +76,7 @@ type ReceptionCartLine = {
 export class RoomModal implements OnChanges, OnDestroy, OnInit {
   @Input({ required: true }) room!: RoomI;
   @Input() floors: HotelFloorI[] = [];
+  @Input() rooms: RoomI[] = [];
   @Input() roomTypes: RoomTypeI[] = [];
   @Input() amenities: AmenityI[] = [];
   @Input() rates: RateI[] = [];
@@ -106,6 +108,7 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
   actionLoading = false;
   photoUploading = false;
   deletingPhotoId: number | null = null;
+  copyingConfiguration = false;
 
   feedback = '';
   feedbackKind: 'error' | 'info' = 'info';
@@ -142,6 +145,7 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
   showMaintenanceCreator = false;
   inventorySearch = '';
   consumptionSearch = '';
+  copySourceRoomId: number | null = null;
   loadingReservationBilling = false;
   loadingReceptionItems = false;
 
@@ -360,11 +364,18 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
   }
 
   get availableRates(): RateI[] {
-    const roomTypeId = this.selectedRoomType?.id;
+    const selectedRoomType = this.selectedRoomType;
+    const roomTypeId = selectedRoomType?.id;
     if (typeof roomTypeId !== 'number') return [];
+    const billingMode = selectedRoomType?.billing_mode || 'ROOM';
 
     return this.rates
-      .filter((rate) => rate.room_type === roomTypeId && rate.is_active !== false)
+      .filter(
+        (rate) =>
+          rate.room_type === roomTypeId &&
+          rate.is_active !== false &&
+          (rate.billing_mode || 'ROOM') === billingMode
+      )
       .sort((a, b) =>
         (a.name || '').localeCompare(b.name || '', 'es', { numeric: true, sensitivity: 'base' })
       );
@@ -411,6 +422,14 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
 
   get activeInventoryCount(): number {
     return this.inventory.filter((record) => record.is_active).length;
+  }
+
+  getBillingModeLabel(mode: RoomBillingMode | undefined): string {
+    return mode === 'PERSON' ? 'Por persona' : 'Habitacion completa';
+  }
+
+  getRateUnitLabel(rate: RateI): string {
+    return rate.billing_mode === 'PERSON' ? '/ persona/noche' : '/ habitacion/noche';
   }
 
   get roomPhotos(): RoomPhotoI[] {
@@ -630,6 +649,21 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
     return current.length !== next.length || current.some((id, index) => id !== next[index]);
   }
 
+  get copyConfigurationSourceRooms(): RoomI[] {
+    const currentRoomId = this.room?.id;
+    return [...this.rooms]
+      .filter((item) => item.id !== currentRoomId)
+      .sort((a, b) => String(a.number || '').localeCompare(String(b.number || ''), 'es', {
+        numeric: true,
+        sensitivity: 'base'
+      }));
+  }
+
+  get selectedCopySourceRoom(): RoomI | null {
+    if (typeof this.copySourceRoomId !== 'number') return null;
+    return this.rooms.find((item) => item.id === this.copySourceRoomId) || null;
+  }
+
   // ------------------------------------------------------------------ carga
 
   loadPanel(): void {
@@ -649,7 +683,7 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
     });
   }
 
-  loadOperations(): void {
+  loadOperations(forceRefresh = false): void {
     if (!this.room?.id) return;
     const roomId = this.room.id;
 
@@ -662,7 +696,7 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
         .listMaintenanceOrders()
         .pipe(catchError(() => of([] as MaintenanceOrderI[]))),
       inventory: this.roomInventoryService
-        .listRoomInventory({ include_inactive: true })
+        .listRoomInventory({ include_inactive: true, forceRefresh })
         .pipe(catchError(() => of([] as RoomInventoryI[]))),
       items: this.itemsService
         .listItems({ include_inactive: false, item_purpose: 'ROOM', ordering: 'name' })
@@ -762,6 +796,7 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
       notes: this.room?.notes || ''
     };
     this.selectedAmenityIds = (this.room?.amenities || []).map((item) => item.id);
+    this.copySourceRoomId = null;
   }
 
   saveGeneral(): void {
@@ -847,6 +882,83 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
         this.saving = false;
         this.setFeedback(
           extractApiErrorMessage(error, errorActionAlert('update', 'tarifa de habitacion')),
+          'error'
+        );
+      }
+    });
+  }
+
+  askCopyConfiguration(): void {
+    if (this.saving || this.copyingConfiguration) return;
+
+    const sourceRoom = this.selectedCopySourceRoom;
+    if (!sourceRoom) {
+      this.setFeedback('Selecciona la habitacion de la que quieres copiar la configuracion.', 'error');
+      return;
+    }
+
+    this.confirmationService.confirm({
+      key: 'appConfirm',
+      header: 'Copiar configuracion',
+      message:
+        `Se copiara tipo, tarifa, amenidades, notas e inventario de la habitacion ` +
+        `${sourceRoom.number || sourceRoom.id} a la habitacion ${this.roomNumber}.`,
+      icon: 'pi pi-copy',
+      acceptLabel: 'Copiar configuracion',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-primary',
+      rejectButtonStyleClass: 'p-button-secondary p-button-outlined',
+      defaultFocus: 'reject',
+      accept: () => this.copyConfigurationFrom(sourceRoom.id)
+    });
+  }
+
+  copyRoomSourceLabel(room: RoomI): string {
+    const roomTypeName =
+      this.roomTypes.find((item) => item.id === room.room_type)?.name ||
+      room.room_type_name ||
+      'Sin tipo';
+    const rateId = this.getRoomRateId(room);
+    const rateName = rateId ? this.rates.find((item) => item.id === rateId)?.name : null;
+    return `${room.number || room.id} - ${roomTypeName}${rateName ? ` / ${rateName}` : ''}`;
+  }
+
+  getCopySourceSummary(room: RoomI | null): string {
+    if (!room) return 'Elige una habitacion origen para previsualizar que se copiara.';
+
+    const amenityCount = (room.amenities || []).length;
+    const roomTypeName =
+      this.roomTypes.find((item) => item.id === room.room_type)?.name ||
+      room.room_type_name ||
+      'sin tipo';
+    const rateId = this.getRoomRateId(room);
+    const rateName = rateId ? this.rates.find((item) => item.id === rateId)?.name : null;
+
+    return `Copiara ${roomTypeName}${rateName ? `, tarifa ${rateName}` : ''}, ${amenityCount} amenidad(es), notas e inventario configurado.`;
+  }
+
+  private copyConfigurationFrom(sourceRoomId: number): void {
+    if (this.copyingConfiguration || !this.room?.id) return;
+
+    this.copyingConfiguration = true;
+    this.roomService.copyRoomConfiguration(this.room.id, sourceRoomId).subscribe({
+      next: (updated) => {
+        this.copyingConfiguration = false;
+        this.dirty = true;
+        this.room = { ...this.room, ...updated };
+        this.resetFormFromRoom();
+        this.setFeedback(
+          successActionAlert('update', `configuracion de habitacion ${this.roomNumber}`),
+          'info'
+        );
+        this.loadPanel();
+        this.loadOperations(true);
+        this.saved.emit(this.room);
+      },
+      error: (error) => {
+        this.copyingConfiguration = false;
+        this.setFeedback(
+          extractApiErrorMessage(error, errorActionAlert('update', 'configuracion de habitacion')),
           'error'
         );
       }

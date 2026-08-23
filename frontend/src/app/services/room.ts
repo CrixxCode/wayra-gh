@@ -10,6 +10,7 @@ import {
   RateFormPayload,
   RateI,
   RoomFormPayload,
+  RoomBillingMode,
   RoomI,
   RoomPanelI,
   RoomTypeFormPayload,
@@ -180,6 +181,20 @@ export class RoomService {
     );
   }
 
+  copyRoomConfiguration(id: number, sourceRoomId: number): Observable<RoomI> {
+    return this.http.post<RoomI>(
+      `${this.roomsUrl}${id}/copy-configuration/`,
+      { source_room: Number(sourceRoomId) },
+      this.auth.buildCsrfRequestOptions()
+    ).pipe(
+      tap(() => {
+        this.invalidateRooms();
+        this.invalidateCatalog(RoomService.RATES_KEY);
+        this.cache.invalidate('room-inventory');
+      })
+    );
+  }
+
   uploadRoomPhotos(id: number, files: File[]): Observable<RoomI> {
     const formData = new FormData();
     files.forEach((file) => formData.append('photos', file));
@@ -342,6 +357,7 @@ export class RoomService {
     search?: string;
     ordering?: string;
     room_type?: number;
+    billing_mode?: RoomBillingMode;
     is_active?: boolean;
     include_inactive?: boolean;
     include_deleted?: boolean;
@@ -358,6 +374,10 @@ export class RoomService {
 
     if (typeof filters?.room_type === 'number' && filters.room_type > 0) {
       params = params.set('room_type', String(filters.room_type));
+    }
+
+    if (filters?.billing_mode) {
+      params = params.set('billing_mode', filters.billing_mode);
     }
 
     if (typeof filters?.is_active === 'boolean') {
@@ -540,6 +560,7 @@ export class RoomService {
       capacity: this.normalizePositiveInteger(payload.capacity, 1),
       bed_count: this.normalizePositiveInteger(payload.bed_count, 1),
       bed_type: this.normalizeNullableText(payload.bed_type),
+      billing_mode: this.normalizeBillingMode(payload.billing_mode),
       is_active: !!payload.is_active,
       sort_order: this.normalizeNonNegativeInteger(payload.sort_order)
     };
@@ -572,6 +593,10 @@ export class RoomService {
       normalized.bed_type = this.normalizeNullableText(payload.bed_type);
     }
 
+    if (payload.billing_mode !== undefined) {
+      normalized.billing_mode = this.normalizeBillingMode(payload.billing_mode);
+    }
+
     if (payload.is_active !== undefined) {
       normalized.is_active = !!payload.is_active;
     }
@@ -595,6 +620,10 @@ export class RoomService {
 
   private normalizeRoomTypeName(value: unknown): string {
     return String(value || '').trim();
+  }
+
+  private normalizeBillingMode(value: unknown): RoomBillingMode {
+    return value === 'PERSON' ? 'PERSON' : 'ROOM';
   }
 
   private normalizeNullableText(value: unknown): string | null {

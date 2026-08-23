@@ -6,6 +6,7 @@ import { PromotionsService } from '../../../services/promotion';
 import { PackageI } from '../../packages/package-model';
 import { ServiceI } from '../../services/service-model';
 import { PromotionFormPayload, PromotionI } from '../promotion-model';
+import { generateIdentifierFromText } from '../../../shared/auto-identifiers';
 
 type PromotionTargetScope = 'GENERAL' | 'SERVICE' | 'PACKAGE';
 
@@ -60,6 +61,8 @@ export class UpdatePromotion implements OnInit, OnChanges {
       const nextScope = (scope || 'GENERAL') as PromotionTargetScope;
       this.applyTargetValidators(nextScope);
     });
+
+    this.name?.valueChanges.subscribe(() => this.syncPromotionCode());
 
     this.applyTargetValidators((this.target_scope?.value || 'GENERAL') as PromotionTargetScope);
   }
@@ -181,6 +184,7 @@ export class UpdatePromotion implements OnInit, OnChanges {
 
   submit(): void {
     this.errorMessage = '';
+    this.syncPromotionCode();
 
     const hotelSettingsId = this.resolveHotelSettingsId();
     if (!hotelSettingsId) {
@@ -331,6 +335,18 @@ export class UpdatePromotion implements OnInit, OnChanges {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
     return trimmed || null;
+  }
+
+  private syncPromotionCode(): void {
+    if (this.code?.value) return;
+
+    const name = String(this.name?.value || '').trim();
+    this.code?.setValue(
+      name
+        ? generateIdentifierFromText(name, { fallback: 'PROMOCION', maxLength: 50, style: 'code' })
+        : '',
+      { emitEvent: false }
+    );
   }
 
   private normalizeDate(value: unknown): string {

@@ -524,16 +524,22 @@ export function getEstimatedTotal(
   hotel: AlliedHotel,
   criteria: BookingCriteria
 ): number {
+  const rates = getAvailableRoomRates(hotel, criteria);
 
-  return getRateFrom(hotel, criteria) * criteria.rooms * getNights(criteria.dateRange);
+  if (rates.length > 0) {
+    return getRateEstimatedTotal(rates[0], criteria);
+  }
+
+  return hotel.nightlyRateFrom * criteria.rooms * getNights(criteria.dateRange);
 }
 
 export function getRateEstimatedTotal(
   rate: AlliedRoomRate,
   criteria: BookingCriteria
 ): number {
+  const unitCount = rate.billingMode === 'PERSON' ? criteria.guests : criteria.rooms;
 
-  return rate.nightlyRate * criteria.rooms * getNights(criteria.dateRange);
+  return rate.nightlyRate * unitCount * getNights(criteria.dateRange);
 }
 
 export function getRateFrom(

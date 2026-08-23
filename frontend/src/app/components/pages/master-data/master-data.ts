@@ -6,6 +6,7 @@ import { MasterDataGroupI, MasterDataI } from './master-data-model';
 import { MasterDataService } from '../../../services/master-data.service';
 import { errorActionAlert, successActionAlert } from '../../../services/action-alerts';
 import { openActionConfirmation } from '../../../services/action-confirmations';
+import { makeUniqueIdentifier } from '../../../shared/auto-identifiers';
 
 type ToastKind = 'success' | 'danger' | 'info';
 type StatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
@@ -191,6 +192,7 @@ export class MasterDataComponent implements OnInit {
 
   save(): void {
     if (this.saving) return;
+    this.syncFormCode();
 
     const group = (this.form.group || '').trim().toUpperCase();
     const code = (this.form.code || '').trim().toUpperCase();
@@ -272,6 +274,10 @@ export class MasterDataComponent implements OnInit {
     return item.is_active ? 'Activo' : 'Inactivo';
   }
 
+  onMasterDataNameInput(): void {
+    this.syncFormCode();
+  }
+
   private emptyForm() {
     return {
       group: '',
@@ -288,6 +294,32 @@ export class MasterDataComponent implements OnInit {
       .trim()
       .toUpperCase()
       .replace(/\s+/g, '_');
+  }
+
+  private syncFormCode(): void {
+    const name = (this.form.name || '').trim();
+    if (!name) {
+      if (!this.isEditing) this.form.code = '';
+      return;
+    }
+
+    if (this.isEditing && this.form.code) return;
+
+    const group = this.normalizeGroupCode(this.form.group);
+    const existingCodes = this.allItems
+      .filter((item) => !group || item.group === group)
+      .map((item) => item.code);
+
+    const currentCode = this.isEditing
+      ? this.allItems.find((item) => item.id === this.editingId)?.code
+      : '';
+
+    this.form.code = makeUniqueIdentifier(name, existingCodes, {
+      currentValue: currentCode,
+      fallback: 'VALOR',
+      maxLength: 80,
+      style: 'code',
+    });
   }
 
   private toast(message: string, kind: ToastKind = 'info'): void {

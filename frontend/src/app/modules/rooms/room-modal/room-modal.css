@@ -564,6 +564,47 @@
   overflow: hidden;
 }
 
+.copy-config-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.9fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+  background: var(--gh-surface-soft);
+}
+
+.copy-config-panel .gh-panel-title,
+.copy-config-panel .panel-text,
+.copy-config-summary {
+  margin: 0;
+}
+
+.copy-config-summary {
+  color: var(--gh-text-soft);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.copy-config-select {
+  margin: 0;
+}
+
+.copy-config-action {
+  white-space: nowrap;
+}
+
+@media (max-width: 920px) {
+  .copy-config-panel {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .copy-config-action {
+    justify-content: center;
+  }
+}
+
 .room-type-picker {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));

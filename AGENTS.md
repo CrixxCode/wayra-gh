@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-08-22
+**Última actualización:** 2026-08-23
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -1119,6 +1119,74 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-08-23 - Codigos y slugs automaticos en formularios
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** ux
+- **Que se hizo:** se escanearon los formularios del frontend que pedian `code` o `slug` al usuario.
+  El slug de roles y los codigos de valores maestros, tipos de habitacion y promociones ahora se
+  generan automaticamente desde el nombre y el campo queda bloqueado como solo lectura. En creacion
+  se calculan identificadores normalizados y, donde existe el catalogo local, se evita duplicarlos
+  con sufijos numericos; en edicion se conserva el identificador existente para no romper llaves
+  estables del sistema.
+- **Por que:** los usuarios no deberian decidir identificadores tecnicos cuando el sistema puede
+  derivarlos de forma consistente, reduciendo errores de formato y duplicados accidentales.
+- **Archivos/areas afectadas:** `frontend/src/app/shared/auto-identifiers.ts`,
+  `frontend/src/app/components/pages/roles/`, `frontend/src/app/components/pages/master-data/`,
+  `frontend/src/app/modules/rooms/managers/room-types-manager/`,
+  `frontend/src/app/modules/promotions/{create-promotion,update-promotion}/`, `AGENTS.md`.
+- **Impacto:** cambio frontend sin migraciones, endpoints ni recursos RBAC nuevos. No se modifican
+  codigos operativos como codigos de reserva, codigos promo ingresados en reservas, codigos postales
+  o codigos de pais. Verificado con `npm run lint`, `npm run build` y detector Impeccable en modo
+  regex degradado por dependencias HTML faltantes.
+
+### 2026-08-23 - Copiar configuracion entre habitaciones
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Que se hizo:** se agrego `POST /api/rooms/<id>/copy-configuration/` para copiar rapidamente la
+  configuracion editable de una habitacion origen hacia la habitacion abierta: tipo, tarifa, notas,
+  amenidades e inventario asignado. La accion mantiene intactos numero, piso, estado, fotos,
+  reservas, limpieza, mantenimiento e historial operativo. El modal de habitacion ahora muestra en
+  la pestana General un selector de habitacion origen, resumen de lo que se copiara y boton
+  `Copiar`.
+- **Por que:** configurar habitaciones repetidas una por una era lento; recepcion/administracion
+  necesita usar una habitacion ya configurada como plantilla para otra sin salir del modal.
+- **Archivos/areas afectadas:** `backend/apps/rooms/views.py`, `backend/apps/rooms/tests.py`,
+  `frontend/src/app/services/room.ts`, `frontend/src/app/modules/rooms/list-rooms/`,
+  `frontend/src/app/modules/rooms/room-modal/`, `AGENTS.md`.
+- **Impacto:** sin migraciones, variables de entorno ni recursos RBAC nuevos; el endpoint usa
+  `rooms.write`. Verificado con pruebas enfocadas de copia, `python manage.py test apps.rooms`,
+  `npm run lint`, `npm run build` y detector Impeccable en modo regex degradado; el detector repitio
+  un falso positivo existente sobre `[src]` dinamico en fotos de habitacion.
+
+### 2026-08-23 - Cobro de tipos de habitacion por habitacion o por persona
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** feat
+- **Que se hizo:** `RoomType` ahora define `billing_mode` (`ROOM` o `PERSON`) y `Rate` guarda el
+  mismo modo de forma derivada. Al crear o editar tarifas, el backend las marca automaticamente con
+  el modo del tipo de habitacion; al cambiar el modo de un tipo existente, sus tarifas se
+  resincronizan. `/api/rates/` permite filtrar por `room_type`, `billing_mode` e `is_active`. Las
+  reservas internas y publicas calculan el valor nocturno efectivo multiplicando por ocupantes
+  cuando la tarifa es por persona. Los gestores de Tipos de habitacion y Tarifas muestran el modo,
+  filtran por tipo de cobro y ajustan las etiquetas de precio en habitaciones y reserva publica.
+- **Por que:** algunos alojamientos cobran una habitacion completa y otros cobran por persona; mezclar
+  ambos criterios en las mismas tarifas hacia ambiguo el precio y podia cobrar importes incorrectos.
+- **Archivos/areas afectadas:** `backend/apps/rooms/`, `backend/apps/reservations/`,
+  `backend/apps/hotel_settings/`, `frontend/src/app/modules/rooms/`,
+  `frontend/src/app/components/pages/allied-booking/`, `frontend/src/app/services/room.ts`,
+  `frontend/src/app/shared/allied-hotels.ts`, `AGENTS.md`.
+- **Impacto:** requiere migracion `rooms.0015_roomtype_rate_billing_mode`. No agrega recursos RBAC ni
+  variables de entorno. Cambia el calculo de reservas para tarifas por persona. Verificado con
+  `python manage.py makemigrations --check --dry-run`, `python manage.py test apps.rooms`,
+  pruebas enfocadas y ampliadas de `apps.reservations`, `npm run lint`, `npm run build` y detector
+  Impeccable en modo regex degradado; el detector reporto un falso positivo existente sobre `[src]`
+  dinamico en fotos de habitacion.
 
 ### 2026-08-22 - Verificacion de correo en solicitudes de demo
 

@@ -17,6 +17,7 @@ from apps.reservations.models import Reservation, ReservationGuest, ReservationR
 from apps.reservations.services import (
     RESERVATION_STATUS_PENDING_CODES,
     ROOM_STATUS_AVAILABLE,
+    calculate_rate_night_price,
     find_overlapping_reservation_room,
     get_master_data_code,
     get_pending_reservation_status,
@@ -292,7 +293,7 @@ def _create_reservation_rooms(
         reservation_room = ReservationRoom(
             reservation=reservation,
             room=room,
-            night_rate=rate.price,
+            night_rate=calculate_rate_night_price(rate, adults=adults),
             adults=adults,
             children=0,
         )

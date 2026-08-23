@@ -199,7 +199,7 @@
             <i class="fa-solid fa-bed"></i>
             {{ getCardTypeSummary(room) }}
           </p>
-          <p class="room-price">{{ getPriceLabel(room) }}<small>/ noche</small></p>
+          <p class="room-price">{{ getPriceLabel(room) }}<small>{{ getPriceUnitLabel(room) }}</small></p>
 
           <div class="room-badges" *ngIf="hasCardBadges(room)">
             <span
@@ -371,7 +371,7 @@
             </td>
             <td>{{ room.floor_name || '--' }}</td>
             <td class="notes-cell">{{ room.notes || '--' }}</td>
-            <td>{{ getPriceLabel(room) }}/noche</td>
+            <td>{{ getPriceLabel(room) }} {{ getPriceUnitLabel(room) }}</td>
             <td>
               <div class="row-actions" (click)="$event.stopPropagation()">
                 <button type="button" class="row-btn" title="Gestionar habitacion" (click)="openRoom(room)">
@@ -401,6 +401,7 @@
     *ngIf="selectedRoom"
     [room]="selectedRoom"
     [floors]="floors"
+    [rooms]="rooms"
     [roomTypes]="roomTypes"
     [amenities]="amenities"
     [rates]="rates"

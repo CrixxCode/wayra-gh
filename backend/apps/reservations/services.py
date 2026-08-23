@@ -11,7 +11,7 @@ from django.utils import timezone
 from apps.clients.models import Client
 from apps.inventory.models import Item, RoomInventory
 from apps.master_data.models import MasterData
-from apps.rooms.models import CleaningTask, Room
+from apps.rooms.models import CleaningTask, Room, RoomType
 from apps.reservations.models import (
     Reservation,
     ReservationInventoryCheck,
@@ -78,6 +78,18 @@ RESERVATION_STATUS_CONFIRMED = "CONFIRMADA"
 RESERVATION_STATUS_IN_PROGRESS = "EN_CURSO"
 RESERVATION_STATUS_FINISHED = "FINALIZADA"
 RESERVATION_STATUS_CANCELLED = "CANCELADA"
+
+
+def calculate_rate_night_price(rate, *, adults: int = 1, children: int = 0) -> Decimal:
+    base_price = _to_decimal(getattr(rate, "price", MONEY_ZERO))
+    if base_price < MONEY_ZERO:
+        base_price = MONEY_ZERO
+
+    if getattr(rate, "billing_mode", None) != RoomType.BillingMode.PERSON:
+        return base_price
+
+    people = max(int(adults or 0) + int(children or 0), 1)
+    return base_price * Decimal(people)
 
 RESERVATION_STATUS_PENDING_CODES = (
     RESERVATION_STATUS_PENDING,
@@ -574,7 +586,11 @@ def sync_reservation_room_pricing_and_occupancy(reservation) -> None:
                     )
                 }
             )
-        reservation_room.night_rate = expected_rate.price
+        reservation_room.night_rate = calculate_rate_night_price(
+            expected_rate,
+            adults=adults_by_room,
+            children=children_by_room,
+        )
         reservation_room.adults = adults_by_room
         reservation_room.children = children_by_room
 

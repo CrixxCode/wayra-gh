@@ -44,6 +44,15 @@
           </select>
         </label>
 
+        <label class="gh-field mode-filter">
+          <span>Tipo de cobro</span>
+          <select [(ngModel)]="billingModeFilter" (change)="applyFilters()" [disabled]="showDeleted">
+            <option [ngValue]="'ALL'">Todos</option>
+            <option [ngValue]="'ROOM'">Habitacion completa</option>
+            <option [ngValue]="'PERSON'">Por persona</option>
+          </select>
+        </label>
+
         <div class="toolbar-actions">
           <span class="gh-chip is-success">{{ activeCount }} activas</span>
           <button
@@ -75,7 +84,7 @@
             <select [(ngModel)]="form.room_type">
               <option [ngValue]="null">Selecciona un tipo</option>
               <option *ngFor="let roomType of roomTypes; trackBy: trackById" [ngValue]="roomType.id">
-                {{ roomType.name }}
+                {{ roomType.name }} - {{ getBillingModeLabel(roomType.billing_mode) }}
               </option>
             </select>
           </label>
@@ -89,6 +98,11 @@
             <span>Precio por noche *</span>
             <input type="number" min="0" step="1000" [(ngModel)]="form.price" />
           </label>
+
+          <div class="gh-field mode-summary">
+            <span>Cobro automatico</span>
+            <strong>{{ getSelectedBillingModeLabel() }}</strong>
+          </div>
 
           <label class="gh-field">
             <span>Vigente desde</span>
@@ -129,6 +143,7 @@
             <tr>
               <th>Tarifa</th>
               <th>Tipo</th>
+              <th>Cobro</th>
               <th>Precio</th>
               <th>Vigencia</th>
               <th>Estado</th>
@@ -139,7 +154,15 @@
             <tr *ngFor="let rate of visibleRates; trackBy: trackById">
               <td class="cell-main">{{ rate.name }}</td>
               <td>{{ rate.room_type_name || getRoomTypeName(rate.room_type) }}</td>
-              <td class="cell-price">{{ getPriceLabel(rate) }}</td>
+              <td>
+                <span class="gh-chip" [ngClass]="rate.billing_mode === 'PERSON' ? 'is-info' : ''">
+                  {{ getBillingModeLabel(rate.billing_mode) }}
+                </span>
+              </td>
+              <td class="cell-price">
+                {{ getPriceLabel(rate) }}
+                <small class="cell-sub">{{ getRatePriceUnitLabel(rate) }}</small>
+              </td>
               <td>
                 <span class="gh-chip" [ngClass]="getValidityChipClass(rate)">{{ getValidityLabel(rate) }}</span>
                 <small class="cell-sub">{{ getRangeLabel(rate) }}</small>

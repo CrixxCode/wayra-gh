@@ -193,7 +193,7 @@
         <div>
           <div class="drawer-badge">Catalogo maestro</div>
           <div class="drawer-title">{{ isEditing ? 'Editar valor' : 'Nuevo valor' }}</div>
-          <div class="muted">Define grupo, codigo y estado.</div>
+          <div class="muted">Define grupo, nombre y estado.</div>
         </div>
         <button class="icon-btn close-btn" (click)="closeDrawer()">
           <i class="fa-solid fa-xmark"></i>
@@ -219,8 +219,8 @@
 
         <div class="grid2">
           <label class="field">
-            <span>Codigo</span>
-            <input class="input" [(ngModel)]="form.code" placeholder="Ej: ROOM_AVAILABLE" />
+            <span>Codigo automatico</span>
+            <input class="input mono" [(ngModel)]="form.code" readonly placeholder="ROOM_AVAILABLE" />
           </label>
 
           <label class="field">
@@ -231,7 +231,7 @@
 
         <label class="field">
           <span>Nombre</span>
-          <input class="input" [(ngModel)]="form.name" placeholder="Ej: Disponible" />
+          <input class="input" [(ngModel)]="form.name" (ngModelChange)="onMasterDataNameInput()" placeholder="Ej: Disponible" />
         </label>
 
         <label class="field">

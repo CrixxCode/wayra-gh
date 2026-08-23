@@ -1,7 +1,9 @@
+from django.db import transaction
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 
@@ -10,6 +12,7 @@ from accounts.permissions import HasResourcePermission
 from accounts.soft_delete import LogicalDeleteViewSetMixin
 from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
 from apps.reservations.services import sync_room_status_for_room_ids
+from apps.inventory.models import RoomInventory
 from .models import (
     Rate,
     Amenity,
@@ -65,9 +68,10 @@ class RateViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
     required_scopes = ["rates.read"]
     tenant_filter = "hotel_settings"
 
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["room_type", "billing_mode", "is_active"]
     search_fields = ["name", "room_type__name", "room_type__code"]
-    ordering_fields = ["id", "name", "price", "start_date", "end_date", "created_at"]
+    ordering_fields = ["id", "name", "price", "billing_mode", "start_date", "end_date", "created_at"]
     ordering = ["-created_at"]
 
     def get_required_scopes(self):
@@ -238,6 +242,75 @@ class RoomViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+    @action(detail=True, methods=["POST"], url_path="copy-configuration")
+    def copy_configuration(self, request, pk=None):
+        target_room = self.get_object()
+        source_room_id = request.data.get("source_room")
+
+        try:
+            source_room_id = int(source_room_id)
+        except (TypeError, ValueError):
+            return Response(
+                {"source_room": "Selecciona una habitacion origen valida."},
+                status=400,
+            )
+
+        if source_room_id == target_room.id:
+            return Response(
+                {"source_room": "La habitacion origen debe ser diferente a la habitacion destino."},
+                status=400,
+            )
+
+        source_room = (
+            self.get_queryset()
+            .prefetch_related("amenities", "room_inventory_items")
+            .filter(pk=source_room_id)
+            .first()
+        )
+        if not source_room:
+            return Response(
+                {"source_room": "Habitacion origen no encontrada para este hotel."},
+                status=404,
+            )
+
+        with transaction.atomic():
+            target_room.room_type = source_room.room_type
+            target_room.rate = source_room.rate
+            target_room.notes = source_room.notes
+            target_room.full_clean()
+            target_room.save(update_fields=["room_type", "rate", "notes"])
+            target_room.amenities.set(source_room.amenities.all())
+
+            source_inventory = list(
+                RoomInventory.objects.select_related("item").filter(room=source_room)
+            )
+            source_item_ids = [record.item_id for record in source_inventory]
+
+            for source_record in source_inventory:
+                target_record = RoomInventory.objects.filter(
+                    room=target_room,
+                    item=source_record.item,
+                ).first()
+                if target_record is None:
+                    target_record = RoomInventory(
+                        room=target_room,
+                        item=source_record.item,
+                    )
+                target_record.quantity = source_record.quantity
+                target_record.minimum_quantity = source_record.minimum_quantity
+                target_record.notes = source_record.notes
+                target_record.is_active = source_record.is_active
+                target_record.full_clean()
+                target_record.save()
+
+            stale_inventory = RoomInventory.objects.filter(room=target_room)
+            if source_item_ids:
+                stale_inventory = stale_inventory.exclude(item_id__in=source_item_ids)
+            stale_inventory.update(is_active=False)
+
+        target_room = self.get_queryset().get(pk=target_room.pk)
+        return self._serialize_room(target_room)
 
     @action(detail=True, methods=["POST"], url_path="photos")
     def upload_photos(self, request, pk=None):

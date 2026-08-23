@@ -167,6 +167,7 @@ def build_allied_room_rate_payload(
         "imageUrl": first_room_photo_url_for_type(rate.hotel_settings, rate.room_type_id),
         "maxGuests": int(room_type.capacity or 1),
         "nightlyRate": int(rate.price or 0),
+        "billingMode": rate.billing_mode,
         "availableRooms": available_rooms,
     }
 

@@ -41,7 +41,7 @@ from apps.rooms.views import CleaningTaskViewSet
 
 User = get_user_model()
 from apps.rooms.serializers import AmenitySerializer
-from apps.rooms.views import AmenityViewSet, RoomTypeViewSet, RoomViewSet
+from apps.rooms.views import AmenityViewSet, RateViewSet, RoomTypeViewSet, RoomViewSet
 from PIL import Image
 
 
@@ -331,6 +331,102 @@ class RoomTypeInactiveUpdateTests(TestCase):
         self.assertTrue(self.room_type.is_active)
 
 
+class RoomRateBillingModeTests(TestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Cobros")
+        self.person_type = RoomType.objects.create(
+            hotel_settings=self.hotel,
+            code="PER",
+            name="Compartida",
+            capacity=4,
+            billing_mode=RoomType.BillingMode.PERSON,
+        )
+        self.room_type = RoomType.objects.create(
+            hotel_settings=self.hotel,
+            code="STD",
+            name="Standard",
+            capacity=2,
+            billing_mode=RoomType.BillingMode.ROOM,
+        )
+
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            username="rates_reader",
+            password="test-pass-123",
+            hotel_settings=self.hotel,
+        )
+        role = Role.objects.create(name="Rates Reader Role", slug="rates-reader-role")
+        read_resource, _ = Resource.objects.get_or_create(
+            key="rates.read",
+            defaults={"name": "Rates Read", "link_backend": "/api/rates/"},
+        )
+        role.resources.add(read_resource)
+        self.user.roles.add(role)
+
+    def test_rate_inherits_room_type_billing_mode(self):
+        rate = Rate.objects.create(
+            hotel_settings=self.hotel,
+            room_type=self.person_type,
+            name="Cama por persona",
+            price=45000,
+            is_active=True,
+        )
+
+        self.assertEqual(rate.billing_mode, RoomType.BillingMode.PERSON)
+
+    def test_room_type_update_syncs_existing_rates(self):
+        rate = Rate.objects.create(
+            hotel_settings=self.hotel,
+            room_type=self.room_type,
+            name="Base",
+            price=120000,
+            is_active=True,
+        )
+
+        request = self.factory.patch("/api/room-types/")
+        force_authenticate(request, user=self.user)
+        request.user = self.user
+        serializer = RoomTypeViewSet.serializer_class(
+            instance=self.room_type,
+            data={"billing_mode": RoomType.BillingMode.PERSON},
+            partial=True,
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        rate.refresh_from_db()
+        self.assertEqual(rate.billing_mode, RoomType.BillingMode.PERSON)
+
+    def test_rate_list_filters_by_billing_mode(self):
+        room_rate = Rate.objects.create(
+            hotel_settings=self.hotel,
+            room_type=self.room_type,
+            name="Habitacion base",
+            price=120000,
+            is_active=True,
+        )
+        person_rate = Rate.objects.create(
+            hotel_settings=self.hotel,
+            room_type=self.person_type,
+            name="Persona base",
+            price=45000,
+            is_active=True,
+        )
+
+        request = self.factory.get("/api/rates/", {"billing_mode": RoomType.BillingMode.PERSON})
+        force_authenticate(request, user=self.user)
+
+        response = RateViewSet.as_view({"get": "list"})(request)
+        rows = response.data["results"] if isinstance(response.data, dict) else response.data
+        ids = {row["id"] for row in rows}
+
+        self.assertIn(person_rate.id, ids)
+        self.assertNotIn(room_rate.id, ids)
+        self.assertEqual(rows[0]["billing_mode"], RoomType.BillingMode.PERSON)
+
+
 class RoomRateSelectionTests(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
@@ -467,6 +563,123 @@ class RoomRateSelectionTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.room.refresh_from_db()
         self.assertEqual(self.room.rate_id, self.standard_low.id)
+
+    def test_copy_configuration_from_another_room(self):
+        amenity = Amenity.objects.create(name="Balcon", is_active=True)
+        item_type = MasterData.objects.create(
+            group=MasterData.Group.ITEM_TYPE,
+            code="AMENITY_KIT",
+            name="Kit habitacion",
+            is_active=True,
+        )
+        unit_measure = MasterData.objects.create(
+            group=MasterData.Group.UNIT_MEASURE,
+            code="UND",
+            name="Unidad",
+            is_active=True,
+        )
+        source_item = Item.objects.create(
+            hotel_settings=self.hotel,
+            item_type=item_type,
+            unit_measure=unit_measure,
+            name="Toalla",
+            item_purpose=Item.Purpose.ROOM,
+            stock=10,
+        )
+        stale_item = Item.objects.create(
+            hotel_settings=self.hotel,
+            item_type=item_type,
+            unit_measure=unit_measure,
+            name="Jabon",
+            item_purpose=Item.Purpose.ROOM,
+            stock=10,
+        )
+        source_room = Room.objects.create(
+            number="102",
+            room_type=self.suite,
+            rate=self.suite_rate,
+            floor=self.floor,
+            status=self.status,
+            notes="Configuracion premium",
+        )
+        source_room.amenities.add(amenity)
+        RoomInventory.objects.create(
+            room=source_room,
+            item=source_item,
+            quantity=3,
+            minimum_quantity=1,
+            notes="Tres por habitacion",
+            is_active=True,
+        )
+        RoomInventory.objects.create(
+            room=self.room,
+            item=stale_item,
+            quantity=1,
+            minimum_quantity=1,
+            is_active=True,
+        )
+
+        request = self.factory.post(
+            f"/api/rooms/{self.room.id}/copy-configuration/",
+            {"source_room": source_room.id},
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+
+        response = RoomViewSet.as_view({"post": "copy_configuration"})(request, pk=self.room.id)
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.number, "101")
+        self.assertEqual(self.room.floor_id, self.floor.id)
+        self.assertEqual(self.room.status_id, self.status.id)
+        self.assertEqual(self.room.room_type_id, self.suite.id)
+        self.assertEqual(self.room.rate_id, self.suite_rate.id)
+        self.assertEqual(self.room.notes, "Configuracion premium")
+        self.assertEqual(list(self.room.amenities.values_list("id", flat=True)), [amenity.id])
+
+        copied_record = RoomInventory.objects.get(room=self.room, item=source_item)
+        self.assertEqual(copied_record.quantity, 3)
+        self.assertEqual(copied_record.minimum_quantity, 1)
+        self.assertEqual(copied_record.notes, "Tres por habitacion")
+        self.assertTrue(copied_record.is_active)
+        stale_record = RoomInventory.objects.get(room=self.room, item=stale_item)
+        self.assertFalse(stale_record.is_active)
+
+    def test_copy_configuration_rejects_source_from_another_hotel(self):
+        other_hotel = HotelSettings.objects.create(hotel_name="Otro hotel")
+        other_floor = HotelFloor.objects.create(
+            hotel_settings=other_hotel,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=1,
+        )
+        other_type = RoomType.objects.create(
+            hotel_settings=other_hotel,
+            code="OTH",
+            name="Otro tipo",
+            capacity=2,
+        )
+        other_room = Room.objects.create(
+            number="201",
+            room_type=other_type,
+            floor=other_floor,
+            status=self.status,
+        )
+
+        request = self.factory.post(
+            f"/api/rooms/{self.room.id}/copy-configuration/",
+            {"source_room": other_room.id},
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+
+        response = RoomViewSet.as_view({"post": "copy_configuration"})(request, pk=self.room.id)
+
+        self.assertEqual(response.status_code, 404)
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.room_type_id, self.standard.id)
 
 
 class RoomPhotoUploadTests(TestCase):

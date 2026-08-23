@@ -246,6 +246,7 @@ class AlliedRoomRateSerializer(serializers.Serializer):
     imageUrl = serializers.CharField(allow_blank=True, required=False)
     maxGuests = serializers.IntegerField()
     nightlyRate = serializers.IntegerField()
+    billingMode = serializers.CharField()
     availableRooms = serializers.IntegerField(allow_null=True)
 
 

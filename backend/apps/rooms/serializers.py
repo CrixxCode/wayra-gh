@@ -136,6 +136,7 @@ class RoomTypeSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             "capacity",
             "bed_count",
             "bed_type",
+            "billing_mode",
             "is_active",
             "sort_order",
             "created_at",
@@ -186,8 +187,12 @@ class RoomTypeSerializer(TenantSerializerMixin, serializers.ModelSerializer):
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
+        old_billing_mode = instance.billing_mode
         self.assign_target_tenant(validated_data)
-        return super().update(instance, validated_data)
+        updated = super().update(instance, validated_data)
+        if updated.billing_mode != old_billing_mode:
+            Rate.objects.filter(room_type=updated).update(billing_mode=updated.billing_mode)
+        return updated
 
 class RateSerializer(TenantSerializerMixin, serializers.ModelSerializer):
     tenant_field_name = "hotel_settings"
@@ -210,12 +215,13 @@ class RateSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             "room_type_name",
             "name",
             "price",
+            "billing_mode",
             "start_date",
             "end_date",
             "is_active",
             "created_at",
         )
-        read_only_fields = ("id", "created_at")
+        read_only_fields = ("id", "billing_mode", "created_at")
 
     def get_fields(self):
         fields = super().get_fields()
@@ -263,10 +269,13 @@ class RateSerializer(TenantSerializerMixin, serializers.ModelSerializer):
 
     def create(self, validated_data):
         self.assign_target_tenant(validated_data)
+        validated_data["billing_mode"] = validated_data["room_type"].billing_mode
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
         self.assign_target_tenant(validated_data)
+        room_type = validated_data.get("room_type", instance.room_type)
+        validated_data["billing_mode"] = room_type.billing_mode
         return super().update(instance, validated_data)
 
 

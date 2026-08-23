@@ -33,6 +33,7 @@ from apps.reservations.serializers import (
 )
 from apps.inventory.services import apply_checkout_consumption_inventory
 from apps.reservations.services import (
+    calculate_rate_night_price,
     create_post_checkout_cleaning_tasks,
     validate_reservation_status_transition,
 )
@@ -568,6 +569,50 @@ class ReservationFlowTestCase(TestCase):
         )
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_room_serializer_multiplies_person_rate_by_occupancy(self):
+        today = timezone.now().date()
+        self.room_type_standard.billing_mode = RoomType.BillingMode.PERSON
+        self.room_type_standard.save(update_fields=["billing_mode"])
+        reservation = self._create_reservation(
+            check_in=today + timedelta(days=1),
+            check_out=today + timedelta(days=3),
+        )
+        rate = Rate.objects.create(
+            hotel_settings=self.hotel_settings,
+            room_type=self.room_type_standard,
+            name="Tarifa por persona",
+            price=60000,
+            start_date=today,
+            end_date=today + timedelta(days=10),
+            is_active=True,
+        )
+
+        serializer = ReservationRoomSerializer(
+            data={
+                "reservation": reservation.id,
+                "room": self.room.id,
+                "adults": 2,
+                "children": 1,
+            }
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["night_rate"], rate.price * 3)
+
+    def test_calculate_rate_night_price_keeps_room_mode_unit_price(self):
+        rate = Rate(
+            hotel_settings=self.hotel_settings,
+            room_type=self.room_type_standard,
+            name="Tarifa habitacion",
+            price=150000,
+            billing_mode=RoomType.BillingMode.ROOM,
+        )
+
+        self.assertEqual(
+            calculate_rate_night_price(rate, adults=2, children=1),
+            rate.price,
+        )
 
     def test_updating_reservation_dates_validates_existing_room_conflicts(self):
         today = timezone.now().date()
@@ -1798,6 +1843,22 @@ class WebReservationPublicApiTests(APITestCase):
         self.assertEqual(notification.title, "Nueva reserva desde la web")
         self.assertEqual(notification.priority, Notification.Priority.HIGH)
         self.assertEqual(notification.metadata["source_channel"], "WEB")
+
+    def test_public_web_reservation_applies_person_rate_to_guest_count(self):
+        self.room_type.billing_mode = RoomType.BillingMode.PERSON
+        self.room_type.save(update_fields=["billing_mode"])
+        self.rate.save(update_fields=["billing_mode"])
+
+        response = self.client.post(
+            "/api/web-reservations/",
+            data=self._payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        reservation_room = Reservation.objects.get(id=response.data["id"]).rooms_detail.get()
+        self.assertEqual(reservation_room.adults, 2)
+        self.assertEqual(reservation_room.night_rate, self.rate.price * 2)
 
     def test_public_web_reservation_requires_available_room(self):
         first_response = self.client.post(

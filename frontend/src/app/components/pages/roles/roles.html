@@ -289,7 +289,7 @@
       <div class="drawer-head">
         <div>
           <div class="drawer-title">{{ isEditing ? 'Editar rol' : 'Nuevo rol' }}</div>
-          <div class="muted">Define nombre, slug y una descripción breve.</div>
+          <div class="muted">Define nombre y una descripción breve.</div>
         </div>
         <button class="icon-btn" (click)="showRoleDrawer=false">
           <i class="fa-solid fa-xmark"></i>
@@ -299,12 +299,12 @@
       <div class="drawer-body">
         <label class="field">
           <span>Nombre</span>
-          <input class="input" [(ngModel)]="roleForm.name" placeholder="Ej: Recepción" />
+          <input class="input" [(ngModel)]="roleForm.name" (ngModelChange)="onRoleNameInput()" placeholder="Ej: Recepción" />
         </label>
 
         <label class="field">
-          <span>Slug</span>
-          <input class="input" [(ngModel)]="roleForm.slug" placeholder="ej: recepcion" />
+          <span>Slug automatico</span>
+          <input class="input auto-id" [(ngModel)]="roleForm.slug" readonly placeholder="recepcion" />
         </label>
 
         <label class="field">

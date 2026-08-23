@@ -34,6 +34,12 @@
   background: var(--gh-surface-soft);
 }
 
+.gh-field input[readonly] {
+  color: var(--gh-text-muted);
+  background: var(--gh-surface);
+  cursor: not-allowed;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;

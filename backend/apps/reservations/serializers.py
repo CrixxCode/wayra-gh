@@ -17,6 +17,7 @@ from apps.reservations.models import (
 )
 from apps.reservations.services import (
     RESERVATION_STATUS_PENDING_CODES,
+    calculate_rate_night_price,
     can_add_payment_to_reservation,
     find_active_rate_for_room_type_dates,
     find_overlapping_reservation_room,
@@ -291,17 +292,23 @@ class ReservationRoomSerializer(serializers.ModelSerializer):
                     }
                 )
 
-            if provided_night_rate is not None and provided_night_rate != expected_rate.price:
+            expected_night_rate = calculate_rate_night_price(
+                expected_rate,
+                adults=attrs.get("adults", getattr(self.instance, "adults", 1)),
+                children=attrs.get("children", getattr(self.instance, "children", 0)),
+            )
+
+            if provided_night_rate is not None and provided_night_rate != expected_night_rate:
                 raise serializers.ValidationError(
                     {
                         "night_rate": (
                             f"La tarifa por noche debe coincidir con la tarifa activa "
-                            f"({expected_rate.price}) para este tipo de habitacion."
+                            f"({expected_night_rate}) para este tipo de habitacion."
                         )
                     }
                 )
 
-            attrs["night_rate"] = expected_rate.price
+            attrs["night_rate"] = expected_night_rate
 
         return attrs
 

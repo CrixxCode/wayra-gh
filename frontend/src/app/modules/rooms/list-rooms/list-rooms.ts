@@ -736,6 +736,14 @@ export class ListRooms implements OnInit, OnDestroy {
     return this.formatMoney(asNumber);
   }
 
+  getPriceUnitLabel(room: RoomI): string {
+    const rateId = this.getRoomRateId(room);
+    const rate = rateId ? this.rateMap.get(rateId) : null;
+    const roomType = this.getRoomType(room);
+    const billingMode = rate?.billing_mode || roomType?.billing_mode || 'ROOM';
+    return billingMode === 'PERSON' ? '/ persona/noche' : '/ habitacion/noche';
+  }
+
   getStatusLabel(room: RoomI): string {
     switch (this.getVisualStatus(room)) {
       case 'DISPONIBLE':

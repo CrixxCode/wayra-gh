@@ -9,14 +9,14 @@ class RoomPhotoInline(admin.TabularInline):
 
 @admin.register(RoomType)
 class RoomTypeAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "capacity", "bed_count", "bed_type", "is_active")
-    list_filter = ("is_active",)
+    list_display = ("id", "name", "capacity", "bed_count", "bed_type", "billing_mode", "is_active")
+    list_filter = ("billing_mode", "is_active")
     search_fields = ("name", "description")
 
 @admin.register(Rate)
 class RateAdmin(admin.ModelAdmin):
-    list_display = ("id","name", "room_type", "price", "start_date", "end_date", "is_active")
-    list_filter = ("is_active", "room_type")
+    list_display = ("id","name", "room_type", "price", "billing_mode", "start_date", "end_date", "is_active")
+    list_filter = ("billing_mode", "is_active", "room_type")
     search_fields = ("name", "room_type__name", "room_type__code")
 
 @admin.register(Amenity)

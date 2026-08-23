@@ -61,6 +61,38 @@
 
       <!-- ================= GENERAL ================= -->
       <ng-container *ngIf="activeTab === 'general'">
+        <div class="gh-panel copy-config-panel" *ngIf="copyConfigurationSourceRooms.length">
+          <div>
+            <p class="gh-panel-title">Copiar configuracion</p>
+            <p class="panel-text">
+              Usa otra habitacion como plantilla para tipo, tarifa, amenidades, notas e inventario.
+            </p>
+          </div>
+
+          <label class="gh-field copy-config-select">
+            <span>Habitacion origen</span>
+            <select [(ngModel)]="copySourceRoomId" [disabled]="copyingConfiguration || saving">
+              <option [ngValue]="null">Selecciona habitacion</option>
+              <option *ngFor="let sourceRoom of copyConfigurationSourceRooms; trackBy: trackById" [ngValue]="sourceRoom.id">
+                {{ copyRoomSourceLabel(sourceRoom) }}
+              </option>
+            </select>
+          </label>
+
+          <p class="copy-config-summary">
+            {{ getCopySourceSummary(selectedCopySourceRoom) }}
+          </p>
+
+          <button
+            type="button"
+            class="gh-mbtn gh-mbtn-light copy-config-action"
+            (click)="askCopyConfiguration()"
+            [disabled]="copyingConfiguration || saving || !copySourceRoomId">
+            <i class="fa-solid fa-copy"></i>
+            {{ copyingConfiguration ? 'Copiando...' : 'Copiar' }}
+          </button>
+        </div>
+
         <div class="gh-form-grid">
           <label class="gh-field">
             <span>Numero *</span>
@@ -231,6 +263,7 @@
               <span class="type-option-copy">
                 <strong>{{ roomType.name }}</strong>
                 <small>{{ roomType.code || 'Sin codigo' }}</small>
+                <small>{{ getBillingModeLabel(roomType.billing_mode) }}</small>
               </span>
               <span class="type-option-meta">
                 <span>
@@ -278,7 +311,7 @@
               </span>
               <span class="rate-option-price">
                 {{ formatCurrency(rate.price) }}
-                <small>/ noche</small>
+                <small>{{ getRateUnitLabel(rate) }}</small>
               </span>
             </label>
           </div>

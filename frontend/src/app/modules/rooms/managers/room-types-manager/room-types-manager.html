@@ -52,13 +52,13 @@
 
         <div class="gh-form-grid is-three">
           <label class="gh-field">
-            <span>Codigo *</span>
-            <input type="text" [(ngModel)]="form.code" maxlength="80" placeholder="Ej: STD" />
+            <span>Codigo automatico</span>
+            <input type="text" [(ngModel)]="form.code" maxlength="80" readonly placeholder="ESTANDAR" />
           </label>
 
           <label class="gh-field">
             <span>Nombre *</span>
-            <input type="text" [(ngModel)]="form.name" maxlength="120" placeholder="Ej: Estandar" />
+            <input type="text" [(ngModel)]="form.name" (ngModelChange)="onRoomTypeNameInput()" maxlength="120" placeholder="Ej: Estandar" />
           </label>
 
           <label class="gh-field">
@@ -66,6 +66,14 @@
             <select [(ngModel)]="form.is_active">
               <option [ngValue]="true">Activo</option>
               <option [ngValue]="false">Inactivo</option>
+            </select>
+          </label>
+
+          <label class="gh-field">
+            <span>Tipo de cobro *</span>
+            <select [(ngModel)]="form.billing_mode">
+              <option [ngValue]="'ROOM'">Habitacion completa</option>
+              <option [ngValue]="'PERSON'">Por persona</option>
             </select>
           </label>
 
@@ -115,6 +123,7 @@
             <tr>
               <th>Tipo</th>
               <th>Capacidad</th>
+              <th>Cobro</th>
               <th>Camas</th>
               <th>Tarifa vigente</th>
               <th>Habitaciones</th>
@@ -129,6 +138,11 @@
                 <small class="cell-sub">{{ roomType.code }}</small>
               </td>
               <td>{{ roomType.capacity ?? 1 }} huesped(es)</td>
+              <td>
+                <span class="gh-chip" [ngClass]="roomType.billing_mode === 'PERSON' ? 'is-info' : ''">
+                  {{ getBillingModeLabel(roomType.billing_mode) }}
+                </span>
+              </td>
               <td>{{ getBedSummary(roomType) }}</td>
               <td>
                 <span class="gh-chip" [ngClass]="hasRate(roomType.id) ? 'is-info' : 'is-warn'">
