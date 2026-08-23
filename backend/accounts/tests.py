@@ -552,6 +552,11 @@ class UserHotelAssignmentByRoleTests(APITestCase):
         self.operator_role.resources.add(users_read, users_write)
         self.reception_role = Role.objects.create(name="Recepcion", slug="staff")
         self.reception_role.resources.add(users_read, users_write)
+        self.platform_role = Role.objects.create(
+            name="Administrador de plataforma",
+            slug="platform_admin",
+        )
+        self.platform_role.resources.add(users_read, users_write)
 
         self.reception_title = JobTitle.objects.create(
             role=self.reception_role,
@@ -778,6 +783,89 @@ class UserHotelAssignmentByRoleTests(APITestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn(str(self.operator_role.id), response.data["rejected_role_ids"])
+
+    def test_platform_admin_sees_only_hotel_roles_when_managing_hotel_user_roles(self):
+        self.client.force_login(self.platform_admin)
+
+        response = self.client.get(f"/api/users/{self.target_user.id}/roles/?scope=global")
+
+        self.assertEqual(response.status_code, 200)
+        slugs = {role["slug"] for role in response.data["roles"]}
+        self.assertEqual(slugs, {"admin", "manager", "staff"})
+        self.assertNotIn(str(self.platform_role.id), response.data["active_role_ids"])
+
+    def test_platform_admin_cannot_assign_platform_role_to_hotel_user(self):
+        self.client.force_login(self.platform_admin)
+
+        response = self.client.post(
+            f"/api/users/{self.target_user.id}/roles/?scope=global",
+            {"role_ids": [str(self.platform_role.id)]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(str(self.platform_role.id), response.data["rejected_role_ids"])
+        self.assertFalse(
+            UserRole.objects.filter(
+                user=self.target_user,
+                role=self.platform_role,
+                is_active=True,
+            ).exists()
+        )
+
+    def test_platform_admin_role_catalog_can_be_forced_to_hotel_context(self):
+        self.client.force_login(self.platform_admin)
+
+        response = self.client.get("/api/roles/?assign_context=hotel")
+
+        self.assertEqual(response.status_code, 200)
+        payload = (
+            response.data["results"]
+            if isinstance(response.data, dict) and "results" in response.data
+            else response.data
+        )
+        slugs = {role["slug"] for role in payload}
+        self.assertEqual(slugs, {"admin", "manager", "staff"})
+
+    def test_platform_admin_cannot_update_hotel_user_to_platform_role_without_job_title(self):
+        self.client.force_login(self.platform_admin)
+
+        response = self.client.patch(
+            f"/api/users/{self.target_user.id}/?scope=global",
+            {"role": str(self.platform_role.id)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("role", response.data.get("errors", {}))
+        self.assertFalse(
+            UserRole.objects.filter(
+                user=self.target_user,
+                role=self.platform_role,
+                is_active=True,
+            ).exists()
+        )
+
+    def test_platform_admin_cannot_create_hotel_user_with_platform_role(self):
+        self.client.force_login(self.platform_admin)
+
+        response = self.client.post(
+            "/api/users/",
+            {
+                "first_name": "Hotel",
+                "last_name": "Platform Role",
+                "username": "hotel_platform_role",
+                "email": "hotel_platform_role@example.com",
+                "password": "Pass12345!",
+                "hotel_settings": self.hotel_a.id,
+                "role": str(self.platform_role.id),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("role", response.data.get("errors", {}))
+        self.assertFalse(User.objects.filter(username="hotel_platform_role").exists())
 
     def test_non_admin_role_keeps_actor_hotel_on_user_create(self):
         self.client.force_login(self.operator_user)

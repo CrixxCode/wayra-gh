@@ -29,6 +29,7 @@ from accounts.permissions import HasResourcePermission
 from accounts.audit import AuditLog
 from accounts.soft_delete import LogicalDeleteViewSetMixin
 from accounts.tenancy import is_effective_global_admin, scope_queryset_to_hotel
+from accounts.role_assignment import assignable_roles_for_actor
 
 from .models import JobTitle, Role, Resource, UserRole, RoleResource, NotificationReadState
 from .serializers import (
@@ -39,15 +40,6 @@ from .serializers import (
 from django.db import models
 
 User = get_user_model()
-
-HOTEL_MANAGEMENT_ROLE_SLUGS = {"admin", "manager", "staff"}
-
-
-def assignable_roles_for_actor(actor):
-    queryset = Role.objects.filter(is_active=True)
-    if is_effective_global_admin(actor):
-        return queryset
-    return queryset.filter(slug__in=HOTEL_MANAGEMENT_ROLE_SLUGS)
 
 
 def _require_public_registration_token(request, *, setting_name: str) -> None:
@@ -357,7 +349,10 @@ class UserViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["get", "post"], url_path="roles")
     def roles(self, request, pk=None):
         target_user = self.get_object()
-        available_roles = assignable_roles_for_actor(request.user).order_by("name")
+        available_roles = assignable_roles_for_actor(
+            request.user,
+            target_user=target_user,
+        ).order_by("name")
 
         if request.method == "GET":
             active_role_ids = list(
@@ -453,7 +448,14 @@ class RoleViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = Role.objects.all()
         if getattr(self, "action", "") in {"list", "job_titles"}:
-            queryset = assignable_roles_for_actor(self.request.user)
+            force_hotel_context = (
+                (self.request.query_params.get("assign_context") or "").strip().lower()
+                == "hotel"
+            )
+            queryset = assignable_roles_for_actor(
+                self.request.user,
+                force_hotel_context=force_hotel_context,
+            )
         return queryset.order_by("name")
 
     def get_required_scopes(self):

@@ -17,6 +17,7 @@ import { environment } from '../../../../enviorements/environment';
 export class UserProfile {
   @Input() user: UserI | null = null;
   @Input() allowDirectEmail = false;
+  @Input() roleContext: 'hotel' | 'platform' = 'hotel';
   @Output() close = new EventEmitter<void>();
   @Output() edit = new EventEmitter<void>();
   @Output() rolesUpdated = new EventEmitter<UserI>();
@@ -108,7 +109,7 @@ export class UserProfile {
     this.selectedRoleIds = new Set<string>();
 
     this.userService
-      .getUserRoles(this.user.id)
+      .getUserRoles(this.user.id, this.getRoleRequestOptions())
       .pipe(finalize(() => (this.loadingRoles = false)))
       .subscribe({
         next: (response) => {
@@ -151,7 +152,7 @@ export class UserProfile {
     const roleIds = Array.from(this.selectedRoleIds);
 
     this.userService
-      .setUserRoles(this.user.id, roleIds)
+      .setUserRoles(this.user.id, roleIds, this.getRoleRequestOptions())
       .pipe(finalize(() => (this.savingRoles = false)))
       .subscribe({
         next: (updatedUser) => {
@@ -224,5 +225,9 @@ export class UserProfile {
     if (src.startsWith('http://') || src.startsWith('https://')) return src;
     const apiBase = (environment.API_URI || window.location.origin).replace(/\/$/, '');
     return `${apiBase}${src.startsWith('/') ? '' : '/'}${src}`;
+  }
+
+  private getRoleRequestOptions(): { scope?: 'global' } {
+    return this.roleContext === 'platform' ? { scope: 'global' } : {};
   }
 }

@@ -196,18 +196,18 @@ export class UserService {
     );
   }
 
-  getUserRoles(id: number | string): Observable<UserRoleAssignments> {
+  getUserRoles(id: number | string, options?: { scope?: 'global' }): Observable<UserRoleAssignments> {
     return this.http.get<UserRoleAssignments>(
       `${this.usersUrl}${id}/roles/`,
-      this.buildGlobalUserActionOptions()
+      this.buildUserActionOptions(options)
     );
   }
 
-  setUserRoles(id: number | string, roleIds: string[]): Observable<UserI> {
+  setUserRoles(id: number | string, roleIds: string[], options?: { scope?: 'global' }): Observable<UserI> {
     return this.http.post<UserI>(
       `${this.usersUrl}${id}/roles/`,
       { role_ids: roleIds },
-      this.buildGlobalUserActionOptions()
+      this.buildUserActionOptions(options)
     );
   }
 
@@ -220,8 +220,17 @@ export class UserService {
   }
 
   private buildGlobalUserActionOptions() {
+    return this.buildUserActionOptions({ scope: 'global' });
+  }
+
+  private buildUserActionOptions(options?: { scope?: 'global' }) {
+    const baseOptions = this.authService.buildCsrfRequestOptions();
+    if (options?.scope !== 'global') {
+      return baseOptions;
+    }
+
     return {
-      ...this.authService.buildCsrfRequestOptions(),
+      ...baseOptions,
       params: new HttpParams().set('scope', 'global'),
     };
   }

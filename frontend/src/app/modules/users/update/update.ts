@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { UserI } from '../user-model';
@@ -22,8 +22,9 @@ import {
   templateUrl: './update.html',
   styleUrls: ['./update.css']
 })
-export class UserUpdate implements OnChanges {
+export class UserUpdate implements OnChanges, OnInit {
   @Input() user: UserI | null = null;
+  @Input() roleContext: 'hotel' | 'platform' = 'hotel';
   @Output() close = new EventEmitter<void>();
   @Output() updated = new EventEmitter<void>();
 
@@ -80,6 +81,9 @@ export class UserUpdate implements OnChanges {
       this.form.patchValue({ job_title: selectedJobTitle?.name || '' }, { emitEvent: false });
     });
 
+  }
+
+  ngOnInit(): void {
     this.loadRoleOptions();
     this.resolveHotelAccess();
   }
@@ -189,7 +193,7 @@ export class UserUpdate implements OnChanges {
   private loadRoleOptions(): void {
     this.rolesLoading = true;
     this.rolesService
-      .listRoles({ include_inactive: false })
+      .listRoles({ include_inactive: false, assign_context: this.roleContext })
       .pipe(catchError(() => of([] as Role[])))
       .subscribe((roles) => {
         this.rolesLoading = false;

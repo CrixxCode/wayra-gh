@@ -70,6 +70,7 @@ export class RolesService {
   listRoles(filters?: {
     include_inactive?: boolean;
     include_deleted?: boolean;
+    assign_context?: 'hotel' | 'platform';
   }): Observable<Role[]> {
     let params = new HttpParams();
     if (typeof filters?.include_inactive === 'boolean') {
@@ -77,6 +78,9 @@ export class RolesService {
     }
     if (typeof filters?.include_deleted === 'boolean') {
       params = params.set('include_deleted', String(filters.include_deleted));
+    }
+    if (filters?.assign_context) {
+      params = params.set('assign_context', filters.assign_context);
     }
 
     return this.http.get<any>(this.rolesUrl, { withCredentials: true, params }).pipe(

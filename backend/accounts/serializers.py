@@ -20,6 +20,10 @@ from accounts.email_utils import (
     email_backend_delivers_to_inbox,
 )
 from accounts.tenancy import is_effective_global_admin
+from accounts.role_assignment import (
+    HOTEL_ROLE_ASSIGNMENT_ERROR,
+    assignable_roles_for_actor,
+)
 
 from rest_framework import serializers
 
@@ -27,16 +31,6 @@ from .models import JobTitle, Role, Resource, UserRole
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
-
-HOTEL_MANAGEMENT_ROLE_SLUGS = {"admin", "manager", "staff"}
-
-
-def assignable_roles_for_actor(actor):
-    queryset = Role.objects.filter(is_active=True)
-    if is_effective_global_admin(actor):
-        return queryset
-    return queryset.filter(slug__in=HOTEL_MANAGEMENT_ROLE_SLUGS)
-
 
 # -----------------------------
 # RBAC
@@ -380,9 +374,16 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         request = self.context.get("request")
         actor = getattr(request, "user", None)
-        if selected_role and not assignable_roles_for_actor(actor).filter(pk=selected_role.pk).exists():
+        target_hotel = attrs.get(
+            "hotel_settings",
+            getattr(actor, "hotel_settings", None) if actor and actor.is_authenticated else None,
+        )
+        if selected_role and not assignable_roles_for_actor(
+            actor,
+            target_hotel=target_hotel,
+        ).filter(pk=selected_role.pk).exists():
             raise serializers.ValidationError(
-                {"role": "No puedes asignar este rol desde la vista de usuarios del hotel."}
+                {"role": HOTEL_ROLE_ASSIGNMENT_ERROR}
             )
 
         return attrs
@@ -543,6 +544,20 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
         selected_role = attrs.get("role", None)
         selected_job_title = attrs.get("job_title_option", None)
+        request = self.context.get("request")
+        actor = getattr(request, "user", None)
+        target_hotel = attrs.get(
+            "hotel_settings",
+            getattr(self.instance, "hotel_settings", None) if self.instance is not None else None,
+        )
+
+        if selected_role and not assignable_roles_for_actor(
+            actor,
+            target_hotel=target_hotel,
+        ).filter(pk=selected_role.pk).exists():
+            raise serializers.ValidationError(
+                {"role": HOTEL_ROLE_ASSIGNMENT_ERROR}
+            )
 
         if selected_job_title is None:
             return attrs
@@ -568,13 +583,6 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         if selected_job_title.role_id != effective_role.id:
             raise serializers.ValidationError(
                 {"job_title_option": "El cargo seleccionado no pertenece al rol elegido."}
-            )
-
-        request = self.context.get("request")
-        actor = getattr(request, "user", None)
-        if selected_role and not assignable_roles_for_actor(actor).filter(pk=selected_role.pk).exists():
-            raise serializers.ValidationError(
-                {"role": "No puedes asignar este rol desde la vista de usuarios del hotel."}
             )
 
         return attrs

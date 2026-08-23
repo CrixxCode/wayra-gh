@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { UserService } from '../../../services/user';
 import { MessageService } from 'primeng/api';
@@ -25,6 +25,7 @@ import { HotelLocationCountry, loadHotelCountries } from '../../../shared/hotel-
   styleUrls: ['./register.css'],
 })
 export class UserRegister {
+  @Input() roleContext: 'hotel' | 'platform' = 'hotel';
   @Output() close = new EventEmitter<void>();
 
   form!: FormGroup;
@@ -292,7 +293,7 @@ export class UserRegister {
   private loadRoleOptions(): void {
     this.rolesLoading = true;
     this.rolesService
-      .listRoles({ include_inactive: false })
+      .listRoles({ include_inactive: false, assign_context: this.roleContext })
       .pipe(catchError(() => of([] as Role[])))
       .subscribe((roles) => {
         this.rolesLoading = false;

@@ -1120,6 +1120,27 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ## 12. Registro de cambios
 
+### 2026-08-23 - Bloqueo de rol plataforma en personal de hotel
+
+- **Autor:** Codex, a solicitud de Cristian Ramirez
+- **Commit(s):** _(pendiente)_
+- **Tipo:** fix / seguridad
+- **Que se hizo:** la asignacion de roles de usuarios ahora distingue entre cuentas de hotel y
+  cuentas de plataforma. En `/usuarios-hotel`, incluso si opera un administrador de plataforma, el
+  catalogo y el endpoint `GET/POST /api/users/<id>/roles/` solo exponen roles operativos de hotel
+  (`admin`, `manager`, `staff`) para usuarios con `hotel_settings`. Los serializers de creacion y
+  edicion rechazan asignar `platform_admin` a usuarios de hotel, tambien cuando el request omite
+  `job_title_option`.
+- **Por que:** `platform_admin` da acceso al menu SaaS y no debe ser asignable al personal de un
+  hotel. Ocultarlo solo en frontend no bastaba; la validacion de servidor cierra la ruta API.
+- **Archivos/areas afectadas:** `backend/accounts/role_assignment.py`,
+  `backend/accounts/views.py`, `backend/accounts/serializers.py`, `backend/accounts/tests.py`,
+  `frontend/src/app/modules/users/`, `frontend/src/app/services/{roles.service.ts,user.ts}`,
+  `AGENTS.md`.
+- **Impacto:** sin migraciones nuevas ni cambios de recursos RBAC. El administrador de plataforma
+  conserva la gestion global en `/usuarios`, pero al administrar una cuenta ligada a un hotel no
+  puede asignarle roles de plataforma.
+
 ### 2026-08-23 - Codigos y slugs automaticos en formularios
 
 - **Autor:** Codex, a solicitud de Cristian Ramirez
