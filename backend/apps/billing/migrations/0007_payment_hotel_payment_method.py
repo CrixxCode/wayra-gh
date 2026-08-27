@@ -84,6 +84,8 @@ def reverse_payment_methods(apps, schema_editor):
 class Migration(migrations.Migration):
     atomic = False
 
+    atomic = False
+
     dependencies = [
         ("billing", "0006_paymentrefund"),
         ("hotel_settings", "0006_seed_payment_methods"),
