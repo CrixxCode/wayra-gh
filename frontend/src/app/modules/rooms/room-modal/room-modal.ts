@@ -88,6 +88,8 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
   @Output() manageRates = new EventEmitter<number | null>();
   /** Pide abrir el gestor de tipos de habitacion. */
   @Output() manageRoomTypes = new EventEmitter<void>();
+  /** La habitacion se elimino: la vista padre debe recargar y cerrar el modal. */
+  @Output() deleted = new EventEmitter<number>();
 
   readonly statusOptions: Array<{ value: RoomStatus; label: string }> = [
     { value: 'DISPONIBLE', label: 'Disponible' },
@@ -105,6 +107,8 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
   loadingReservationCatalogs = false;
   loadingOperationCatalogs = false;
   saving = false;
+  deleting = false;
+  confirmingDelete = false;
   actionLoading = false;
   photoUploading = false;
   deletingPhotoId: number | null = null;
@@ -822,6 +826,64 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
       notes: this.form.notes.trim(),
       amenity_ids: this.selectedAmenityIds
     });
+  }
+
+  // =========================================================
+  // ELIMINAR HABITACION
+  // =========================================================
+
+  /** El borrado es logico: la habitacion se archiva y el backend puede restaurarla. */
+  askDeleteRoom(): void {
+    if (this.deleting) return;
+    this.confirmingDelete = true;
+  }
+
+  cancelDeleteRoom(): void {
+    this.confirmingDelete = false;
+  }
+
+  confirmDeleteRoom(): void {
+    if (this.deleting || !this.room?.id) return;
+
+    const roomId = this.room.id;
+    this.deleting = true;
+    this.setFeedback('', 'info');
+
+    this.roomService.deleteRoom(roomId).subscribe({
+      next: () => {
+        this.deleting = false;
+        this.confirmingDelete = false;
+        this.deleted.emit(roomId);
+      },
+      error: (error) => {
+        this.deleting = false;
+        this.confirmingDelete = false;
+        this.setFeedback(
+          extractApiErrorMessage(error, 'No se pudo eliminar la habitacion.'),
+          'error'
+        );
+      }
+    });
+  }
+
+  /** Saca la habitacion de operacion sin archivarla: es reversible desde el mismo select. */
+  markOutOfService(): void {
+    if (this.saving || !this.room?.floor) return;
+
+    this.form.status = 'FUERA_DE_SERVICIO';
+    this.persist({
+      number: this.room.number,
+      floor: Number(this.room.floor),
+      room_type: this.form.room_type ? Number(this.form.room_type) : null,
+      rate: this.form.rate ? Number(this.form.rate) : null,
+      status: 'FUERA_DE_SERVICIO',
+      notes: this.form.notes.trim(),
+      amenity_ids: this.selectedAmenityIds
+    });
+  }
+
+  get isOutOfService(): boolean {
+    return this.codeOf(this.room?.status) === 'FUERA_DE_SERVICIO';
   }
 
   onRoomTypeChange(): void {

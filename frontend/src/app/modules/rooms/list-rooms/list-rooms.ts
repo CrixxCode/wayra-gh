@@ -618,6 +618,13 @@ export class ListRooms implements OnInit, OnDestroy {
     this.selectedRoom = null;
   }
 
+  /** El modal archivo la habitacion: se cierra y se recarga la lista sin ella. */
+  onRoomDeleted(roomId: number): void {
+    this.roomOverrides.delete(roomId);
+    this.selectedRoom = null;
+    this.refreshRooms();
+  }
+
   onRoomSaved(updatedRoom?: RoomI): void {
     if (updatedRoom?.id) {
       this.mergeRoom(updatedRoom);

@@ -309,11 +309,6 @@
               <small *ngIf="isInvalid('hotel', 'hotelType')">Selecciona el tipo de alojamiento.</small>
             </label>
             <label>
-              <span>Habitaciones</span>
-              <input type="number" formControlName="rooms" />
-              <small *ngIf="isInvalid('hotel', 'rooms')">Ingresa un número válido de habitaciones.</small>
-            </label>
-            <label>
               <span>Sitio web (opcional)</span>
               <input type="url" formControlName="website" />
             </label>
@@ -358,6 +353,180 @@
             </label>
           </div>
 
+          <section
+            *ngIf="demoStep === 'structure'"
+            class="prototype-demo-structure"
+            formGroupName="structure">
+
+            <p class="prototype-demo-structure-intro">
+              Con esto creamos tu hotel tal como lo operas: los tipos de habitación con su
+              tarifa base, los pisos y cuántas habitaciones de cada tipo hay en cada piso.
+            </p>
+
+            <div class="prototype-demo-structure-block">
+              <header>
+                <h3>Tipos de habitación</h3>
+                <button
+                  type="button"
+                  class="prototype-form-secondary"
+                  [disabled]="!canAddDemoRoomType"
+                  (click)="addDemoRoomType()">
+                  Agregar tipo
+                </button>
+              </header>
+
+              <div formArrayName="roomTypes">
+              <div
+                class="prototype-demo-room-type"
+                *ngFor="let roomType of demoRoomTypes.controls; let typeIndex = index; trackBy: trackByIndex">
+                <div [formGroupName]="typeIndex" class="prototype-demo-room-type-grid">
+                  <label class="prototype-demo-room-type-name">
+                    <span>Nombre</span>
+                    <input
+                      [id]="'demo-room-type-name-' + typeIndex"
+                      type="text"
+                      placeholder="Sencilla, Suite, Familiar..."
+                      formControlName="name" />
+                    <small *ngIf="isDemoRoomTypeInvalid(typeIndex, 'name')">
+                      Ingresa el nombre del tipo de habitación.
+                    </small>
+                  </label>
+
+                  <label>
+                    <span>Capacidad</span>
+                    <input type="number" min="1" formControlName="capacity" />
+                    <small *ngIf="isDemoRoomTypeInvalid(typeIndex, 'capacity')">
+                      Mínimo una persona.
+                    </small>
+                  </label>
+
+                  <label>
+                    <span>Camas</span>
+                    <input type="number" min="1" formControlName="bedCount" />
+                    <small *ngIf="isDemoRoomTypeInvalid(typeIndex, 'bedCount')">
+                      Mínimo una cama.
+                    </small>
+                  </label>
+
+                  <label>
+                    <span>Tipo de cama (opcional)</span>
+                    <input type="text" placeholder="Doble, King..." formControlName="bedType" />
+                  </label>
+
+                  <label>
+                    <span>Cobro</span>
+                    <select formControlName="billingMode">
+                      <option value="ROOM">Por habitación</option>
+                      <option value="PERSON">Por persona</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>Tarifa base</span>
+                    <input type="number" min="0" step="1000" formControlName="basePrice" />
+                    <small *ngIf="isDemoRoomTypeInvalid(typeIndex, 'basePrice')">
+                      Ingresa la tarifa base.
+                    </small>
+                  </label>
+
+                  <button
+                    type="button"
+                    class="prototype-demo-remove"
+                    aria-label="Quitar tipo de habitación"
+                    [disabled]="demoRoomTypes.length <= 1"
+                    (click)="removeDemoRoomType(typeIndex)">
+                    <i class="pi pi-trash" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </div>
+              </div>
+            </div>
+
+            <div class="prototype-demo-structure-block">
+              <header>
+                <h3>Pisos y habitaciones</h3>
+                <button
+                  type="button"
+                  class="prototype-form-secondary"
+                  [disabled]="!canAddDemoFloor"
+                  (click)="addDemoFloor()">
+                  Agregar piso
+                </button>
+              </header>
+
+              <div formArrayName="floors">
+              <div
+                class="prototype-demo-floor"
+                *ngFor="let floor of demoFloors.controls; let floorIndex = index; trackBy: trackByIndex">
+                <div [formGroupName]="floorIndex">
+                  <div class="prototype-demo-floor-head">
+                    <label>
+                      <span>Nombre del piso</span>
+                      <input
+                        [id]="'demo-floor-name-' + floorIndex"
+                        type="text"
+                        formControlName="name" />
+                      <small *ngIf="isDemoFloorInvalid(floorIndex, 'name')">
+                        Ingresa el nombre del piso.
+                      </small>
+                    </label>
+
+                    <label>
+                      <span>Número</span>
+                      <input type="number" min="1" formControlName="floorNumber" />
+                      <small *ngIf="isDemoFloorInvalid(floorIndex, 'floorNumber')">
+                        Número de piso inválido.
+                      </small>
+                    </label>
+
+                    <label>
+                      <span>Prefijo</span>
+                      <input type="text" maxlength="10" formControlName="prefix" />
+                      <small *ngIf="isDemoFloorInvalid(floorIndex, 'prefix')">
+                        Ingresa el prefijo de numeración.
+                      </small>
+                    </label>
+
+                    <button
+                      type="button"
+                      class="prototype-demo-remove"
+                      aria-label="Quitar piso"
+                      [disabled]="demoFloors.length <= 1"
+                      (click)="removeDemoFloor(floorIndex)">
+                      <i class="pi pi-trash" aria-hidden="true"></i>
+                    </button>
+                  </div>
+
+                  <div class="prototype-demo-floor-distribution" formArrayName="distribution">
+                    <label
+                      *ngFor="let quantity of demoFloorDistribution(floor).controls; let typeIndex = index; trackBy: trackByIndex">
+                      <span>{{ demoRoomTypeName(typeIndex) }}</span>
+                      <input type="number" min="0" [formControlName]="typeIndex" />
+                    </label>
+                  </div>
+
+                  <p class="prototype-demo-floor-total">
+                    Las habitaciones se numerarán
+                    {{ floor.get('prefix')?.value || floor.get('floorNumber')?.value }}01 en adelante ·
+                    <strong>{{ demoFloorTotalRooms(floor) }}</strong> habitaciones en este piso
+                  </p>
+                </div>
+              </div>
+              </div>
+            </div>
+
+            <p class="prototype-demo-structure-total">
+              Total: <strong>{{ demoTotalRooms }}</strong> habitaciones ·
+              {{ demoFloors.length }} piso(s) · {{ demoRoomTypes.length }} tipo(s)
+            </p>
+
+            <p
+              *ngFor="let message of demoStructureMessages; trackBy: trackByIndex"
+              class="prototype-modal-error">
+              {{ message }}
+            </p>
+          </section>
+
           <div
             *ngIf="demoStep === 'operation'"
             class="prototype-modal-grid"
@@ -394,7 +563,7 @@
               <span>Alojamiento</span>
               <strong>{{ demoForm.controls.hotel.controls.hotelName.value || 'Hotel pendiente' }}</strong>
               <p>
-                {{ demoForm.controls.hotel.controls.rooms.value || 0 }} habitaciones ·
+                {{ demoTotalRooms }} habitaciones en {{ demoFloors.length }} piso(s) ·
                 {{ demoForm.controls.location.controls.city.value || 'Ciudad pendiente' }}
               </p>
             </div>
@@ -404,7 +573,10 @@
                 {{ demoForm.controls.operation.controls.checkInTime.value }} -
                 {{ demoForm.controls.operation.controls.checkOutTime.value }}
               </strong>
-              <p>Revisaremos estos datos para coordinar la llamada de demo.</p>
+              <p>
+                Al aprobar la solicitud creamos el hotel con esta estructura:
+                {{ demoRoomTypes.length }} tipo(s) de habitación y sus tarifas base.
+              </p>
             </div>
           </section>
 
@@ -451,7 +623,7 @@
           <p *ngIf="locationLoadError" class="prototype-modal-error">{{ locationLoadError }}</p>
 
           <footer>
-            <p>Paso {{ demoStepNumber }} de {{ demoStepItems.length }} · toma menos de dos minutos</p>
+            <p>Paso {{ demoStepNumber }} de {{ demoStepItems.length }} · toma unos minutos</p>
             <div>
               <button
                 *ngIf="currentDemoStepIndex > 0"

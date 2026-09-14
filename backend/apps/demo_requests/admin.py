@@ -1,6 +1,27 @@
 from django.contrib import admin
 
-from .models import DemoRequest, DemoRequestEmailVerification
+from .models import (
+    DemoRequest,
+    DemoRequestEmailVerification,
+    DemoRequestFloor,
+    DemoRequestFloorRoomGroup,
+    DemoRequestRoomType,
+)
+
+
+class DemoRequestRoomTypeInline(admin.TabularInline):
+    model = DemoRequestRoomType
+    extra = 0
+
+
+class DemoRequestFloorInline(admin.TabularInline):
+    model = DemoRequestFloor
+    extra = 0
+
+
+class DemoRequestFloorRoomGroupInline(admin.TabularInline):
+    model = DemoRequestFloorRoomGroup
+    extra = 0
 
 
 @admin.register(DemoRequest)
@@ -31,6 +52,7 @@ class DemoRequestAdmin(admin.ModelAdmin):
         "requester_username",
     )
     readonly_fields = (
+        "rooms",
         "converted_hotel_settings",
         "converted_user",
         "converted_at",
@@ -40,6 +62,15 @@ class DemoRequestAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
+    inlines = (DemoRequestRoomTypeInline, DemoRequestFloorInline)
+
+
+@admin.register(DemoRequestFloor)
+class DemoRequestFloorAdmin(admin.ModelAdmin):
+    list_display = ("demo_request", "floor_number", "name", "prefix")
+    list_filter = ("floor_number",)
+    search_fields = ("demo_request__hotel_name", "name", "prefix")
+    inlines = (DemoRequestFloorRoomGroupInline,)
 
 
 @admin.register(DemoRequestEmailVerification)

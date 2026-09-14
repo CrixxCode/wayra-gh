@@ -7,6 +7,47 @@ import { switchMap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
 
+export interface DemoRequestRoomTypePayload {
+  name: string;
+  capacity: number;
+  bed_count: number;
+  bed_type: string;
+  billing_mode: 'ROOM' | 'PERSON';
+  base_price: number;
+  sort_order?: number;
+}
+
+export interface DemoRequestFloorRoomGroupPayload {
+  room_type_index: number;
+  quantity: number;
+}
+
+export interface DemoRequestFloorPayload {
+  floor_number: number;
+  name: string;
+  prefix: string;
+  room_groups: DemoRequestFloorRoomGroupPayload[];
+}
+
+export interface DemoRequestRoomType extends DemoRequestRoomTypePayload {
+  id: number;
+}
+
+export interface DemoRequestFloorRoomGroup {
+  id: number;
+  room_type_name: string;
+  quantity: number;
+}
+
+export interface DemoRequestFloor {
+  id: number;
+  floor_number: number;
+  name: string;
+  prefix: string;
+  room_groups: DemoRequestFloorRoomGroup[];
+  total_rooms: number;
+}
+
 export interface DemoRequestPayload {
   hotel_name: string;
   hotel_type: string;
@@ -14,8 +55,9 @@ export interface DemoRequestPayload {
   state: string;
   city: string;
   address: string;
-  rooms: number;
   website?: string;
+  room_types: DemoRequestRoomTypePayload[];
+  floors: DemoRequestFloorPayload[];
   check_in_time: string;
   check_out_time: string;
   requester_first_name: string;
@@ -29,8 +71,12 @@ export interface DemoRequestPayload {
   email_verification_code?: string;
 }
 
-export interface DemoRequestResponse extends DemoRequestPayload {
+export interface DemoRequestResponse extends Omit<DemoRequestPayload, 'room_types' | 'floors'> {
   id: number;
+  // `rooms` lo calcula el backend sumando la estructura; el formulario no lo envia.
+  rooms: number;
+  room_types: DemoRequestRoomType[];
+  floors: DemoRequestFloor[];
   status: string;
   created_at: string;
   converted_hotel_settings?: number | null;

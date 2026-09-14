@@ -849,6 +849,145 @@
   line-height: 1.5;
 }
 
+/* ===== Paso Estructura del modal de demo ===== */
+
+.prototype-demo-structure {
+  display: grid;
+  gap: 1.5rem;
+  padding: 1.7rem 2.1rem 1.1rem;
+}
+
+.prototype-demo-structure-intro {
+  margin: 0;
+  color: #667085;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.prototype-demo-structure-block {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.prototype-demo-structure-block > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.prototype-demo-structure-block h3 {
+  margin: 0;
+  color: #172033;
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.prototype-demo-structure-block > header .prototype-form-secondary {
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  font-size: 0.85rem;
+}
+
+.prototype-demo-room-type,
+.prototype-demo-floor {
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 1rem 1.1rem;
+}
+
+.prototype-demo-room-type + .prototype-demo-room-type,
+.prototype-demo-floor + .prototype-demo-floor {
+  margin-top: 0.8rem;
+}
+
+.prototype-demo-room-type-grid,
+.prototype-demo-floor-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.prototype-demo-room-type-grid > label,
+.prototype-demo-floor-head > label {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.prototype-demo-room-type-name,
+.prototype-demo-floor-head > label:first-child {
+  flex: 1 1 100%;
+}
+
+.prototype-demo-structure input,
+.prototype-demo-structure select {
+  min-height: 2.8rem;
+  font-size: 0.92rem;
+}
+
+.prototype-demo-remove {
+  flex: 0 0 auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 1px solid #e4d0d0;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #b42318;
+  cursor: pointer;
+}
+
+.prototype-demo-remove:disabled {
+  border-color: #e4e7ec;
+  color: #98a2b3;
+  cursor: not-allowed;
+}
+
+.prototype-demo-floor-distribution {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+  border-top: 1px dashed #dbe4f0;
+  padding-top: 0.9rem;
+}
+
+.prototype-demo-floor-distribution > label {
+  flex: 1 1 7rem;
+  min-width: 0;
+}
+
+.prototype-demo-floor-total {
+  margin: 0.75rem 0 0;
+  color: #667085;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.prototype-demo-floor-total strong {
+  color: #172033;
+}
+
+.prototype-demo-structure-total {
+  margin: 0;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 0.85rem 1.1rem;
+  color: #667085;
+  font-size: 0.9rem;
+}
+
+.prototype-demo-structure-total strong {
+  color: #172033;
+  font-size: 1.05rem;
+}
+
 .prototype-demo-verification {
   display: grid;
   gap: 1rem;
@@ -1054,10 +1193,16 @@
   .prototype-modal > .prototype-modal-hero,
   .prototype-modal-grid,
   .prototype-demo-review,
+  .prototype-demo-structure,
   .prototype-demo-verification,
   .prototype-modal footer {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  .prototype-demo-structure-block > header {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .prototype-stepper {

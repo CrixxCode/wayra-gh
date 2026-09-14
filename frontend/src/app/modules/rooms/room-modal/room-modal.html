@@ -145,6 +145,56 @@
             {{ saving ? 'Guardando...' : 'Guardar cambios' }}
           </button>
         </div>
+
+        <div class="gh-panel room-danger-zone">
+          <p class="gh-panel-title">Sacar de operacion</p>
+          <p class="panel-text">
+            <strong>Fuera de servicio</strong> la deja visible pero sin poder reservarse: sirve para
+            una habitacion en obra o cerrada por temporada, y se revierte cambiando el estado.
+            <strong>Eliminar</strong> la archiva y deja de aparecer en listados, tablero y reservas;
+            no se puede si tiene reservas activas.
+          </p>
+
+          <div class="danger-actions" *ngIf="!confirmingDelete">
+            <button
+              type="button"
+              class="gh-mbtn gh-mbtn-light"
+              *ngIf="!isOutOfService"
+              [disabled]="saving || deleting"
+              (click)="markOutOfService()">
+              <i class="fa-solid fa-ban"></i>
+              Marcar fuera de servicio
+            </button>
+            <span class="danger-note" *ngIf="isOutOfService">
+              <i class="fa-solid fa-ban"></i>
+              Ya esta fuera de servicio. Cambiale el estado arriba para reactivarla.
+            </span>
+            <button
+              type="button"
+              class="gh-mbtn gh-mbtn-danger"
+              [disabled]="saving || deleting"
+              (click)="askDeleteRoom()">
+              <i class="fa-solid fa-trash"></i>
+              Eliminar habitacion
+            </button>
+          </div>
+
+          <div class="danger-confirm" *ngIf="confirmingDelete">
+            <p>
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              Se archivara la habitacion <strong>{{ room.number }}</strong>. Su historial se
+              conserva, pero dejara de aparecer en la operacion diaria.
+            </p>
+            <div class="danger-actions">
+              <button type="button" class="gh-mbtn gh-mbtn-light" [disabled]="deleting" (click)="cancelDeleteRoom()">
+                Cancelar
+              </button>
+              <button type="button" class="gh-mbtn gh-mbtn-danger" [disabled]="deleting" (click)="confirmDeleteRoom()">
+                {{ deleting ? 'Eliminando...' : 'Si, eliminar' }}
+              </button>
+            </div>
+          </div>
+        </div>
       </ng-container>
 
       <!-- ================= FOTOS ================= -->

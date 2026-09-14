@@ -29,8 +29,8 @@ from accounts.email_utils import (
 from accounts.models import Role, UserRole
 from apps.hotel_settings.models import HotelFloor, HotelSettings
 from apps.master_data.models import MasterData
-from apps.rooms.models import Room
-from .models import DemoRequest, DemoRequestEmailVerification
+from apps.rooms.models import Rate, Room, RoomType
+from .models import DemoRequest, DemoRequestEmailVerification, DemoRequestRoomType
 from .permissions import IsPlatformAdmin
 from .serializers import (
     DemoRequestCreateSerializer,
@@ -290,6 +290,113 @@ def create_initial_rooms_for_floor(floor: HotelFloor) -> None:
     )
 
 
+def build_unique_room_type_code(hotel: HotelSettings, name: str, taken: set[str]) -> str:
+    """Deriva el codigo del tipo de habitacion a partir del nombre, sin chocar.
+
+    `RoomType` tiene unicidad `(hotel_settings, code)` y el codigo no lo escribe el
+    solicitante, asi que dos nombres que normalizan igual ("Suite" y "suite") tienen
+    que resolverse aqui y no reventar la conversion entera.
+    """
+    base = DemoRequestRoomType.build_code(name) or "TIPO"
+    candidate = base
+    suffix = 2
+
+    while candidate in taken or RoomType.objects.filter(hotel_settings=hotel, code=candidate).exists():
+        tail = f"_{suffix}"
+        candidate = f"{base[: 80 - len(tail)]}{tail}"
+        suffix += 1
+
+    taken.add(candidate)
+    return candidate
+
+
+def create_room_types_from_request(hotel: HotelSettings, demo_request: DemoRequest) -> dict:
+    """Crea un `RoomType` + su tarifa base por cada tipo declarado en la solicitud.
+
+    Devuelve el mapa `id del tipo en la solicitud -> (RoomType, Rate)` para que la
+    numeracion de habitaciones sepa a que tipo y tarifa colgar cada habitacion.
+    """
+    taken_codes: set[str] = set()
+    room_type_map = {}
+
+    for sort_order, demo_room_type in enumerate(demo_request.room_types.all()):
+        room_type = RoomType.objects.create(
+            hotel_settings=hotel,
+            code=build_unique_room_type_code(hotel, demo_room_type.name, taken_codes),
+            name=demo_room_type.name,
+            capacity=demo_room_type.capacity,
+            bed_count=demo_room_type.bed_count,
+            bed_type=demo_room_type.bed_type or None,
+            billing_mode=demo_room_type.billing_mode,
+            is_active=True,
+            sort_order=sort_order,
+        )
+        rate = Rate.objects.create(
+            hotel_settings=hotel,
+            room_type=room_type,
+            name=f"Tarifa base {demo_room_type.name}",
+            price=demo_room_type.base_price,
+            is_active=True,
+        )
+        room_type_map[demo_room_type.pk] = (room_type, rate)
+
+    return room_type_map
+
+
+def build_hotel_structure(hotel: HotelSettings, demo_request: DemoRequest) -> None:
+    """Materializa la estructura declarada en la solicitud como pisos y habitaciones.
+
+    Las solicitudes anteriores a la captura de estructura solo traen `rooms`, asi que
+    para ellas se conserva el comportamiento historico: un solo piso con todas las
+    habitaciones y sin tipo asignado.
+    """
+    demo_floors = list(demo_request.floors.prefetch_related("room_groups__room_type"))
+
+    if not demo_floors:
+        legacy_floor = HotelFloor.objects.create(
+            hotel_settings=hotel,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=demo_request.rooms,
+        )
+        create_initial_rooms_for_floor(legacy_floor)
+        return
+
+    room_type_map = create_room_types_from_request(hotel, demo_request)
+    default_status = get_default_room_status()
+
+    for demo_floor in demo_floors:
+        groups = list(demo_floor.room_groups.all())
+        floor = HotelFloor.objects.create(
+            hotel_settings=hotel,
+            floor_number=demo_floor.floor_number,
+            name=demo_floor.name,
+            prefix=demo_floor.prefix,
+            room_count=sum(group.quantity for group in groups),
+        )
+
+        prefix = str(demo_floor.prefix or demo_floor.floor_number or "").strip()
+        rooms = []
+        room_number = 1
+
+        for group in groups:
+            room_type, rate = room_type_map[group.room_type_id]
+            for _ in range(group.quantity):
+                rooms.append(
+                    Room(
+                        number=f"{prefix}{str(room_number).zfill(2)}",
+                        floor=floor,
+                        room_type=room_type,
+                        rate=rate,
+                        status=default_status,
+                    )
+                )
+                room_number += 1
+
+        Room.objects.bulk_create(rooms, ignore_conflicts=True)
+
+
 class DemoRequestViewSet(
     mixins.CreateModelMixin,
     mixins.ListModelMixin,
@@ -297,7 +404,13 @@ class DemoRequestViewSet(
     mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
-    queryset = DemoRequest.objects.all().order_by("-created_at", "-id")
+    # La consola SaaS muestra la estructura de cada solicitud, asi que sin prefetch
+    # el listado hace una consulta por piso y por tipo de habitacion de cada fila.
+    queryset = (
+        DemoRequest.objects.all()
+        .prefetch_related("room_types", "floors__room_groups__room_type")
+        .order_by("-created_at", "-id")
+    )
     throttle_scope = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["status", "hotel_type", "country", "state", "city"]
@@ -606,14 +719,7 @@ class DemoRequestViewSet(
             check_out_time=locked_request.check_out_time,
             description=f"Creado desde solicitud de demo. Tipo de alojamiento: {locked_request.hotel_type}.",
         )
-        first_floor = HotelFloor.objects.create(
-            hotel_settings=hotel,
-            floor_number=1,
-            name="Piso 1",
-            prefix="1",
-            room_count=locked_request.rooms,
-        )
-        create_initial_rooms_for_floor(first_floor)
+        build_hotel_structure(hotel, locked_request)
 
         user = User(
             username=username,

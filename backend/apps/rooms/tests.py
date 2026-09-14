@@ -1213,6 +1213,239 @@ class RoomReservationBalanceTests(TestCase):
         self.assertEqual(self._room_operations()["reservation_pending"], "0.00")
 
 
+class RoomDeletionTests(TestCase):
+    """Borrar una habitacion es logico y no puede pasar por encima de una reserva viva."""
+
+    def _md(self, group, code, name, sort_order=1):
+        obj, _ = MasterData.objects.update_or_create(
+            group=group,
+            code=code,
+            defaults={"name": name, "sort_order": sort_order, "is_active": True},
+        )
+        return obj
+
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.room_status = self._md(MasterData.Group.ROOM_STATUS, "DISPONIBLE", "Disponible")
+        self.document_type = self._md(MasterData.Group.DOCUMENT_TYPE, "CC", "Cedula")
+        self.client_type = self._md(MasterData.Group.CLIENT_TYPE, "NATURAL", "Natural")
+        self.client_status = self._md(MasterData.Group.CLIENT_STATUS, "ACTIVO", "Activo")
+        self.reservation_status = self._md(
+            MasterData.Group.RESERVATION_STATUS, "EN_CURSO", "En curso"
+        )
+        self.cancelled_status = self._md(
+            MasterData.Group.RESERVATION_STATUS, "CANCELADA", "Cancelada", 2
+        )
+        self.reservation_origin = self._md(
+            MasterData.Group.RESERVATION_ORIGIN, "DIRECTA", "Directa"
+        )
+
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Borrado")
+        self.floor = HotelFloor.objects.create(
+            hotel_settings=self.hotel,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=2,
+        )
+        self.room_type = RoomType.objects.create(
+            hotel_settings=self.hotel, code="STD", name="Standard", capacity=2
+        )
+        self.room = Room.objects.create(
+            number="101", room_type=self.room_type, floor=self.floor, status=self.room_status
+        )
+        self.spare_room = Room.objects.create(
+            number="102", room_type=self.room_type, floor=self.floor, status=self.room_status
+        )
+
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            username="room_deleter",
+            password="test-pass-123",
+            hotel_settings=self.hotel,
+        )
+        role = Role.objects.create(name="Room Deleter Role", slug="room-deleter-role")
+        read_resource, _ = Resource.objects.get_or_create(
+            key="rooms.read",
+            defaults={"name": "Rooms Read", "link_backend": "/api/rooms/"},
+        )
+        write_resource, _ = Resource.objects.get_or_create(
+            key="rooms.write",
+            defaults={"name": "Rooms Write", "link_backend": "/api/rooms/"},
+        )
+        role.resources.add(read_resource, write_resource)
+        self.user.roles.add(role)
+
+    def attach_reservation(self, room, status):
+        client = Client.objects.create(
+            hotel_settings=self.hotel,
+            document_type=self.document_type,
+            document_number=f"100{room.number}",
+            first_name="Jose",
+            last_name="Perez",
+            email=f"jose{room.number}@example.com",
+            client_type=self.client_type,
+            status=self.client_status,
+        )
+        today = timezone.now().date()
+        reservation = Reservation.objects.create(
+            hotel_settings=self.hotel,
+            client=client,
+            status=status,
+            origin=self.reservation_origin,
+            expected_check_in=today,
+            expected_check_out=today + timedelta(days=2),
+        )
+        ReservationRoom.objects.create(
+            reservation=reservation,
+            room=room,
+            night_rate=Decimal("100000.00"),
+            adults=1,
+        )
+        return reservation
+
+    def delete_room(self, room):
+        request = self.factory.delete(f"/api/rooms/{room.id}/")
+        force_authenticate(request, user=self.user)
+        return RoomViewSet.as_view({"delete": "destroy"})(request, pk=room.id)
+
+    def list_rooms(self):
+        request = self.factory.get("/api/rooms/")
+        force_authenticate(request, user=self.user)
+        response = RoomViewSet.as_view({"get": "list"})(request)
+        return response.data
+
+    def test_delete_archives_room_without_touching_the_row(self):
+        response = self.delete_room(self.room)
+
+        self.assertEqual(response.status_code, 204)
+        # El borrado es logico: la fila sigue en la base, solo deja de listarse.
+        self.assertTrue(Room.objects.filter(pk=self.room.pk).exists())
+        listed_numbers = [room["number"] for room in self.list_rooms()]
+        self.assertNotIn("101", listed_numbers)
+        self.assertIn("102", listed_numbers)
+
+    def test_deleted_room_can_be_restored(self):
+        self.delete_room(self.room)
+
+        request = self.factory.post(f"/api/rooms/{self.room.id}/restore/")
+        force_authenticate(request, user=self.user)
+        response = RoomViewSet.as_view({"post": "restore"})(request, pk=self.room.id)
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertIn("101", [room["number"] for room in self.list_rooms()])
+
+    def test_delete_is_blocked_by_an_active_reservation(self):
+        reservation = self.attach_reservation(self.room, self.reservation_status)
+
+        response = self.delete_room(self.room)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(reservation.code, str(response.data))
+        self.assertIn("101", [room["number"] for room in self.list_rooms()])
+
+    def test_delete_is_allowed_when_the_reservation_is_cancelled(self):
+        self.attach_reservation(self.room, self.cancelled_status)
+
+        response = self.delete_room(self.room)
+
+        self.assertEqual(response.status_code, 204)
+        self.assertNotIn("101", [room["number"] for room in self.list_rooms()])
+
+
+class PruneFloorRoomsCommandTests(TestCase):
+    """El comando que corrige los pisos inflados por el bug de la solicitud de demo."""
+
+    def _md(self, group, code, name, sort_order=1):
+        obj, _ = MasterData.objects.update_or_create(
+            group=group,
+            code=code,
+            defaults={"name": name, "sort_order": sort_order, "is_active": True},
+        )
+        return obj
+
+    def setUp(self):
+        self.room_status = self._md(MasterData.Group.ROOM_STATUS, "DISPONIBLE", "Disponible")
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Inflado")
+        self.floor = HotelFloor.objects.create(
+            hotel_settings=self.hotel,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=8,
+        )
+        self.rooms = [
+            Room.objects.create(
+                number=f"1{str(index).zfill(2)}",
+                floor=self.floor,
+                status=self.room_status,
+            )
+            for index in range(1, 9)
+        ]
+
+    def run_command(self, *args):
+        out = StringIO()
+        call_command(
+            "prune_floor_rooms",
+            "--hotel",
+            str(self.hotel.pk),
+            "--floor",
+            "1",
+            *args,
+            stdout=out,
+        )
+        return out.getvalue()
+
+    def test_dry_run_reports_without_deleting(self):
+        output = self.run_command("--keep", "5")
+
+        self.assertIn("Se borrarian 3 habitaciones", output)
+        self.assertIn("106, 107, 108", output)
+        self.assertEqual(Room.objects.filter(floor=self.floor).count(), 8)
+
+    def test_apply_deletes_extras_and_fixes_room_count(self):
+        self.run_command("--keep", "5", "--apply")
+
+        remaining = list(
+            Room.objects.filter(floor=self.floor).order_by("number").values_list("number", flat=True)
+        )
+        self.assertEqual(remaining, ["101", "102", "103", "104", "105"])
+        self.floor.refresh_from_db()
+        self.assertEqual(self.floor.room_count, 5)
+
+    def test_rooms_already_in_use_are_skipped(self):
+        maintenance_priority = self._md(MasterData.Group.MAINTENANCE_PRIORITY, "MEDIA", "Media")
+        maintenance_status = self._md(
+            MasterData.Group.MAINTENANCE_STATUS, "PENDIENTE", "Pendiente"
+        )
+        MaintenanceOrder.objects.create(
+            room=self.rooms[7],
+            priority=maintenance_priority,
+            status=maintenance_status,
+            description="Fuga en el bano",
+        )
+
+        output = self.run_command("--keep", "5", "--apply")
+
+        self.assertIn("No se tocan", output)
+        self.assertIn("108", output)
+        remaining = set(
+            Room.objects.filter(floor=self.floor).values_list("number", flat=True)
+        )
+        # 108 sobrevive porque tiene una orden de mantenimiento; 106 y 107 no.
+        self.assertEqual(remaining, {"101", "102", "103", "104", "105", "108"})
+        self.floor.refresh_from_db()
+        self.assertEqual(self.floor.room_count, 6)
+
+    def test_explicit_numbers_are_honoured(self):
+        self.run_command("--numbers", "103,104", "--apply")
+
+        remaining = list(
+            Room.objects.filter(floor=self.floor).order_by("number").values_list("number", flat=True)
+        )
+        self.assertEqual(remaining, ["101", "102", "105", "106", "107", "108"])
+
+
 class RecurrenceMathTests(TestCase):
     """Aritmetica de calendario de las reglas periodicas, sin base de datos."""
 

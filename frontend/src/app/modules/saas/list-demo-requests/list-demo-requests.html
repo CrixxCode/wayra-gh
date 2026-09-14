@@ -147,6 +147,11 @@
                   <span *ngIf="request.check_in_time || request.check_out_time">
                     {{ request.check_in_time || 'N/D' }} - {{ request.check_out_time || 'N/D' }}
                   </span>
+                  <span class="structure-line" *ngIf="hasStructure(request)">{{ floorsSummary(request) }}</span>
+                  <span class="structure-line" *ngIf="hasStructure(request)">{{ roomTypesSummary(request) }}</span>
+                  <span class="structure-line" *ngIf="!hasStructure(request)">
+                    Solicitud sin estructura: se creara un solo piso.
+                  </span>
                 </div>
               </td>
               <td>{{ formatDate(request.created_at) }}</td>
@@ -266,6 +271,13 @@
             <div>
               <dt>Habitaciones</dt>
               <dd>{{ request.rooms }}</dd>
+            </div>
+            <div class="request-card-structure" *ngIf="hasStructure(request)">
+              <dt>Estructura</dt>
+              <dd>
+                {{ floorsSummary(request) }}<br />
+                {{ roomTypesSummary(request) }}
+              </dd>
             </div>
             <div>
               <dt>Fecha</dt>

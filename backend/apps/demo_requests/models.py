@@ -1,3 +1,5 @@
+import re
+import unicodedata
 import uuid
 
 from django.contrib.auth.hashers import check_password, make_password
@@ -64,6 +66,131 @@ class DemoRequest(models.Model):
 
     def __str__(self):
         return f"{self.hotel_name} - {self.requester_email}"
+
+    @property
+    def has_structure(self) -> bool:
+        """Una solicitud creada despues de 2026-09-14 trae pisos y tipos de habitacion.
+
+        Las solicitudes viejas solo tienen `rooms`, y al convertirlas hay que caer al
+        piso unico historico (ver `apps.demo_requests.views.build_hotel_structure`).
+        """
+        return self.floors.exists()
+
+
+class DemoRequestRoomType(models.Model):
+    """Tipo de habitacion declarado por el solicitante.
+
+    Es una copia plana de `rooms.RoomType` + su tarifa base: la solicitud no puede
+    apuntar al catalogo real porque el hotel todavia no existe. Al convertir, cada fila
+    de aqui se convierte en un `RoomType` y un `Rate` del hotel nuevo.
+    """
+
+    class BillingMode(models.TextChoices):
+        ROOM = "ROOM", "Habitacion completa"
+        PERSON = "PERSON", "Por persona"
+
+    demo_request = models.ForeignKey(
+        DemoRequest,
+        on_delete=models.CASCADE,
+        related_name="room_types",
+    )
+    name = models.CharField(max_length=120)
+    capacity = models.PositiveIntegerField(default=2)
+    bed_count = models.PositiveIntegerField(default=1)
+    bed_type = models.CharField(max_length=50, blank=True, default="")
+    billing_mode = models.CharField(
+        max_length=12,
+        choices=BillingMode.choices,
+        default=BillingMode.ROOM,
+    )
+    base_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "demo_request_room_type"
+        ordering = ["sort_order", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["demo_request", "name"],
+                name="uq_demo_req_room_type_name",
+            ),
+        ]
+
+    @staticmethod
+    def build_code(name: str) -> str:
+        """`Suite Doble` -> `SUITE_DOBLE`. Mismo criterio que `PaymentMethod.build_code`."""
+        normalized = unicodedata.normalize("NFD", str(name or ""))
+        without_accents = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+        slug = re.sub(r"[^A-Za-z0-9]+", "_", without_accents).strip("_").upper()
+        return slug[:80]
+
+    def __str__(self):
+        return f"{self.demo_request_id} - {self.name}"
+
+
+class DemoRequestFloor(models.Model):
+    """Piso declarado por el solicitante, con su prefijo de numeracion."""
+
+    demo_request = models.ForeignKey(
+        DemoRequest,
+        on_delete=models.CASCADE,
+        related_name="floors",
+    )
+    floor_number = models.PositiveIntegerField()
+    name = models.CharField(max_length=80)
+    prefix = models.CharField(max_length=10)
+
+    class Meta:
+        db_table = "demo_request_floor"
+        ordering = ["floor_number", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["demo_request", "floor_number"],
+                name="uq_demo_req_floor_number",
+            ),
+        ]
+
+    @property
+    def total_rooms(self) -> int:
+        return sum(group.quantity for group in self.room_groups.all())
+
+    def __str__(self):
+        return f"{self.demo_request_id} - {self.name}"
+
+
+class DemoRequestFloorRoomGroup(models.Model):
+    """Cuantas habitaciones de un tipo hay en un piso.
+
+    Se guarda agrupado y no habitacion por habitacion porque el formulario publico
+    pide la estructura, no el inventario: un hotel de 40 habitaciones no va a escribir
+    40 numeros en la landing. El numero de cada habitacion se genera al convertir,
+    con el prefijo del piso (`prefix` + consecutivo de dos digitos).
+    """
+
+    floor = models.ForeignKey(
+        DemoRequestFloor,
+        on_delete=models.CASCADE,
+        related_name="room_groups",
+    )
+    room_type = models.ForeignKey(
+        DemoRequestRoomType,
+        on_delete=models.CASCADE,
+        related_name="floor_groups",
+    )
+    quantity = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "demo_request_floor_room_group"
+        ordering = ["room_type__sort_order", "room_type_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["floor", "room_type"],
+                name="uq_demo_req_floor_room_type",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.floor_id} - {self.room_type_id} x{self.quantity}"
 
 
 class DemoRequestEmailVerification(models.Model):

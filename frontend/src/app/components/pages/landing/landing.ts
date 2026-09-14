@@ -6,11 +6,21 @@ import {
   OnDestroy,
   inject,
 } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormArray,
+  FormBuilder,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { catchError, finalize, of } from 'rxjs';
 
 import {
+  DemoRequestFloorPayload,
   DemoRequestPayload,
+  DemoRequestRoomTypePayload,
   DemoRequestService,
 } from '../../../services/demo-request';
 
@@ -57,6 +67,7 @@ interface FaqItem {
 type DemoStep =
   | 'requester'
   | 'hotel'
+  | 'structure'
   | 'operation'
   | 'agenda'
   | 'verification';
@@ -71,6 +82,121 @@ type DemoFormSection =
 interface DemoStepItem {
   id: DemoStep;
   label: string;
+}
+
+const MAX_DEMO_ROOM_TYPES = 12;
+const MAX_DEMO_FLOORS = 30;
+const MAX_DEMO_ROOMS = 2000;
+
+
+// La estructura se valida como un todo: un piso vacio, dos prefijos iguales o dos
+// tipos con el mismo nombre solo se ven mirando el conjunto, no un control suelto.
+// El backend repite estas mismas reglas (`DemoRequestCreateSerializer.validate_structure`);
+// aqui estan para que el usuario las vea antes de enviar, no para reemplazarlas.
+function demoStructureValidator(
+  control: AbstractControl
+): ValidationErrors | null {
+
+  const group = control as FormGroup;
+
+  const roomTypes =
+    group.get('roomTypes') as FormArray | null;
+
+  const floors =
+    group.get('floors') as FormArray | null;
+
+  if (!roomTypes || !floors) {
+    return null;
+  }
+
+  const messages: string[] = [];
+
+  if (roomTypes.length === 0) {
+    messages.push('Agrega al menos un tipo de habitación.');
+  }
+
+  if (floors.length === 0) {
+    messages.push('Agrega al menos un piso.');
+  }
+
+  const typeNames =
+    roomTypes.controls.map(
+      (roomType) =>
+        String(
+          roomType.get('name')?.value || ''
+        )
+          .trim()
+          .toLowerCase()
+    );
+
+  if (
+    new Set(
+      typeNames.filter(Boolean)
+    ).size !== typeNames.filter(Boolean).length
+  ) {
+    messages.push('Hay dos tipos de habitación con el mismo nombre.');
+  }
+
+  const prefixes: string[] = [];
+  const floorNumbers: number[] = [];
+  let totalRooms = 0;
+
+  floors.controls.forEach((floor) => {
+
+    const floorNumber =
+      Number(
+        floor.get('floorNumber')?.value || 0
+      );
+
+    const prefix =
+      String(
+        floor.get('prefix')?.value || ''
+      ).trim();
+
+    const distribution =
+      floor.get('distribution') as FormArray | null;
+
+    const floorTotal =
+      (distribution?.controls || []).reduce(
+        (total, quantity) =>
+          total + Number(quantity.value || 0),
+        0
+      );
+
+    totalRooms += floorTotal;
+
+    if (floorTotal < 1) {
+      messages.push(
+        `El piso ${floorNumber || '?'} no tiene habitaciones.`
+      );
+    }
+
+    if (prefix) {
+      prefixes.push(prefix);
+    }
+
+    if (floorNumber) {
+      floorNumbers.push(floorNumber);
+    }
+  });
+
+  if (new Set(prefixes).size !== prefixes.length) {
+    messages.push('Dos pisos tienen el mismo prefijo de numeración.');
+  }
+
+  if (new Set(floorNumbers).size !== floorNumbers.length) {
+    messages.push('Dos pisos tienen el mismo número.');
+  }
+
+  if (totalRooms > MAX_DEMO_ROOMS) {
+    messages.push(
+      `La estructura no puede superar ${MAX_DEMO_ROOMS} habitaciones.`
+    );
+  }
+
+  return messages.length > 0
+    ? { demoStructure: messages }
+    : null;
 }
 
 @Component({
@@ -137,17 +263,24 @@ export class LandingPage implements AfterViewInit, OnDestroy {
         Validators.required,
       ],
 
-      rooms: [
-        null,
-        [
-          Validators.required,
-          Validators.min(1),
-          Validators.max(2000),
-        ],
-      ],
-
       website: [''],
     }),
+
+    // La cantidad de habitaciones ya no se escribe: sale de la estructura declarada
+    // aqui, que es la que el backend materializa al aprobar la solicitud.
+    structure: this.formBuilder.group(
+      {
+        roomTypes: this.formBuilder.array(
+          [] as FormGroup[]
+        ),
+        floors: this.formBuilder.array(
+          [] as FormGroup[]
+        ),
+      },
+      {
+        validators: demoStructureValidator,
+      }
+    ),
 
     location: this.formBuilder.group({
       country: [
@@ -367,7 +500,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     {
       question: '¿Cómo funciona la solicitud de demo?',
       answer:
-        'Solicitas una demo con tus datos de contacto y el contexto del hotel. El equipo de Wayra revisa la información y se comunica contigo para coordinar el acceso, sin activar cobros ni publicar tus datos.',
+        'Solicitas una demo con tus datos de contacto y la estructura de tu hotel: tipos de habitación con su tarifa base, pisos y cuántas habitaciones hay en cada uno. El equipo de Wayra revisa la información y se comunica contigo; al aprobarla, tu hotel queda creado con esa misma estructura, sin activar cobros ni publicar tus datos.',
     },
     {
       question: '¿Puedo empezar con pocas habitaciones?',
@@ -415,6 +548,10 @@ export class LandingPage implements AfterViewInit, OnDestroy {
       label: 'Alojamiento',
     },
     {
+      id: 'structure',
+      label: 'Estructura',
+    },
+    {
       id: 'operation',
       label: 'Operación',
     },
@@ -454,6 +591,8 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     city: 'Ciudad',
     address: 'Dirección del hotel',
     rooms: 'Número de habitaciones',
+    room_types: 'Tipos de habitación',
+    floors: 'Pisos',
     website: 'Sitio web',
     check_in_time: 'Horario de check-in',
     check_out_time: 'Horario de check-out',
@@ -471,7 +610,9 @@ export class LandingPage implements AfterViewInit, OnDestroy {
   private readonly demoFieldSections: Record<string, DemoStep> = {
     hotel_name: 'hotel',
     hotel_type: 'hotel',
-    rooms: 'hotel',
+    rooms: 'structure',
+    room_types: 'structure',
+    floors: 'structure',
     website: 'hotel',
 
     country: 'hotel',
@@ -517,6 +658,313 @@ export class LandingPage implements AfterViewInit, OnDestroy {
       this.demoStepNumber /
       this.demoStepItems.length
     ) * 100;
+  }
+
+
+  // =========================================================
+  // ESTRUCTURA DEL HOTEL
+  // =========================================================
+
+  get demoRoomTypes(): FormArray {
+    return this.demoForm.controls.structure
+      .controls.roomTypes as FormArray;
+  }
+
+
+  get demoFloors(): FormArray {
+    return this.demoForm.controls.structure
+      .controls.floors as FormArray;
+  }
+
+
+  get demoStructureMessages(): string[] {
+
+    const errors =
+      this.demoForm.controls.structure.errors;
+
+    return (
+      errors?.['demoStructure'] as string[] | undefined
+    ) || [];
+  }
+
+
+  get demoTotalRooms(): number {
+
+    return this.demoFloors.controls.reduce(
+      (total, floor) =>
+        total + this.demoFloorTotalRooms(floor),
+      0
+    );
+  }
+
+
+  get canAddDemoRoomType(): boolean {
+    return this.demoRoomTypes.length < MAX_DEMO_ROOM_TYPES;
+  }
+
+
+  get canAddDemoFloor(): boolean {
+    return this.demoFloors.length < MAX_DEMO_FLOORS;
+  }
+
+
+  demoFloorTotalRooms(floor: AbstractControl): number {
+
+    const distribution =
+      floor.get('distribution') as FormArray | null;
+
+    return (distribution?.controls || []).reduce(
+      (total, quantity) =>
+        total + Number(quantity.value || 0),
+      0
+    );
+  }
+
+
+  demoFloorDistribution(floor: AbstractControl): FormArray {
+    return floor.get('distribution') as FormArray;
+  }
+
+
+  demoRoomTypeName(index: number): string {
+
+    return String(
+      this.demoRoomTypes.at(index)?.get('name')?.value || ''
+    ).trim() || `Tipo ${index + 1}`;
+  }
+
+
+  private buildDemoRoomTypeGroup(
+    name = ''
+  ): FormGroup {
+
+    return this.formBuilder.group({
+      name: [
+        name,
+        [
+          Validators.required,
+          Validators.minLength(2),
+          Validators.maxLength(120),
+        ],
+      ],
+      capacity: [
+        2,
+        [
+          Validators.required,
+          Validators.min(1),
+          Validators.max(20),
+        ],
+      ],
+      bedCount: [
+        1,
+        [
+          Validators.required,
+          Validators.min(1),
+          Validators.max(20),
+        ],
+      ],
+      bedType: [''],
+      billingMode: [
+        'ROOM',
+        Validators.required,
+      ],
+      basePrice: [
+        null,
+        [
+          Validators.required,
+          Validators.min(0),
+        ],
+      ],
+    });
+  }
+
+
+  private buildDemoFloorGroup(
+    floorNumber: number
+  ): FormGroup {
+
+    return this.formBuilder.group({
+      floorNumber: [
+        floorNumber,
+        [
+          Validators.required,
+          Validators.min(1),
+          Validators.max(200),
+        ],
+      ],
+      name: [
+        `Piso ${floorNumber}`,
+        [
+          Validators.required,
+          Validators.maxLength(80),
+        ],
+      ],
+      prefix: [
+        String(floorNumber),
+        [
+          Validators.required,
+          Validators.maxLength(10),
+        ],
+      ],
+      // Una casilla por tipo de habitación, en el mismo orden que `roomTypes`:
+      // la posición es la que le dice al backend a qué tipo pertenece la cantidad.
+      distribution: this.formBuilder.array(
+        this.demoRoomTypes.controls.map(
+          () => this.buildDemoQuantityControl()
+        )
+      ),
+    });
+  }
+
+
+  private buildDemoQuantityControl() {
+
+    return this.formBuilder.control(
+      0,
+      [
+        Validators.required,
+        Validators.min(0),
+        Validators.max(MAX_DEMO_ROOMS),
+      ]
+    );
+  }
+
+
+  addDemoRoomType(): void {
+
+    if (!this.canAddDemoRoomType) {
+      return;
+    }
+
+    this.demoRoomTypes.push(
+      this.buildDemoRoomTypeGroup()
+    );
+
+    // Cada piso necesita una casilla más para el tipo recién agregado.
+    this.demoFloors.controls.forEach((floor) => {
+      this.demoFloorDistribution(floor).push(
+        this.buildDemoQuantityControl()
+      );
+    });
+
+    this.demoForm.controls.structure.markAsDirty();
+
+    window.setTimeout(() => {
+      document
+        .getElementById(
+          `demo-room-type-name-${this.demoRoomTypes.length - 1}`
+        )
+        ?.focus();
+    });
+  }
+
+
+  removeDemoRoomType(index: number): void {
+
+    if (this.demoRoomTypes.length <= 1) {
+      return;
+    }
+
+    this.demoRoomTypes.removeAt(index);
+
+    this.demoFloors.controls.forEach((floor) => {
+      this.demoFloorDistribution(floor).removeAt(index);
+    });
+
+    this.demoForm.controls.structure.markAsDirty();
+  }
+
+
+  addDemoFloor(): void {
+
+    if (!this.canAddDemoFloor) {
+      return;
+    }
+
+    const nextFloorNumber =
+      this.demoFloors.controls.reduce(
+        (highest, floor) =>
+          Math.max(
+            highest,
+            Number(
+              floor.get('floorNumber')?.value || 0
+            )
+          ),
+        0
+      ) + 1;
+
+    this.demoFloors.push(
+      this.buildDemoFloorGroup(nextFloorNumber)
+    );
+
+    this.demoForm.controls.structure.markAsDirty();
+
+    window.setTimeout(() => {
+      document
+        .getElementById(
+          `demo-floor-name-${this.demoFloors.length - 1}`
+        )
+        ?.focus();
+    });
+  }
+
+
+  removeDemoFloor(index: number): void {
+
+    if (this.demoFloors.length <= 1) {
+      return;
+    }
+
+    this.demoFloors.removeAt(index);
+    this.demoForm.controls.structure.markAsDirty();
+  }
+
+
+  isDemoRoomTypeInvalid(
+    index: number,
+    controlName: string
+  ): boolean {
+
+    const control =
+      this.demoRoomTypes.at(index)?.get(controlName);
+
+    return Boolean(
+      control &&
+      control.invalid &&
+      (control.dirty || control.touched)
+    );
+  }
+
+
+  isDemoFloorInvalid(
+    index: number,
+    controlName: string
+  ): boolean {
+
+    const control =
+      this.demoFloors.at(index)?.get(controlName);
+
+    return Boolean(
+      control &&
+      control.invalid &&
+      (control.dirty || control.touched)
+    );
+  }
+
+
+  private resetDemoStructure(): void {
+
+    this.demoRoomTypes.clear();
+    this.demoFloors.clear();
+
+    this.demoRoomTypes.push(
+      this.buildDemoRoomTypeGroup('Estándar')
+    );
+    this.demoFloors.push(
+      this.buildDemoFloorGroup(1)
+    );
+
+    this.demoForm.controls.structure.updateValueAndValidity();
   }
 
 
@@ -821,6 +1269,10 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     this.demoVerificationMessage = '';
     this.demoStep = 'requester';
 
+    if (this.demoRoomTypes.length === 0) {
+      this.resetDemoStructure();
+    }
+
     this.lockPageScroll();
 
     this.loadDemoCountries();
@@ -855,6 +1307,10 @@ export class LandingPage implements AfterViewInit, OnDestroy {
       checkInTime: '14:00',
       checkOutTime: '12:00',
     });
+
+    // `reset()` vacía los valores pero deja los FormArray con sus controles: hay que
+    // rearmar la estructura para que el siguiente intento empiece con un tipo y un piso.
+    this.resetDemoStructure();
 
     this.unlockPageScroll();
   }
@@ -905,11 +1361,11 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
 
   goToLocationStep(): boolean {
-    return this.goToOperationStep();
+    return this.goToStructureStep();
   }
 
 
-  goToOperationStep(): boolean {
+  goToStructureStep(): boolean {
 
     this.ensureDemoRequesterIdentity();
 
@@ -937,6 +1393,34 @@ export class LandingPage implements AfterViewInit, OnDestroy {
       locationForm.invalid
     ) {
       this.demoStep = 'hotel';
+      return false;
+    }
+
+    this.demoStep = 'structure';
+
+    window.setTimeout(() => {
+      document
+        .getElementById('demo-room-type-name-0')
+        ?.focus();
+    });
+
+    return true;
+  }
+
+
+  goToOperationStep(): boolean {
+
+    if (!this.goToStructureStep()) {
+      return false;
+    }
+
+    const structureForm =
+      this.demoForm.controls.structure;
+
+    structureForm.markAllAsTouched();
+
+    if (structureForm.invalid) {
+      this.demoStep = 'structure';
       return false;
     }
 
@@ -1021,6 +1505,11 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     }
 
     if (this.demoStep === 'hotel') {
+      this.goToStructureStep();
+      return;
+    }
+
+    if (this.demoStep === 'structure') {
       this.goToOperationStep();
       return;
     }
@@ -1060,7 +1549,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
       return this.demoForm.controls.requester.valid;
     }
 
-    if (step === 'operation') {
+    if (step === 'structure') {
       return (
         this.demoForm.controls.requester.valid &&
         this.demoForm.controls.hotel.valid &&
@@ -1068,11 +1557,16 @@ export class LandingPage implements AfterViewInit, OnDestroy {
       );
     }
 
+    if (step === 'operation') {
+      return (
+        this.canOpenDemoStep('structure') &&
+        this.demoForm.controls.structure.valid
+      );
+    }
+
     if (step === 'agenda') {
       return (
-        this.demoForm.controls.requester.valid &&
-        this.demoForm.controls.hotel.valid &&
-        this.demoForm.controls.location.valid &&
+        this.canOpenDemoStep('operation') &&
         this.demoForm.controls.operation.valid &&
         !this.hasSameDemoOperationTimes()
       );
@@ -1100,6 +1594,10 @@ export class LandingPage implements AfterViewInit, OnDestroy {
         this.demoForm.controls.hotel.valid &&
         this.demoForm.controls.location.valid
       );
+    }
+
+    if (step === 'structure') {
+      return this.demoForm.controls.structure.valid;
     }
 
     if (step === 'operation') {
@@ -1373,6 +1871,12 @@ export class LandingPage implements AfterViewInit, OnDestroy {
 
     if (this.demoForm.controls.location.invalid) {
       this.demoStep = 'hotel';
+      this.focusCurrentDemoStep();
+      return false;
+    }
+
+    if (this.demoForm.controls.structure.invalid) {
+      this.demoStep = 'structure';
       this.focusCurrentDemoStep();
       return false;
     }
@@ -1884,6 +2388,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     const focusTargets: Record<DemoStep, string> = {
       requester: 'demo-contact-name',
       hotel: 'demo-hotel-name',
+      structure: 'demo-room-type-name-0',
       operation: 'demo-check-in-time',
       agenda: 'demo-submit-request',
       verification: 'demo-email-code',
@@ -1958,10 +2463,11 @@ export class LandingPage implements AfterViewInit, OnDestroy {
           location.address || ''
         ).trim(),
 
-      rooms:
-        Number(
-          hotel.rooms || 0
-        ),
+      room_types:
+        this.buildDemoRoomTypesPayload(),
+
+      floors:
+        this.buildDemoFloorsPayload(),
 
       website:
         String(
@@ -2023,6 +2529,92 @@ export class LandingPage implements AfterViewInit, OnDestroy {
           verification.code || ''
         ).trim(),
     };
+  }
+
+
+  private buildDemoRoomTypesPayload():
+    DemoRequestRoomTypePayload[] {
+
+    return this.demoRoomTypes.controls.map(
+      (roomType, index) => ({
+
+        name:
+          String(
+            roomType.get('name')?.value || ''
+          ).trim(),
+
+        capacity:
+          Number(
+            roomType.get('capacity')?.value || 1
+          ),
+
+        bed_count:
+          Number(
+            roomType.get('bedCount')?.value || 1
+          ),
+
+        bed_type:
+          String(
+            roomType.get('bedType')?.value || ''
+          ).trim(),
+
+        billing_mode:
+          roomType.get('billingMode')?.value === 'PERSON'
+            ? 'PERSON'
+            : 'ROOM',
+
+        base_price:
+          Number(
+            roomType.get('basePrice')?.value || 0
+          ),
+
+        sort_order: index,
+      })
+    );
+  }
+
+
+  private buildDemoFloorsPayload():
+    DemoRequestFloorPayload[] {
+
+    return this.demoFloors.controls.map(
+      (floor, floorIndex) => {
+
+        const floorNumber =
+          Number(
+            floor.get('floorNumber')?.value ||
+            floorIndex + 1
+          );
+
+        return {
+
+          floor_number: floorNumber,
+
+          name:
+            String(
+              floor.get('name')?.value || ''
+            ).trim() || `Piso ${floorNumber}`,
+
+          prefix:
+            String(
+              floor.get('prefix')?.value || ''
+            ).trim() || String(floorNumber),
+
+          room_groups:
+            this.demoFloorDistribution(floor)
+              .controls
+              .map(
+                (quantity, roomTypeIndex) => ({
+                  room_type_index: roomTypeIndex,
+                  quantity: Number(quantity.value || 0),
+                })
+              )
+              .filter(
+                (group) => group.quantity > 0
+              ),
+        };
+      }
+    );
   }
 
 

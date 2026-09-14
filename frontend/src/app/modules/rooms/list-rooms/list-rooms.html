@@ -407,6 +407,7 @@
     [rates]="rates"
     (closed)="closeRoomModal()"
     (saved)="onRoomSaved($event)"
+    (deleted)="onRoomDeleted($event)"
     (manageRates)="openRatesManager($event)"
     (manageRoomTypes)="openRoomTypesManager()">
   </app-room-modal>

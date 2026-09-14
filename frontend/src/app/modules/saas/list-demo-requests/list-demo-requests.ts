@@ -295,6 +295,47 @@ export class ListDemoRequests implements OnInit {
     this.openActionMenuRequestId = null;
   }
 
+  // La solicitud trae la estructura que se creara al aprobarla, asi que el admin de
+  // plataforma la ve antes de convertir y no despues, cuando ya hay hotel y usuario.
+  hasStructure(request: DemoRequestResponse): boolean {
+    return (request.floors || []).length > 0;
+  }
+
+  floorsSummary(request: DemoRequestResponse): string {
+    return (request.floors || [])
+      .map((floor) => `${floor.name} (${floor.prefix}01+): ${floor.total_rooms}`)
+      .join(' · ');
+  }
+
+  roomTypesSummary(request: DemoRequestResponse): string {
+    const totals = new Map<string, number>();
+
+    (request.floors || []).forEach((floor) => {
+      (floor.room_groups || []).forEach((group) => {
+        totals.set(
+          group.room_type_name,
+          (totals.get(group.room_type_name) || 0) + group.quantity
+        );
+      });
+    });
+
+    return (request.room_types || [])
+      .map((roomType) => {
+        const total = totals.get(roomType.name) || 0;
+        const price = Number(roomType.base_price || 0);
+        return `${roomType.name} x${total} (${this.formatPrice(price)})`;
+      })
+      .join(' · ');
+  }
+
+  formatPrice(value: number): string {
+    return value.toLocaleString('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0,
+    });
+  }
+
   formatDate(value?: string | null): string {
     if (!value) return 'Sin fecha';
     const date = new Date(value);

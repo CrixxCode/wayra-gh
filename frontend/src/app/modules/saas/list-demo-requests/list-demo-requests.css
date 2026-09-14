@@ -207,6 +207,12 @@ tbody tr:hover {
   line-height: 1.35;
 }
 
+.structure-line {
+  max-width: 320px;
+  color: var(--gh-text-soft);
+  overflow-wrap: anywhere;
+}
+
 .operation-cell strong {
   color: var(--gh-text-strong);
   font-size: 18px;
@@ -616,6 +622,10 @@ tr.is-last-row .action-menu {
 
   .request-card-meta div {
     min-width: 0;
+  }
+
+  .request-card-structure {
+    grid-column: 1 / -1;
   }
 
   .request-card-meta dt {

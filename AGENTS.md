@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-08-23
+**Última actualización:** 2026-09-14
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -913,6 +913,78 @@ código exacto, conservando guiones, y como fallback compara una versión compac
 tolerar que el huésped copie `DJN26K7F9Q2` en vez de `DJN-26-K7F9Q2`. También sigue aceptando los
 códigos antiguos guardados sin guiones.
 
+### 5.25 La solicitud de demo captura la estructura del hotel, no solo el total de habitaciones
+
+**Decisión:** el formulario público de demo pide la estructura completa del alojamiento —tipos de
+habitación con su tarifa base, pisos, y cuántas habitaciones de cada tipo hay en cada piso— y esa
+estructura se guarda en tres tablas propias de la solicitud: `DemoRequestRoomType`,
+`DemoRequestFloor` y `DemoRequestFloorRoomGroup`. Al aprobar la solicitud,
+`apps.demo_requests.views.build_hotel_structure()` la materializa como `RoomType` + `Rate`,
+`HotelFloor` y `Room` del hotel nuevo.
+
+**Por qué:** antes la solicitud solo traía `rooms` (un número), y la conversión creaba **un único
+piso "Piso 1" con todas las habitaciones sin tipo ni tarifa**. El hotel nacía inservible: no se
+podía cotizar ni reservar hasta que alguien recreara a mano los tipos, las tarifas, los pisos y la
+numeración. Como el alta de hoteles pasa por este flujo (5.17), el trabajo manual caía entero sobre
+la plataforma, justo en el momento de mayor fricción con el cliente nuevo.
+
+**La estructura se guarda agrupada, no habitación por habitación.** Un piso declara "3 sencillas y
+1 suite", no cuatro números de habitación: nadie va a escribir 40 números en una landing. El número
+de cada habitación se genera al convertir, con el prefijo del piso más un consecutivo de dos
+dígitos (`prefix` `1` → `101`, `102`, ...), que es exactamente lo que ya hacía
+`create_initial_rooms_for_floor()`.
+
+**`DemoRequest.rooms` pasó a ser derivado.** Es `read_only` en el serializer y lo calcula
+`validate_structure()` sumando la estructura. Si el total lo siguiera escribiendo el formulario,
+podría contradecir a los pisos y no habría forma de saber cuál de los dos manda al convertir. El
+campo se conserva porque la consola SaaS, sus filtros y el correo ya lo usan.
+
+**Los tipos se referencian por posición, no por id.** En el payload, cada grupo de habitaciones trae
+`room_type_index`, la posición dentro de `room_types`: la solicitud y su estructura se crean en la
+misma petición, así que todavía no hay ids que referenciar.
+
+**Las solicitudes anteriores siguen convirtiéndose.** Una solicitud sin pisos (todas las creadas
+antes de 2026-09-14) cae al comportamiento histórico: un solo piso con `rooms` habitaciones y sin
+tipo asignado. Por eso `create_initial_rooms_for_floor()` no se borró.
+
+**Lo que hay que respetar al tocar esto:** las reglas de la estructura están **duplicadas a
+propósito** en `DemoRequestCreateSerializer.validate_structure()` (backend) y en
+`demoStructureValidator()` (landing). El formulario es público: la validación del frontend está para
+que el usuario vea el error antes de enviar, no para reemplazar la del backend. Si cambia una regla
+—pisos sin habitaciones, prefijos repetidos, nombres de tipo repetidos, topes— hay que cambiar las
+dos.
+
+### 5.26 Una habitación se saca de operación de dos formas distintas, y no son lo mismo
+
+**Decisión:** el modal de habitación ofrece dos acciones separadas, y la diferencia importa:
+
+- **Fuera de servicio** (`status = FUERA_DE_SERVICIO`) — la habitación sigue existiendo y visible,
+  pero no se puede reservar. Es para una habitación en obra o cerrada por temporada. Se revierte
+  cambiando el estado, sin pasar por ningún endpoint especial.
+- **Eliminar** (`DELETE /api/rooms/{id}/`) — borrado **lógico** vía `SoftDeleteMarker` (5.5): la
+  fila y todo su historial siguen en la base, la habitación desaparece de listados, tablero y
+  reservas, y `POST /api/rooms/{id}/restore/` la devuelve.
+
+**`RoomViewSet.perform_destroy()` frena el borrado si la habitación tiene una reserva activa** (una
+cuyo estado no esté en `INACTIVE_RESERVATION_STATUS_CODES`), y nombra los códigos de reserva que
+estorban. Sin ese freno, la reserva seguiría apuntando a una habitación que recepción ya no ve en
+ninguna lista: el huésped llegaría a una habitación que para el sistema no existe. Para borrarla hay
+que cancelar o mover esas reservas primero.
+
+**El mensaje de error no viaja bajo la clave `detail`.** `accounts.exceptions.exception_handler`
+descarta el `detail` que trae un `ValidationError` de DRF —porque le llega como lista, no como
+string— y lo reemplaza por un "Solicitud inválida." genérico. Por eso el guard levanta
+`ValidationError({"room": "..."})`: bajo cualquier otra clave, `_first_field_error_message()` lo
+promueve a `detail` y el mensaje llega entero al modal. **Si escribes un `ValidationError` cuyo texto
+tenga que leer el usuario, no uses la clave `detail`.**
+
+**Borrado físico solo por comando, nunca por API.** `python manage.py prune_floor_rooms` es la única
+vía para borrar habitaciones de verdad, y existe para limpiar las que creó de más el bug de la
+solicitud de demo (ver el registro del 2026-09-14). Corre en seco por defecto, y se salta cualquier
+habitación que tenga reservas, chequeos de inventario, órdenes de mantenimiento, tareas de limpieza,
+trabajos periódicos, inventario asignado o fotos: cinco de esas relaciones son `CASCADE` y un borrado
+físico se las llevaría sin avisar.
+
 ## 6. Módulos funcionales
 
 Mapa backend ↔ frontend ↔ rutas. Los recursos RBAC siguen el patrón `<clave>.read` / `<clave>.write`.
@@ -1119,6 +1191,73 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-09-14 — Eliminar/deshabilitar habitaciones y comando para limpiar pisos inflados
+
+- **Autor:** Claude Code (solicitado por el usuario)
+- **Commit(s):** pendiente
+- **Tipo:** feat
+- **Qué se hizo:** dos cosas relacionadas con el mismo problema:
+  1. **Botón para sacar una habitación de operación.** El modal de habitación (pestaña General) tiene
+     ahora una sección "Sacar de operación" con dos acciones: *Marcar fuera de servicio*
+     (`status = FUERA_DE_SERVICIO`, reversible desde el mismo select) y *Eliminar habitación*
+     (borrado lógico, con confirmación en dos pasos). `RoomViewSet.perform_destroy()` rechaza el
+     borrado cuando la habitación tiene reservas activas y nombra los códigos que estorban. El
+     endpoint `DELETE /api/rooms/{id}/` y su `restore` ya existían; lo que faltaba era la UI y el
+     guard. Ver [5.26](#526-una-habitación-se-saca-de-operación-de-dos-formas-distintas-y-no-son-lo-mismo).
+  2. **Comando `prune_floor_rooms`** para corregir los hoteles cuyo "Piso 1" quedó inflado por el bug
+     de la solicitud de demo (la conversión creaba un único piso con todas las habitaciones del
+     hotel). Corre en seco por defecto; con `--apply` borra físicamente solo las habitaciones que
+     nadie ha usado y deja `HotelFloor.room_count` cuadrado.
+- **Por qué:** no había forma de quitar una habitación desde la aplicación, y los hoteles creados
+  antes del arreglo de la estructura (misma fecha, entrada de abajo) quedaron con habitaciones de más
+  que alguien tenía que borrar a mano desde el admin de Django.
+- **Archivos/áreas afectadas:** `backend/apps/rooms/views.py`,
+  `backend/apps/rooms/management/commands/prune_floor_rooms.py`, `backend/apps/rooms/tests.py`,
+  `frontend/src/app/modules/rooms/room-modal/` (`room-modal.ts`, `.html`, `.css`),
+  `frontend/src/app/modules/rooms/list-rooms/` (`list-rooms.ts`, `.html`), `AGENTS.md`.
+- **Impacto:** sin migraciones, sin variables nuevas y sin recursos RBAC nuevos: el borrado usa
+  `rooms.write`, que ya existe. Cambia el comportamiento de `DELETE /api/rooms/{id}/`, que antes
+  archivaba cualquier habitación y ahora devuelve 400 si tiene reservas activas. El comando
+  `prune_floor_rooms` **borra físicamente** y hay que correrlo primero sin `--apply` para revisar la
+  lista. Verificado con `python backend\manage.py test` (376 tests, `OK`; 8 nuevos entre
+  `RoomDeletionTests` y `PruneFloorRoomsCommandTests`), `npm run lint`, `npm run test:ci`
+  (532 tests, `SUCCESS`) y `ng build`.
+
+### 2026-09-14 — La solicitud de demo captura la estructura completa del hotel
+
+- **Autor:** Claude Code (solicitado por el usuario)
+- **Commit(s):** pendiente
+- **Tipo:** feat
+- **Qué se hizo:** el formulario público de demo dejó de pedir solo la cantidad de habitaciones y
+  ahora pide la estructura del alojamiento en un paso nuevo del wizard ("Estructura", entre
+  "Alojamiento" y "Operación"): tipos de habitación (nombre, capacidad, camas, tipo de cama, modo de
+  cobro y tarifa base) y pisos (nombre, número, prefijo) con la cantidad de habitaciones de cada tipo
+  por piso. En el backend se agregaron los modelos `DemoRequestRoomType`, `DemoRequestFloor` y
+  `DemoRequestFloorRoomGroup`, la validación de la estructura en `DemoRequestCreateSerializer`
+  (`validate_structure()`) y la construcción real del hotel en
+  `apps.demo_requests.views.build_hotel_structure()`, que al aprobar la solicitud crea los
+  `RoomType` con su `Rate`, los `HotelFloor` y las `Room` numeradas y ya asignadas a su tipo y
+  tarifa. La consola SaaS de solicitudes muestra esa estructura antes de convertir. Ver la decisión
+  completa en [5.25](#525-la-solicitud-de-demo-captura-la-estructura-del-hotel-no-solo-el-total-de-habitaciones).
+- **Por qué:** la conversión creaba un hotel con un solo piso y habitaciones sin tipo ni tarifa, así
+  que el hotel nacía inservible y había que recrear a mano toda la estructura justo después de
+  aprobar la demo.
+- **Archivos/áreas afectadas:** `backend/apps/demo_requests/` (`models.py`, `serializers.py`,
+  `views.py`, `admin.py`, `tests.py`, migración `0005_demo_request_structure`),
+  `frontend/src/app/services/demo-request.ts`,
+  `frontend/src/app/components/pages/landing/` (`landing.ts`, `landing.html`, `landing.css`),
+  `frontend/src/app/modules/saas/list-demo-requests/`, `AGENTS.md`.
+- **Impacto:** requiere la migración `demo_requests.0005_demo_request_structure`. **Cambia el
+  contrato público de `POST /api/demo-requests/`**: `room_types` y `floors` pasan a ser obligatorios
+  y `rooms` pasa a ser de solo lectura (lo calcula el backend sumando la estructura); un cliente que
+  siga enviando solo `rooms` recibe 400. Las solicitudes ya guardadas sin estructura se siguen
+  convirtiendo con el comportamiento anterior (un piso, sin tipos). Sin recursos RBAC nuevos: no hay
+  endpoints nuevos y los existentes conservan sus permisos y el throttle `demo_request`. Verificado
+  con `python backend\manage.py test apps.demo_requests apps.rooms apps.hotel_settings accounts`
+  (166 tests, `OK`), `npm run lint` y `ng build` en frontend. El build mantiene los dos warnings de
+  presupuesto que ya existían; el del bundle inicial pasó de 16.95 kB a 31.56 kB por encima del
+  límite.
 
 ### 2026-08-23 - Bloqueo de rol plataforma en personal de hotel
 
