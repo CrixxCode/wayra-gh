@@ -41,58 +41,35 @@
       class="layout-content flex-1 overflow-y-auto px-6 pb-8 text-[#111827] custom-scroll"
       data-tour="content"
     >
+      <aside class="hotel-setup-alert" *ngIf="showHotelSetupAlert" role="alert">
+        <div class="hotel-setup-alert__icon">
+          <i class="fa-solid fa-hotel"></i>
+        </div>
+        <div class="hotel-setup-alert__body">
+          <h2>Termina de configurar tu hotel</h2>
+          <p>{{ hotelSetupAlertDetail }}</p>
+        </div>
+        <div class="hotel-setup-alert__actions">
+          <a
+            *ngIf="!mustChangePassword && setup.status()?.can_configure"
+            routerLink="/hotel-config"
+            class="hotel-setup-alert__primary"
+          >
+            Ir a configuración
+          </a>
+          <span *ngIf="mustChangePassword" class="hotel-setup-alert__hint">
+            Cambio de contraseña requerido
+          </span>
+          <a *ngIf="setup.status()?.verification_failed" routerLink="/hotel-setup" class="hotel-setup-alert__primary">Volver a verificar</a>
+          <span *ngIf="!mustChangePassword && !setup.status()?.can_configure && !setup.status()?.verification_failed" class="hotel-setup-alert__hint">
+            Contacta al administrador del hotel
+          </span>
+        </div>
+      </aside>
       <app-content></app-content>
     </section>
   </div>
 
   <app-guided-tour #guidedTour></app-guided-tour>
 
-  <div class="gh-modal-overlay hotel-setup-modal-overlay" *ngIf="showHotelSetupAlert">
-    <article
-      class="gh-modal is-narrow hotel-setup-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="hotel-setup-title"
-    >
-      <header class="gh-modal-head hotel-setup-modal__head">
-        <span class="hotel-setup-modal__icon">
-          <i class="fa-solid fa-hotel"></i>
-        </span>
-        <div>
-          <p class="hotel-setup-modal__eyebrow">Configuracion pendiente</p>
-          <h2 id="hotel-setup-title">Termina de configurar tu hotel</h2>
-        </div>
-      </header>
-
-      <div class="gh-modal-body hotel-setup-modal__body">
-        <p>{{ hotelSetupAlertDetail }}</p>
-
-        <ul class="hotel-setup-modal__list" *ngIf="missingHotelSetupFields.length > 0">
-          <li *ngFor="let field of missingHotelSetupFields">
-            <i class="fa-solid fa-circle-exclamation"></i>
-            {{ field }}
-          </li>
-        </ul>
-
-        <p class="hotel-setup-modal__hint" *ngIf="!canManageHotelSetup">
-          Solicita a un administrador que complete esta informacion antes de operar el hotel.
-        </p>
-      </div>
-
-      <footer class="gh-modal-foot hotel-setup-modal__foot">
-        <button type="button" class="gh-mbtn gh-mbtn-light" (click)="dismissHotelSetupAlert()">
-          Recordarme despues
-        </button>
-        <button
-          type="button"
-          class="gh-mbtn gh-mbtn-dark"
-          *ngIf="canManageHotelSetup"
-          (click)="goToHotelSettings()"
-        >
-          <i class="fa-solid fa-gear"></i>
-          Completar configuracion
-        </button>
-      </footer>
-    </article>
-  </div>
 </main>

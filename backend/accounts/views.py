@@ -67,6 +67,18 @@ class UserRoleAssignmentSerializer(drf_serializers.Serializer):
     )
 
 
+class HotelSetupStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses={200: OpenApiTypes.OBJECT})
+    def get(self, request):
+        from apps.hotel_settings.setup import hotel_setup_status
+
+        response = Response(hotel_setup_status(request.user))
+        response["Cache-Control"] = "no-store"
+        return response
+
+
 class SessionLoginRequestSerializer(drf_serializers.Serializer):
     username = drf_serializers.CharField()
     password = drf_serializers.CharField()

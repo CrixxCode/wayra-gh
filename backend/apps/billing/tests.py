@@ -1,4 +1,5 @@
 from datetime import datetime, time as dt_time, timedelta
+from apps.hotel_settings.test_utils import create_configured_hotel
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -665,7 +666,7 @@ class BillingPosBatchApiTestCase(TestCase):
         self.client_api = APIClient()
         self.client_api.force_login(self.user)
 
-        self.hotel_settings = HotelSettings.objects.create(hotel_name="Hotel POS")
+        self.hotel_settings = create_configured_hotel(hotel_name="Hotel POS")
         self.user.hotel_settings = self.hotel_settings
         self.user.save(update_fields=["hotel_settings"])
         self.client_api.force_login(self.user)
@@ -874,7 +875,7 @@ class BillingApiFilterAndPaginationTestCase(TestCase):
 
         self.client_api = APIClient()
         self.client_api.force_login(self.user)
-        self.hotel_settings = HotelSettings.objects.create(hotel_name="Hotel Billing API")
+        self.hotel_settings = create_configured_hotel(hotel_name="Hotel Billing API")
         self.payment_method = PaymentMethod.objects.get_or_create(
             hotel_settings=self.hotel_settings,
             code="EFECTIVO",
@@ -1140,6 +1141,7 @@ class BillingApiFilterAndPaginationTestCase(TestCase):
 
         writer_user = User.objects.create_user(
             username="billing_writer",
+            hotel_settings=self.hotel_settings,
             email="billing_writer@example.com",
             password="pass12345",
         )
@@ -1341,7 +1343,7 @@ class PaymentDateRangeFilterTests(TestCase):
         self.reservation_origin = self._md(MasterData.Group.RESERVATION_ORIGIN, "WEB", "Web")
         self.invoice_status = self._md(MasterData.Group.INVOICE_STATUS, "BORRADOR", "Borrador")
 
-        self.hotel_settings = HotelSettings.objects.create(hotel_name="Hotel Rango")
+        self.hotel_settings = create_configured_hotel(hotel_name="Hotel Rango")
         # El hotel nuevo ya trae sus metodos por defecto.
         self.payment_method = PaymentMethod.objects.get_or_create(
             hotel_settings=self.hotel_settings,

@@ -23,6 +23,7 @@ class ForcePasswordChangeMiddleware:
         "/api/auth/csrf/",
         "/api/auth/login/",
         "/api/auth/me/",
+        "/api/auth/hotel-setup/",
         "/api/auth/me/update/",
         "/api/auth/logout/",
         "/api/auth/password/change/",
@@ -116,3 +117,45 @@ class HotelActiveMiddleware:
             return False
 
         return not any(path.startswith(prefix) for prefix in self.ALLOWED_API_PATH_PREFIXES)
+
+
+class HotelSetupRequiredMiddleware:
+    """Bloquea las operaciones de hotel hasta guardar la configuracion obligatoria."""
+
+    SETUP_PATHS = (
+        "/api/auth/",
+        "/api/hotel-settings/",
+        "/api/hotel-floors/",
+        "/api/payment-methods/",
+        "/api/reservation-policies/",
+        "/api/financial-control-configs/",
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        path = _normalize_api_path(request.path)
+        user = getattr(request, "user", None)
+        if (
+            request.method == "OPTIONS"
+            or not path.startswith("/api/")
+            or not user
+            or not user.is_authenticated
+            or any(path.startswith(prefix) for prefix in self.SETUP_PATHS)
+            or (request.method in ("GET", "HEAD") and path.startswith("/api/master-data/"))
+        ):
+            return self.get_response(request)
+
+        from apps.hotel_settings.setup import hotel_setup_status, missing_hotel_setup_fields
+
+        if missing_hotel_setup_fields(user):
+            return JsonResponse(
+                {
+                    "detail": "Completa la información obligatoria del hotel para realizar operaciones.",
+                    "code": "hotel_setup_required",
+                    **hotel_setup_status(user),
+                },
+                status=403,
+            )
+        return self.get_response(request)

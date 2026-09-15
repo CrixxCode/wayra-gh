@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable, switchMap, tap } from 'rxjs';
+import { HotelSetupService } from './hotel-setup';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
 import { CACHE_TTL, ResourceCache } from './resource-cache';
@@ -15,7 +16,8 @@ export class HotelSettingsService {
   constructor(
     private http: HttpClient,
     private auth: AuthService,
-    private cache: ResourceCache
+    private cache: ResourceCache,
+    private setup: HotelSetupService
   ) { }
 
   // --------------------------------------------------------------------- cache
@@ -64,7 +66,7 @@ export class HotelSettingsService {
       this.settingsUrl,
       payload,
       this.auth.buildCsrfRequestOptions()
-    ).pipe(tap(() => this.invalidateSettings()));
+    ).pipe(tap(() => this.invalidateSettings()), switchMap((saved) => this.setup.afterSave(saved)));
   }
 
   /**
@@ -75,7 +77,7 @@ export class HotelSettingsService {
       `${this.settingsUrl}${id}/`,
       payload,
       this.auth.buildCsrfRequestOptions()
-    ).pipe(tap(() => this.invalidateSettings()));
+    ).pipe(tap(() => this.invalidateSettings()), switchMap((saved) => this.setup.afterSave(saved)));
   }
 
   uploadPhotos(id: number, files: File[]): Observable<HotelSettings> {
@@ -86,14 +88,14 @@ export class HotelSettingsService {
       `${this.settingsUrl}${id}/photos/`,
       formData,
       this.auth.buildCsrfRequestOptions()
-    ).pipe(tap(() => this.invalidateSettings()));
+    ).pipe(tap(() => this.invalidateSettings()), switchMap((saved) => this.setup.afterSave(saved)));
   }
 
   deletePhoto(id: number, photoId: number): Observable<HotelSettings> {
     return this.http.delete<HotelSettings>(
       `${this.settingsUrl}${id}/photos/${photoId}/`,
       this.auth.buildCsrfRequestOptions()
-    ).pipe(tap(() => this.invalidateSettings()));
+    ).pipe(tap(() => this.invalidateSettings()), switchMap((saved) => this.setup.afterSave(saved)));
   }
 
   /**
@@ -110,7 +112,7 @@ export class HotelSettingsService {
       `${this.settingsUrl}clear/`,
       {},
       { ...options, params }
-    ).pipe(tap(() => this.invalidateSettings()));
+    ).pipe(tap(() => this.invalidateSettings()), switchMap((saved) => this.setup.afterSave(saved)));
   }
 
 }

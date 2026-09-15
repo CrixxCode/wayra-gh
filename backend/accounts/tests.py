@@ -9,6 +9,7 @@ from django.urls import get_resolver, reverse
 from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory, APITestCase, APIClient
 from accounts.email_utils import build_wayra_logo_context
+from apps.hotel_settings.test_utils import create_configured_hotel
 from django.contrib.auth import get_user_model
 from accounts.models import JobTitle, Role, Resource, UserRole
 from accounts.serializers import UserSerializer
@@ -54,7 +55,7 @@ class PublicJobTitleCatalogTests(APITestCase):
 
 class FilterOrderingTests(APITestCase):
     def setUp(self):
-        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Filter")
+        self.hotel = create_configured_hotel(hotel_name="Hotel Filter")
 
         # Crear rol/recursos y usuarios
         self.r_read = Resource.objects.create(key="users.read", name="Leer usuarios")
@@ -99,8 +100,8 @@ class FilterOrderingTests(APITestCase):
 
 class RoleTenantIsolationTests(APITestCase):
     def setUp(self):
-        self.hotel_a = HotelSettings.objects.create(hotel_name="Hotel A")
-        self.hotel_b = HotelSettings.objects.create(hotel_name="Hotel B")
+        self.hotel_a = create_configured_hotel(hotel_name="Hotel A")
+        self.hotel_b = create_configured_hotel(hotel_name="Hotel B")
 
         self.roles_write_resource = Resource.objects.create(
             key="roles.write",
@@ -280,7 +281,7 @@ class ScopeAliasPermissionTests(APITestCase):
 class ForcedPasswordChangeTests(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Password")
+        self.hotel = create_configured_hotel(hotel_name="Hotel Password")
 
         users_read = Resource.objects.create(
             key="users.read",
@@ -529,8 +530,8 @@ class WayraLogoContextTests(TestCase):
 class UserHotelAssignmentByRoleTests(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.hotel_a = HotelSettings.objects.create(hotel_name="Hotel A Assignment")
-        self.hotel_b = HotelSettings.objects.create(hotel_name="Hotel B Assignment")
+        self.hotel_a = create_configured_hotel(hotel_name="Hotel A Assignment")
+        self.hotel_b = create_configured_hotel(hotel_name="Hotel B Assignment")
 
         users_read = Resource.objects.create(
             key="users.read",
@@ -975,7 +976,7 @@ class UserHotelAssignmentByRoleTests(APITestCase):
 class SessionLoginFirstAccessTests(APITestCase):
     def setUp(self):
         self.login_url = "/api/auth/login/"
-        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Login")
+        self.hotel = create_configured_hotel(hotel_name="Hotel Login")
         self.user = User.objects.create_user(
             username="first_login_user",
             email="first_login_user@example.com",

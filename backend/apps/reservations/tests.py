@@ -1,3 +1,4 @@
+from apps.hotel_settings.test_utils import create_configured_hotel
 from datetime import time, timedelta
 from unittest.mock import patch
 
@@ -1078,7 +1079,7 @@ class ReservationApiFlowTestCase(APITestCase):
             MasterData.Group.UNIT_MEASURE, "UNIDAD", "Unidad", 1
         )
 
-        self.hotel_settings = HotelSettings.objects.create(
+        self.hotel_settings = create_configured_hotel(
             hotel_name="Hotel API Test",
             check_in_time=time(0, 0),
         )

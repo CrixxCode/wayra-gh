@@ -1,4 +1,5 @@
 import zoneinfo
+from apps.hotel_settings.test_utils import create_configured_hotel
 from datetime import date, datetime, timezone as dt_timezone
 from unittest.mock import patch
 
@@ -366,8 +367,8 @@ class ReportsViewSetTests(APITestCase):
 
 class ReportsTenantIsolationTests(APITestCase):
     def setUp(self):
-        self.hotel_a = HotelSettings.objects.create(hotel_name="Hotel Reports A")
-        self.hotel_b = HotelSettings.objects.create(hotel_name="Hotel Reports B")
+        self.hotel_a = create_configured_hotel(hotel_name="Hotel Reports A")
+        self.hotel_b = create_configured_hotel(hotel_name="Hotel Reports B")
 
         reports_read = Resource.objects.create(
             key="reports.read",

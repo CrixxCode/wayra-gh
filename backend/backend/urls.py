@@ -9,6 +9,7 @@ from accounts.views import (
     PasswordChangeView,
     HealthCheckView,
     ProfileUpdateView,
+    HotelSetupStatusView,
 )
 
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
@@ -27,6 +28,7 @@ urlpatterns = [
 
     path("api/auth/csrf/", CsrfInitView.as_view(), name="csrf_init"),
     path("api/auth/me/", MeSessionView.as_view(), name="session_me"),
+    path("api/auth/hotel-setup/", HotelSetupStatusView.as_view(), name="hotel_setup_status"),
     path("api/auth/login/", SessionLoginView.as_view(), name="session_login"),
     path("api/auth/logout/", SessionLogoutView.as_view(), name="session_logout"),
     path("api/auth/password/change/", PasswordChangeView.as_view(), name="password_change"),

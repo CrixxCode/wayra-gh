@@ -15,6 +15,8 @@ import { ForbiddenPage } from './components/pages/forbidden/forbidden';
 import { NotFoundPage } from './components/pages/not-found/not-found';
 import { authChildGuard } from './guards/auth.guard';
 import { permissionChildGuard } from './guards/permission.guard';
+import { hotelSetupChildGuard } from './guards/hotel-setup.guard';
+import { HotelSetupPage } from './components/pages/hotel-setup/hotel-setup';
 
 const loadClientsComponent = () => import('./modules/clients/list-clients/list-clients').then((m) => m.ListClients);
 const loadReservationsComponent = () =>
@@ -163,8 +165,9 @@ export const routes: Routes = [
     {
         path: '',
         component: LayoutMain,
-        canActivateChild: [authChildGuard, permissionChildGuard],
+        canActivateChild: [authChildGuard, hotelSetupChildGuard, permissionChildGuard],
         children: [
+            { path: 'hotel-setup', component: HotelSetupPage, title: 'Configuración pendiente' },
             { path: 'usuarios-hotel', component: UserList, title: 'Usuarios del hotel', data: { breadcrumbLabel: 'Usuarios del hotel', userScope: 'hotel' } },
             { path: 'usuarios', component: UserList, title: 'Usuarios plataforma', data: { breadcrumbLabel: 'Usuarios plataforma', platformAdminOnly: true, userScope: 'platform' } },
             { path: 'dashboard', component: Dashboard, title: 'Dashboard' },

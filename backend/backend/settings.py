@@ -162,6 +162,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "accounts.middleware.ForcePasswordChangeMiddleware",
     "accounts.middleware.HotelActiveMiddleware",
+    "accounts.middleware.HotelSetupRequiredMiddleware",
     # Despues de la autenticacion: necesita el usuario ya resuelto para poder decir
     # quien hizo cada escritura.
     "accounts.audit.AuditContextMiddleware",

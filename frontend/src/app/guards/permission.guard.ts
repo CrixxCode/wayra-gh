@@ -5,7 +5,7 @@ import { MessageService } from 'primeng/api';
 import { AuthService, MeResponse, MenuItem, isEffectivePlatformAdmin } from '../services/auth/auth';
 
 const PUBLIC_CHILD_PATHS = new Set(['403', '404', '**']);
-const AUTHENTICATED_DEFAULT_PATHS = new Set(['mi-perfil', 'actividad']);
+const AUTHENTICATED_DEFAULT_PATHS = new Set(['mi-perfil', 'actividad', 'hotel-setup']);
 
 const normalizeRoute = (value?: string | null): string => {
   const safe = String(value || '').trim();
@@ -70,6 +70,10 @@ export const permissionChildGuard: CanActivateChildFn = (route, state) => {
 
   return authService.getUserInfo().pipe(
     map((user) => {
+      if (path === 'hotel-config' && (user.resource_keys || []).some((key) =>
+        ['*', 'hotel_settings.*', 'hotel_settings.write', 'hotel_settings.read'].includes(key.replace(/-/g, '_'))
+      )) return true;
+
       if (routeConfig?.data?.['platformAdminOnly']) {
         if (isEffectivePlatformAdmin(user)) {
           return true;
