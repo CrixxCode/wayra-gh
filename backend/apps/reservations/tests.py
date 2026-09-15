@@ -1080,6 +1080,7 @@ class ReservationApiFlowTestCase(APITestCase):
         )
 
         self.hotel_settings = create_configured_hotel(
+            with_structure=False,
             hotel_name="Hotel API Test",
             check_in_time=time(0, 0),
         )

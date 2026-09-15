@@ -3,7 +3,8 @@ from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from accounts.models import Resource, Role
-from apps.hotel_settings.models import HotelSettings
+from apps.hotel_settings.models import HotelFloor, HotelSettings
+from apps.hotel_settings.test_utils import create_configured_hotel
 
 
 @override_settings(REST_FRAMEWORK={
@@ -13,6 +14,7 @@ from apps.hotel_settings.models import HotelSettings
 class HotelSetupGateTests(APITestCase):
     def setUp(self):
         self.hotel = HotelSettings.objects.create(hotel_name="Hotel de prueba")
+        HotelFloor.objects.create(hotel_settings=self.hotel, floor_number=1, name="Piso 1", prefix="1", room_count=1)
         self.user = get_user_model().objects.create_user(
             username="setup-manager", password="test-password", hotel_settings=self.hotel,
         )
@@ -28,6 +30,8 @@ class HotelSetupGateTests(APITestCase):
             "address": "Calle 10 # 20-30", "country": "Colombia", "state": "Antioquia",
             "city": "Medellín", "primary_phone": "+573001234567", "general_email": "hotel@example.com",
             "check_in_time": "15:00:00", "check_out_time": "12:00:00",
+            "legal_name": "Hotel de prueba SAS", "reservations_email": "reservas@example.com",
+            "latitude": 6.24, "longitude": -75.57,
         }
 
     def test_status_lists_missing_fields_without_settings_read_permission(self):
@@ -63,7 +67,7 @@ class HotelSetupGateTests(APITestCase):
         self.assertEqual(self.client.get("/api/clients/").json()["code"], "hotel_setup_required")
 
     def test_another_hotel_cannot_bypass_gate(self):
-        other = HotelSettings.objects.create(hotel_name="Completo", **self.complete_payload())
+        other = create_configured_hotel(hotel_name="Completo")
         response = self.client.get("/api/clients/", {"hotel_settings": other.pk})
         self.assertEqual(response.json()["code"], "hotel_setup_required")
 
@@ -99,3 +103,15 @@ class HotelSetupGateTests(APITestCase):
     def test_status_requires_authentication(self):
         self.client.logout()
         self.assertEqual(self.client.get("/api/auth/hotel-setup/").status_code, 403)
+
+    def test_map_and_structure_remain_required_and_zero_coordinates_are_valid(self):
+        HotelSettings.objects.filter(pk=self.hotel.pk).update(**self.complete_payload())
+        HotelSettings.objects.filter(pk=self.hotel.pk).update(latitude=0, longitude=0)
+        self.assertTrue(self.client.get("/api/auth/hotel-setup/").data["is_complete"])
+        self.hotel.floors.update(room_count=0)
+        response = self.client.get("/api/auth/hotel-setup/")
+        self.assertEqual(response.data["missing_fields"], [{"field": "floors", "label": "estructura de pisos y habitaciones"}])
+
+    def test_inactive_hotel_restriction_takes_precedence(self):
+        HotelSettings.objects.filter(pk=self.hotel.pk).update(is_active=False)
+        self.assertEqual(self.client.get("/api/clients/").json()["code"], "hotel_inactive")

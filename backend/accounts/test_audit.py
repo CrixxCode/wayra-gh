@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 from accounts.audit import AuditLog
 from accounts.models import Resource, Role
 from apps.hotel_settings.models import HotelSettings, PaymentMethod
+from apps.hotel_settings.test_utils import create_configured_hotel
 
 User = get_user_model()
 
@@ -91,7 +92,7 @@ class AuditCaptureTests(TestCase):
 
 class AuditApiTests(TestCase):
     def setUp(self):
-        self.hotel = HotelSettings.objects.create(hotel_name="Hotel API")
+        self.hotel = create_configured_hotel(hotel_name="Hotel API")
         self.otro = HotelSettings.objects.create(hotel_name="Hotel Ajeno")
 
         role = Role.objects.create(name="Auditor", slug="auditor")

@@ -697,7 +697,9 @@ class RoomPhotoUploadTests(TestCase):
         super().tearDownClass()
 
     def setUp(self):
-        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Fotos Habitacion")
+        from apps.hotel_settings.test_utils import create_configured_hotel
+
+        self.hotel = create_configured_hotel(hotel_name="Hotel Fotos Habitacion", with_structure=False)
         self.floor = HotelFloor.objects.create(
             hotel_settings=self.hotel,
             floor_number=1,

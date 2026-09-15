@@ -10,6 +10,7 @@ import { AuthService } from '../../../services/auth/auth';
 import { errorActionAlert, successActionAlert } from '../../../services/action-alerts';
 import { openActionConfirmation } from '../../../services/action-confirmations';
 import { HotelSettingsService } from '../../../services/hotel-settings';
+import { HotelSetupService } from '../../../services/hotel-setup';
 import {
   DEFAULT_PRIMARY_COLOR,
   DEFAULT_SECONDARY_COLOR,
@@ -189,6 +190,7 @@ export class HotelSettings implements OnInit {
 
   constructor(
     private settingsSvc: HotelSettingsService,
+    private hotelSetup: HotelSetupService,
     private http: HttpClient,
     private auth: AuthService,
     private masterDataService: MasterDataService,
@@ -596,6 +598,7 @@ export class HotelSettings implements OnInit {
           this.notifyBrandingUpdated();
           this.initialSnapshot = this.currentSnapshot();
           this.successMessage = successActionAlert('save', 'configuracion del hotel');
+          this.hotelSetup.refresh().subscribe();
         },
         error: () => {
           this.saving = false;

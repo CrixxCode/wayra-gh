@@ -433,8 +433,13 @@ Hay deduplicación diaria (`_already_notified_today`) para no saturar con record
 
 **Decisión:**
 - Angular **standalone** (sin NgModules). Todas las rutas de módulo usan `loadComponent`.
-- Dos guards a nivel de `canActivateChild` en el layout autenticado: `authChildGuard` (sesión) y
-  `permissionChildGuard` (RBAC contra los recursos del usuario).
+- Tres guards a nivel de `canActivateChild` en el layout autenticado: `authChildGuard` (sesión),
+  `hotelSetupChildGuard` (configuración obligatoria) y `permissionChildGuard` (RBAC).
+  El servidor aplica la misma comprobación mediante `HotelSetupRequiredMiddleware`, después del
+  cambio obligatorio de contraseña y del bloqueo de hoteles desactivados. El estado de configuración
+  pertenece a la sesión: `GET /api/auth/hotel-setup/` muestra los campos pendientes del hotel del
+  usuario sin requerir permisos de edición. Los endpoints para completar la configuración conservan
+  sus permisos existentes y permanecen disponibles mientras el resto de operaciones está bloqueado.
 - `hotel-context.interceptor.ts` inyecta el hotel seleccionado en las peticiones del admin global.
 - Rutas en **español** como canónicas (`/reservas`, `/facturas`, `/habitaciones`), con **redirects
   desde los nombres en inglés** (`/reservations` → `/reservas`) por retrocompatibilidad con enlaces
@@ -1191,6 +1196,25 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-09-14 — Alerta persistente y bloqueo por configuración incompleta
+
+- **Autor:** Codex, a solicitud del usuario.
+- **Commit(s):** incluido en este commit (integración mediante rebase sobre `c6ec816`).
+- **Tipo:** feat
+- **Qué se hizo:** se sustituyó el recordatorio descartable por una alerta persistente con los datos
+  pendientes. El servidor y la navegación bloquean las operaciones hasta guardar nombre comercial,
+  razón social, dirección, país, departamento, ciudad, teléfono, ambos correos, horarios, ubicación
+  en el mapa y estructura de pisos/habitaciones. Se conserva la administración global de plataforma.
+  Los usuarios sin permiso de configuración reciben una pantalla que indica contactar al administrador.
+  La alerta se comprueba al navegar, volver a la ventana y guardar, incluido el guardado de pisos.
+- **Por qué:** cerrar el recordatorio permitía operar con información esencial incompleta.
+- **Archivos/áreas afectadas:** `backend/accounts/middleware.py`, `backend/apps/hotel_settings/setup.py`,
+  endpoint de estado de sesión, guards e interceptor Angular, layout, configuración y pruebas.
+- **Impacto:** no requiere migraciones ni variables nuevas. Nuevo `GET /api/auth/hotel-setup/`,
+  autenticado como los demás endpoints de estado de sesión; no añade permisos de escritura ni un
+  recurso de menú. Las operaciones bloqueadas devuelven HTTP 403 con `code=hotel_setup_required`.
+  Se conservaron los cambios remotos de caché, auditoría, hoteles desactivados, métodos de pago y diseño.
 
 ### 2026-09-14 — Eliminar/deshabilitar habitaciones y comando para limpiar pisos inflados
 

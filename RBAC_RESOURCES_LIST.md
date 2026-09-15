@@ -13,6 +13,12 @@
 > aislamiento por `hotel_settings`) y `saas_users.read` para `/usuarios` (administradores de
 > plataforma, vista global).
 
+> Nota 2026-09-14: `GET /api/auth/hotel-setup/` es un endpoint de estado de sesión
+> (`IsAuthenticated`), igual que `/api/auth/me/`. Devuelve los campos pendientes del hotel asignado
+> al usuario y si sus permisos existentes permiten configurarlo; no expone valores de configuración
+> ni concede permisos a otros módulos. La pantalla `/hotel-setup` está disponible para cualquier
+> usuario autenticado, sin crear un recurso de menú.
+
 ## Búsqueda Realizada
 - **Patrón:** `required_scopes` y `permission_classes = [HasResourcePermission]`
 - **Total de Archivos:** 12

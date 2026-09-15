@@ -20,7 +20,7 @@ class AlliedHotelAvailabilityCriteria:
 
 # Campos sin los cuales un hotel no puede *operar* una reserva publica: donde queda, con que
 # horario recibe/entrega habitaciones, y con que correo se le contacta para confirmarla. A
-# proposito es mas corto que `buildHotelSetupStatus()` (`hotel-setup-status.ts`) — esa lista
+# proposito es mas corto que `missing_hotel_setup_fields()` (`hotel_settings/setup.py`) — esa lista
 # tambien exige razon social y coordenadas de mapa, que son utiles para el panel del hotel pero
 # no bloquean que una reserva se pueda tomar y confirmar.
 REQUIRED_HOTEL_SETUP_FIELDS = (
