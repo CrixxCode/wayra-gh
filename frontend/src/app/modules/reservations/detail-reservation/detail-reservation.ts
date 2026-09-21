@@ -417,7 +417,8 @@ export class DetailReservation implements OnChanges {
     const statusCode = this.normalizeCode(this.reservation.status_code);
     return (
       (statusCode === 'EN_CURSO' || !!this.reservation.real_check_in) &&
-      !this.reservation.real_check_out
+      !this.reservation.real_check_out &&
+      this.pendingAmount <= 0
     );
   }
 

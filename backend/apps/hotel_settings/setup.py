@@ -1,6 +1,12 @@
 """Reglas compartidas para la alerta y el bloqueo de operaciones del hotel."""
 
+from django.contrib.contenttypes.models import ContentType
+from django.db.models import CharField, F
+from django.db.models.functions import Cast
+
+from accounts.models import SoftDeleteMarker
 from accounts.tenancy import is_effective_global_admin
+from apps.rooms.models import Room
 
 
 REQUIRED_SETUP_FIELDS = (
@@ -31,9 +37,41 @@ def missing_hotel_setup_fields(user):
     ]
     if hotel is None or hotel.latitude is None or hotel.longitude is None:
         missing.append({"field": "coordinates", "label": "ubicación en el mapa"})
-    if hotel is None or not hotel.floors.filter(room_count__gt=0).exists():
-        missing.append({"field": "floors", "label": "estructura de pisos y habitaciones"})
+    if hotel is None or not has_operable_room_structure(hotel):
+        missing.append(
+            {
+                "field": "floors",
+                "label": "habitaciones con tipo y tarifa",
+            }
+        )
     return missing
+
+
+def configured_room_queryset(hotel):
+    if hotel is None:
+        return Room.objects.none()
+
+    room_content_type = ContentType.objects.get_for_model(Room)
+    deleted_ids = SoftDeleteMarker.objects.filter(
+        content_type=room_content_type,
+    ).values("object_id")
+
+    return (
+        Room.objects.filter(
+            floor__hotel_settings=hotel,
+            room_type__is_active=True,
+            rate__is_active=True,
+            room_type__hotel_settings_id=F("floor__hotel_settings_id"),
+            rate__hotel_settings_id=F("floor__hotel_settings_id"),
+            rate__room_type_id=F("room_type_id"),
+        )
+        .annotate(_soft_pk=Cast("pk", output_field=CharField()))
+        .exclude(_soft_pk__in=deleted_ids)
+    )
+
+
+def has_operable_room_structure(hotel) -> bool:
+    return configured_room_queryset(hotel).exists()
 
 
 def hotel_setup_status(user):

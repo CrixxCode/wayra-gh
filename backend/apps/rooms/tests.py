@@ -6,6 +6,7 @@ import tempfile
 
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.contrib.contenttypes.models import ContentType
 from django.db import connection
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
@@ -13,7 +14,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 
-from accounts.models import Resource, Role
+from accounts.models import Resource, Role, SoftDeleteMarker
 from apps.billing.models import Charge, Invoice, Payment
 from apps.clients.models import Client
 from apps.hotel_settings.models import (
@@ -712,7 +713,27 @@ class RoomPhotoUploadTests(TestCase):
             code="DISPONIBLE",
             defaults={"name": "Disponible", "is_active": True},
         )[0]
-        self.room = Room.objects.create(number="101", floor=self.floor, status=self.status)
+        self.room_type = RoomType.objects.create(
+            hotel_settings=self.hotel,
+            code="STD",
+            name="Habitacion estandar",
+            capacity=2,
+            is_active=True,
+        )
+        self.rate = Rate.objects.create(
+            hotel_settings=self.hotel,
+            room_type=self.room_type,
+            name="Tarifa base",
+            price=100000,
+            is_active=True,
+        )
+        self.room = Room.objects.create(
+            number="101",
+            floor=self.floor,
+            room_type=self.room_type,
+            rate=self.rate,
+            status=self.status,
+        )
 
         self.user = User.objects.create_user(
             username="room_photo_writer",
@@ -1317,6 +1338,80 @@ class RoomDeletionTests(TestCase):
         response = RoomViewSet.as_view({"get": "list"})(request)
         return response.data
 
+    def create_room(self, number):
+        request = self.factory.post(
+            "/api/rooms/",
+            {
+                "number": number,
+                "floor": self.floor.id,
+                "room_type": self.room_type.id,
+                "status": self.room_status.code,
+            },
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+        return RoomViewSet.as_view({"post": "create"})(request)
+
+    def create_floor(self, floor_number=2, prefix="2"):
+        return HotelFloor.objects.create(
+            hotel_settings=self.hotel,
+            floor_number=floor_number,
+            name=f"Piso {floor_number}",
+            prefix=prefix,
+            room_count=0,
+        )
+
+    def test_create_room_recalculates_floor_room_count(self):
+        self.floor.room_count = 0
+        self.floor.save(update_fields=["room_count"])
+
+        response = self.create_room("103")
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.floor.refresh_from_db()
+        self.assertEqual(self.floor.room_count, 3)
+
+    def test_create_room_rejects_duplicate_number_in_same_hotel(self):
+        other_floor = self.create_floor()
+        request = self.factory.post(
+            "/api/rooms/",
+            {
+                "number": "101",
+                "floor": other_floor.id,
+                "room_type": self.room_type.id,
+                "status": self.room_status.code,
+            },
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+
+        response = RoomViewSet.as_view({"post": "create"})(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("number", response.data["errors"])
+
+    def test_update_room_rejects_duplicate_number_in_same_hotel(self):
+        other_floor = self.create_floor()
+        other_room = Room.objects.create(
+            number="201",
+            room_type=self.room_type,
+            floor=other_floor,
+            status=self.room_status,
+        )
+        request = self.factory.patch(
+            f"/api/rooms/{other_room.id}/",
+            {"number": "101"},
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+
+        response = RoomViewSet.as_view({"patch": "partial_update"})(request, pk=other_room.id)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("number", response.data["errors"])
+        other_room.refresh_from_db()
+        self.assertEqual(other_room.number, "201")
+
     def test_delete_archives_room_without_touching_the_row(self):
         response = self.delete_room(self.room)
 
@@ -1326,9 +1421,13 @@ class RoomDeletionTests(TestCase):
         listed_numbers = [room["number"] for room in self.list_rooms()]
         self.assertNotIn("101", listed_numbers)
         self.assertIn("102", listed_numbers)
+        self.floor.refresh_from_db()
+        self.assertEqual(self.floor.room_count, 1)
 
     def test_deleted_room_can_be_restored(self):
         self.delete_room(self.room)
+        self.floor.refresh_from_db()
+        self.assertEqual(self.floor.room_count, 1)
 
         request = self.factory.post(f"/api/rooms/{self.room.id}/restore/")
         force_authenticate(request, user=self.user)
@@ -1336,6 +1435,31 @@ class RoomDeletionTests(TestCase):
 
         self.assertEqual(response.status_code, 200, response.data)
         self.assertIn("101", [room["number"] for room in self.list_rooms()])
+        self.floor.refresh_from_db()
+        self.assertEqual(self.floor.room_count, 2)
+
+    def test_restore_rejects_duplicate_number_in_same_hotel(self):
+        self.delete_room(self.room)
+        other_floor = self.create_floor()
+        Room.objects.create(
+            number="101",
+            room_type=self.room_type,
+            floor=other_floor,
+            status=self.room_status,
+        )
+
+        request = self.factory.post(f"/api/rooms/{self.room.id}/restore/")
+        force_authenticate(request, user=self.user)
+        response = RoomViewSet.as_view({"post": "restore"})(request, pk=self.room.id)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("number", response.data["errors"])
+        self.assertTrue(
+            SoftDeleteMarker.objects.filter(
+                content_type=ContentType.objects.get_for_model(Room),
+                object_id=str(self.room.id),
+            ).exists()
+        )
 
     def test_delete_is_blocked_by_an_active_reservation(self):
         reservation = self.attach_reservation(self.room, self.reservation_status)

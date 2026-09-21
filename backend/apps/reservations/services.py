@@ -802,12 +802,17 @@ def get_reservation_payment_status(
     }
 
 
-def get_reservation_flow_permissions(reservation) -> dict[str, bool]:
+def get_reservation_flow_permissions(
+    reservation,
+    *,
+    financials: dict[str, Decimal] | None = None,
+) -> dict[str, bool]:
     status_code = _normalize_code(getattr(reservation, "status_code", None))
     has_check_in = getattr(reservation, "real_check_in", None) is not None
     has_check_out = getattr(reservation, "real_check_out", None) is not None
     check_in_window_started = has_reservation_check_in_window_started(reservation)
     rooms_available_for_check_in = _reservation_rooms_available_for_check_in(reservation)
+    pending_amount = (financials or get_reservation_financials(reservation))["pending_amount"]
 
     can_confirm = (
         is_reservation_status_pending(status_code)
@@ -824,6 +829,7 @@ def get_reservation_flow_permissions(reservation) -> dict[str, bool]:
     can_check_out = (
         (is_reservation_status_in_progress(status_code) or has_check_in)
         and not has_check_out
+        and pending_amount <= MONEY_ZERO
     )
     can_cancel = (
         (

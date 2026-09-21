@@ -7,6 +7,7 @@ from apps.billing.services import (
     get_invoice_reconciliation,
     get_or_create_default_payment_refund_status,
 )
+from apps.hotel_settings.models import PaymentMethod
 from apps.packages.models import Package
 from apps.reservations.models import Reservation
 from apps.services.models import Service
@@ -395,6 +396,10 @@ class PaymentSerializer(serializers.ModelSerializer):
             fields["invoice"].queryset = Invoice.objects.filter(
                 reservation__hotel_settings_id=user.hotel_settings_id
             )
+            fields["payment_method"].queryset = PaymentMethod.objects.filter(
+                hotel_settings_id=user.hotel_settings_id,
+                is_active=True,
+            )
 
         return fields
 
@@ -408,12 +413,30 @@ class PaymentSerializer(serializers.ModelSerializer):
 
         user = _get_serializer_user(self)
         invoice = attrs.get("invoice", getattr(self.instance, "invoice", None))
+        payment_method = attrs.get(
+            "payment_method", getattr(self.instance, "payment_method", None)
+        )
         amount = attrs.get("amount", getattr(self.instance, "amount", None))
 
         if user and user.is_authenticated and not is_effective_global_admin(user):
             if invoice and invoice.reservation.hotel_settings_id != user.hotel_settings_id:
                 raise serializers.ValidationError(
                     {"invoice": "La factura no pertenece al hotel del usuario autenticado."}
+                )
+
+        if invoice and not invoice.is_active:
+            raise serializers.ValidationError(
+                {"invoice": "No puedes registrar pagos en una factura inactiva."}
+            )
+
+        if invoice and payment_method:
+            if payment_method.hotel_settings_id != invoice.reservation.hotel_settings_id:
+                raise serializers.ValidationError(
+                    {"payment_method": "El metodo de pago no pertenece al hotel de la factura."}
+                )
+            if not payment_method.is_active:
+                raise serializers.ValidationError(
+                    {"payment_method": "No puedes registrar pagos con un metodo inactivo."}
                 )
 
         if invoice and amount:

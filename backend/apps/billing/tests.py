@@ -1012,6 +1012,26 @@ class BillingApiFilterAndPaginationTestCase(TestCase):
             return data["results"]
         return data
 
+    def _payment_writer_client(self, username="payments_writer_api"):
+        write_resource = Resource.objects.get_or_create(
+            key="payments.write",
+            defaults={"name": "Write payments", "link_backend": "/api/payments/"},
+        )[0]
+        role = Role.objects.get_or_create(slug="admin", defaults={"name": "Administrador"})[0]
+        role.resources.add(write_resource)
+
+        user = User.objects.create_user(
+            username=username,
+            email=f"{username}@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel_settings,
+        )
+        user.roles.add(role)
+
+        client = APIClient()
+        client.force_login(user)
+        return client
+
     def test_invoices_list_uses_pagination(self):
         for idx in range(35):
             Invoice.objects.create(
@@ -1253,6 +1273,72 @@ class BillingApiFilterAndPaginationTestCase(TestCase):
         self.assertEqual(response.data["created_by_username"], "cajera")
         self.assertEqual(
             Payment.objects.get(pk=response.data["id"]).created_by_id, cashier.id
+        )
+
+    def test_payment_rejects_method_from_another_hotel(self):
+        other_hotel = HotelSettings.objects.create(hotel_name="Hotel Externo")
+        other_method = PaymentMethod.objects.create(
+            hotel_settings=other_hotel,
+            name="Efectivo externo",
+        )
+        client = self._payment_writer_client("cajera_metodo_externo")
+
+        response = client.post(
+            "/api/payments/",
+            {
+                "invoice": self.invoice_one.id,
+                "payment_method": other_method.id,
+                "amount": "10.00",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(
+            Payment.objects.filter(invoice=self.invoice_one, payment_method=other_method).exists()
+        )
+
+    def test_payment_rejects_inactive_payment_method(self):
+        inactive_method = PaymentMethod.objects.create(
+            hotel_settings=self.hotel_settings,
+            name="Transferencia inactiva",
+            method_type=PaymentMethod.MethodType.TRANSFER,
+            account_number="000-111",
+            is_active=False,
+        )
+        client = self._payment_writer_client("cajera_metodo_inactivo")
+
+        response = client.post(
+            "/api/payments/",
+            {
+                "invoice": self.invoice_one.id,
+                "payment_method": inactive_method.id,
+                "amount": "10.00",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(
+            Payment.objects.filter(invoice=self.invoice_one, payment_method=inactive_method).exists()
+        )
+
+    def test_payment_rejects_inactive_invoice(self):
+        client = self._payment_writer_client("cajera_factura_inactiva")
+
+        response = client.post(
+            "/api/payments/",
+            {
+                "invoice": self.invoice_two.id,
+                "payment_method": self.payment_method.id,
+                "amount": "10.00",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(
+            Payment.objects.filter(invoice=self.invoice_two, payment_method=self.payment_method).exists()
         )
 
     def test_author_comes_from_the_session_not_from_the_payload(self):

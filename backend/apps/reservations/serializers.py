@@ -771,7 +771,7 @@ class ReservationBusinessRulesMixin:
 
         financials = get_reservation_financials(obj)
         payment = get_reservation_payment_status(obj, financials=financials)
-        flow = get_reservation_flow_permissions(obj)
+        flow = get_reservation_flow_permissions(obj, financials=financials)
 
         values = {
             "rooms_subtotal": financials["rooms_subtotal"],

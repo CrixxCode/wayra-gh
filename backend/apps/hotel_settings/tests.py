@@ -93,7 +93,7 @@ class AlliedHotelDirectoryTests(APITestCase):
             floor_number=1,
             name="Piso 1",
             prefix="1",
-            room_count=2,
+            room_count=1,
         )
         room_type = RoomType.objects.create(
             hotel_settings=hotel,
@@ -141,7 +141,7 @@ class AlliedHotelDirectoryTests(APITestCase):
         names = [row["name"] for row in response.data]
         self.assertEqual(names, [active_hotel.hotel_name])
         self.assertNotIn(inactive_hotel.hotel_name, names)
-        self.assertEqual(response.data[0]["rooms"], 2)
+        self.assertEqual(response.data[0]["rooms"], 1)
         self.assertEqual(response.data[0]["roomRates"][0]["nightlyRate"], 150000)
 
     def test_public_directory_hides_hotels_with_incomplete_setup(self):
@@ -157,7 +157,7 @@ class AlliedHotelDirectoryTests(APITestCase):
 
     def test_public_directory_hides_hotels_without_rooms_registered(self):
         hotel = self._hotel("Hotel Sin Estructura", active=True, complete=True)
-        HotelFloor.objects.filter(hotel_settings=hotel).update(room_count=0)
+        Room.objects.filter(floor__hotel_settings=hotel).delete()
 
         response = self.client.get("/api/allied-hotels/")
 

@@ -1,5 +1,10 @@
 from rest_framework import serializers
 
+from django.contrib.contenttypes.models import ContentType
+from django.db.models import CharField
+from django.db.models.functions import Cast
+
+from accounts.models import SoftDeleteMarker
 from accounts.permissions import user_has_scopes
 from accounts.tenancy import TenantSerializerMixin, is_effective_global_admin
 from apps.hotel_settings.models import HotelFloor, HotelSettings
@@ -425,6 +430,28 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "floor": "El piso no pertenece al hotel seleccionado."
             })
+
+        number = str(attrs.get("number", getattr(self.instance, "number", "")) or "").strip()
+        if number:
+            content_type = ContentType.objects.get_for_model(Room)
+            deleted_ids = SoftDeleteMarker.objects.filter(
+                content_type=content_type,
+            ).values("object_id")
+            duplicates = (
+                Room.objects.filter(
+                    number__iexact=number,
+                    floor__hotel_settings_id=hotel.id,
+                )
+                .annotate(_soft_pk=Cast("pk", output_field=CharField()))
+                .exclude(_soft_pk__in=deleted_ids)
+            )
+            if self.instance:
+                duplicates = duplicates.exclude(pk=self.instance.pk)
+            if duplicates.exists():
+                raise serializers.ValidationError({
+                    "number": "Ya existe una habitacion con este numero en este hotel."
+                })
+            attrs["number"] = number
 
         if room_type and room_type.hotel_settings_id != hotel.id:
             raise serializers.ValidationError({

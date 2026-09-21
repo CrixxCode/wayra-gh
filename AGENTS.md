@@ -1197,6 +1197,46 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ## 12. Registro de cambios
 
+### 2026-09-20 — Setup exige habitaciones operables y sincroniza conteo de pisos
+
+- **Autor:** Codex, a solicitud del usuario.
+- **Commit(s):** pendiente
+- **Tipo:** fix
+- **Qué se hizo:** el bloqueo de configuración del hotel dejó de aceptar un simple
+  `HotelFloor.room_count > 0` como estructura válida. Ahora exige al menos una habitación real,
+  no borrada lógicamente, con tipo activo y tarifa activa del mismo hotel. El directorio público de
+  hoteles usa la misma regla para mostrar hoteles y calcular habitaciones disponibles. Además,
+  `RoomViewSet` recalcula `HotelFloor.room_count` al crear, eliminar lógicamente o restaurar
+  habitaciones, y el endpoint de habitaciones ahora rechaza numeros duplicados dentro del mismo
+  hotel al crear, editar o restaurar una habitacion archivada. Tambien se endurecio el registro de
+  pagos para aceptar solo facturas activas y metodos de pago activos del mismo hotel. El check-out
+  de reservas ahora exige saldo en cero: si durante la revision de inventario aparecen faltantes,
+  se crea el cargo correspondiente pero la reserva no se finaliza ni descuenta inventario hasta que
+  ese nuevo saldo quede pagado.
+- **Por qué:** un hotel podía quedar marcado como configurado con pisos declarados pero sin
+  habitaciones realmente reservables, o con contadores desfasados después de crear/eliminar
+  habitaciones manualmente. Eso desbloqueaba operaciones que luego fallaban al reservar o mostraban
+  totales incorrectos. Ademas, el numero de habitacion podia repetirse entre pisos si se usaba el
+  CRUD directo, aunque la sincronizacion de pisos ya intentaba evitarlo. En caja, un pago podia
+  enviarse con un metodo inactivo o de otro hotel si se llamaba la API directamente. Finalmente, la
+  UI ya sugeria no cerrar con saldo pendiente, pero la API aun permitia hacer check-out y dejar la
+  factura como cuenta por cobrar, que no es el flujo operativo elegido para la primera version.
+- **Archivos/áreas afectadas:** `backend/apps/hotel_settings/setup.py`,
+  `backend/apps/hotel_settings/services.py`, `backend/apps/hotel_settings/test_utils.py`,
+  `backend/apps/hotel_settings/test_setup.py`, `backend/apps/hotel_settings/tests.py`,
+  `backend/apps/rooms/views.py`, `backend/apps/rooms/tests.py`,
+  `backend/apps/rooms/serializers.py`, `backend/apps/billing/serializers.py`,
+  `backend/apps/billing/tests.py`, `backend/apps/reservations/services.py`,
+  `backend/apps/reservations/serializers.py`, `backend/apps/reservations/views.py`,
+  `backend/apps/reservations/tests.py`,
+  `frontend/src/app/modules/reservations/detail-reservation/detail-reservation.ts`,
+  `AGENTS.md`.
+- **Impacto:** sin migraciones ni variables nuevas. Hoteles con solo contadores de piso, habitaciones
+  archivadas o habitaciones sin tipo/tarifa activa vuelven a quedar bloqueados hasta completar la
+  configuración real. Validado con pruebas enfocadas de setup, directorio público, reservas públicas,
+  check-in online y borrado/restauración de habitaciones. Se estabilizó una prueba de sincronización
+  de estados de reserva para que no dependa de correr cerca de medianoche.
+
 ### 2026-09-14 — Alerta persistente y bloqueo por configuración incompleta
 
 - **Autor:** Codex, a solicitud del usuario.

@@ -1,4 +1,7 @@
+from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.db.models import CharField
+from django.db.models.functions import Cast
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -8,9 +11,11 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 
 from accounts.pagination import OptionalPageNumberPagination
+from accounts.models import SoftDeleteMarker
 from accounts.permissions import HasResourcePermission
 from accounts.soft_delete import LogicalDeleteViewSetMixin
 from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
+from apps.hotel_settings.models import HotelFloor
 from apps.reservations.services import (
     INACTIVE_RESERVATION_STATUS_CODES,
     sync_room_status_for_room_ids,
@@ -178,6 +183,63 @@ class RoomViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
 
+    @staticmethod
+    def _live_room_count_for_floor(floor_id):
+        if not floor_id:
+            return 0
+
+        room_content_type = ContentType.objects.get_for_model(Room)
+        deleted_ids = SoftDeleteMarker.objects.filter(
+            content_type=room_content_type,
+        ).values("object_id")
+
+        return (
+            Room.objects.filter(floor_id=floor_id)
+            .annotate(_soft_pk=Cast("pk", output_field=CharField()))
+            .exclude(_soft_pk__in=deleted_ids)
+            .count()
+        )
+
+    @classmethod
+    def _sync_floor_room_count(cls, floor_id):
+        if not floor_id:
+            return
+
+        HotelFloor.objects.filter(pk=floor_id).update(
+            room_count=cls._live_room_count_for_floor(floor_id)
+        )
+
+    @staticmethod
+    def _live_room_number_conflicts(instance):
+        if not instance or not instance.floor_id:
+            return Room.objects.none()
+
+        room_content_type = ContentType.objects.get_for_model(Room)
+        deleted_ids = SoftDeleteMarker.objects.filter(
+            content_type=room_content_type,
+        ).values("object_id")
+
+        return (
+            Room.objects.filter(
+                number__iexact=instance.number,
+                floor__hotel_settings_id=instance.floor.hotel_settings_id,
+            )
+            .exclude(pk=instance.pk)
+            .annotate(_soft_pk=Cast("pk", output_field=CharField()))
+            .exclude(_soft_pk__in=deleted_ids)
+        )
+
+    def perform_create(self, serializer):
+        room = serializer.save()
+        self._sync_floor_room_count(room.floor_id)
+
+    def perform_update(self, serializer):
+        previous_floor_id = serializer.instance.floor_id
+        room = serializer.save()
+        self._sync_floor_room_count(previous_floor_id)
+        if room.floor_id != previous_floor_id:
+            self._sync_floor_room_count(room.floor_id)
+
     def perform_destroy(self, instance):
         """Archiva la habitación, salvo que todavía tenga una reserva viva.
 
@@ -219,6 +281,24 @@ class RoomViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
             )
 
         super().perform_destroy(instance)
+        self._sync_floor_room_count(instance.floor_id)
+
+    @action(detail=True, methods=["post"], url_path="restore")
+    def restore(self, request, *args, **kwargs):
+        instance = self._get_restore_object()
+        if self._live_room_number_conflicts(instance).exists():
+            raise ValidationError(
+                {
+                    "number": (
+                        "No se puede restaurar la habitacion "
+                        f"{instance.number} porque ya existe otra habitacion con ese "
+                        "numero en este hotel."
+                    )
+                }
+            )
+        response = super().restore(request, *args, **kwargs)
+        self._sync_floor_room_count(instance.floor_id)
+        return response
 
     def get_serializer(self, *args, **kwargs):
         """Precalcula las señales operativas de toda la página en un solo bloque.

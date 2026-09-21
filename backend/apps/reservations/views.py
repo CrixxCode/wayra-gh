@@ -66,6 +66,7 @@ from apps.reservations.services import (
     get_finished_reservation_status,
     get_in_progress_reservation_status,
     get_pending_reservation_status,
+    get_reservation_financials,
     get_reservation_status_by_code,
     is_reservation_status_cancelled,
     is_reservation_status_confirmed,
@@ -339,6 +340,15 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
     def _error(self, message: str) -> Response:
         return Response({"detail": message}, status=status.HTTP_400_BAD_REQUEST)
 
+    def _checkout_balance_error(self, reservation):
+        pending_amount = get_reservation_financials(reservation)["pending_amount"]
+        if pending_amount <= 0:
+            return None
+        return (
+            "No puedes hacer check-out con saldo pendiente. "
+            f"Falta cobrar {pending_amount:.2f} antes de cerrar la estadia."
+        )
+
     @staticmethod
     def _validation_error_message(error: ValidationError) -> str:
         message_dict = getattr(error, "message_dict", None)
@@ -492,27 +502,40 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
                 return self._error(self._validation_error_message(exc))
 
             try:
+                inventory_comparison = create_checkout_inventory_comparison(
+                    reservation,
+                    inventory_review_lines=inventory_review_lines,
+                    created_by=request.user,
+                )
+                from apps.billing.services import (
+                    create_inventory_missing_charges_for_checkout,
+                    issue_default_invoice_for_reservation,
+                    sync_default_invoice_for_reservation,
+                )
+
+                create_inventory_missing_charges_for_checkout(
+                    reservation,
+                    inventory_comparison=inventory_comparison,
+                )
+                reservation = Reservation.objects.select_for_update().get(pk=reservation.pk)
+                sync_default_invoice_for_reservation(
+                    reservation.id,
+                    expected_hotel_settings_id=reservation.hotel_settings_id,
+                )
+                balance_error = self._checkout_balance_error(reservation)
+                if balance_error:
+                    response_data = {"detail": balance_error}
+                    if inventory_comparison is not None:
+                        response_data["inventory_comparison"] = inventory_comparison
+                    return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+
                 reservation = self._set_status(
                     reservation,
                     status_code=RESERVATION_STATUS_FINISHED,
                     set_real_check_out=True,
                 )
                 create_post_checkout_cleaning_tasks(reservation)
-                inventory_comparison = create_checkout_inventory_comparison(
-                    reservation,
-                    inventory_review_lines=inventory_review_lines,
-                    created_by=request.user,
-                )
                 apply_checkout_consumption_inventory(
-                    reservation,
-                    inventory_comparison=inventory_comparison,
-                )
-                from apps.billing.services import (
-                    create_inventory_missing_charges_for_checkout,
-                    issue_default_invoice_for_reservation,
-                )
-
-                create_inventory_missing_charges_for_checkout(
                     reservation,
                     inventory_comparison=inventory_comparison,
                 )

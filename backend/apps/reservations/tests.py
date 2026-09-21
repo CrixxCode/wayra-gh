@@ -1,5 +1,5 @@
 from apps.hotel_settings.test_utils import create_configured_hotel
-from datetime import time, timedelta
+from datetime import datetime, time, timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -36,6 +36,7 @@ from apps.inventory.services import apply_checkout_consumption_inventory
 from apps.reservations.services import (
     calculate_rate_night_price,
     create_post_checkout_cleaning_tasks,
+    get_reservation_financials,
     validate_reservation_status_transition,
 )
 from apps.rooms.models import CleaningTask, Rate, Room, RoomType
@@ -685,31 +686,37 @@ class ReservationFlowTestCase(TestCase):
         self.assertEqual(self.room.status.code, "RESERVADA")
 
     def test_sync_command_updates_status_when_only_time_changes(self):
-        check_in_date, future_time, past_time = self._same_day_future_past_times()
-
-        self.hotel_settings.check_in_time = future_time
-        self.hotel_settings.save(update_fields=["check_in_time"])
-
-        reservation = self._create_reservation(
-            check_in=check_in_date,
-            check_out=check_in_date + timedelta(days=1),
+        fake_now = timezone.make_aware(
+            datetime.combine(timezone.localdate(), time(12, 0)),
+            timezone.get_current_timezone(),
         )
-        ReservationRoom.objects.create(
-            reservation=reservation,
-            room=self.room,
-            night_rate=120000,
-            adults=2,
-            children=0,
-        )
-        self.room.refresh_from_db()
-        self.assertEqual(self.room.status.code, "DISPONIBLE")
 
-        self.hotel_settings.check_in_time = past_time
-        self.hotel_settings.save(update_fields=["check_in_time"])
+        with patch("django.utils.timezone.now", return_value=fake_now):
+            check_in_date, future_time, past_time = self._same_day_future_past_times()
 
-        call_command("sync_reservation_room_statuses")
-        self.room.refresh_from_db()
-        self.assertEqual(self.room.status.code, "RESERVADA")
+            self.hotel_settings.check_in_time = future_time
+            self.hotel_settings.save(update_fields=["check_in_time"])
+
+            reservation = self._create_reservation(
+                check_in=check_in_date,
+                check_out=check_in_date + timedelta(days=1),
+            )
+            ReservationRoom.objects.create(
+                reservation=reservation,
+                room=self.room,
+                night_rate=120000,
+                adults=2,
+                children=0,
+            )
+            self.room.refresh_from_db()
+            self.assertEqual(self.room.status.code, "DISPONIBLE")
+
+            self.hotel_settings.check_in_time = past_time
+            self.hotel_settings.save(update_fields=["check_in_time"])
+
+            call_command("sync_reservation_room_statuses")
+            self.room.refresh_from_db()
+            self.assertEqual(self.room.status.code, "RESERVADA")
 
     def test_create_reservation_assigns_policies(self):
         today = timezone.now().date()
@@ -1174,6 +1181,19 @@ class ReservationApiFlowTestCase(APITestCase):
         reservation.real_check_in = timezone.now() - timedelta(hours=1)
         reservation.save(update_fields=["status", "real_check_in"])
 
+    def _pay_reservation_balance(self, reservation: Reservation):
+        invoice = ensure_default_invoice_for_reservation(reservation.id)
+        self.assertIsNotNone(invoice)
+        invoice.refresh_from_db()
+        pending_amount = get_reservation_financials(reservation)["pending_amount"]
+        if pending_amount <= 0:
+            return None
+        return Payment.objects.create(
+            invoice=invoice,
+            amount=pending_amount,
+            payment_method=self.payment_method_cash,
+        )
+
     def test_reservations_list_is_paginated(self):
         for index in range(25):
             self._create_reservation(check_in_offset=5 + index, check_out_offset=6 + index)
@@ -1237,6 +1257,7 @@ class ReservationApiFlowTestCase(APITestCase):
         self.assertEqual(check_in.data["status_code"], "EN_CURSO")
         self.assertIsNotNone(check_in.data["real_check_in"])
 
+        self._pay_reservation_balance(reservation)
         check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
         self.assertEqual(check_out.status_code, 200)
         self.assertEqual(check_out.data["status_code"], "FINALIZADA")
@@ -1276,6 +1297,7 @@ class ReservationApiFlowTestCase(APITestCase):
         check_in = self.client.post(f"/api/reservations/{reservation.id}/check-in/", data={}, format="json")
         self.assertEqual(check_in.status_code, 200)
 
+        self._pay_reservation_balance(reservation)
         check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
         self.assertEqual(check_out.status_code, 200)
         self.assertEqual(check_out.data["status_code"], "FINALIZADA")
@@ -1361,6 +1383,7 @@ class ReservationApiFlowTestCase(APITestCase):
         self.assertEqual(confirm.status_code, 200)
         self._mark_reservation_as_checked_in(reservation)
 
+        self._pay_reservation_balance(reservation)
         check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
         self.assertEqual(check_out.status_code, 200)
         self.assertEqual(check_out.data["status_code"], "FINALIZADA")
@@ -1426,6 +1449,7 @@ class ReservationApiFlowTestCase(APITestCase):
 
         self.client.post(f"/api/reservations/{reservation.id}/confirm/", data={}, format="json")
         self._mark_reservation_as_checked_in(reservation)
+        self._pay_reservation_balance(reservation)
         check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
 
         self.assertEqual(check_out.status_code, 200)
@@ -1473,6 +1497,7 @@ class ReservationApiFlowTestCase(APITestCase):
         check_in = self.client.post(f"/api/reservations/{reservation.id}/check-in/", data={}, format="json")
         self.assertEqual(check_in.status_code, 200)
 
+        self._pay_reservation_balance(reservation)
         check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
         self.assertEqual(check_out.status_code, 200)
 
@@ -1494,7 +1519,7 @@ class ReservationApiFlowTestCase(APITestCase):
         self.room.refresh_from_db()
         self.assertEqual(self.room.status.code, "DISPONIBLE")
 
-    def test_check_out_marks_default_invoice_as_pendiente(self):
+    def test_check_out_requires_paid_balance(self):
         reservation = self._create_reservation(status=self.reservation_status_pending)
         self._create_room_line(reservation=reservation, night_rate=100000)
 
@@ -1512,11 +1537,25 @@ class ReservationApiFlowTestCase(APITestCase):
         self._mark_reservation_as_checked_in(reservation)
 
         check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
-        self.assertEqual(check_out.status_code, 200)
-        self.assertEqual(check_out.data["status_code"], "FINALIZADA")
+        self.assertEqual(check_out.status_code, 400)
+        self.assertIn("saldo pendiente", str(check_out.data.get("detail", "")).lower())
+
+        reservation.refresh_from_db()
+        self.assertIsNone(reservation.real_check_out)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status.code, "BORRADOR")
+
+        self._pay_reservation_balance(reservation)
+        paid_check_out = self.client.post(
+            f"/api/reservations/{reservation.id}/check-out/",
+            data={},
+            format="json",
+        )
+        self.assertEqual(paid_check_out.status_code, 200)
+        self.assertEqual(paid_check_out.data["status_code"], "FINALIZADA")
 
         invoice.refresh_from_db()
-        self.assertEqual(invoice.status.code, "PENDIENTE")
+        self.assertEqual(invoice.status.code, "PAGADA")
 
     def test_check_in_creates_inventory_snapshot(self):
         reservation = self._create_reservation(status=self.reservation_status_pending)
@@ -1553,6 +1592,7 @@ class ReservationApiFlowTestCase(APITestCase):
         self.assertEqual(confirm.status_code, 200)
 
         self._mark_reservation_as_checked_in(reservation)
+        self._pay_reservation_balance(reservation)
 
         check_out = self.client.post(
             f"/api/reservations/{reservation.id}/check-out/",
@@ -1568,7 +1608,8 @@ class ReservationApiFlowTestCase(APITestCase):
             },
             format="json",
         )
-        self.assertEqual(check_out.status_code, 200)
+        self.assertEqual(check_out.status_code, 400)
+        self.assertIn("saldo pendiente", str(check_out.data.get("detail", "")).lower())
         self.assertIn("inventory_comparison", check_out.data)
         self.assertEqual(check_out.data["inventory_comparison"]["differences_count"], 1)
         self.assertEqual(check_out.data["inventory_comparison"]["missing_items_count"], 1)
@@ -1600,29 +1641,50 @@ class ReservationApiFlowTestCase(APITestCase):
         self.assertEqual(shortage_charge.unit_price, self.towel_item.sale_price)
         self.assertEqual(shortage_charge.charge_type.code, "INVENTARIO_FALTANTE")
 
+        reservation.refresh_from_db()
+        self.assertIsNone(reservation.real_check_out)
         self.towel_item.refresh_from_db()
-        self.assertEqual(self.towel_item.stock, 98)
+        self.assertEqual(self.towel_item.stock, 100)
 
         check_id = check_out.data["inventory_comparison"]["check_id"]
-        consumption_movement = InventoryMovement.objects.filter(
-            item=self.towel_item,
-            movement_type__code="LOSS",
-            reference=f"ROOM_CONSUMPTION:{check_id}:{self.room.id}:{self.towel_item.id}",
-        ).first()
-        self.assertIsNotNone(consumption_movement)
-        self.assertEqual(consumption_movement.quantity, 2)
-
-        apply_checkout_consumption_inventory(
-            reservation,
-            inventory_comparison=check_out.data["inventory_comparison"],
-        )
-        self.towel_item.refresh_from_db()
-        self.assertEqual(self.towel_item.stock, 98)
-        self.assertEqual(
+        self.assertFalse(
             InventoryMovement.objects.filter(
                 item=self.towel_item,
                 movement_type__code="LOSS",
                 reference=f"ROOM_CONSUMPTION:{check_id}:{self.room.id}:{self.towel_item.id}",
+            ).exists()
+        )
+
+        self._pay_reservation_balance(reservation)
+        paid_check_out = self.client.post(
+            f"/api/reservations/{reservation.id}/check-out/",
+            data={
+                "inventory_review": [
+                    {
+                        "room": self.room.id,
+                        "item": self.towel_item.id,
+                        "quantity": 1,
+                        "notes": "Faltan dos toallas",
+                    }
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(paid_check_out.status_code, 200)
+        self.assertEqual(paid_check_out.data["status_code"], "FINALIZADA")
+
+        apply_checkout_consumption_inventory(
+            reservation,
+            inventory_comparison=paid_check_out.data["inventory_comparison"],
+        )
+        self.towel_item.refresh_from_db()
+        self.assertEqual(self.towel_item.stock, 98)
+        paid_check_id = paid_check_out.data["inventory_comparison"]["check_id"]
+        self.assertEqual(
+            InventoryMovement.objects.filter(
+                item=self.towel_item,
+                movement_type__code="LOSS",
+                reference=f"ROOM_CONSUMPTION:{paid_check_id}:{self.room.id}:{self.towel_item.id}",
             ).count(),
             1,
         )

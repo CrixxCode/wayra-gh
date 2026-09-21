@@ -1,6 +1,8 @@
 from datetime import time
 
+from apps.master_data.models import MasterData
 from apps.hotel_settings.models import HotelFloor, HotelSettings
+from apps.rooms.models import Rate, Room, RoomType
 
 
 def create_configured_hotel(*, with_structure=True, **overrides):
@@ -16,5 +18,37 @@ def create_configured_hotel(*, with_structure=True, **overrides):
     fields.update(overrides)
     hotel = HotelSettings.objects.create(**fields)
     if with_structure:
-        HotelFloor.objects.create(hotel_settings=hotel, floor_number=1, name="Piso 1", prefix="1", room_count=1)
+        floor = HotelFloor.objects.create(
+            hotel_settings=hotel,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=1,
+        )
+        status = MasterData.objects.update_or_create(
+            group=MasterData.Group.ROOM_STATUS,
+            code="DISPONIBLE",
+            defaults={"name": "Disponible", "sort_order": 1, "is_active": True},
+        )[0]
+        room_type = RoomType.objects.create(
+            hotel_settings=hotel,
+            code=f"STD{hotel.id}",
+            name="Habitacion estandar",
+            capacity=2,
+            is_active=True,
+        )
+        rate = Rate.objects.create(
+            hotel_settings=hotel,
+            room_type=room_type,
+            name="Tarifa base",
+            price=100000,
+            is_active=True,
+        )
+        Room.objects.create(
+            number="101",
+            floor=floor,
+            room_type=room_type,
+            rate=rate,
+            status=status,
+        )
     return hotel

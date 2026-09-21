@@ -5,6 +5,8 @@ from rest_framework.test import APITestCase
 from accounts.models import Resource, Role
 from apps.hotel_settings.models import HotelFloor, HotelSettings
 from apps.hotel_settings.test_utils import create_configured_hotel
+from apps.master_data.models import MasterData
+from apps.rooms.models import Rate, Room, RoomType
 
 
 @override_settings(REST_FRAMEWORK={
@@ -14,7 +16,39 @@ from apps.hotel_settings.test_utils import create_configured_hotel
 class HotelSetupGateTests(APITestCase):
     def setUp(self):
         self.hotel = HotelSettings.objects.create(hotel_name="Hotel de prueba")
-        HotelFloor.objects.create(hotel_settings=self.hotel, floor_number=1, name="Piso 1", prefix="1", room_count=1)
+        self.room_status = MasterData.objects.update_or_create(
+            group=MasterData.Group.ROOM_STATUS,
+            code="DISPONIBLE",
+            defaults={"name": "Disponible", "sort_order": 1, "is_active": True},
+        )[0]
+        self.floor = HotelFloor.objects.create(
+            hotel_settings=self.hotel,
+            floor_number=1,
+            name="Piso 1",
+            prefix="1",
+            room_count=1,
+        )
+        self.room_type = RoomType.objects.create(
+            hotel_settings=self.hotel,
+            code="STD",
+            name="Habitacion estandar",
+            capacity=2,
+            is_active=True,
+        )
+        self.rate = Rate.objects.create(
+            hotel_settings=self.hotel,
+            room_type=self.room_type,
+            name="Tarifa base",
+            price=100000,
+            is_active=True,
+        )
+        self.room = Room.objects.create(
+            number="101",
+            floor=self.floor,
+            room_type=self.room_type,
+            rate=self.rate,
+            status=self.room_status,
+        )
         self.user = get_user_model().objects.create_user(
             username="setup-manager", password="test-password", hotel_settings=self.hotel,
         )
@@ -108,9 +142,25 @@ class HotelSetupGateTests(APITestCase):
         HotelSettings.objects.filter(pk=self.hotel.pk).update(**self.complete_payload())
         HotelSettings.objects.filter(pk=self.hotel.pk).update(latitude=0, longitude=0)
         self.assertTrue(self.client.get("/api/auth/hotel-setup/").data["is_complete"])
-        self.hotel.floors.update(room_count=0)
+        Room.objects.filter(pk=self.room.pk).delete()
         response = self.client.get("/api/auth/hotel-setup/")
-        self.assertEqual(response.data["missing_fields"], [{"field": "floors", "label": "estructura de pisos y habitaciones"}])
+        self.assertEqual(
+            response.data["missing_fields"],
+            [{"field": "floors", "label": "habitaciones con tipo y tarifa"}],
+        )
+
+    def test_floor_count_without_configured_room_does_not_complete_setup(self):
+        HotelSettings.objects.filter(pk=self.hotel.pk).update(**self.complete_payload())
+        self.room.rate = None
+        self.room.save(update_fields=["rate"])
+
+        response = self.client.get("/api/auth/hotel-setup/")
+
+        self.assertFalse(response.data["is_complete"])
+        self.assertEqual(
+            response.data["missing_fields"],
+            [{"field": "floors", "label": "habitaciones con tipo y tarifa"}],
+        )
 
     def test_inactive_hotel_restriction_takes_precedence(self):
         HotelSettings.objects.filter(pk=self.hotel.pk).update(is_active=False)

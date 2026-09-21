@@ -5,9 +5,10 @@ from datetime import date
 from django.utils.text import slugify
 
 from apps.reservations.services import ROOM_STATUS_AVAILABLE, find_overlapping_reservation_room
-from apps.rooms.models import Rate, Room
+from apps.rooms.models import Rate
 
 from .models import HotelSettings
+from .setup import configured_room_queryset
 
 
 @dataclass(frozen=True)
@@ -53,8 +54,7 @@ def is_hotel_setup_complete(hotel: HotelSettings) -> bool:
     if not has_contact:
         return False
 
-    has_rooms = any(int(floor.room_count or 0) > 0 for floor in hotel.floors.all())
-    return has_rooms
+    return configured_room_queryset(hotel).exists()
 
 
 def build_active_allied_hotels(
@@ -129,7 +129,7 @@ def build_allied_hotel_payload(
         [rate["maxGuests"] for rate in room_rates] + [int(hotel.max_guests_per_room or 1)]
     )
     nightly_rate_from = min([rate["nightlyRate"] for rate in room_rates], default=0)
-    rooms = sum(int(floor.room_count or 0) for floor in hotel.floors.all())
+    rooms = configured_room_queryset(hotel).count()
     available_rooms_total = (
         sum(included_rooms_by_type.values()) if availability else None
     )
@@ -208,12 +208,9 @@ def count_allied_available_rooms(
     availability: AlliedHotelAvailabilityCriteria,
 ) -> int:
     candidates = (
-        Room.objects.select_related("floor", "status", "room_type")
-        .filter(
-            floor__hotel_settings=rate.hotel_settings,
-            room_type=rate.room_type,
-            status__code=ROOM_STATUS_AVAILABLE,
-        )
+        configured_room_queryset(rate.hotel_settings)
+        .select_related("floor", "status", "room_type")
+        .filter(room_type=rate.room_type, status__code=ROOM_STATUS_AVAILABLE)
         .order_by("number", "id")
     )
 
