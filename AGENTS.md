@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-09-14
+**Última actualización:** 2026-09-21
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -1196,6 +1196,22 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-09-21 — Frontend CI estable en Ubuntu
+
+- **Autor:** Codex, a solicitud del usuario.
+- **Commit(s):** pendiente
+- **Tipo:** ci
+- **Qué se hizo:** el script `npm run test:ci` del frontend ahora usa el launcher
+  `ChromeHeadlessNoSandbox`, incluido por Angular 20 para ejecución headless en entornos Linux de CI.
+  El workflow de GitHub Actions también pasa de Node 20 a Node 24 para alinearse con el Dockerfile
+  y con el entorno local usado en las pruebas.
+- **Por qué:** el check `CI / frontend (push)` fallaba en el paso `Test` en Ubuntu aunque las pruebas
+  pasaban localmente. Usar el launcher sin sandbox evita fallos típicos de Chrome Headless en runners
+  Linux y reduce diferencias entre CI, Docker y desarrollo local.
+- **Archivos/áreas afectadas:** `.github/workflows/ci.yml`, `frontend/package.json`, `AGENTS.md`.
+- **Impacto:** no requiere migraciones ni variables nuevas. El despliegue en Railway no cambia; solo
+  se estabiliza la validación automática del frontend antes de aceptar el push.
 
 ### 2026-09-20 — Setup exige habitaciones operables y sincroniza conteo de pisos
 

@@ -8,7 +8,7 @@
     "build:ci": "ng build --configuration production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "test:ci": "ng test --watch=false --no-progress --browsers=ChromeHeadless",
+    "test:ci": "ng test --watch=false --no-progress --browsers=ChromeHeadlessNoSandbox",
     "lint": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.spec.json"
   },
   "prettier": {
