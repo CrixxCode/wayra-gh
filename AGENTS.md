@@ -1202,6 +1202,24 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ## 12. Registro de cambios
 
+### 2026-10-02 — Figura de arquitectura lógica por capas en `diagramas/`
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** pendiente
+- **Tipo:** docs
+- **Qué se hizo:** se agregó `diagramas/arquitectura-logica.html` (HTML interactivo autocontenido) y
+  su especificación fuente `diagramas/arquitectura-logica.architecture.json` (formato Archify).
+  Figura para artículo científico con tres capas cliente-servidor: presentación (usuario, aplicación
+  Angular, módulos de interfaz y control de acceso en el cliente), aplicación y servicios (API REST,
+  Django REST Framework, Django, 9 módulos funcionales y 8 mecanismos transversales: sesiones, CSRF,
+  RBAC, aislamiento multi-hotel, permisos en endpoints, throttling, borrado lógico, auditoría) y
+  persistencia (base de datos relacional y 12 dominios de información).
+- **Por qué:** el usuario la necesita como figura de arquitectura lógica para un artículo. El
+  contenido lo dictó el usuario; no se extrajo del código.
+- **Archivos/áreas afectadas:** `diagramas/arquitectura-logica.html`,
+  `diagramas/arquitectura-logica.architecture.json`, `AGENTS.md`.
+- **Impacto:** Ninguno. No cambia código, API ni despliegue.
+
 ### 2026-09-26 — Diagrama de flujo funcional de punta a punta en `diagramas/`
 
 - **Autor:** Claude Code, a solicitud de Cristian Ramirez.
