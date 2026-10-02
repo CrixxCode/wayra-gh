@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 3.0.1">
   <meta name="archify-reader-contract" content="declared-wide-v1">
-  <title>Wayra — Modelo de datos (E-R simplificado) · Diagrama</title>
+  <title>Arquitectura lógica de la plataforma web para la gestión hotelera · Diagrama</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -4978,17 +4978,17 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
            data-preset-badge-blueprint="PLANO / REV 01"
            data-preset-badge-editorial="EDITORIAL / NOTA DE CAMPO">
         <div class="pulse-dot"></div>
-        <h1>Wayra — Modelo de datos (E-R simplificado)</h1>
+        <h1>Arquitectura lógica de la plataforma web para la gestión hotelera</h1>
       </div>
     </div>
 
-    <script id="archify-source-evidence-data" type="application/json">{"schemaVersion":1,"verified":true,"repository":{"url":"https://github.com/CrixxCode/wayra-gh","revision":"7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5","shortRevision":"7be3e8d","label":"CrixxCode/wayra-gh","href":"https://github.com/CrixxCode/wayra-gh/tree/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5"},"referenceCount":22,"nodes":{"rol":[{"path":"backend/accounts/models.py","line":51,"endLine":58,"label":"Role, sin FK a hotel","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/accounts/models.py#L51-L58"},{"path":"backend/accounts/models.py","line":118,"endLine":126,"label":"UserRole (N:M)","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/accounts/models.py#L118-L126"}],"usuario":[{"path":"backend/accounts/models.py","line":9,"endLine":22,"label":"hotel_settings FK null=True","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/accounts/models.py#L9-L22"},{"path":"backend/accounts/models.py","line":42,"endLine":48,"label":"hotel obligatorio salvo superusuario","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/accounts/models.py#L42-L48"}],"hotel":[{"path":"backend/apps/hotel_settings/models.py","line":17,"label":"HotelSettings","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/hotel_settings/models.py#L17"}],"piso":[{"path":"backend/apps/hotel_settings/models.py","line":262,"endLine":285,"label":"hotel_settings FK","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/hotel_settings/models.py#L262-L285"}],"cliente":[{"path":"backend/apps/clients/models.py","line":7,"endLine":14,"label":"hotel_settings FK","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/clients/models.py#L7-L14"},{"path":"backend/apps/clients/models.py","line":51,"endLine":60,"label":"documento único por hotel","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/clients/models.py#L51-L60"}],"reserva":[{"path":"backend/apps/reservations/models.py","line":15,"endLine":24,"label":"client FK","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/reservations/models.py#L15-L24"},{"path":"backend/apps/reservations/models.py","line":45,"endLine":51,"label":"hotel_settings FK","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/reservations/models.py#L45-L51"},{"path":"backend/apps/reservations/models.py","line":61,"endLine":64,"label":"fechas de la estadía","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/reservations/models.py#L61-L64"}],"reserva-hab":[{"path":"backend/apps/reservations/models.py","line":201,"endLine":211,"label":"reservation y room FK","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/reservations/models.py#L201-L211"},{"path":"backend/apps/reservations/models.py","line":228,"endLine":233,"label":"única por reserva y habitación","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/reservations/models.py#L228-L233"},{"path":"backend/apps/reservations/services.py","line":961,"endLine":986,"label":"control de solapamiento","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/reservations/services.py#L961-L986"}],"habitacion":[{"path":"backend/apps/rooms/models.py","line":135,"endLine":155,"label":"room_type y floor FK","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/rooms/models.py#L135-L155"},{"path":"backend/apps/rooms/models.py","line":173,"endLine":178,"label":"número único por piso","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/rooms/models.py#L173-L178"}],"tipo":[{"path":"backend/apps/rooms/models.py","line":14,"endLine":25,"label":"hotel_settings FK","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/rooms/models.py#L14-L25"}],"cargo":[{"path":"backend/apps/billing/models.py","line":10,"endLine":15,"label":"reservation FK","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/billing/models.py#L10-L15"}],"factura":[{"path":"backend/apps/billing/models.py","line":88,"endLine":93,"label":"reservation FK","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/billing/models.py#L88-L93"},{"path":"backend/apps/billing/models.py","line":144,"endLine":160,"label":"InvoiceCharge (N:M)","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/billing/models.py#L144-L160"},{"path":"backend/apps/billing/services.py","line":541,"endLine":567,"label":"total calculado sobre la reserva","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/billing/services.py#L541-L567"}],"pago":[{"path":"backend/apps/billing/models.py","line":175,"endLine":186,"label":"invoice y payment_method FK","href":"https://github.com/CrixxCode/wayra-gh/blob/7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5/backend/apps/billing/models.py#L175-L186"}]}}</script>
+
     <script id="archify-i18n-data" type="application/json">{"locale":"es","messages":{"viewer.kind.frontend":"Frontend","viewer.kind.backend":"Backend","viewer.kind.database":"Base de datos","viewer.kind.cloud":"Nube","viewer.kind.security":"Seguridad","viewer.kind.messagebus":"Bus de mensajes","viewer.kind.external":"Externo","viewer.kind.neutral":"Neutral","viewer.kind.node":"Nodo","viewer.kind.start":"Inicio","viewer.kind.active":"Activo","viewer.kind.waiting":"En espera","viewer.kind.decision":"Decisión","viewer.kind.success":"Éxito","viewer.kind.failure":"Fallo","viewer.toolbar.actions":"Acciones del diagrama","viewer.theme.toggle.title":"Cambiar tema (T)","viewer.theme.toggle":"Cambiar tema de color","viewer.theme.dark":"Oscuro","viewer.theme.light":"Claro","viewer.preset.choose.title":"Elegir estilo visual (S alterna)","viewer.preset.choose":"Elegir estilo visual","viewer.preset.style":"Estilo","viewer.preset.menu":"Estilo visual","viewer.preset.identity":"Identidad visual","viewer.preset.cycles":"alterna","viewer.preset.classic":"Clásico","viewer.preset.classic.short":"Clásico","viewer.preset.classic.hint":"Predeterminado técnico estable","viewer.preset.flow":"Flujo de señal","viewer.preset.flow.short":"Flujo","viewer.preset.flow.hint":"Presentación con énfasis en el movimiento","viewer.preset.blueprint":"Plano","viewer.preset.blueprint.hint":"Revisión de ingeniería","viewer.preset.editorial":"Editorial","viewer.preset.editorial.hint":"Notas de publicación y lanzamiento","viewer.preset.badge.signalFlow":"FLUJO DE SEÑAL","viewer.preset.badge.blueprint":"PLANO / REV 01","viewer.preset.badge.editorial":"EDITORIAL / NOTA DE CAMPO","viewer.preset.badge.editorialPlate":"ARCHIFY / LÁMINA 04","viewer.preset.current":"Estilo visual: {style}. Elegir estilo visual","viewer.motion.live":"Activa","viewer.motion.still":"Fija","viewer.motion.pause":"Pausar animación","viewer.motion.resume":"Reanudar animación","viewer.motion.reduced":"Animación pausada por la preferencia de movimiento reducido","viewer.motion.hidden":"Animación pausada mientras esta página está oculta","viewer.motion.yielding":"Pausar animación; cediendo a {owner}","viewer.motion.yielding.title":"Vista previa en vivo activada · cediendo a {owner}","viewer.owner.route":"Sonda de ruta","viewer.owner.lens":"Lente semántico","viewer.owner.relationship":"Vista previa de relación","viewer.owner.intent":"Traza de intención","viewer.owner.focus":"enfoque semántico","viewer.owner.legend":"vista previa de la leyenda","viewer.owner.reader":"interacción del lector","viewer.present.enter":"Entrar al modo presentación","viewer.present.enter.title":"Modo presentación (F)","viewer.present.exit":"Salir del modo presentación","viewer.present.exit.title":"Salir del modo presentación (F o Escape)","viewer.present.present":"Presentar","viewer.present.exit.label":"Salir","viewer.export.button":"Exportar","viewer.export.button.title":"Exportar diagrama (E)","viewer.export.diagram":"Exportar diagrama","viewer.export.menu":"Exportar","viewer.export.subtitle":"Salidas portables y limpias","viewer.export.share":"Compartir","viewer.export.shareCard":"Tarjeta para compartir","viewer.export.routeShareCard":"Tarjeta de ruta para compartir","viewer.export.reachShareCard":"Tarjeta de alcance para compartir","viewer.export.copyDiagram":"Copiar diagrama","viewer.export.clipboardPng":"PNG al portapapeles","viewer.export.raster":"Imágenes rasterizadas","viewer.export.image":"Imagen","viewer.export.lossless":"Imagen sin pérdida","viewer.export.compact":"Imagen compacta","viewer.export.modern":"Imagen moderna","viewer.export.vectorMotion":"Vector y movimiento","viewer.export.vectorMotion.heading":"Vector y movimiento","viewer.export.editable":"Vector editable","viewer.export.svg.auto":"SVG · Auto","viewer.export.svg.auto.hint":"Coincide con el tema del host","viewer.export.svg.light":"SVG · Claro","viewer.export.svg.light.hint":"Siempre claro","viewer.export.svg.dark":"SVG · Oscuro","viewer.export.svg.dark.hint":"Siempre oscuro","viewer.export.motion6s":"Movimiento de 6 s","viewer.export.unsupported":"No compatible con este navegador","viewer.export.clipboardUnsupported":"Este navegador no admite escribir imágenes en el portapapeles","viewer.export.clipboardUnsupported.short":"Escritura de imágenes en el portapapeles no admitida en este navegador.","viewer.export.motionUnavailable":"Captura de movimiento no disponible en este navegador","viewer.export.webmUnavailable":"WebM no disponible en este navegador","viewer.export.failed":"Falló la exportación: {message}","viewer.export.unknownVariant":"Variante de tarjeta para compartir desconocida: {variant}","viewer.export.routeRequired":"Traza una ruta antes de exportar una tarjeta de ruta para compartir","viewer.export.reachRequired":"Traza el alcance definido antes de exportar una tarjeta de alcance para compartir","viewer.export.unknown":"desconocido","viewer.export.routeFailed":"Falló la exportación de la tarjeta de ruta para compartir: {message}","viewer.export.reachFailed":"Falló la exportación de la tarjeta de alcance para compartir: {message}","viewer.export.copyFailed":"Error al copiar: {message}","viewer.export.copiedPng":"PNG copiado al portapapeles","viewer.export.downloadedRoute":"Tarjeta de ruta para compartir descargada","viewer.export.downloadedReach":"Tarjeta de alcance para compartir descargada","viewer.export.downloadedWebm":"WebM descargado","viewer.export.recording":"Grabando 6 segundos de movimiento…","viewer.export.card.routeSummary.one":"Ruta: {source} → {target} · {count} paso","viewer.export.card.routeSummary.other":"Ruta: {source} → {target} · {count} pasos","viewer.export.card.reachSummary":"Alcance definido {direction} desde {origin} · {nodes} · {links} · máx {hops}","viewer.export.card.node.one":"{count} nodo","viewer.export.card.node.other":"{count} nodos","viewer.export.card.link.one":"{count} enlace","viewer.export.card.link.other":"{count} enlaces","viewer.export.card.hop.one":"{count} salto","viewer.export.card.hop.other":"{count} saltos","viewer.export.card.routeBadge":"ARCHIFY · RUTA · {hops}","viewer.export.card.reachBadge":"ARCHIFY · ALCANCE {direction}","viewer.export.direction.upstream":"Ascendente","viewer.export.direction.downstream":"Descendente","viewer.export.error.canvasUnavailable":"Lienzo no disponible para {label}","viewer.export.error.contextUnavailable":"Contexto de lienzo 2D no disponible para {label}","viewer.export.error.toBlobUnavailable":"canvas.toBlob no disponible para {label}","viewer.export.error.toBlobNull":"canvas.toBlob no devolvió datos para {label}","viewer.export.error.variantsCombined":"Las variantes de tarjeta para compartir no se pueden combinar","viewer.export.error.viewerState":"La exportación de la tarjeta para compartir no pudo quitar el estado temporal del visor","viewer.export.error.routeState":"La exportación de la tarjeta de ruta no pudo preservar la ruta resuelta de forma segura","viewer.export.error.reachState":"La exportación de la tarjeta de alcance no pudo preservar el alcance definido de forma segura","viewer.export.error.webmRequirements":"La exportación de movimiento WebM requiere una animación de traza y compatibilidad del navegador con MediaRecorder","viewer.export.error.mediaRecorder":"MediaRecorder falló","viewer.export.error.emptyWebm":"MediaRecorder produjo un WebM vacío","viewer.export.error.webmBackground":"No se pudo cargar el fondo SVG para la exportación WebM","viewer.guide.title":"Explorar este sistema","viewer.focus.selectedNodes":"{count} nodos seleccionados","viewer.guide.eyebrow":"Guía del diagrama","viewer.guide.close":"Cerrar la guía del diagrama","viewer.guide.inspecting":"Inspeccionando la semántica compilada","viewer.guide.actions":"Acciones de exploración del diagrama","viewer.guide.find":"Buscar cualquier nodo","viewer.guide.find.hint":"Busca por etiquetas, responsabilidades, tipos e IDs estables.","viewer.guide.route":"Trazar una ruta","viewer.guide.route.aria":"Trazar una ruta dirigida","viewer.guide.route.hint":"Pregunta cómo se conectan dos nodos semánticos en el sentido definido.","viewer.guide.map":"Ver todo el sistema","viewer.guide.map.hint":"Abre el Radar semántico con un viewport en vivo y nodos estables.","viewer.guide.lens":"Comparar tipos semánticos","viewer.guide.lens.hint":"Cuenta roles, revela su tráfico y compara enlaces directos definidos.","viewer.guide.present":"Entrar al modo presentación","viewer.guide.present.hint":"Dale al diagrama en vivo todo el viewport sin cambiar la exportación.","viewer.guide.shortcuts":"Atajos de teclado adicionales","viewer.guide.shortcut.export":"Exportar","viewer.guide.shortcut.theme":"Tema","viewer.guide.shortcut.style":"Estilo","viewer.guide.shortcut.reset":"Restablecer","viewer.guide.shortcut.zoomIn":"Acercar","viewer.guide.shortcut.zoomOut":"Alejar","viewer.guide.shortcut.close":"Cerrar","viewer.guide.facts":"{nodes} · {relationships}","viewer.guide.fact.node.one":"{count} nodo semántico","viewer.guide.fact.node.other":"{count} nodos semánticos","viewer.guide.fact.relationship.one":"{count} relación","viewer.guide.fact.relationship.other":"{count} relaciones","viewer.guide.open":"Abrir la guía del diagrama","viewer.finder.title":"Buscar un nodo","viewer.finder.close":"Cerrar el buscador de nodos","viewer.finder.placeholder":"Buscar etiquetas o IDs","viewer.finder.search":"Buscar nodos del diagrama","viewer.finder.results":"Nodos del diagrama","viewer.finder.empty":"No hay nodos coincidentes","viewer.finder.result.focus":"Enfocar {label}","viewer.finder.result.routeStart":"Elegir {label} como inicio de la ruta","viewer.finder.result.routeTarget":"Elegir {label} como destino de la ruta, {links}","viewer.finder.status.empty":"No hay nodos coincidentes","viewer.finder.status.count.one":"{count} nodo coincidente","viewer.finder.status.count.other":"{count} nodos coincidentes","viewer.finder.noun.nodes":"nodos","viewer.finder.link.one":"{count} enlace","viewer.finder.link.other":"{count} enlaces","viewer.finder.result.focus.one":"Enfocar {label}, {count} conexión relacionada","viewer.finder.result.focus.other":"Enfocar {label}, {count} conexiones relacionadas","viewer.finder.status.filtered":"{visible} de {available} {noun}","viewer.finder.status.all":"{available} {noun}","viewer.passport.eyebrow":"Pasaporte semántico","viewer.passport.metadata":"Metadatos del nodo","viewer.passport.evidence":"Evidencia de fuente verificada","viewer.passport.verified":"Fuente verificada","viewer.passport.verificationScope":"Verificado contra el Git local en la revisión fijada. No se ha comprobado el acceso remoto.","viewer.passport.reach":"Alcance definido","viewer.passport.reach.trace":"Trazar la alcanzabilidad definida","viewer.passport.upstream":"Ascendente","viewer.passport.downstream":"Descendente","viewer.passport.upstream.trace":"Trazar la alcanzabilidad definida ascendente","viewer.passport.downstream.trace":"Trazar la alcanzabilidad definida descendente","viewer.passport.close":"Cerrar el pasaporte semántico","viewer.passport.move":"Mover el pasaporte semántico. Arrastra, usa las flechas o pulsa Inicio para restablecer.","viewer.passport.copy":"Copiar enlace","viewer.passport.copy.focus":"Copiar enlace al nodo enfocado","viewer.passport.relations":"Relaciones","viewer.passport.relations.show":"Mostrar relaciones conectadas","viewer.passport.relations.hide":"Ocultar relaciones conectadas","viewer.passport.relations.list":"Relaciones conectadas","viewer.passport.copyRelation":"Copiar relación","viewer.passport.copyNode":"Copiar nodo","viewer.passport.copyPinned":"Copiar enlace a la relación fijada","viewer.passport.copySource":"Copiar enlace al nodo de origen","viewer.passport.copy.focused.success":"Enlace del nodo enfocado copiado","viewer.passport.copy.pinned.success":"Enlace de la relación fijada copiado","viewer.passport.copy.focused.failed":"No se pudo copiar el enlace del nodo enfocado","viewer.passport.copy.pinned.failed":"No se pudo copiar el enlace de la relación fijada","viewer.passport.relationship.none":"No hay relaciones conectadas","viewer.passport.relationship.count.one":"{count} relación","viewer.passport.relationship.count.other":"{count} relaciones","viewer.passport.relationship.show.one":"Mostrar {count} relación conectada","viewer.passport.relationship.show.other":"Mostrar {count} relaciones conectadas","viewer.passport.relationship.summary":"{out} salientes · {in} entrantes{loops}","viewer.passport.relationship.loops":" · {count} bucle","viewer.passport.relationship.explorer":"Explorador de relaciones directas","viewer.passport.relationship.help":"Usa las flechas para explorar las relaciones. Pulsa Enter o Espacio para fijar detalles; Escape las borra.","viewer.passport.relationship.loopsBack":"vuelve sobre sí mismo","viewer.passport.relationship.connectsTo":"conecta a","viewer.passport.relationship.connectsFrom":"conecta desde","viewer.passport.relationship.pinned":"Relación fijada · {from} → {to} · {label}","viewer.passport.relationship.inspect":"Inspeccionar relación {index} de {total}: {from} a {to}, {label}. Pulsa Enter para ver detalles.","viewer.passport.relationship.group.out":"Salientes","viewer.passport.relationship.group.in":"Entrantes","viewer.passport.relationship.group.loop":"Bucles propios","viewer.passport.relationship.row":"{group}: {relationship}, {neighbor}","viewer.passport.relationship.direction.out":"SAL →","viewer.passport.relationship.direction.in":"← ENT","viewer.passport.relationship.direction.loop":"BUCLE","viewer.passport.sourceCount.one":"{count} referencia de fuente verificada","viewer.passport.sourceCount.other":"{count} referencias de fuente verificadas","viewer.passport.sourceMarker":"SRC","viewer.passport.beacon.one":"{count} fuente verificada; enfoca este nodo para inspeccionar","viewer.passport.beacon.other":"{count} fuentes verificadas; enfoca este nodo para inspeccionar","viewer.passport.repository.open":"Abrir la revisión verificada del repositorio {revision}","viewer.passport.source.open":"Abrir la fuente verificada {path} en la revisión {revision}","viewer.passport.source.openLink":"Abrir ↗","viewer.passport.reach.upstream.one":"Trazar {count} nodo definido ascendente","viewer.passport.reach.upstream.other":"Trazar {count} nodos definidos ascendentes","viewer.passport.reach.downstream.one":"Trazar {count} nodo definido descendente","viewer.passport.reach.downstream.other":"Trazar {count} nodos definidos descendentes","viewer.passport.reach.noUpstream":"No hay nodos definidos ascendentes","viewer.passport.reach.noDownstream":"No hay nodos definidos descendentes","viewer.passport.reach.status":"{direction} · {nodes} nodos · {links} enlaces · máx {hops} saltos","viewer.route.eyebrow":"Ruta","viewer.route.start":"Haz clic donde empieza la ruta","viewer.route.start.find":"Buscar inicio","viewer.route.start.find.aria":"Buscar un inicio de ruta","viewer.route.copy":"Copiar enlace","viewer.route.copy.aria":"Copiar enlace a la ruta trazada","viewer.route.clear":"Borrar","viewer.route.clear.aria":"Borrar la sonda de ruta","viewer.route.traced":"Ruta","viewer.route.pickTwo":"Haz clic en dos nodos del diagrama","viewer.route.pickOne":"Haz clic en un nodo del diagrama","viewer.route.controls":"Controles del recorrido de la ruta","viewer.route.previous":"Posición anterior de la ruta","viewer.route.play":"Reproducir el recorrido de la ruta","viewer.route.pause":"Pausar el recorrido de la ruta","viewer.route.replay":"Repetir el recorrido de la ruta","viewer.route.next":"Posición siguiente de la ruta","viewer.route.journey":"Recorrido","viewer.route.pause.label":"Pausar","viewer.route.replay.label":"Repetir","viewer.route.overview":"Vista general","viewer.route.overview.aria":"Mostrar la vista general completa de la ruta","viewer.route.instructions":"Haz clic en un inicio y luego en un final. La ruta sigue las flechas.","viewer.route.destination":"¿Dónde termina la ruta desde {label}?","viewer.route.destination.find":"Buscar destino","viewer.route.destination.find.aria":"Buscar un destino de ruta alcanzable","viewer.route.differentDestination":"Elige un destino diferente","viewer.route.distinct":"Elige dos nodos distintos.","viewer.route.unreachable":"No se llega a {label} desde aquí","viewer.route.unreachable.detail":"No se llega a {target} desde {source} siguiendo las flechas. Elige un nodo resaltado.","viewer.route.start.instructions":"Luego elige el final. Solo se iluminan los nodos alcanzables.","viewer.route.copy.success":"Enlace de la ruta trazada copiado","viewer.route.copy.failed":"No se pudo copiar el enlace de la ruta trazada","viewer.route.position":"Posición de la ruta {index} de {total}: {label}","viewer.route.step":"Paso {index} de {total} · {phase} · {label}","viewer.route.motionRequired":"El recorrido automático requiere la animación Activa","viewer.route.trigger.clear":"Borrar la ruta trazada","viewer.route.overview.status":"{nodes} · {hops} · ruta más corta","viewer.route.overview.node.one":"{count} nodo","viewer.route.overview.node.other":"{count} nodos","viewer.route.overview.hop.one":"{count} paso","viewer.route.overview.hop.other":"{count} pasos","viewer.route.phase.playing":"Reproduciendo","viewer.route.phase.complete":"Completo","viewer.route.phase.inspecting":"Inspeccionando","viewer.route.destination.count.one":"{count} nodo alcanzable está resaltado. Haz clic en él.","viewer.route.destination.count.other":"{count} nodos alcanzables están resaltados. Haz clic en uno.","viewer.route.noOutgoing":"Ninguna flecha sale de este nodo. Bórralo y elige otro inicio.","viewer.route.result.title":"{source} a {target}","viewer.route.finder.source.title":"Elegir el inicio de la ruta","viewer.route.finder.source.placeholder":"Buscar orígenes de ruta","viewer.route.finder.source.empty":"No hay orígenes de ruta coincidentes","viewer.route.finder.source.results":"Nodos que pueden iniciar una ruta","viewer.route.finder.source.noun":"orígenes de ruta","viewer.route.finder.source.badge":"inicio","viewer.route.finder.target.title":"Destino desde {label}","viewer.route.finder.target.placeholder":"Buscar destinos alcanzables","viewer.route.finder.target.empty":"No hay destinos alcanzables coincidentes","viewer.route.finder.target.results":"Destinos de ruta alcanzables","viewer.route.finder.target.noun":"destinos alcanzables","viewer.route.hop.one":"{count} salto","viewer.route.hop.other":"{count} saltos","viewer.lens.eyebrow":"Lente semántico","viewer.lens.title":"Comparar roles del sistema","viewer.lens.close":"Cerrar el lente semántico","viewer.lens.instruction":"Elige hasta dos tipos semánticos. Uno revela su tráfico real; dos comparan solo las relaciones directas definidas.","viewer.lens.kinds":"Tipos semánticos","viewer.lens.choose":"Elige un tipo para inspeccionar sus nodos y las relaciones que lo tocan.","viewer.lens.copy":"Copiar enlace al lente semántico","viewer.lens.clear":"Borrar el lente semántico","viewer.lens.open":"Abrir el lente semántico","viewer.lens.openActive":"Abrir el lente semántico activo","viewer.lens.legend":"Leyenda semántica","viewer.lens.legend.inspect.one":"Inspeccionar {label}, {count} nodo","viewer.lens.legend.inspect.other":"Inspeccionar {label}, {count} nodos","viewer.lens.kind.count.one":"{label}, {count} nodo","viewer.lens.kind.count.other":"{label}, {count} nodos","viewer.lens.compare.one":"{first} → {second}: {forward} · {second} → {first}: {reverse} · {count} relación directa","viewer.lens.compare.other":"{first} → {second}: {forward} · {second} → {first}: {reverse} · {count} relaciones directas","viewer.lens.single":"{nodes} · {relationships} · los pares conectados permanecen visibles","viewer.lens.node.one":"{count} nodo {label}","viewer.lens.node.other":"{count} nodos {label}","viewer.lens.relationship.one":"{count} relación en contacto","viewer.lens.relationship.other":"{count} relaciones en contacto","viewer.radar.title":"Radar semántico","viewer.radar.building":"Construyendo la vista general","viewer.radar.openFull":"Abrir el radar semántico completo","viewer.radar.open":"Abrir el radar","viewer.radar.close":"Cerrar el radar semántico","viewer.radar.surface":"Vista general del diagrama. Haz clic en un nodo para enfocarlo, o usa las flechas para desplazarte.","viewer.radar.click":"Clic en el nodo","viewer.radar.drag":"Arrastra para desplazar","viewer.radar.space":"El radar semántico necesita más espacio de MAPA.","viewer.radar.nodes":"Nodos del radar del diagrama semántico","viewer.radar.focus":"Enfocar {label} desde el Radar semántico","viewer.radar.status":"{count} nodos · {viewport}","viewer.radar.fullMap":"{count} nodos · mapa completo","viewer.radar.compacted":"Radar compactado para no tapar el Pasaporte semántico ni los controles de MAPA.","viewer.radar.cancelWaiting":"Cancelar la espera del radar semántico por más espacio de MAPA","viewer.radar.needsSpace":"El radar semántico necesita más espacio de MAPA visible","viewer.radar.viewport.full":"mapa completo","viewer.radar.viewport.width":"{percent}% de ancho","viewer.radar.viewport.scale":"{percent}% del viewport","viewer.nav.controls":"Controles de vista del diagrama","viewer.nav.route":"Trazar una ruta dirigida","viewer.nav.route.title":"Trazar ruta (R)","viewer.nav.route.short":"RUTA","viewer.nav.radar":"Abrir el radar semántico","viewer.nav.radar.title":"Radar semántico (M)","viewer.nav.radar.short":"MAPA","viewer.nav.lens":"Abrir el lente semántico","viewer.nav.lens.title":"Lente semántico (L)","viewer.nav.lens.short":"LENTE","viewer.nav.find":"Buscar un nodo","viewer.nav.find.title":"Buscar un nodo (/)","viewer.outline.title":"Índice de nodos","viewer.rail.show":"Notas e índice","viewer.rail.controls":"Panel lateral","viewer.rail.collapse":"Contraer panel lateral","viewer.rail.bottom":"Mover el panel debajo","viewer.rail.right":"Mover el panel al lado","viewer.nav.guide":"Abrir la guía del diagrama","viewer.nav.guide.title":"Guía del diagrama (?)","viewer.nav.zoomOut":"Alejar","viewer.nav.zoomOut.title":"Alejar (-)","viewer.nav.reset":"Restablecer la vista del diagrama","viewer.nav.reset.title":"Restablecer vista (0)","viewer.nav.read":"LEER","viewer.nav.zoomIn":"Acercar","viewer.nav.zoomIn.title":"Acercar (+)","viewer.nav.camera":"{hint}. Restablecer la vista del diagrama","viewer.nav.camera.title":"{semantic}{hint} · restablecer vista (0)","viewer.nav.camera.semantic":"Cámara semántica activa · ","viewer.nav.level.map":"MAPA","viewer.nav.level.read":"LEER","viewer.nav.level.full":"COMPLETO","viewer.nav.level.auto":"AUTO","viewer.nav.detail.map":"Acerca para revelar las etiquetas de relación y el contexto de los nodos","viewer.nav.detail.read":"Acerca de nuevo para revelar etiquetas y anotaciones","viewer.nav.detail.full":"Detalle completo del diagrama","viewer.intent.summary":"{label}. {out} salientes, {in} entrantes{loops}. {total} conexiones. Pulsa Enter para ver detalles.","viewer.intent.loops":", {count} bucle propio","viewer.common.copied":"Copiado","viewer.common.copyFailed":"Error al copiar","viewer.common.copyLink":"Copiar enlace","viewer.common.clear":"Borrar","viewer.common.close":"Cerrar"}}</script>
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / LÁMINA 04">
-      <svg viewBox="0 0 1425 682" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
-        <title id="archify-diagram-title">Wayra — Modelo de datos (E-R simplificado)</title>
+      <svg viewBox="0 0 1721 881" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
+        <title id="archify-diagram-title">Arquitectura lógica de la plataforma web para la gestión hotelera</title>
         <desc id="archify-diagram-description">Un diagrama de arquitectura generado por Archify.</desc>
         <!-- Definitions -->
         <defs>
@@ -5013,314 +5013,545 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Boundaries (behind everything) -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="Global (sin hotel)" x="10" y="80" width="220" height="114" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="Capa de presentación · Interfaz de usuario" x="40" y="50" width="430" height="763" rx="12" class="c-region" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="1" data-composition-frame-label="Tenant" x="310" y="80" width="510" height="114" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="1" data-composition-frame-label="Módulos de la interfaz" x="58" y="313" width="394" height="327" rx="12" class="c-region" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="2" data-composition-frame-label="Reservas" x="310" y="290" width="780" height="114" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="2" data-composition-frame-label="Control de acceso en el cliente" x="58" y="663" width="394" height="150" rx="8" class="c-security-group" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="3" data-composition-frame-label="Habitaciones" x="1120" y="80" width="240" height="534" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="3" data-composition-frame-label="Capa de aplicación y servicios · Lógica de negocio y API" x="600" y="180" width="660" height="633" rx="12" class="c-region" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="4" data-composition-frame-label="Facturación" x="10" y="500" width="1080" height="114" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="4" data-composition-frame-label="Módulos funcionales (dominios de la aplicación)" x="618" y="313" width="624" height="209" rx="12" class="c-region" stroke-width="1"/>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="5" data-composition-frame-label="Mecanismos transversales (seguridad, autorización y aislamiento)" x="618" y="545" width="624" height="268" rx="8" class="c-security-group" stroke-width="1"/>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="6" data-composition-frame-label="Capa de persistencia · Base de datos relacional" x="1349.4445020290323" y="180" width="331.1109959419354" height="633" rx="12" class="c-region" stroke-width="1"/>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="7" data-composition-frame-label="Principales dominios de información" x="1389.416118532258" y="318" width="251.1677629354838" height="495" rx="12" class="c-region" stroke-width="1"/>
 
         <!-- Connection paths (before components for correct z-order) -->
         <g data-graph-role="automatic-crossover" style="--step:0">
-          <path data-graph-role="automatic-crossover-underlay" d="M 610 142 L 520 142" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="hotel" data-edge-to="usuario" data-edge-label="1 : N" data-edge-key="0" data-edge-id="hotel-usuarios" data-composition-points="610,142;520,142" data-composition-crossover="halo" data-composition-independent="true" d="M 610 142 L 520 142" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 262 140 L 262 210" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="usuario" data-edge-to="angular" data-edge-label="Interacción" data-edge-key="0" data-edge-id="usuario-interactua" data-composition-points="262,140;262,210" data-composition-crossover="halo" data-composition-independent="true" d="M 262 140 L 262 210" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:1">
-          <path data-graph-role="automatic-crossover-underlay" d="M 340 142 L 200 142" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="usuario" data-edge-to="rol" data-edge-label="N : M · UserRole" data-edge-key="1" data-edge-id="usuario-roles" data-composition-points="340,142;200,142" data-composition-crossover="halo" data-composition-independent="true" d="M 340 142 L 200 142" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 248 210 L 248 140" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="angular" data-edge-to="usuario" data-edge-label="Vistas" data-edge-key="1" data-edge-id="angular-presenta" data-composition-points="248,210;248,140" data-composition-crossover="halo" data-composition-independent="true" d="M 248 210 L 248 140" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:2">
-          <path data-graph-role="automatic-crossover-underlay" d="M 790 142 L 1150 142" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="hotel" data-edge-to="tipo" data-edge-label="1 : N" data-edge-key="2" data-edge-id="hotel-tipos" data-composition-points="790,142;1150,142" data-composition-crossover="halo" data-composition-independent="true" d="M 790 142 L 1150 142" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 440 254.05 L 630 254.05" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="angular" data-edge-to="api" data-edge-label="Solicitud HTTP (API REST)" data-edge-key="2" data-edge-id="solicitud-http" data-composition-points="440,254.05;630,254.05" data-composition-crossover="halo" data-composition-independent="true" d="M 440 254.05 L 630 254.05" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
-        <path data-edge-from="hotel" data-edge-to="piso" data-edge-label="1 : N" data-edge-key="3" data-edge-id="hotel-pisos" data-composition-points="700,110;700,50;1385,50;1385,562;1330,562" d="M 700 110 L 700 58 Q 700 50 708 50 L 1377 50 Q 1385 50 1385 58 L 1385 554 Q 1385 562 1377 562 L 1330 562" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <g data-graph-role="automatic-crossover" style="--step:3">
+          <path data-graph-role="automatic-crossover-underlay" d="M 630 239 L 440 239" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="api" data-edge-to="angular" data-edge-label="Respuesta (JSON)" data-edge-key="3" data-edge-id="respuesta-json" data-composition-points="630,239;440,239" data-composition-crossover="halo" data-composition-independent="true" d="M 630 239 L 440 239" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        </g>
         <g data-graph-role="automatic-crossover" style="--step:4">
-          <path data-graph-role="automatic-crossover-underlay" d="M 693 174 L 693 190 Q 693 198 685 198 L 438 198 Q 430 198 430 206 L 430 320" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="hotel" data-edge-to="cliente" data-edge-label="1 : N" data-edge-key="4" data-edge-id="hotel-clientes" data-composition-points="693,174;693,198;430,198;430,320" data-composition-crossover="halo" data-composition-independent="true" d="M 693 174 L 693 190 Q 693 198 685 198 L 438 198 Q 430 198 430 206 L 430 320" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1230 237.95 L 1420 237.95" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="django" data-edge-to="bd" data-edge-label="Consultas y transacciones" data-edge-key="4" data-edge-id="consultas" data-composition-points="1230,237.95;1420,237.95" data-composition-crossover="halo" data-composition-independent="true" d="M 1230 237.95 L 1420 237.95" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:5">
-          <path data-graph-role="automatic-crossover-underlay" d="M 707 174 L 707 320" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="hotel" data-edge-to="reserva" data-edge-label="1 : N" data-edge-key="5" data-edge-id="hotel-reservas" data-composition-points="707,174;707,320" data-composition-crossover="halo" data-composition-independent="true" d="M 707 174 L 707 320" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:6">
-          <path data-graph-role="automatic-crossover-underlay" d="M 520 352 L 610 352" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="cliente" data-edge-to="reserva" data-edge-label="1 : N" data-edge-key="6" data-edge-id="cliente-reservas" data-composition-points="520,352;610,352" data-composition-crossover="halo" data-composition-independent="true" d="M 520 352 L 610 352" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:7">
-          <path data-graph-role="automatic-crossover-underlay" d="M 790 352 L 880 352" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="reserva" data-edge-to="reserva-hab" data-edge-label="1 : N" data-edge-key="7" data-edge-id="reserva-habitaciones" data-composition-points="790,352;880,352" data-composition-crossover="halo" data-composition-independent="true" d="M 790 352 L 880 352" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:8">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1150 352 L 1060 352" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="habitacion" data-edge-to="reserva-hab" data-edge-label="1 : N" data-edge-key="8" data-edge-id="habitacion-reservas" data-composition-points="1150,352;1060,352" data-composition-crossover="halo" data-composition-independent="true" d="M 1150 352 L 1060 352" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:9">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1240 530 L 1240 384" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="piso" data-edge-to="habitacion" data-edge-label="1 : N" data-edge-key="9" data-edge-id="piso-habitaciones" data-composition-points="1240,530;1240,384" data-composition-crossover="halo" data-composition-independent="true" d="M 1240 530 L 1240 384" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:10">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1240 174 L 1240 320" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="tipo" data-edge-to="habitacion" data-edge-label="1 : N · room_type opcional" data-edge-key="10" data-edge-id="tipo-habitaciones" data-composition-points="1240,174;1240,320" data-composition-crossover="halo" data-composition-independent="true" d="M 1240 174 L 1240 320" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:11">
-          <path data-graph-role="automatic-crossover-underlay" d="M 693 384 L 693 400 Q 693 408 685 408 L 138 408 Q 130 408 130 416 L 130 530" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="reserva" data-edge-to="cargo" data-edge-label="1 : N" data-edge-key="11" data-edge-id="reserva-cargos" data-composition-points="693,384;693,408;130,408;130,530" data-composition-crossover="halo" data-composition-independent="true" d="M 693 384 L 693 400 Q 693 408 685 408 L 138 408 Q 130 408 130 416 L 130 530" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:12">
-          <path data-graph-role="automatic-crossover-underlay" d="M 707 384 L 707 530" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="reserva" data-edge-to="factura" data-edge-label="1 : N" data-edge-key="12" data-edge-id="reserva-facturas" data-composition-points="707,384;707,530" data-composition-crossover="halo" data-composition-independent="true" d="M 707 384 L 707 530" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:13">
-          <path data-graph-role="automatic-crossover-underlay" d="M 220 562 L 610 562" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="cargo" data-edge-to="factura" data-edge-label="N : M opcional · InvoiceCharge" data-edge-key="13" data-edge-id="cargos-facturas" data-composition-points="220,562;610,562" data-composition-crossover="halo" data-composition-independent="true" d="M 220 562 L 610 562" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:14">
-          <path data-graph-role="automatic-crossover-underlay" d="M 790 562 L 880 562" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="factura" data-edge-to="pago" data-edge-label="1 : N" data-edge-key="14" data-edge-id="factura-pagos" data-composition-points="790,562;880,562" data-composition-crossover="halo" data-composition-independent="true" d="M 790 562 L 880 562" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1420 253 L 1230 253" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="bd" data-edge-to="django" data-edge-label="Resultados de datos" data-edge-key="5" data-edge-id="resultados" data-composition-points="1420,253;1230,253" data-composition-crossover="halo" data-composition-independent="true" d="M 1420 253 L 1230 253" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
 
         <!-- Components -->
-        <g id="node-rol" data-node-id="rol" data-node-label="Rol" tabindex="0" role="button" aria-label="Enfocar Rol, Role, Global (sin hotel)" aria-pressed="false" data-node-kind="database" data-node-sublabel="Role" data-node-context="Global (sin hotel)">
-          <title>Rol · Role · Global (sin hotel)</title>
-          <rect x="40" y="110" width="160" height="64" rx="6" class="c-mask"/>
-          <rect x="40" y="110" width="160" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(46 116) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+        <g id="node-usuario" data-node-id="usuario" data-node-label="Usuario" tabindex="0" role="button" aria-label="Enfocar Usuario, Administrador, recepcionista, personal del hotel, entre otros, Capa de presentación · Interfaz de usuario" aria-pressed="false" data-node-kind="external" data-node-sublabel="Administrador, recepcionista, personal del hotel, entre otros" data-node-context="Capa de presentación · Interfaz de usuario">
+          <title>Usuario · Administrador, recepcionista, personal del hotel, entre otros · Capa de presentación · Interfaz de usuario</title>
+          <rect x="70" y="80" width="370" height="60" rx="6" class="c-mask"/>
+          <rect x="70" y="80" width="370" height="60" rx="6" class="c-external" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="person" class="semantic-sigil s-external" transform="translate(76 86) scale(0.6875)">
+            <circle cx="8" cy="4.5" r="2.5"/><path d="M3 14v-2a5 5 0 0 1 10 0v2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="120" y="140" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Rol</text>
-        <text data-detail="context" x="120" y="156" class="t-muted" font-size="9" text-anchor="middle">Role</text>
+          <text data-node-label="" data-detail-anchor="" x="255" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Usuario</text>
+        <text data-detail="context" x="255" y="124" class="t-muted" font-size="9" text-anchor="middle">Administrador, recepcionista, personal del hotel, entre otros</text>
         </g>
 
-        <g id="node-usuario" data-node-id="usuario" data-node-label="Usuario" tabindex="0" role="button" aria-label="Enfocar Usuario, User, Tenant" aria-pressed="false" data-node-kind="database" data-node-sublabel="User" data-node-context="Tenant">
-          <title>Usuario · User · Tenant</title>
-          <rect x="340" y="110" width="180" height="64" rx="6" class="c-mask"/>
-          <rect x="340" y="110" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(346 116) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+        <g id="node-angular" data-node-id="angular" data-node-label="Aplicación web Angular" tabindex="0" role="button" aria-label="Enfocar Aplicación web Angular, Interfaz de usuario por módulos, Capa de presentación · Interfaz de usuario" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Interfaz de usuario por módulos" data-node-context="Capa de presentación · Interfaz de usuario">
+          <title>Aplicación web Angular · Interfaz de usuario por módulos · Capa de presentación · Interfaz de usuario</title>
+          <rect x="70" y="210" width="370" height="72" rx="6" class="c-mask"/>
+          <rect x="70" y="210" width="370" height="72" rx="6" class="c-frontend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(76 216) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="430" y="140" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Usuario</text>
-        <text data-detail="context" x="430" y="156" class="t-muted" font-size="9" text-anchor="middle">User</text>
+          <text data-node-label="" data-detail-anchor="" x="255" y="244" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Aplicación web Angular</text>
+        <text data-detail="context" x="255" y="260" class="t-muted" font-size="9" text-anchor="middle">Interfaz de usuario por módulos</text>
         </g>
 
-        <g id="node-hotel" data-node-id="hotel" data-node-label="Hotel" tabindex="0" role="button" aria-label="Enfocar Hotel, HotelSettings, Tenant" aria-pressed="false" data-node-kind="database" data-node-sublabel="HotelSettings" data-node-context="Tenant">
-          <title>Hotel · HotelSettings · Tenant</title>
-          <rect x="610" y="110" width="180" height="64" rx="6" class="c-mask"/>
-          <rect x="610" y="110" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(616 116) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="700" y="140" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Hotel</text>
-        <text data-detail="context" x="700" y="156" class="t-muted" font-size="9" text-anchor="middle">HotelSettings</text>
+        <g id="node-fe-usuarios" data-node-id="fe-usuarios" data-node-label="Usuarios y administración" tabindex="0" role="button" aria-label="Enfocar Usuarios y administración, Capa de presentación · Interfaz de usuario › Módulos de la interfaz" aria-pressed="false" data-node-kind="frontend" data-node-context="Capa de presentación · Interfaz de usuario › Módulos de la interfaz">
+          <title>Usuarios y administración · Capa de presentación · Interfaz de usuario › Módulos de la interfaz</title>
+          <rect x="70" y="340" width="180" height="44" rx="6" class="c-mask"/>
+          <rect x="70" y="340" width="180" height="44" rx="6" class="c-frontend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="160" y="366" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Usuarios y administración</text>
         </g>
 
-        <g id="node-piso" data-node-id="piso" data-node-label="Piso" tabindex="0" role="button" aria-label="Enfocar Piso, HotelFloor, Habitaciones" aria-pressed="false" data-node-kind="database" data-node-sublabel="HotelFloor" data-node-context="Habitaciones">
-          <title>Piso · HotelFloor · Habitaciones</title>
-          <rect x="1150" y="530" width="180" height="64" rx="6" class="c-mask"/>
-          <rect x="1150" y="530" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1156 536) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1240" y="560" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Piso</text>
-        <text data-detail="context" x="1240" y="576" class="t-muted" font-size="9" text-anchor="middle">HotelFloor</text>
+        <g id="node-fe-clientes" data-node-id="fe-clientes" data-node-label="Clientes y huéspedes" tabindex="0" role="button" aria-label="Enfocar Clientes y huéspedes, Capa de presentación · Interfaz de usuario › Módulos de la interfaz" aria-pressed="false" data-node-kind="frontend" data-node-context="Capa de presentación · Interfaz de usuario › Módulos de la interfaz">
+          <title>Clientes y huéspedes · Capa de presentación · Interfaz de usuario › Módulos de la interfaz</title>
+          <rect x="260" y="340" width="180" height="44" rx="6" class="c-mask"/>
+          <rect x="260" y="340" width="180" height="44" rx="6" class="c-frontend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="350" y="366" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Clientes y huéspedes</text>
         </g>
 
-        <g id="node-cliente" data-node-id="cliente" data-node-label="Cliente" tabindex="0" role="button" aria-label="Enfocar Cliente, Client, Reservas" aria-pressed="false" data-node-kind="database" data-node-sublabel="Client" data-node-context="Reservas">
-          <title>Cliente · Client · Reservas</title>
-          <rect x="340" y="320" width="180" height="64" rx="6" class="c-mask"/>
-          <rect x="340" y="320" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(346 326) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="430" y="350" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Cliente</text>
-        <text data-detail="context" x="430" y="366" class="t-muted" font-size="9" text-anchor="middle">Client</text>
+        <g id="node-fe-habitaciones" data-node-id="fe-habitaciones" data-node-label="Habitaciones" tabindex="0" role="button" aria-label="Enfocar Habitaciones, Capa de presentación · Interfaz de usuario › Módulos de la interfaz" aria-pressed="false" data-node-kind="frontend" data-node-context="Capa de presentación · Interfaz de usuario › Módulos de la interfaz">
+          <title>Habitaciones · Capa de presentación · Interfaz de usuario › Módulos de la interfaz</title>
+          <rect x="70" y="399" width="180" height="44" rx="6" class="c-mask"/>
+          <rect x="70" y="399" width="180" height="44" rx="6" class="c-frontend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="160" y="425" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Habitaciones</text>
         </g>
 
-        <g id="node-reserva" data-node-id="reserva" data-node-label="Reserva" tabindex="0" role="button" aria-label="Enfocar Reserva, Reservation, Reservas" aria-pressed="false" data-node-kind="database" data-node-sublabel="Reservation" data-node-context="Reservas">
-          <title>Reserva · Reservation · Reservas</title>
-          <rect x="610" y="320" width="180" height="64" rx="6" class="c-mask"/>
-          <rect x="610" y="320" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(616 326) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="700" y="350" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Reserva</text>
-        <text data-detail="context" x="700" y="366" class="t-muted" font-size="9" text-anchor="middle">Reservation</text>
+        <g id="node-fe-reservas" data-node-id="fe-reservas" data-node-label="Reservas y disponibilidad" tabindex="0" role="button" aria-label="Enfocar Reservas y disponibilidad, Capa de presentación · Interfaz de usuario › Módulos de la interfaz" aria-pressed="false" data-node-kind="frontend" data-node-context="Capa de presentación · Interfaz de usuario › Módulos de la interfaz">
+          <title>Reservas y disponibilidad · Capa de presentación · Interfaz de usuario › Módulos de la interfaz</title>
+          <rect x="260" y="399" width="180" height="44" rx="6" class="c-mask"/>
+          <rect x="260" y="399" width="180" height="44" rx="6" class="c-frontend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="350" y="425" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Reservas y disponibilidad</text>
         </g>
 
-        <g id="node-reserva-hab" data-node-id="reserva-hab" data-node-label="Habitación reservada" tabindex="0" role="button" aria-label="Enfocar Habitación reservada, ReservationRoom, Reservas" aria-pressed="false" data-node-kind="database" data-node-sublabel="ReservationRoom" data-node-context="Reservas">
-          <title>Habitación reservada · ReservationRoom · Reservas</title>
-          <rect x="880" y="320" width="180" height="64" rx="6" class="c-mask"/>
-          <rect x="880" y="320" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(886 326) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="970" y="350" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Habitación reservada</text>
-        <text data-detail="context" x="970" y="366" class="t-muted" font-size="9" text-anchor="middle">ReservationRoom</text>
+        <g id="node-fe-servicios" data-node-id="fe-servicios" data-node-label="Servicios" tabindex="0" role="button" aria-label="Enfocar Servicios, Capa de presentación · Interfaz de usuario › Módulos de la interfaz" aria-pressed="false" data-node-kind="frontend" data-node-context="Capa de presentación · Interfaz de usuario › Módulos de la interfaz">
+          <title>Servicios · Capa de presentación · Interfaz de usuario › Módulos de la interfaz</title>
+          <rect x="70" y="458" width="180" height="44" rx="6" class="c-mask"/>
+          <rect x="70" y="458" width="180" height="44" rx="6" class="c-frontend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="160" y="484" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Servicios</text>
         </g>
 
-        <g id="node-habitacion" data-node-id="habitacion" data-node-label="Habitación" tabindex="0" role="button" aria-label="Enfocar Habitación, Room, Habitaciones" aria-pressed="false" data-node-kind="database" data-node-sublabel="Room" data-node-context="Habitaciones">
-          <title>Habitación · Room · Habitaciones</title>
-          <rect x="1150" y="320" width="180" height="64" rx="6" class="c-mask"/>
-          <rect x="1150" y="320" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1156 326) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1240" y="350" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Habitación</text>
-        <text data-detail="context" x="1240" y="366" class="t-muted" font-size="9" text-anchor="middle">Room</text>
+        <g id="node-fe-facturacion" data-node-id="fe-facturacion" data-node-label="Facturación y pagos" tabindex="0" role="button" aria-label="Enfocar Facturación y pagos, Capa de presentación · Interfaz de usuario › Módulos de la interfaz" aria-pressed="false" data-node-kind="frontend" data-node-context="Capa de presentación · Interfaz de usuario › Módulos de la interfaz">
+          <title>Facturación y pagos · Capa de presentación · Interfaz de usuario › Módulos de la interfaz</title>
+          <rect x="260" y="458" width="180" height="44" rx="6" class="c-mask"/>
+          <rect x="260" y="458" width="180" height="44" rx="6" class="c-frontend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="350" y="484" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Facturación y pagos</text>
         </g>
 
-        <g id="node-tipo" data-node-id="tipo" data-node-label="Tipo de habitación" tabindex="0" role="button" aria-label="Enfocar Tipo de habitación, RoomType, Habitaciones" aria-pressed="false" data-node-kind="database" data-node-sublabel="RoomType" data-node-context="Habitaciones">
-          <title>Tipo de habitación · RoomType · Habitaciones</title>
-          <rect x="1150" y="110" width="180" height="64" rx="6" class="c-mask"/>
-          <rect x="1150" y="110" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1156 116) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1240" y="140" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Tipo de habitación</text>
-        <text data-detail="context" x="1240" y="156" class="t-muted" font-size="9" text-anchor="middle">RoomType</text>
+        <g id="node-fe-inventario" data-node-id="fe-inventario" data-node-label="Inventario" tabindex="0" role="button" aria-label="Enfocar Inventario, Capa de presentación · Interfaz de usuario › Módulos de la interfaz" aria-pressed="false" data-node-kind="frontend" data-node-context="Capa de presentación · Interfaz de usuario › Módulos de la interfaz">
+          <title>Inventario · Capa de presentación · Interfaz de usuario › Módulos de la interfaz</title>
+          <rect x="70" y="517" width="180" height="44" rx="6" class="c-mask"/>
+          <rect x="70" y="517" width="180" height="44" rx="6" class="c-frontend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="160" y="543" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Inventario</text>
         </g>
 
-        <g id="node-cargo" data-node-id="cargo" data-node-label="Cargo" tabindex="0" role="button" aria-label="Enfocar Cargo, Charge, Facturación" aria-pressed="false" data-node-kind="database" data-node-sublabel="Charge" data-node-context="Facturación">
-          <title>Cargo · Charge · Facturación</title>
-          <rect x="40" y="530" width="180" height="64" rx="6" class="c-mask"/>
-          <rect x="40" y="530" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(46 536) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="130" y="560" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Cargo</text>
-        <text data-detail="context" x="130" y="576" class="t-muted" font-size="9" text-anchor="middle">Charge</text>
+        <g id="node-fe-limpieza" data-node-id="fe-limpieza" data-node-label="Limpieza y mantenimiento" tabindex="0" role="button" aria-label="Enfocar Limpieza y mantenimiento, Capa de presentación · Interfaz de usuario › Módulos de la interfaz" aria-pressed="false" data-node-kind="frontend" data-node-context="Capa de presentación · Interfaz de usuario › Módulos de la interfaz">
+          <title>Limpieza y mantenimiento · Capa de presentación · Interfaz de usuario › Módulos de la interfaz</title>
+          <rect x="260" y="517" width="180" height="44" rx="6" class="c-mask"/>
+          <rect x="260" y="517" width="180" height="44" rx="6" class="c-frontend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="350" y="543" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Limpieza y mantenimiento</text>
         </g>
 
-        <g id="node-factura" data-node-id="factura" data-node-label="Factura" tabindex="0" role="button" aria-label="Enfocar Factura, Invoice, Facturación" aria-pressed="false" data-node-kind="database" data-node-sublabel="Invoice" data-node-context="Facturación">
-          <title>Factura · Invoice · Facturación</title>
-          <rect x="610" y="530" width="180" height="64" rx="6" class="c-mask"/>
-          <rect x="610" y="530" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(616 536) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="700" y="560" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Factura</text>
-        <text data-detail="context" x="700" y="576" class="t-muted" font-size="9" text-anchor="middle">Invoice</text>
+        <g id="node-fe-reportes" data-node-id="fe-reportes" data-node-label="Reportes y notificaciones" tabindex="0" role="button" aria-label="Enfocar Reportes y notificaciones, Capa de presentación · Interfaz de usuario › Módulos de la interfaz" aria-pressed="false" data-node-kind="frontend" data-node-context="Capa de presentación · Interfaz de usuario › Módulos de la interfaz">
+          <title>Reportes y notificaciones · Capa de presentación · Interfaz de usuario › Módulos de la interfaz</title>
+          <rect x="70" y="576" width="370" height="44" rx="6" class="c-mask"/>
+          <rect x="70" y="576" width="370" height="44" rx="6" class="c-frontend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="255" y="602" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Reportes y notificaciones</text>
         </g>
 
-        <g id="node-pago" data-node-id="pago" data-node-label="Pago" tabindex="0" role="button" aria-label="Enfocar Pago, Payment, Facturación" aria-pressed="false" data-node-kind="database" data-node-sublabel="Payment" data-node-context="Facturación">
-          <title>Pago · Payment · Facturación</title>
-          <rect x="880" y="530" width="180" height="64" rx="6" class="c-mask"/>
-          <rect x="880" y="530" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(886 536) scale(0.6875)">
+        <g id="node-g-sesion" data-node-id="g-sesion" data-node-label="Verificación de sesión" tabindex="0" role="button" aria-label="Enfocar Verificación de sesión, Capa de presentación · Interfaz de usuario › Control de acceso en el cliente" aria-pressed="false" data-node-kind="security" data-node-context="Capa de presentación · Interfaz de usuario › Control de acceso en el cliente">
+          <title>Verificación de sesión · Capa de presentación · Interfaz de usuario › Control de acceso en el cliente</title>
+          <rect x="70" y="690" width="150" height="44" rx="6" class="c-mask"/>
+          <rect x="70" y="690" width="150" height="44" rx="6" class="c-security" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="145" y="716" class="t-primary" font-size="10.7" font-weight="600" text-anchor="middle">Verificación de sesión</text>
+        </g>
+
+        <g id="node-g-roles" data-node-id="g-roles" data-node-label="Verificación de roles y permisos" tabindex="0" role="button" aria-label="Enfocar Verificación de roles y permisos, Capa de presentación · Interfaz de usuario › Control de acceso en el cliente" aria-pressed="false" data-node-kind="security" data-node-context="Capa de presentación · Interfaz de usuario › Control de acceso en el cliente">
+          <title>Verificación de roles y permisos · Capa de presentación · Interfaz de usuario › Control de acceso en el cliente</title>
+          <rect x="230" y="690" width="210" height="44" rx="6" class="c-mask"/>
+          <rect x="230" y="690" width="210" height="44" rx="6" class="c-security" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="335" y="716" class="t-primary" font-size="10.5" font-weight="600" text-anchor="middle">Verificación de roles y permisos</text>
+        </g>
+
+        <g id="node-g-rutas" data-node-id="g-rutas" data-node-label="Control de rutas" tabindex="0" role="button" aria-label="Enfocar Control de rutas, Capa de presentación · Interfaz de usuario › Control de acceso en el cliente" aria-pressed="false" data-node-kind="security" data-node-context="Capa de presentación · Interfaz de usuario › Control de acceso en el cliente">
+          <title>Control de rutas · Capa de presentación · Interfaz de usuario › Control de acceso en el cliente</title>
+          <rect x="70" y="749" width="150" height="44" rx="6" class="c-mask"/>
+          <rect x="70" y="749" width="150" height="44" rx="6" class="c-security" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="145" y="775" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Control de rutas</text>
+        </g>
+
+        <g id="node-g-hotel" data-node-id="g-hotel" data-node-label="Configuración por hotel" tabindex="0" role="button" aria-label="Enfocar Configuración por hotel, Capa de presentación · Interfaz de usuario › Control de acceso en el cliente" aria-pressed="false" data-node-kind="security" data-node-context="Capa de presentación · Interfaz de usuario › Control de acceso en el cliente">
+          <title>Configuración por hotel · Capa de presentación · Interfaz de usuario › Control de acceso en el cliente</title>
+          <rect x="230" y="749" width="210" height="44" rx="6" class="c-mask"/>
+          <rect x="230" y="749" width="210" height="44" rx="6" class="c-security" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="335" y="775" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Configuración por hotel</text>
+        </g>
+
+        <g id="node-api" data-node-id="api" data-node-label="API REST y lógica de aplicación" tabindex="0" role="button" aria-label="Enfocar API REST y lógica de aplicación, Endpoints por dominio, Capa de aplicación y servicios · Lógica de negocio y API" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Endpoints por dominio" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API">
+          <title>API REST y lógica de aplicación · Endpoints por dominio · Capa de aplicación y servicios · Lógica de negocio y API</title>
+          <rect x="630" y="210" width="230" height="72" rx="6" class="c-mask"/>
+          <rect x="630" y="210" width="230" height="72" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(636 216) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="745" y="244" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">API REST y lógica de aplicación</text>
+        <text data-detail="context" x="745" y="260" class="t-muted" font-size="9" text-anchor="middle">Endpoints por dominio</text>
+        </g>
+
+        <g id="node-drf" data-node-id="drf" data-node-label="Django REST Framework" tabindex="0" role="button" aria-label="Enfocar Django REST Framework, Serializadores y vistas, Capa de aplicación y servicios · Lógica de negocio y API" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Serializadores y vistas" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API">
+          <title>Django REST Framework · Serializadores y vistas · Capa de aplicación y servicios · Lógica de negocio y API</title>
+          <rect x="872" y="210" width="175" height="72" rx="6" class="c-mask"/>
+          <rect x="872" y="210" width="175" height="72" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(878 216) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="959.5" y="244" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Django REST Framework</text>
+        <text data-detail="context" x="959.5" y="260" class="t-muted" font-size="9" text-anchor="middle">Serializadores y vistas</text>
+        </g>
+
+        <g id="node-django" data-node-id="django" data-node-label="Django" tabindex="0" role="button" aria-label="Enfocar Django, Núcleo del servidor, Capa de aplicación y servicios · Lógica de negocio y API" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Núcleo del servidor" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API">
+          <title>Django · Núcleo del servidor · Capa de aplicación y servicios · Lógica de negocio y API</title>
+          <rect x="1059" y="210" width="171" height="72" rx="6" class="c-mask"/>
+          <rect x="1059" y="210" width="171" height="72" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1065 216) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1144.5" y="244" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Django</text>
+        <text data-detail="context" x="1144.5" y="260" class="t-muted" font-size="9" text-anchor="middle">Núcleo del servidor</text>
+        </g>
+
+        <g id="node-m-usuarios" data-node-id="m-usuarios" data-node-label="Usuarios y control de acceso" tabindex="0" role="button" aria-label="Enfocar Usuarios y control de acceso, Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)" aria-pressed="false" data-node-kind="backend" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)">
+          <title>Usuarios y control de acceso · Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)</title>
+          <rect x="630" y="340" width="192" height="44" rx="6" class="c-mask"/>
+          <rect x="630" y="340" width="192" height="44" rx="6" class="c-backend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="726" y="366" class="t-primary" font-size="10.9" font-weight="600" text-anchor="middle">Usuarios y control de acceso</text>
+        </g>
+
+        <g id="node-m-clientes" data-node-id="m-clientes" data-node-label="Clientes y huéspedes" tabindex="0" role="button" aria-label="Enfocar Clientes y huéspedes, Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)" aria-pressed="false" data-node-kind="backend" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)">
+          <title>Clientes y huéspedes · Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)</title>
+          <rect x="834" y="340" width="192" height="44" rx="6" class="c-mask"/>
+          <rect x="834" y="340" width="192" height="44" rx="6" class="c-backend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="930" y="366" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Clientes y huéspedes</text>
+        </g>
+
+        <g id="node-m-habitaciones" data-node-id="m-habitaciones" data-node-label="Habitaciones" tabindex="0" role="button" aria-label="Enfocar Habitaciones, Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)" aria-pressed="false" data-node-kind="backend" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)">
+          <title>Habitaciones · Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)</title>
+          <rect x="1038" y="340" width="192" height="44" rx="6" class="c-mask"/>
+          <rect x="1038" y="340" width="192" height="44" rx="6" class="c-backend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1134" y="366" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Habitaciones</text>
+        </g>
+
+        <g id="node-m-reservas" data-node-id="m-reservas" data-node-label="Reservas y disponibilidad" tabindex="0" role="button" aria-label="Enfocar Reservas y disponibilidad, Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)" aria-pressed="false" data-node-kind="backend" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)">
+          <title>Reservas y disponibilidad · Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)</title>
+          <rect x="630" y="399" width="192" height="44" rx="6" class="c-mask"/>
+          <rect x="630" y="399" width="192" height="44" rx="6" class="c-backend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="726" y="425" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Reservas y disponibilidad</text>
+        </g>
+
+        <g id="node-m-servicios" data-node-id="m-servicios" data-node-label="Servicios" tabindex="0" role="button" aria-label="Enfocar Servicios, Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)" aria-pressed="false" data-node-kind="backend" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)">
+          <title>Servicios · Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)</title>
+          <rect x="834" y="399" width="192" height="44" rx="6" class="c-mask"/>
+          <rect x="834" y="399" width="192" height="44" rx="6" class="c-backend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="930" y="425" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Servicios</text>
+        </g>
+
+        <g id="node-m-facturacion" data-node-id="m-facturacion" data-node-label="Facturación, cargos y pagos" tabindex="0" role="button" aria-label="Enfocar Facturación, cargos y pagos, Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)" aria-pressed="false" data-node-kind="backend" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)">
+          <title>Facturación, cargos y pagos · Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)</title>
+          <rect x="1038" y="399" width="192" height="44" rx="6" class="c-mask"/>
+          <rect x="1038" y="399" width="192" height="44" rx="6" class="c-backend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1134" y="425" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Facturación, cargos y pagos</text>
+        </g>
+
+        <g id="node-m-inventario" data-node-id="m-inventario" data-node-label="Inventario" tabindex="0" role="button" aria-label="Enfocar Inventario, Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)" aria-pressed="false" data-node-kind="backend" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)">
+          <title>Inventario · Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)</title>
+          <rect x="630" y="458" width="192" height="44" rx="6" class="c-mask"/>
+          <rect x="630" y="458" width="192" height="44" rx="6" class="c-backend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="726" y="484" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Inventario</text>
+        </g>
+
+        <g id="node-m-limpieza" data-node-id="m-limpieza" data-node-label="Limpieza y mantenimiento" tabindex="0" role="button" aria-label="Enfocar Limpieza y mantenimiento, Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)" aria-pressed="false" data-node-kind="backend" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)">
+          <title>Limpieza y mantenimiento · Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)</title>
+          <rect x="834" y="458" width="192" height="44" rx="6" class="c-mask"/>
+          <rect x="834" y="458" width="192" height="44" rx="6" class="c-backend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="930" y="484" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Limpieza y mantenimiento</text>
+        </g>
+
+        <g id="node-m-reportes" data-node-id="m-reportes" data-node-label="Reportes y notificaciones" tabindex="0" role="button" aria-label="Enfocar Reportes y notificaciones, Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)" aria-pressed="false" data-node-kind="backend" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)">
+          <title>Reportes y notificaciones · Capa de aplicación y servicios · Lógica de negocio y API › Módulos funcionales (dominios de la aplicación)</title>
+          <rect x="1038" y="458" width="192" height="44" rx="6" class="c-mask"/>
+          <rect x="1038" y="458" width="192" height="44" rx="6" class="c-backend" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1134" y="484" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Reportes y notificaciones</text>
+        </g>
+
+        <g id="node-x-sesiones" data-node-id="x-sesiones" data-node-label="Autenticación mediante sesiones" tabindex="0" role="button" aria-label="Enfocar Autenticación mediante sesiones, Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)" aria-pressed="false" data-node-kind="security" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)">
+          <title>Autenticación mediante sesiones · Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)</title>
+          <rect x="630" y="572" width="294" height="44" rx="6" class="c-mask"/>
+          <rect x="630" y="572" width="294" height="44" rx="6" class="c-security" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="777" y="598" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Autenticación mediante sesiones</text>
+        </g>
+
+        <g id="node-x-csrf" data-node-id="x-csrf" data-node-label="Protección CSRF" tabindex="0" role="button" aria-label="Enfocar Protección CSRF, Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)" aria-pressed="false" data-node-kind="security" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)">
+          <title>Protección CSRF · Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)</title>
+          <rect x="936" y="572" width="294" height="44" rx="6" class="c-mask"/>
+          <rect x="936" y="572" width="294" height="44" rx="6" class="c-security" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1083" y="598" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Protección CSRF</text>
+        </g>
+
+        <g id="node-x-rbac" data-node-id="x-rbac" data-node-label="RBAC (roles, recursos y permisos)" tabindex="0" role="button" aria-label="Enfocar RBAC (roles, recursos y permisos), Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)" aria-pressed="false" data-node-kind="security" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)">
+          <title>RBAC (roles, recursos y permisos) · Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)</title>
+          <rect x="630" y="631" width="294" height="44" rx="6" class="c-mask"/>
+          <rect x="630" y="631" width="294" height="44" rx="6" class="c-security" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="777" y="657" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">RBAC (roles, recursos y permisos)</text>
+        </g>
+
+        <g id="node-x-multihotel" data-node-id="x-multihotel" data-node-label="Aislamiento multi-hotel" tabindex="0" role="button" aria-label="Enfocar Aislamiento multi-hotel, Contexto del establecimiento, Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)" aria-pressed="false" data-node-kind="security" data-node-sublabel="Contexto del establecimiento" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)">
+          <title>Aislamiento multi-hotel · Contexto del establecimiento · Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)</title>
+          <rect x="936" y="631" width="294" height="44" rx="6" class="c-mask"/>
+          <rect x="936" y="631" width="294" height="44" rx="6" class="c-security" stroke-width="1.5"/>
+          
+          <text data-node-label="" data-detail-anchor="" x="1083" y="651" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Aislamiento multi-hotel</text>
+        <text data-detail="context" x="1083" y="667" class="t-muted" font-size="9" text-anchor="middle">Contexto del establecimiento</text>
+        </g>
+
+        <g id="node-x-permisos" data-node-id="x-permisos" data-node-label="Permisos en endpoints" tabindex="0" role="button" aria-label="Enfocar Permisos en endpoints, Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)" aria-pressed="false" data-node-kind="security" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)">
+          <title>Permisos en endpoints · Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)</title>
+          <rect x="630" y="690" width="294" height="44" rx="6" class="c-mask"/>
+          <rect x="630" y="690" width="294" height="44" rx="6" class="c-security" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="777" y="716" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Permisos en endpoints</text>
+        </g>
+
+        <g id="node-x-throttling" data-node-id="x-throttling" data-node-label="Throttling" tabindex="0" role="button" aria-label="Enfocar Throttling, Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)" aria-pressed="false" data-node-kind="security" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)">
+          <title>Throttling · Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)</title>
+          <rect x="936" y="690" width="294" height="44" rx="6" class="c-mask"/>
+          <rect x="936" y="690" width="294" height="44" rx="6" class="c-security" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1083" y="716" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Throttling</text>
+        </g>
+
+        <g id="node-x-borrado" data-node-id="x-borrado" data-node-label="Borrado lógico" tabindex="0" role="button" aria-label="Enfocar Borrado lógico, Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)" aria-pressed="false" data-node-kind="security" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)">
+          <title>Borrado lógico · Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)</title>
+          <rect x="630" y="749" width="294" height="44" rx="6" class="c-mask"/>
+          <rect x="630" y="749" width="294" height="44" rx="6" class="c-security" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="777" y="775" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Borrado lógico</text>
+        </g>
+
+        <g id="node-x-auditoria" data-node-id="x-auditoria" data-node-label="Auditoría de operaciones" tabindex="0" role="button" aria-label="Enfocar Auditoría de operaciones, Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)" aria-pressed="false" data-node-kind="security" data-node-context="Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)">
+          <title>Auditoría de operaciones · Capa de aplicación y servicios · Lógica de negocio y API › Mecanismos transversales (seguridad, autorización y aislamiento)</title>
+          <rect x="936" y="749" width="294" height="44" rx="6" class="c-mask"/>
+          <rect x="936" y="749" width="294" height="44" rx="6" class="c-security" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1083" y="775" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Auditoría de operaciones</text>
+        </g>
+
+        <g id="node-bd" data-node-id="bd" data-node-label="Base de datos relacional" tabindex="0" role="button" aria-label="Enfocar Base de datos relacional, Almacenamiento transaccional, Capa de persistencia · Base de datos relacional" aria-pressed="false" data-node-kind="database" data-node-sublabel="Almacenamiento transaccional" data-node-context="Capa de persistencia · Base de datos relacional">
+          <title>Base de datos relacional · Almacenamiento transaccional · Capa de persistencia · Base de datos relacional</title>
+          <rect x="1420" y="210" width="190" height="72" rx="6" class="c-mask"/>
+          <rect x="1420" y="210" width="190" height="72" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1426 216) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="970" y="560" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Pago</text>
-        <text data-detail="context" x="970" y="576" class="t-muted" font-size="9" text-anchor="middle">Payment</text>
+          <text data-node-label="" data-detail-anchor="" x="1515" y="244" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Base de datos relacional</text>
+        <text data-detail="context" x="1515" y="260" class="t-muted" font-size="9" text-anchor="middle">Almacenamiento transaccional</text>
+        </g>
+
+        <g id="node-d-1" data-node-id="d-1" data-node-label="Hoteles" tabindex="0" role="button" aria-label="Enfocar Hoteles, Capa de persistencia · Base de datos relacional › Principales dominios de información" aria-pressed="false" data-node-kind="database" data-node-context="Capa de persistencia · Base de datos relacional › Principales dominios de información">
+          <title>Hoteles · Capa de persistencia · Base de datos relacional › Principales dominios de información</title>
+          <rect x="1420" y="345" width="190" height="30" rx="6" class="c-mask"/>
+          <rect x="1420" y="345" width="190" height="30" rx="6" class="c-database" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1515" y="364" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Hoteles</text>
+        </g>
+
+        <g id="node-d-2" data-node-id="d-2" data-node-label="Usuarios y permisos" tabindex="0" role="button" aria-label="Enfocar Usuarios y permisos, Capa de persistencia · Base de datos relacional › Principales dominios de información" aria-pressed="false" data-node-kind="database" data-node-context="Capa de persistencia · Base de datos relacional › Principales dominios de información">
+          <title>Usuarios y permisos · Capa de persistencia · Base de datos relacional › Principales dominios de información</title>
+          <rect x="1420" y="383" width="190" height="30" rx="6" class="c-mask"/>
+          <rect x="1420" y="383" width="190" height="30" rx="6" class="c-database" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1515" y="402" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Usuarios y permisos</text>
+        </g>
+
+        <g id="node-d-3" data-node-id="d-3" data-node-label="Clientes" tabindex="0" role="button" aria-label="Enfocar Clientes, Capa de persistencia · Base de datos relacional › Principales dominios de información" aria-pressed="false" data-node-kind="database" data-node-context="Capa de persistencia · Base de datos relacional › Principales dominios de información">
+          <title>Clientes · Capa de persistencia · Base de datos relacional › Principales dominios de información</title>
+          <rect x="1420" y="421" width="190" height="30" rx="6" class="c-mask"/>
+          <rect x="1420" y="421" width="190" height="30" rx="6" class="c-database" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1515" y="440" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Clientes</text>
+        </g>
+
+        <g id="node-d-4" data-node-id="d-4" data-node-label="Habitaciones" tabindex="0" role="button" aria-label="Enfocar Habitaciones, Capa de persistencia · Base de datos relacional › Principales dominios de información" aria-pressed="false" data-node-kind="database" data-node-context="Capa de persistencia · Base de datos relacional › Principales dominios de información">
+          <title>Habitaciones · Capa de persistencia · Base de datos relacional › Principales dominios de información</title>
+          <rect x="1420" y="459" width="190" height="30" rx="6" class="c-mask"/>
+          <rect x="1420" y="459" width="190" height="30" rx="6" class="c-database" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1515" y="478" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Habitaciones</text>
+        </g>
+
+        <g id="node-d-5" data-node-id="d-5" data-node-label="Reservas" tabindex="0" role="button" aria-label="Enfocar Reservas, Capa de persistencia · Base de datos relacional › Principales dominios de información" aria-pressed="false" data-node-kind="database" data-node-context="Capa de persistencia · Base de datos relacional › Principales dominios de información">
+          <title>Reservas · Capa de persistencia · Base de datos relacional › Principales dominios de información</title>
+          <rect x="1420" y="497" width="190" height="30" rx="6" class="c-mask"/>
+          <rect x="1420" y="497" width="190" height="30" rx="6" class="c-database" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1515" y="516" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Reservas</text>
+        </g>
+
+        <g id="node-d-6" data-node-id="d-6" data-node-label="Servicios" tabindex="0" role="button" aria-label="Enfocar Servicios, Capa de persistencia · Base de datos relacional › Principales dominios de información" aria-pressed="false" data-node-kind="database" data-node-context="Capa de persistencia · Base de datos relacional › Principales dominios de información">
+          <title>Servicios · Capa de persistencia · Base de datos relacional › Principales dominios de información</title>
+          <rect x="1420" y="535" width="190" height="30" rx="6" class="c-mask"/>
+          <rect x="1420" y="535" width="190" height="30" rx="6" class="c-database" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1515" y="554" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Servicios</text>
+        </g>
+
+        <g id="node-d-7" data-node-id="d-7" data-node-label="Cargos" tabindex="0" role="button" aria-label="Enfocar Cargos, Capa de persistencia · Base de datos relacional › Principales dominios de información" aria-pressed="false" data-node-kind="database" data-node-context="Capa de persistencia · Base de datos relacional › Principales dominios de información">
+          <title>Cargos · Capa de persistencia · Base de datos relacional › Principales dominios de información</title>
+          <rect x="1420" y="573" width="190" height="30" rx="6" class="c-mask"/>
+          <rect x="1420" y="573" width="190" height="30" rx="6" class="c-database" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1515" y="592" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Cargos</text>
+        </g>
+
+        <g id="node-d-8" data-node-id="d-8" data-node-label="Facturas" tabindex="0" role="button" aria-label="Enfocar Facturas, Capa de persistencia · Base de datos relacional › Principales dominios de información" aria-pressed="false" data-node-kind="database" data-node-context="Capa de persistencia · Base de datos relacional › Principales dominios de información">
+          <title>Facturas · Capa de persistencia · Base de datos relacional › Principales dominios de información</title>
+          <rect x="1420" y="611" width="190" height="30" rx="6" class="c-mask"/>
+          <rect x="1420" y="611" width="190" height="30" rx="6" class="c-database" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1515" y="630" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Facturas</text>
+        </g>
+
+        <g id="node-d-9" data-node-id="d-9" data-node-label="Pagos" tabindex="0" role="button" aria-label="Enfocar Pagos, Capa de persistencia · Base de datos relacional › Principales dominios de información" aria-pressed="false" data-node-kind="database" data-node-context="Capa de persistencia · Base de datos relacional › Principales dominios de información">
+          <title>Pagos · Capa de persistencia · Base de datos relacional › Principales dominios de información</title>
+          <rect x="1420" y="649" width="190" height="30" rx="6" class="c-mask"/>
+          <rect x="1420" y="649" width="190" height="30" rx="6" class="c-database" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1515" y="668" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Pagos</text>
+        </g>
+
+        <g id="node-d-10" data-node-id="d-10" data-node-label="Inventario" tabindex="0" role="button" aria-label="Enfocar Inventario, Capa de persistencia · Base de datos relacional › Principales dominios de información" aria-pressed="false" data-node-kind="database" data-node-context="Capa de persistencia · Base de datos relacional › Principales dominios de información">
+          <title>Inventario · Capa de persistencia · Base de datos relacional › Principales dominios de información</title>
+          <rect x="1420" y="687" width="190" height="30" rx="6" class="c-mask"/>
+          <rect x="1420" y="687" width="190" height="30" rx="6" class="c-database" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1515" y="706" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Inventario</text>
+        </g>
+
+        <g id="node-d-11" data-node-id="d-11" data-node-label="Limpieza y mantenimiento" tabindex="0" role="button" aria-label="Enfocar Limpieza y mantenimiento, Capa de persistencia · Base de datos relacional › Principales dominios de información" aria-pressed="false" data-node-kind="database" data-node-context="Capa de persistencia · Base de datos relacional › Principales dominios de información">
+          <title>Limpieza y mantenimiento · Capa de persistencia · Base de datos relacional › Principales dominios de información</title>
+          <rect x="1420" y="725" width="190" height="30" rx="6" class="c-mask"/>
+          <rect x="1420" y="725" width="190" height="30" rx="6" class="c-database" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1515" y="744" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Limpieza y mantenimiento</text>
+        </g>
+
+        <g id="node-d-12" data-node-id="d-12" data-node-label="Registros de auditoría" tabindex="0" role="button" aria-label="Enfocar Registros de auditoría, Capa de persistencia · Base de datos relacional › Principales dominios de información" aria-pressed="false" data-node-kind="database" data-node-context="Capa de persistencia · Base de datos relacional › Principales dominios de información">
+          <title>Registros de auditoría · Capa de persistencia · Base de datos relacional › Principales dominios de información</title>
+          <rect x="1420" y="763" width="190" height="30" rx="6" class="c-mask"/>
+          <rect x="1420" y="763" width="190" height="30" rx="6" class="c-database" stroke-width="1.5"/>
+          
+          <text data-node-label="" x="1515" y="782" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Registros de auditoría</text>
         </g>
 
         <!-- Connection labels -->
-        <g data-detail="context" data-edge-from="hotel" data-edge-to="usuario" data-edge-label="1 : N" data-edge-key="0" data-edge-id="hotel-usuarios">
-          <rect x="548" y="122" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="565" y="132" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
+        <g data-detail="context" data-edge-from="usuario" data-edge-to="angular" data-edge-label="Interacción" data-edge-key="0" data-edge-id="usuario-interactua">
+          <rect x="268" y="168" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="299.4" y="178" class="t-edge-default" font-size="8" text-anchor="middle">Interacción</text>
         </g>
-        <g data-detail="context" data-edge-from="usuario" data-edge-to="rol" data-edge-label="N : M · UserRole" data-edge-key="1" data-edge-id="usuario-roles">
-          <rect x="226.6" y="122" width="86.8" height="14" rx="3" class="c-mask"/>
-          <text x="270" y="132" class="t-edge-default" font-size="8" text-anchor="middle">N : M · UserRole</text>
+        <g data-detail="context" data-edge-from="angular" data-edge-to="usuario" data-edge-label="Vistas" data-edge-key="1" data-edge-id="angular-presenta">
+          <rect x="203.2" y="168" width="38.8" height="14" rx="3" class="c-mask"/>
+          <text x="222.6" y="178" class="t-edge-default" font-size="8" text-anchor="middle">Vistas</text>
         </g>
-        <g data-detail="context" data-edge-from="hotel" data-edge-to="tipo" data-edge-label="1 : N" data-edge-key="2" data-edge-id="hotel-tipos">
-          <rect x="953" y="122" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="970" y="132" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
+        <g data-detail="context" data-edge-from="angular" data-edge-to="api" data-edge-label="Solicitud HTTP (API REST)" data-edge-key="2" data-edge-id="solicitud-http">
+          <rect x="470" y="264.05" width="130" height="14" rx="3" class="c-mask"/>
+          <text x="535" y="274.05" class="t-edge-emphasis" font-size="8" text-anchor="middle">Solicitud HTTP (API REST)</text>
         </g>
-        <g data-detail="context" data-edge-from="hotel" data-edge-to="piso" data-edge-label="1 : N" data-edge-key="3" data-edge-id="hotel-pisos">
-          <rect x="1025.5" y="30" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="1042.5" y="40" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
+        <g data-detail="context" data-edge-from="api" data-edge-to="angular" data-edge-label="Respuesta (JSON)" data-edge-key="3" data-edge-id="respuesta-json">
+          <rect x="491.6" y="219" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="535" y="229" class="t-edge-default" font-size="8" text-anchor="middle">Respuesta (JSON)</text>
         </g>
-        <g data-detail="context" data-edge-from="hotel" data-edge-to="cliente" data-edge-label="1 : N" data-edge-key="4" data-edge-id="hotel-clientes">
-          <rect x="544.5" y="178" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="561.5" y="188" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
+        <g data-detail="context" data-edge-from="django" data-edge-to="bd" data-edge-label="Consultas y transacciones" data-edge-key="4" data-edge-id="consultas">
+          <rect x="1260" y="217.95" width="130" height="14" rx="3" class="c-mask"/>
+          <text x="1325" y="227.95" class="t-edge-emphasis" font-size="8" text-anchor="middle">Consultas y transacciones</text>
         </g>
-        <g data-detail="context" data-edge-from="hotel" data-edge-to="reserva" data-edge-label="1 : N" data-edge-key="5" data-edge-id="hotel-reservas">
-          <rect x="667" y="240" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="684" y="250" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
-        </g>
-        <g data-detail="context" data-edge-from="cliente" data-edge-to="reserva" data-edge-label="1 : N" data-edge-key="6" data-edge-id="cliente-reservas">
-          <rect x="548" y="332" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="565" y="342" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
-        </g>
-        <g data-detail="context" data-edge-from="reserva" data-edge-to="reserva-hab" data-edge-label="1 : N" data-edge-key="7" data-edge-id="reserva-habitaciones">
-          <rect x="818" y="332" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="835" y="342" class="t-edge-emphasis" font-size="8" text-anchor="middle">1 : N</text>
-        </g>
-        <g data-detail="context" data-edge-from="habitacion" data-edge-to="reserva-hab" data-edge-label="1 : N" data-edge-key="8" data-edge-id="habitacion-reservas">
-          <rect x="1088" y="332" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="1105" y="342" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
-        </g>
-        <g data-detail="context" data-edge-from="piso" data-edge-to="habitacion" data-edge-label="1 : N" data-edge-key="9" data-edge-id="piso-habitaciones">
-          <rect x="1223" y="510" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="1240" y="520" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
-        </g>
-        <g data-detail="context" data-edge-from="tipo" data-edge-to="habitacion" data-edge-label="1 : N · room_type opcional" data-edge-key="10" data-edge-id="tipo-habitaciones">
-          <rect x="1099.1999999999998" y="240" width="134.8" height="14" rx="3" class="c-mask"/>
-          <text x="1166.6" y="250" class="t-edge-default" font-size="8" text-anchor="middle">1 : N · room_type opcional</text>
-        </g>
-        <g data-detail="context" data-edge-from="reserva" data-edge-to="cargo" data-edge-label="1 : N" data-edge-key="11" data-edge-id="reserva-cargos">
-          <rect x="394.5" y="388" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="411.5" y="398" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
-        </g>
-        <g data-detail="context" data-edge-from="reserva" data-edge-to="factura" data-edge-label="1 : N" data-edge-key="12" data-edge-id="reserva-facturas">
-          <rect x="667" y="450" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="684" y="460" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
-        </g>
-        <g data-detail="context" data-edge-from="cargo" data-edge-to="factura" data-edge-label="N : M opcional · InvoiceCharge" data-edge-key="13" data-edge-id="cargos-facturas">
-          <rect x="338" y="542" width="154" height="14" rx="3" class="c-mask"/>
-          <text x="415" y="552" class="t-edge-dashed" font-size="8" text-anchor="middle">N : M opcional · InvoiceCharge</text>
-        </g>
-        <g data-detail="context" data-edge-from="factura" data-edge-to="pago" data-edge-label="1 : N" data-edge-key="14" data-edge-id="factura-pagos">
-          <rect x="818" y="542" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="835" y="552" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
+        <g data-detail="context" data-edge-from="bd" data-edge-to="django" data-edge-label="Resultados de datos" data-edge-key="5" data-edge-id="resultados">
+          <rect x="1274.4" y="263" width="101.2" height="14" rx="3" class="c-mask"/>
+          <text x="1325" y="273" class="t-edge-default" font-size="8" text-anchor="middle">Resultados de datos</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="Global (sin hotel)">
-          <rect data-graph-role="structural-frame-label-mask" x="14" y="89" width="109.29033338064514" height="17" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="18" y="102.19354938709677" class="t-cloud" font-size="9.193549387096773" font-weight="600">Global (sin hotel)</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="Capa de presentación · Interfaz de usuario">
+          <rect data-graph-role="structural-frame-label-mask" x="44" y="57" width="289.8013155225806" height="19" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="48" y="72.10322680645162" class="t-cloud" font-size="11.10322680645161" font-weight="600">Capa de presentación · Interfaz de usuario</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="region" data-composition-frame-label="Tenant">
-          <rect data-graph-role="structural-frame-label-mask" x="314" y="89" width="43.096777793548384" height="17" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="318" y="102.19354938709677" class="t-cloud" font-size="9.193549387096773" font-weight="600">Tenant</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="region" data-composition-frame-label="Módulos de la interfaz">
+          <rect data-graph-role="structural-frame-label-mask" x="62" y="317" width="156.56259384516125" height="19" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="66" y="332.10322680645163" class="t-cloud" font-size="11.10322680645161" font-weight="600">Módulos de la interfaz</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="region" data-composition-frame-label="Reservas">
-          <rect data-graph-role="structural-frame-label-mask" x="314" y="299" width="54.12903705806451" height="17" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="318" y="312.19354938709677" class="t-cloud" font-size="9.193549387096773" font-weight="600">Reservas</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="security-group" data-composition-frame-label="Control de acceso en el cliente">
+          <rect data-graph-role="structural-frame-label-mask" x="62" y="667" width="216.52001859999993" height="19" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="66" y="682.1032268064516" class="t-security" font-size="11.10322680645161" font-weight="600">Control de acceso en el cliente</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="3" data-composition-frame-kind="region" data-composition-frame-label="Habitaciones">
-          <rect data-graph-role="structural-frame-label-mask" x="1124" y="89" width="76.19355558709677" height="17" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="1128" y="102.19354938709677" class="t-cloud" font-size="9.193549387096773" font-weight="600">Habitaciones</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="3" data-composition-frame-kind="region" data-composition-frame-label="Capa de aplicación y servicios · Lógica de negocio y API">
+          <rect data-graph-role="structural-frame-label-mask" x="604" y="187" width="383.06842069677407" height="19" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="608" y="202.1032268064516" class="t-cloud" font-size="11.10322680645161" font-weight="600">Capa de aplicación y servicios · Lógica de negocio y API</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="4" data-composition-frame-kind="region" data-composition-frame-label="Facturación">
-          <rect data-graph-role="structural-frame-label-mask" x="14" y="509" width="70.6774259548387" height="17" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="18" y="522.1935493870968" class="t-cloud" font-size="9.193549387096773" font-weight="600">Facturación</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="4" data-composition-frame-kind="region" data-composition-frame-label="Módulos funcionales (dominios de la aplicación)">
+          <rect data-graph-role="structural-frame-label-mask" x="622" y="317" width="323.1109959419354" height="19" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="626" y="332.10322680645163" class="t-cloud" font-size="11.10322680645161" font-weight="600">Módulos funcionales (dominios de la aplicación)</text>
+        </g>
+
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="5" data-composition-frame-kind="security-group" data-composition-frame-label="Mecanismos transversales (seguridad, autorización y aislamiento)">
+          <rect data-graph-role="structural-frame-label-mask" x="622" y="549" width="436.3639093677418" height="19" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="626" y="564.1032268064516" class="t-security" font-size="11.10322680645161" font-weight="600">Mecanismos transversales (seguridad, autorización y aislamiento)</text>
+        </g>
+
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="6" data-composition-frame-kind="region" data-composition-frame-label="Capa de persistencia · Base de datos relacional">
+          <rect data-graph-role="structural-frame-label-mask" x="1353.4445020290323" y="187" width="323.1109959419354" height="19" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="1357.4445020290323" y="202.1032268064516" class="t-cloud" font-size="11.10322680645161" font-weight="600">Capa de persistencia · Base de datos relacional</text>
+        </g>
+
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="7" data-composition-frame-kind="region" data-composition-frame-label="Principales dominios de información">
+          <rect data-graph-role="structural-frame-label-mask" x="1393.416118532258" y="322" width="243.1677629354838" height="19" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="1397.416118532258" y="337.10322680645163" class="t-cloud" font-size="11.10322680645161" font-weight="600">Principales dominios de información</text>
         </g>
 
         <!-- Legend -->
         <g data-legend="" data-legend-bridge="">
-          <text x="40" y="646" class="t-primary" font-size="12" font-weight="650">Leyenda</text>
-          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Base de datos" data-legend-x="40" data-legend-baseline="666" data-legend-width="108">
-            <rect x="40" y="657" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
-            <text x="62" y="666" class="t-muted" font-size="10" font-weight="500">Base de datos</text>
+          <text x="40" y="845" class="t-primary" font-size="12" font-weight="650">Leyenda</text>
+          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="Frontend" data-legend-x="40" data-legend-baseline="865" data-legend-width="83">
+            <rect x="40" y="856" width="16" height="10" rx="2.5" class="c-frontend" stroke-width="1"/>
+            <text x="62" y="865" class="t-muted" font-size="10" font-weight="500">Frontend</text>
+          </g>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="145" data-legend-baseline="865" data-legend-width="78">
+            <rect x="145" y="856" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
+            <text x="167" y="865" class="t-muted" font-size="10" font-weight="500">Backend</text>
+          </g>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Base de datos" data-legend-x="245" data-legend-baseline="865" data-legend-width="108">
+            <rect x="245" y="856" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
+            <text x="267" y="865" class="t-muted" font-size="10" font-weight="500">Base de datos</text>
+          </g>
+          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Seguridad" data-legend-x="375" data-legend-baseline="865" data-legend-width="88">
+            <rect x="375" y="856" width="16" height="10" rx="2.5" class="c-security" stroke-width="1"/>
+            <text x="397" y="865" class="t-muted" font-size="10" font-weight="500">Seguridad</text>
+          </g>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="Externo" data-legend-x="485" data-legend-baseline="865" data-legend-width="78">
+            <rect x="485" y="856" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
+            <text x="507" y="865" class="t-muted" font-size="10" font-weight="500">Externo</text>
           </g>
         </g>
       </svg>
@@ -5499,58 +5730,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     </div>
     <!-- Info Cards -->
     <div class="cards">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot cyan"></div>
-          <h3>Cómo leerlo</h3>
-        </div>
-        <ul>
-          <li>La flecha va del lado 1 al lado N</li>
-          <li>FK opcionales: User.hotel_settings y Room.room_type</li>
-          <li>N : M se resuelve con una tabla intermedia</li>
-          <li>Línea discontinua: vínculo opcional</li>
-          <li>Bajo cada entidad, su modelo Django</li>
-        </ul>
-      </div>
 
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot emerald"></div>
-          <h3>Aislamiento por hotel</h3>
-        </div>
-        <ul>
-          <li>FK directa a HotelSettings: User, Client, Reservation, HotelFloor y RoomType</li>
-          <li>Room obtiene el hotel a través de HotelFloor</li>
-          <li>Cargo y factura, a través de la reserva; el pago, a través de la factura</li>
-          <li>User sin hotel = administrador de plataforma</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot amber"></div>
-          <h3>Reglas del modelo</h3>
-        </div>
-        <ul>
-          <li>Role es global: el rol no aísla, aísla User.hotel_settings</li>
-          <li>Una habitación no se repite en la misma reserva</li>
-          <li>El solapamiento de fechas se valida en la aplicación, no en la base de datos</li>
-          <li>El total de la factura sale de la reserva, no de InvoiceCharge</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot slate"></div>
-          <h3>Omitido</h3>
-        </div>
-        <ul>
-          <li>ReservationGuest, ReservationDeposit y PaymentMethod (por hotel)</li>
-          <li>Tarifas, amenidades, servicios, paquetes y promociones</li>
-          <li>Inventario, finanzas, limpieza y mantenimiento</li>
-          <li>Catálogos MasterData (estados y tipos), auditoría y notificaciones</li>
-        </ul>
-      </div>
     </div>
     <nav class="node-outline no-print" id="node-outline" hidden aria-labelledby="node-outline-title">
       <div class="node-outline-head">

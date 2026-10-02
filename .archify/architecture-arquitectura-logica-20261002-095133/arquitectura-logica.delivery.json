@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "d0c9af18-9ca0-47cf-8087-293da77a723b",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "C:\\Users\\Usuario\\Documents\\wayra-gh\\.archify\\architecture-arquitectura-logica-20261002-095133\\candidate.json",
+  "output": "C:\\Users\\Usuario\\Documents\\wayra-gh\\.archify\\architecture-arquitectura-logica-20261002-095133\\arquitectura-logica.html",
+  "specification": {
+    "sha256": "ef525df72313cc2ea7c5346eeb636b25feb192ff3138100ec07e0b223973560e",
+    "bytes": 43888
+  },
+  "artifact": {
+    "sha256": "f0e692202ab1edbd42f5a9a7e7bf5a6d8593ec1b47d0608db82532a1df613478",
+    "bytes": 803447
+  }
+}

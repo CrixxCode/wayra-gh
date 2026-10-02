@@ -1202,6 +1202,69 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ## 12. Registro de cambios
 
+### 2026-10-02 — Modelo de datos: relación Hotel → RoomType y cardinalidades 1 : N
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** pendiente
+- **Tipo:** docs
+- **Qué se hizo:** en `diagramas/modelo-datos.*` se dibuja la FK directa `RoomType → HotelSettings`
+  (`Hotel 1 : N Tipo de habitación`), antes solo mencionada en una tarjeta. Para que no cruce otras
+  líneas, la columna "Habitaciones" queda en orden Tipo / Habitación / Piso y `Hotel → Piso` rodea
+  las regiones por arriba. Se reemplaza la notación `0..1 : N` por `1 : N`: la línea
+  `Tipo → Habitación` lleva la nota "room_type opcional", y la tarjeta "Cómo leerlo" lista las FK
+  opcionales (`User.hotel_settings`, `Room.room_type`). Sustituye el punto (3) de la entrada
+  anterior. Espacio de trabajo: `.archify/architecture-modelo-datos-20261002-113922/`.
+- **Por qué:** la figura daba a entender que `RoomType` solo se relaciona con `Room`, y `0..1 : N`
+  resultaba ambiguo.
+- **Archivos/áreas afectadas:** `diagramas/modelo-datos.html`,
+  `diagramas/modelo-datos.architecture.json`, `.archify/architecture-modelo-datos-20261002-113922/`,
+  `AGENTS.md`.
+- **Impacto:** Ninguno. No cambia modelos, migraciones, API ni despliegue.
+
+### 2026-10-02 — Diagrama de modelo de datos corregido contra los modelos reales
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** pendiente
+- **Tipo:** docs
+- **Qué se hizo:** se regeneraron `diagramas/modelo-datos.html` y
+  `diagramas/modelo-datos.architecture.json` tras contrastarlos con los `models.py`. Correcciones:
+  (1) se dibuja la FK directa `Client → HotelSettings`, que solo figuraba en una tarjeta;
+  (2) `Role` sale de la región del tenant a una región "Global (sin hotel)", porque no tiene FK a
+  hotel; (3) se marcan las FK opcionales como `0..1 : N` (`User.hotel_settings` y
+  `Room.room_type` admiten nulo); (4) `Charge ↔ Invoice` vía `InvoiceCharge` pasa a línea
+  discontinua "opcional": el total de la factura se calcula sobre la reserva
+  (`billing/services.py`, `sync_default_invoice_for_reservation`) y ningún flujo llena
+  `InvoiceCharge` automáticamente. Se agregó una tarjeta "Reglas del modelo" (rol global, unicidad
+  de `ReservationRoom`, solapamiento validado en la aplicación) y se ampliaron las omitidas
+  (`ReservationGuest`, `ReservationDeposit`, `PaymentMethod`). Las fuentes de cada entidad citan
+  ahora las líneas de sus FK y restricciones, fijadas al commit `7be3e8d`. La interfaz del visor
+  quedó en español (antes en inglés). Espacio de trabajo de Archify:
+  `.archify/architecture-modelo-datos-20261002-113241/`.
+- **Por qué:** el diagrama se usa como figura del modelo de datos y tenía imprecisiones frente al
+  código (ver la entrada del 2026-09-26).
+- **Archivos/áreas afectadas:** `diagramas/modelo-datos.html`,
+  `diagramas/modelo-datos.architecture.json`, `.archify/architecture-modelo-datos-20261002-113241/`,
+  `AGENTS.md`.
+- **Impacto:** Ninguno. No cambia modelos, migraciones, API ni despliegue.
+
+### 2026-10-02 — Figura de arquitectura lógica por capas en `diagramas/`
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** pendiente
+- **Tipo:** docs
+- **Qué se hizo:** se agregó `diagramas/arquitectura-logica.html` (HTML interactivo autocontenido) y
+  su especificación fuente `diagramas/arquitectura-logica.architecture.json` (formato Archify).
+  Figura para artículo científico con tres capas cliente-servidor: presentación (usuario, aplicación
+  Angular, módulos de interfaz y control de acceso en el cliente), aplicación y servicios (API REST,
+  Django REST Framework, Django, 9 módulos funcionales y 8 mecanismos transversales: sesiones, CSRF,
+  RBAC, aislamiento multi-hotel, permisos en endpoints, throttling, borrado lógico, auditoría) y
+  persistencia (base de datos relacional y 12 dominios de información).
+- **Por qué:** el usuario la necesita como figura de arquitectura lógica para un artículo. El
+  contenido lo dictó el usuario; no se extrajo del código.
+- **Archivos/áreas afectadas:** `diagramas/arquitectura-logica.html`,
+  `diagramas/arquitectura-logica.architecture.json`, `AGENTS.md`.
+- **Impacto:** Ninguno. No cambia código, API ni despliegue.
+
 ### 2026-09-26 — Diagrama de flujo funcional de punta a punta en `diagramas/`
 
 - **Autor:** Claude Code, a solicitud de Cristian Ramirez.

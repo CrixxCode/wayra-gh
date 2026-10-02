@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "Wayra — Modelo de datos (E-R simplificado)",
+    "title": "Arquitectura lógica de la plataforma web para la gestión hotelera",
     "locale": "es",
     "translations": {
       "page.title": "{title} · Diagrama",
@@ -444,579 +444,871 @@
       "viewer.common.clear": "Borrar",
       "viewer.common.close": "Cerrar"
     },
-    "output": "diagramas/modelo-datos.html",
-    "quality_profile": "showcase",
-    "repository": {
-      "url": "https://github.com/CrixxCode/wayra-gh",
-      "provider": "github",
-      "link_mode": "web",
-      "revision": "7be3e8d292daaac7f3bd72ace0c8a9286b1b2ef5"
-    },
-    "views": [
-      {
-        "id": "tenant",
-        "label": "Hotel y acceso",
-        "focus": [
-          "hotel",
-          "usuario",
-          "rol",
-          "piso",
-          "cliente",
-          "tipo"
-        ],
-        "note": "HotelSettings es la raíz del tenant. Role es global: no tiene hotel y se asigna a cada usuario mediante UserRole."
-      },
-      {
-        "id": "reserva",
-        "label": "Reserva y habitaciones",
-        "focus": [
-          "hotel",
-          "cliente",
-          "reserva",
-          "reserva-hab",
-          "habitacion",
-          "piso",
-          "tipo"
-        ],
-        "note": "Una reserva agrupa varias habitaciones vía ReservationRoom; las fechas viven en Reservation y las comparten todas."
-      },
-      {
-        "id": "cobro",
-        "label": "Facturación",
-        "focus": [
-          "reserva",
-          "cargo",
-          "factura",
-          "pago"
-        ],
-        "note": "Cargo y factura cuelgan de la reserva. InvoiceCharge es opcional: el total de la factura se calcula sobre la reserva."
-      }
-    ]
+    "output": ".archify/architecture-arquitectura-logica-20261002-095133/arquitectura-logica.html",
+    "quality_profile": "showcase"
   },
   "components": [
     {
-      "id": "rol",
-      "type": "database",
-      "label": "Rol",
-      "sublabel": "Role",
-      "pos": [
-        40,
-        110
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "sources": [
-        {
-          "path": "backend/accounts/models.py",
-          "line": 51,
-          "end_line": 58,
-          "label": "Role, sin FK a hotel"
-        },
-        {
-          "path": "backend/accounts/models.py",
-          "line": 118,
-          "end_line": 126,
-          "label": "UserRole (N:M)"
-        }
-      ]
-    },
-    {
       "id": "usuario",
-      "type": "database",
+      "type": "external",
       "label": "Usuario",
-      "sublabel": "User",
+      "sublabel": "Administrador, recepcionista, personal del hotel, entre otros",
+      "icon": "person",
       "pos": [
-        340,
-        110
+        70,
+        80
       ],
       "size": [
-        180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "backend/accounts/models.py",
-          "line": 9,
-          "end_line": 22,
-          "label": "hotel_settings FK null=True"
-        },
-        {
-          "path": "backend/accounts/models.py",
-          "line": 42,
-          "end_line": 48,
-          "label": "hotel obligatorio salvo superusuario"
-        }
+        370,
+        60
       ]
     },
     {
-      "id": "hotel",
-      "type": "database",
-      "label": "Hotel",
-      "sublabel": "HotelSettings",
+      "id": "angular",
+      "type": "frontend",
+      "label": "Aplicación web Angular",
+      "sublabel": "Interfaz de usuario por módulos",
       "pos": [
-        610,
-        110
+        70,
+        210
       ],
       "size": [
-        180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "backend/apps/hotel_settings/models.py",
-          "line": 17,
-          "label": "HotelSettings"
-        }
+        370,
+        72
       ]
     },
     {
-      "id": "piso",
-      "type": "database",
-      "label": "Piso",
-      "sublabel": "HotelFloor",
+      "id": "fe-usuarios",
+      "type": "frontend",
+      "label": "Usuarios y administración",
+      "icon": "none",
       "pos": [
-        1150,
-        530
+        70,
+        340
       ],
       "size": [
         180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "backend/apps/hotel_settings/models.py",
-          "line": 262,
-          "end_line": 285,
-          "label": "hotel_settings FK"
-        }
+        44
       ]
     },
     {
-      "id": "cliente",
-      "type": "database",
-      "label": "Cliente",
-      "sublabel": "Client",
+      "id": "fe-clientes",
+      "type": "frontend",
+      "label": "Clientes y huéspedes",
+      "icon": "none",
       "pos": [
-        340,
-        320
+        260,
+        340
       ],
       "size": [
         180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "backend/apps/clients/models.py",
-          "line": 7,
-          "end_line": 14,
-          "label": "hotel_settings FK"
-        },
-        {
-          "path": "backend/apps/clients/models.py",
-          "line": 51,
-          "end_line": 60,
-          "label": "documento único por hotel"
-        }
+        44
       ]
     },
     {
-      "id": "reserva",
-      "type": "database",
-      "label": "Reserva",
-      "sublabel": "Reservation",
+      "id": "fe-habitaciones",
+      "type": "frontend",
+      "label": "Habitaciones",
+      "icon": "none",
       "pos": [
-        610,
-        320
+        70,
+        399
       ],
       "size": [
         180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "backend/apps/reservations/models.py",
-          "line": 15,
-          "end_line": 24,
-          "label": "client FK"
-        },
-        {
-          "path": "backend/apps/reservations/models.py",
-          "line": 45,
-          "end_line": 51,
-          "label": "hotel_settings FK"
-        },
-        {
-          "path": "backend/apps/reservations/models.py",
-          "line": 61,
-          "end_line": 64,
-          "label": "fechas de la estadía"
-        }
+        44
       ]
     },
     {
-      "id": "reserva-hab",
-      "type": "database",
-      "label": "Habitación reservada",
-      "sublabel": "ReservationRoom",
+      "id": "fe-reservas",
+      "type": "frontend",
+      "label": "Reservas y disponibilidad",
+      "icon": "none",
       "pos": [
-        880,
-        320
+        260,
+        399
       ],
       "size": [
         180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "backend/apps/reservations/models.py",
-          "line": 201,
-          "end_line": 211,
-          "label": "reservation y room FK"
-        },
-        {
-          "path": "backend/apps/reservations/models.py",
-          "line": 228,
-          "end_line": 233,
-          "label": "única por reserva y habitación"
-        },
-        {
-          "path": "backend/apps/reservations/services.py",
-          "line": 961,
-          "end_line": 986,
-          "label": "control de solapamiento"
-        }
+        44
       ]
     },
     {
-      "id": "habitacion",
-      "type": "database",
-      "label": "Habitación",
-      "sublabel": "Room",
+      "id": "fe-servicios",
+      "type": "frontend",
+      "label": "Servicios",
+      "icon": "none",
       "pos": [
-        1150,
-        320
+        70,
+        458
       ],
       "size": [
         180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "backend/apps/rooms/models.py",
-          "line": 135,
-          "end_line": 155,
-          "label": "room_type y floor FK"
-        },
-        {
-          "path": "backend/apps/rooms/models.py",
-          "line": 173,
-          "end_line": 178,
-          "label": "número único por piso"
-        }
+        44
       ]
     },
     {
-      "id": "tipo",
-      "type": "database",
-      "label": "Tipo de habitación",
-      "sublabel": "RoomType",
+      "id": "fe-facturacion",
+      "type": "frontend",
+      "label": "Facturación y pagos",
+      "icon": "none",
       "pos": [
-        1150,
-        110
+        260,
+        458
       ],
       "size": [
         180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "backend/apps/rooms/models.py",
-          "line": 14,
-          "end_line": 25,
-          "label": "hotel_settings FK"
-        }
+        44
       ]
     },
     {
-      "id": "cargo",
-      "type": "database",
-      "label": "Cargo",
-      "sublabel": "Charge",
+      "id": "fe-inventario",
+      "type": "frontend",
+      "label": "Inventario",
+      "icon": "none",
       "pos": [
-        40,
-        530
+        70,
+        517
       ],
       "size": [
         180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "backend/apps/billing/models.py",
-          "line": 10,
-          "end_line": 15,
-          "label": "reservation FK"
-        }
+        44
       ]
     },
     {
-      "id": "factura",
-      "type": "database",
-      "label": "Factura",
-      "sublabel": "Invoice",
+      "id": "fe-limpieza",
+      "type": "frontend",
+      "label": "Limpieza y mantenimiento",
+      "icon": "none",
       "pos": [
-        610,
-        530
+        260,
+        517
       ],
       "size": [
         180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "backend/apps/billing/models.py",
-          "line": 88,
-          "end_line": 93,
-          "label": "reservation FK"
-        },
-        {
-          "path": "backend/apps/billing/models.py",
-          "line": 144,
-          "end_line": 160,
-          "label": "InvoiceCharge (N:M)"
-        },
-        {
-          "path": "backend/apps/billing/services.py",
-          "line": 541,
-          "end_line": 567,
-          "label": "total calculado sobre la reserva"
-        }
+        44
       ]
     },
     {
-      "id": "pago",
-      "type": "database",
-      "label": "Pago",
-      "sublabel": "Payment",
+      "id": "fe-reportes",
+      "type": "frontend",
+      "label": "Reportes y notificaciones",
+      "icon": "none",
       "pos": [
-        880,
-        530
+        70,
+        576
       ],
       "size": [
-        180,
-        64
+        370,
+        44
+      ]
+    },
+    {
+      "id": "g-sesion",
+      "type": "security",
+      "label": "Verificación de sesión",
+      "icon": "none",
+      "pos": [
+        70,
+        690
       ],
-      "sources": [
-        {
-          "path": "backend/apps/billing/models.py",
-          "line": 175,
-          "end_line": 186,
-          "label": "invoice y payment_method FK"
-        }
+      "size": [
+        150,
+        44
+      ]
+    },
+    {
+      "id": "g-roles",
+      "type": "security",
+      "label": "Verificación de roles y permisos",
+      "icon": "none",
+      "pos": [
+        230,
+        690
+      ],
+      "size": [
+        210,
+        44
+      ]
+    },
+    {
+      "id": "g-rutas",
+      "type": "security",
+      "label": "Control de rutas",
+      "icon": "none",
+      "pos": [
+        70,
+        749
+      ],
+      "size": [
+        150,
+        44
+      ]
+    },
+    {
+      "id": "g-hotel",
+      "type": "security",
+      "label": "Configuración por hotel",
+      "icon": "none",
+      "pos": [
+        230,
+        749
+      ],
+      "size": [
+        210,
+        44
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "API REST y lógica de aplicación",
+      "sublabel": "Endpoints por dominio",
+      "pos": [
+        630,
+        210
+      ],
+      "size": [
+        230,
+        72
+      ]
+    },
+    {
+      "id": "drf",
+      "type": "backend",
+      "label": "Django REST Framework",
+      "sublabel": "Serializadores y vistas",
+      "pos": [
+        872,
+        210
+      ],
+      "size": [
+        175,
+        72
+      ]
+    },
+    {
+      "id": "django",
+      "type": "backend",
+      "label": "Django",
+      "sublabel": "Núcleo del servidor",
+      "pos": [
+        1059,
+        210
+      ],
+      "size": [
+        171,
+        72
+      ]
+    },
+    {
+      "id": "m-usuarios",
+      "type": "backend",
+      "label": "Usuarios y control de acceso",
+      "icon": "none",
+      "pos": [
+        630,
+        340
+      ],
+      "size": [
+        192,
+        44
+      ]
+    },
+    {
+      "id": "m-clientes",
+      "type": "backend",
+      "label": "Clientes y huéspedes",
+      "icon": "none",
+      "pos": [
+        834,
+        340
+      ],
+      "size": [
+        192,
+        44
+      ]
+    },
+    {
+      "id": "m-habitaciones",
+      "type": "backend",
+      "label": "Habitaciones",
+      "icon": "none",
+      "pos": [
+        1038,
+        340
+      ],
+      "size": [
+        192,
+        44
+      ]
+    },
+    {
+      "id": "m-reservas",
+      "type": "backend",
+      "label": "Reservas y disponibilidad",
+      "icon": "none",
+      "pos": [
+        630,
+        399
+      ],
+      "size": [
+        192,
+        44
+      ]
+    },
+    {
+      "id": "m-servicios",
+      "type": "backend",
+      "label": "Servicios",
+      "icon": "none",
+      "pos": [
+        834,
+        399
+      ],
+      "size": [
+        192,
+        44
+      ]
+    },
+    {
+      "id": "m-facturacion",
+      "type": "backend",
+      "label": "Facturación, cargos y pagos",
+      "icon": "none",
+      "pos": [
+        1038,
+        399
+      ],
+      "size": [
+        192,
+        44
+      ]
+    },
+    {
+      "id": "m-inventario",
+      "type": "backend",
+      "label": "Inventario",
+      "icon": "none",
+      "pos": [
+        630,
+        458
+      ],
+      "size": [
+        192,
+        44
+      ]
+    },
+    {
+      "id": "m-limpieza",
+      "type": "backend",
+      "label": "Limpieza y mantenimiento",
+      "icon": "none",
+      "pos": [
+        834,
+        458
+      ],
+      "size": [
+        192,
+        44
+      ]
+    },
+    {
+      "id": "m-reportes",
+      "type": "backend",
+      "label": "Reportes y notificaciones",
+      "icon": "none",
+      "pos": [
+        1038,
+        458
+      ],
+      "size": [
+        192,
+        44
+      ]
+    },
+    {
+      "id": "x-sesiones",
+      "type": "security",
+      "label": "Autenticación mediante sesiones",
+      "icon": "none",
+      "pos": [
+        630,
+        572
+      ],
+      "size": [
+        294,
+        44
+      ]
+    },
+    {
+      "id": "x-csrf",
+      "type": "security",
+      "label": "Protección CSRF",
+      "icon": "none",
+      "pos": [
+        936,
+        572
+      ],
+      "size": [
+        294,
+        44
+      ]
+    },
+    {
+      "id": "x-rbac",
+      "type": "security",
+      "label": "RBAC (roles, recursos y permisos)",
+      "icon": "none",
+      "pos": [
+        630,
+        631
+      ],
+      "size": [
+        294,
+        44
+      ]
+    },
+    {
+      "id": "x-multihotel",
+      "type": "security",
+      "label": "Aislamiento multi-hotel",
+      "icon": "none",
+      "sublabel": "Contexto del establecimiento",
+      "pos": [
+        936,
+        631
+      ],
+      "size": [
+        294,
+        44
+      ]
+    },
+    {
+      "id": "x-permisos",
+      "type": "security",
+      "label": "Permisos en endpoints",
+      "icon": "none",
+      "pos": [
+        630,
+        690
+      ],
+      "size": [
+        294,
+        44
+      ]
+    },
+    {
+      "id": "x-throttling",
+      "type": "security",
+      "label": "Throttling",
+      "icon": "none",
+      "pos": [
+        936,
+        690
+      ],
+      "size": [
+        294,
+        44
+      ]
+    },
+    {
+      "id": "x-borrado",
+      "type": "security",
+      "label": "Borrado lógico",
+      "icon": "none",
+      "pos": [
+        630,
+        749
+      ],
+      "size": [
+        294,
+        44
+      ]
+    },
+    {
+      "id": "x-auditoria",
+      "type": "security",
+      "label": "Auditoría de operaciones",
+      "icon": "none",
+      "pos": [
+        936,
+        749
+      ],
+      "size": [
+        294,
+        44
+      ]
+    },
+    {
+      "id": "bd",
+      "type": "database",
+      "label": "Base de datos relacional",
+      "sublabel": "Almacenamiento transaccional",
+      "pos": [
+        1420,
+        210
+      ],
+      "size": [
+        190,
+        72
+      ]
+    },
+    {
+      "id": "d-1",
+      "type": "database",
+      "label": "Hoteles",
+      "icon": "none",
+      "pos": [
+        1420,
+        345
+      ],
+      "size": [
+        190,
+        30
+      ]
+    },
+    {
+      "id": "d-2",
+      "type": "database",
+      "label": "Usuarios y permisos",
+      "icon": "none",
+      "pos": [
+        1420,
+        383
+      ],
+      "size": [
+        190,
+        30
+      ]
+    },
+    {
+      "id": "d-3",
+      "type": "database",
+      "label": "Clientes",
+      "icon": "none",
+      "pos": [
+        1420,
+        421
+      ],
+      "size": [
+        190,
+        30
+      ]
+    },
+    {
+      "id": "d-4",
+      "type": "database",
+      "label": "Habitaciones",
+      "icon": "none",
+      "pos": [
+        1420,
+        459
+      ],
+      "size": [
+        190,
+        30
+      ]
+    },
+    {
+      "id": "d-5",
+      "type": "database",
+      "label": "Reservas",
+      "icon": "none",
+      "pos": [
+        1420,
+        497
+      ],
+      "size": [
+        190,
+        30
+      ]
+    },
+    {
+      "id": "d-6",
+      "type": "database",
+      "label": "Servicios",
+      "icon": "none",
+      "pos": [
+        1420,
+        535
+      ],
+      "size": [
+        190,
+        30
+      ]
+    },
+    {
+      "id": "d-7",
+      "type": "database",
+      "label": "Cargos",
+      "icon": "none",
+      "pos": [
+        1420,
+        573
+      ],
+      "size": [
+        190,
+        30
+      ]
+    },
+    {
+      "id": "d-8",
+      "type": "database",
+      "label": "Facturas",
+      "icon": "none",
+      "pos": [
+        1420,
+        611
+      ],
+      "size": [
+        190,
+        30
+      ]
+    },
+    {
+      "id": "d-9",
+      "type": "database",
+      "label": "Pagos",
+      "icon": "none",
+      "pos": [
+        1420,
+        649
+      ],
+      "size": [
+        190,
+        30
+      ]
+    },
+    {
+      "id": "d-10",
+      "type": "database",
+      "label": "Inventario",
+      "icon": "none",
+      "pos": [
+        1420,
+        687
+      ],
+      "size": [
+        190,
+        30
+      ]
+    },
+    {
+      "id": "d-11",
+      "type": "database",
+      "label": "Limpieza y mantenimiento",
+      "icon": "none",
+      "pos": [
+        1420,
+        725
+      ],
+      "size": [
+        190,
+        30
+      ]
+    },
+    {
+      "id": "d-12",
+      "type": "database",
+      "label": "Registros de auditoría",
+      "icon": "none",
+      "pos": [
+        1420,
+        763
+      ],
+      "size": [
+        190,
+        30
       ]
     }
   ],
   "boundaries": [
     {
       "kind": "region",
-      "label": "Global (sin hotel)",
-      "wraps": [
-        "rol"
-      ]
-    },
-    {
-      "kind": "region",
-      "label": "Tenant",
+      "label": "Capa de presentación · Interfaz de usuario",
       "wraps": [
         "usuario",
-        "hotel"
-      ]
+        "angular",
+        "fe-usuarios",
+        "fe-clientes",
+        "fe-habitaciones",
+        "fe-reservas",
+        "fe-servicios",
+        "fe-facturacion",
+        "fe-inventario",
+        "fe-limpieza",
+        "fe-reportes",
+        "g-sesion",
+        "g-roles",
+        "g-rutas",
+        "g-hotel"
+      ],
+      "pad": 30
     },
     {
       "kind": "region",
-      "label": "Reservas",
+      "label": "Módulos de la interfaz",
       "wraps": [
-        "cliente",
-        "reserva",
-        "reserva-hab"
-      ]
+        "fe-usuarios",
+        "fe-clientes",
+        "fe-habitaciones",
+        "fe-reservas",
+        "fe-servicios",
+        "fe-facturacion",
+        "fe-inventario",
+        "fe-limpieza",
+        "fe-reportes"
+      ],
+      "pad": 12
+    },
+    {
+      "kind": "security-group",
+      "label": "Control de acceso en el cliente",
+      "wraps": [
+        "g-sesion",
+        "g-roles",
+        "g-rutas",
+        "g-hotel"
+      ],
+      "pad": 12
     },
     {
       "kind": "region",
-      "label": "Habitaciones",
+      "label": "Capa de aplicación y servicios · Lógica de negocio y API",
       "wraps": [
-        "piso",
-        "habitacion",
-        "tipo"
-      ]
+        "api",
+        "drf",
+        "django",
+        "m-usuarios",
+        "m-clientes",
+        "m-habitaciones",
+        "m-reservas",
+        "m-servicios",
+        "m-facturacion",
+        "m-inventario",
+        "m-limpieza",
+        "m-reportes",
+        "x-sesiones",
+        "x-csrf",
+        "x-rbac",
+        "x-multihotel",
+        "x-permisos",
+        "x-throttling",
+        "x-borrado",
+        "x-auditoria"
+      ],
+      "pad": 30
     },
     {
       "kind": "region",
-      "label": "Facturación",
+      "label": "Módulos funcionales (dominios de la aplicación)",
       "wraps": [
-        "cargo",
-        "factura",
-        "pago"
-      ]
+        "m-usuarios",
+        "m-clientes",
+        "m-habitaciones",
+        "m-reservas",
+        "m-servicios",
+        "m-facturacion",
+        "m-inventario",
+        "m-limpieza",
+        "m-reportes"
+      ],
+      "pad": 12
+    },
+    {
+      "kind": "security-group",
+      "label": "Mecanismos transversales (seguridad, autorización y aislamiento)",
+      "wraps": [
+        "x-sesiones",
+        "x-csrf",
+        "x-rbac",
+        "x-multihotel",
+        "x-permisos",
+        "x-throttling",
+        "x-borrado",
+        "x-auditoria"
+      ],
+      "pad": 12
+    },
+    {
+      "kind": "region",
+      "label": "Capa de persistencia · Base de datos relacional",
+      "wraps": [
+        "bd",
+        "d-1",
+        "d-2",
+        "d-3",
+        "d-4",
+        "d-5",
+        "d-6",
+        "d-7",
+        "d-8",
+        "d-9",
+        "d-10",
+        "d-11",
+        "d-12"
+      ],
+      "pad": 30
+    },
+    {
+      "kind": "region",
+      "label": "Principales dominios de información",
+      "wraps": [
+        "d-1",
+        "d-2",
+        "d-3",
+        "d-4",
+        "d-5",
+        "d-6",
+        "d-7",
+        "d-8",
+        "d-9",
+        "d-10",
+        "d-11",
+        "d-12"
+      ],
+      "pad": 12
     }
   ],
   "connections": [
     {
-      "id": "hotel-usuarios",
-      "from": "hotel",
-      "to": "usuario",
-      "label": "1 : N"
-    },
-    {
-      "id": "usuario-roles",
+      "id": "usuario-interactua",
       "from": "usuario",
-      "to": "rol",
-      "label": "N : M · UserRole"
+      "to": "angular",
+      "label": "Interacción"
     },
     {
-      "id": "hotel-tipos",
-      "from": "hotel",
-      "to": "tipo",
-      "label": "1 : N"
+      "id": "angular-presenta",
+      "from": "angular",
+      "to": "usuario",
+      "label": "Vistas"
     },
     {
-      "id": "hotel-pisos",
-      "from": "hotel",
-      "to": "piso",
-      "label": "1 : N",
-      "fromSide": "top",
-      "toSide": "right",
-      "via": [
-        [
-          700,
-          50
-        ],
-        [
-          1385,
-          50
-        ],
-        [
-          1385,
-          562
-        ]
-      ]
-    },
-    {
-      "id": "hotel-clientes",
-      "from": "hotel",
-      "to": "cliente",
-      "label": "1 : N",
-      "fromSide": "bottom",
-      "toSide": "top"
-    },
-    {
-      "id": "hotel-reservas",
-      "from": "hotel",
-      "to": "reserva",
-      "label": "1 : N"
-    },
-    {
-      "id": "cliente-reservas",
-      "from": "cliente",
-      "to": "reserva",
-      "label": "1 : N"
-    },
-    {
-      "id": "reserva-habitaciones",
-      "from": "reserva",
-      "to": "reserva-hab",
-      "label": "1 : N",
+      "id": "solicitud-http",
+      "from": "angular",
+      "to": "api",
+      "label": "Solicitud HTTP (API REST)",
       "variant": "emphasis"
     },
     {
-      "id": "habitacion-reservas",
-      "from": "habitacion",
-      "to": "reserva-hab",
-      "label": "1 : N"
+      "id": "respuesta-json",
+      "from": "api",
+      "to": "angular",
+      "label": "Respuesta (JSON)"
     },
     {
-      "id": "piso-habitaciones",
-      "from": "piso",
-      "to": "habitacion",
-      "label": "1 : N"
+      "id": "consultas",
+      "from": "django",
+      "to": "bd",
+      "label": "Consultas y transacciones",
+      "variant": "emphasis"
     },
     {
-      "id": "tipo-habitaciones",
-      "from": "tipo",
-      "to": "habitacion",
-      "label": "1 : N · room_type opcional"
-    },
-    {
-      "id": "reserva-cargos",
-      "from": "reserva",
-      "to": "cargo",
-      "label": "1 : N",
-      "fromSide": "bottom",
-      "toSide": "top"
-    },
-    {
-      "id": "reserva-facturas",
-      "from": "reserva",
-      "to": "factura",
-      "label": "1 : N"
-    },
-    {
-      "id": "cargos-facturas",
-      "from": "cargo",
-      "to": "factura",
-      "label": "N : M opcional · InvoiceCharge",
-      "variant": "dashed"
-    },
-    {
-      "id": "factura-pagos",
-      "from": "factura",
-      "to": "pago",
-      "label": "1 : N"
-    }
-  ],
-  "cards": [
-    {
-      "dot": "cyan",
-      "title": "Cómo leerlo",
-      "items": [
-        "La flecha va del lado 1 al lado N",
-        "FK opcionales: User.hotel_settings y Room.room_type",
-        "N : M se resuelve con una tabla intermedia",
-        "Línea discontinua: vínculo opcional",
-        "Bajo cada entidad, su modelo Django"
-      ]
-    },
-    {
-      "dot": "emerald",
-      "title": "Aislamiento por hotel",
-      "items": [
-        "FK directa a HotelSettings: User, Client, Reservation, HotelFloor y RoomType",
-        "Room obtiene el hotel a través de HotelFloor",
-        "Cargo y factura, a través de la reserva; el pago, a través de la factura",
-        "User sin hotel = administrador de plataforma"
-      ]
-    },
-    {
-      "dot": "amber",
-      "title": "Reglas del modelo",
-      "items": [
-        "Role es global: el rol no aísla, aísla User.hotel_settings",
-        "Una habitación no se repite en la misma reserva",
-        "El solapamiento de fechas se valida en la aplicación, no en la base de datos",
-        "El total de la factura sale de la reserva, no de InvoiceCharge"
-      ]
-    },
-    {
-      "dot": "slate",
-      "title": "Omitido",
-      "items": [
-        "ReservationGuest, ReservationDeposit y PaymentMethod (por hotel)",
-        "Tarifas, amenidades, servicios, paquetes y promociones",
-        "Inventario, finanzas, limpieza y mantenimiento",
-        "Catálogos MasterData (estados y tipos), auditoría y notificaciones"
-      ]
+      "id": "resultados",
+      "from": "bd",
+      "to": "django",
+      "label": "Resultados de datos"
     }
   ]
 }

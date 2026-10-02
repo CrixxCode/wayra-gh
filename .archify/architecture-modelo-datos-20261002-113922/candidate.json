@@ -444,7 +444,7 @@
       "viewer.common.clear": "Borrar",
       "viewer.common.close": "Cerrar"
     },
-    "output": "diagramas/modelo-datos.html",
+    "output": ".archify/architecture-modelo-datos-20261002-113922/modelo-datos.html",
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/CrixxCode/wayra-gh",
