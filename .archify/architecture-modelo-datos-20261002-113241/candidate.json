@@ -444,7 +444,7 @@
       "viewer.common.clear": "Borrar",
       "viewer.common.close": "Cerrar"
     },
-    "output": "diagramas/modelo-datos.html",
+    "output": ".archify/architecture-modelo-datos-20261002-113241/modelo-datos.html",
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/CrixxCode/wayra-gh",
@@ -461,8 +461,7 @@
           "usuario",
           "rol",
           "piso",
-          "cliente",
-          "tipo"
+          "cliente"
         ],
         "note": "HotelSettings es la raíz del tenant. Role es global: no tiene hotel y se asigna a cada usuario mediante UserRole."
       },
@@ -578,7 +577,7 @@
       "sublabel": "HotelFloor",
       "pos": [
         1150,
-        530
+        110
       ],
       "size": [
         180,
@@ -724,7 +723,7 @@
       "sublabel": "RoomType",
       "pos": [
         1150,
-        110
+        530
       ],
       "size": [
         180,
@@ -867,7 +866,7 @@
       "id": "hotel-usuarios",
       "from": "hotel",
       "to": "usuario",
-      "label": "1 : N"
+      "label": "0..1 : N"
     },
     {
       "id": "usuario-roles",
@@ -876,32 +875,10 @@
       "label": "N : M · UserRole"
     },
     {
-      "id": "hotel-tipos",
-      "from": "hotel",
-      "to": "tipo",
-      "label": "1 : N"
-    },
-    {
       "id": "hotel-pisos",
       "from": "hotel",
       "to": "piso",
-      "label": "1 : N",
-      "fromSide": "top",
-      "toSide": "right",
-      "via": [
-        [
-          700,
-          50
-        ],
-        [
-          1385,
-          50
-        ],
-        [
-          1385,
-          562
-        ]
-      ]
+      "label": "1 : N"
     },
     {
       "id": "hotel-clientes",
@@ -946,7 +923,7 @@
       "id": "tipo-habitaciones",
       "from": "tipo",
       "to": "habitacion",
-      "label": "1 : N · room_type opcional"
+      "label": "0..1 : N"
     },
     {
       "id": "reserva-cargos",
@@ -982,7 +959,7 @@
       "title": "Cómo leerlo",
       "items": [
         "La flecha va del lado 1 al lado N",
-        "FK opcionales: User.hotel_settings y Room.room_type",
+        "0..1 : N — la FK del lado N admite nulo",
         "N : M se resuelve con una tabla intermedia",
         "Línea discontinua: vínculo opcional",
         "Bajo cada entidad, su modelo Django"
@@ -992,7 +969,7 @@
       "dot": "emerald",
       "title": "Aislamiento por hotel",
       "items": [
-        "FK directa a HotelSettings: User, Client, Reservation, HotelFloor y RoomType",
+        "FK directa a HotelSettings: User, Client, Reservation, HotelFloor y RoomType (esta última no se dibuja)",
         "Room obtiene el hotel a través de HotelFloor",
         "Cargo y factura, a través de la reserva; el pago, a través de la factura",
         "User sin hotel = administrador de plataforma"

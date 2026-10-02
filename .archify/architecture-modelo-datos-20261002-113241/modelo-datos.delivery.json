@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "6dee3144-9c6f-4e8a-999a-0eefc87ad0af",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "C:\\Users\\Usuario\\Documents\\wayra-gh\\.archify\\architecture-modelo-datos-20261002-113241\\candidate.json",
+  "output": "C:\\Users\\Usuario\\Documents\\wayra-gh\\.archify\\architecture-modelo-datos-20261002-113241\\modelo-datos.html",
+  "specification": {
+    "sha256": "5fdfdfc3caac2b57b39b36a6cb30eeb76d7c624036cc61180efef66c80419688",
+    "bytes": 41119
+  },
+  "artifact": {
+    "sha256": "30b6d499bf81603d83a09703bfffca701b4d9f98a742602e659e73e163651480",
+    "bytes": 780475
+  }
+}

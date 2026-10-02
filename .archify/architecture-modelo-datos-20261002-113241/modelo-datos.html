@@ -4987,7 +4987,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / LÁMINA 04">
-      <svg viewBox="0 0 1425 682" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
+      <svg viewBox="0 0 1400 682" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
         <title id="archify-diagram-title">Wayra — Modelo de datos (E-R simplificado)</title>
         <desc id="archify-diagram-description">Un diagrama de arquitectura generado por Archify.</desc>
         <!-- Definitions -->
@@ -5026,7 +5026,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <!-- Connection paths (before components for correct z-order) -->
         <g data-graph-role="automatic-crossover" style="--step:0">
           <path data-graph-role="automatic-crossover-underlay" d="M 610 142 L 520 142" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="hotel" data-edge-to="usuario" data-edge-label="1 : N" data-edge-key="0" data-edge-id="hotel-usuarios" data-composition-points="610,142;520,142" data-composition-crossover="halo" data-composition-independent="true" d="M 610 142 L 520 142" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-edge-from="hotel" data-edge-to="usuario" data-edge-label="0..1 : N" data-edge-key="0" data-edge-id="hotel-usuarios" data-composition-points="610,142;520,142" data-composition-crossover="halo" data-composition-independent="true" d="M 610 142 L 520 142" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:1">
           <path data-graph-role="automatic-crossover-underlay" d="M 340 142 L 200 142" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
@@ -5034,52 +5034,51 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </g>
         <g data-graph-role="automatic-crossover" style="--step:2">
           <path data-graph-role="automatic-crossover-underlay" d="M 790 142 L 1150 142" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="hotel" data-edge-to="tipo" data-edge-label="1 : N" data-edge-key="2" data-edge-id="hotel-tipos" data-composition-points="790,142;1150,142" data-composition-crossover="halo" data-composition-independent="true" d="M 790 142 L 1150 142" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-edge-from="hotel" data-edge-to="piso" data-edge-label="1 : N" data-edge-key="2" data-edge-id="hotel-pisos" data-composition-points="790,142;1150,142" data-composition-crossover="halo" data-composition-independent="true" d="M 790 142 L 1150 142" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
-        <path data-edge-from="hotel" data-edge-to="piso" data-edge-label="1 : N" data-edge-key="3" data-edge-id="hotel-pisos" data-composition-points="700,110;700,50;1385,50;1385,562;1330,562" d="M 700 110 L 700 58 Q 700 50 708 50 L 1377 50 Q 1385 50 1385 58 L 1385 554 Q 1385 562 1377 562 L 1330 562" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <g data-graph-role="automatic-crossover" style="--step:4">
+        <g data-graph-role="automatic-crossover" style="--step:3">
           <path data-graph-role="automatic-crossover-underlay" d="M 693 174 L 693 190 Q 693 198 685 198 L 438 198 Q 430 198 430 206 L 430 320" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="hotel" data-edge-to="cliente" data-edge-label="1 : N" data-edge-key="4" data-edge-id="hotel-clientes" data-composition-points="693,174;693,198;430,198;430,320" data-composition-crossover="halo" data-composition-independent="true" d="M 693 174 L 693 190 Q 693 198 685 198 L 438 198 Q 430 198 430 206 L 430 320" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-edge-from="hotel" data-edge-to="cliente" data-edge-label="1 : N" data-edge-key="3" data-edge-id="hotel-clientes" data-composition-points="693,174;693,198;430,198;430,320" data-composition-crossover="halo" data-composition-independent="true" d="M 693 174 L 693 190 Q 693 198 685 198 L 438 198 Q 430 198 430 206 L 430 320" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:4">
+          <path data-graph-role="automatic-crossover-underlay" d="M 707 174 L 707 320" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="hotel" data-edge-to="reserva" data-edge-label="1 : N" data-edge-key="4" data-edge-id="hotel-reservas" data-composition-points="707,174;707,320" data-composition-crossover="halo" data-composition-independent="true" d="M 707 174 L 707 320" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:5">
-          <path data-graph-role="automatic-crossover-underlay" d="M 707 174 L 707 320" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="hotel" data-edge-to="reserva" data-edge-label="1 : N" data-edge-key="5" data-edge-id="hotel-reservas" data-composition-points="707,174;707,320" data-composition-crossover="halo" data-composition-independent="true" d="M 707 174 L 707 320" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 520 352 L 610 352" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="cliente" data-edge-to="reserva" data-edge-label="1 : N" data-edge-key="5" data-edge-id="cliente-reservas" data-composition-points="520,352;610,352" data-composition-crossover="halo" data-composition-independent="true" d="M 520 352 L 610 352" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:6">
-          <path data-graph-role="automatic-crossover-underlay" d="M 520 352 L 610 352" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="cliente" data-edge-to="reserva" data-edge-label="1 : N" data-edge-key="6" data-edge-id="cliente-reservas" data-composition-points="520,352;610,352" data-composition-crossover="halo" data-composition-independent="true" d="M 520 352 L 610 352" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 790 352 L 880 352" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="reserva" data-edge-to="reserva-hab" data-edge-label="1 : N" data-edge-key="6" data-edge-id="reserva-habitaciones" data-composition-points="790,352;880,352" data-composition-crossover="halo" data-composition-independent="true" d="M 790 352 L 880 352" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:7">
-          <path data-graph-role="automatic-crossover-underlay" d="M 790 352 L 880 352" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="reserva" data-edge-to="reserva-hab" data-edge-label="1 : N" data-edge-key="7" data-edge-id="reserva-habitaciones" data-composition-points="790,352;880,352" data-composition-crossover="halo" data-composition-independent="true" d="M 790 352 L 880 352" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1150 352 L 1060 352" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="habitacion" data-edge-to="reserva-hab" data-edge-label="1 : N" data-edge-key="7" data-edge-id="habitacion-reservas" data-composition-points="1150,352;1060,352" data-composition-crossover="halo" data-composition-independent="true" d="M 1150 352 L 1060 352" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:8">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1150 352 L 1060 352" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="habitacion" data-edge-to="reserva-hab" data-edge-label="1 : N" data-edge-key="8" data-edge-id="habitacion-reservas" data-composition-points="1150,352;1060,352" data-composition-crossover="halo" data-composition-independent="true" d="M 1150 352 L 1060 352" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1240 174 L 1240 320" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="piso" data-edge-to="habitacion" data-edge-label="1 : N" data-edge-key="8" data-edge-id="piso-habitaciones" data-composition-points="1240,174;1240,320" data-composition-crossover="halo" data-composition-independent="true" d="M 1240 174 L 1240 320" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:9">
           <path data-graph-role="automatic-crossover-underlay" d="M 1240 530 L 1240 384" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="piso" data-edge-to="habitacion" data-edge-label="1 : N" data-edge-key="9" data-edge-id="piso-habitaciones" data-composition-points="1240,530;1240,384" data-composition-crossover="halo" data-composition-independent="true" d="M 1240 530 L 1240 384" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-edge-from="tipo" data-edge-to="habitacion" data-edge-label="0..1 : N" data-edge-key="9" data-edge-id="tipo-habitaciones" data-composition-points="1240,530;1240,384" data-composition-crossover="halo" data-composition-independent="true" d="M 1240 530 L 1240 384" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:10">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1240 174 L 1240 320" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="tipo" data-edge-to="habitacion" data-edge-label="1 : N · room_type opcional" data-edge-key="10" data-edge-id="tipo-habitaciones" data-composition-points="1240,174;1240,320" data-composition-crossover="halo" data-composition-independent="true" d="M 1240 174 L 1240 320" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 693 384 L 693 400 Q 693 408 685 408 L 138 408 Q 130 408 130 416 L 130 530" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="reserva" data-edge-to="cargo" data-edge-label="1 : N" data-edge-key="10" data-edge-id="reserva-cargos" data-composition-points="693,384;693,408;130,408;130,530" data-composition-crossover="halo" data-composition-independent="true" d="M 693 384 L 693 400 Q 693 408 685 408 L 138 408 Q 130 408 130 416 L 130 530" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:11">
-          <path data-graph-role="automatic-crossover-underlay" d="M 693 384 L 693 400 Q 693 408 685 408 L 138 408 Q 130 408 130 416 L 130 530" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="reserva" data-edge-to="cargo" data-edge-label="1 : N" data-edge-key="11" data-edge-id="reserva-cargos" data-composition-points="693,384;693,408;130,408;130,530" data-composition-crossover="halo" data-composition-independent="true" d="M 693 384 L 693 400 Q 693 408 685 408 L 138 408 Q 130 408 130 416 L 130 530" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 707 384 L 707 530" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="reserva" data-edge-to="factura" data-edge-label="1 : N" data-edge-key="11" data-edge-id="reserva-facturas" data-composition-points="707,384;707,530" data-composition-crossover="halo" data-composition-independent="true" d="M 707 384 L 707 530" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:12">
-          <path data-graph-role="automatic-crossover-underlay" d="M 707 384 L 707 530" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="reserva" data-edge-to="factura" data-edge-label="1 : N" data-edge-key="12" data-edge-id="reserva-facturas" data-composition-points="707,384;707,530" data-composition-crossover="halo" data-composition-independent="true" d="M 707 384 L 707 530" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 220 562 L 610 562" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="cargo" data-edge-to="factura" data-edge-label="N : M opcional · InvoiceCharge" data-edge-key="12" data-edge-id="cargos-facturas" data-composition-points="220,562;610,562" data-composition-crossover="halo" data-composition-independent="true" d="M 220 562 L 610 562" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:13">
-          <path data-graph-role="automatic-crossover-underlay" d="M 220 562 L 610 562" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="cargo" data-edge-to="factura" data-edge-label="N : M opcional · InvoiceCharge" data-edge-key="13" data-edge-id="cargos-facturas" data-composition-points="220,562;610,562" data-composition-crossover="halo" data-composition-independent="true" d="M 220 562 L 610 562" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:14">
           <path data-graph-role="automatic-crossover-underlay" d="M 790 562 L 880 562" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="factura" data-edge-to="pago" data-edge-label="1 : N" data-edge-key="14" data-edge-id="factura-pagos" data-composition-points="790,562;880,562" data-composition-crossover="halo" data-composition-independent="true" d="M 790 562 L 880 562" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-edge-from="factura" data-edge-to="pago" data-edge-label="1 : N" data-edge-key="13" data-edge-id="factura-pagos" data-composition-points="790,562;880,562" data-composition-crossover="halo" data-composition-independent="true" d="M 790 562 L 880 562" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
 
         <!-- Components -->
@@ -5121,14 +5120,14 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
         <g id="node-piso" data-node-id="piso" data-node-label="Piso" tabindex="0" role="button" aria-label="Enfocar Piso, HotelFloor, Habitaciones" aria-pressed="false" data-node-kind="database" data-node-sublabel="HotelFloor" data-node-context="Habitaciones">
           <title>Piso · HotelFloor · Habitaciones</title>
-          <rect x="1150" y="530" width="180" height="64" rx="6" class="c-mask"/>
-          <rect x="1150" y="530" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1156 536) scale(0.6875)">
+          <rect x="1150" y="110" width="180" height="64" rx="6" class="c-mask"/>
+          <rect x="1150" y="110" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1156 116) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1240" y="560" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Piso</text>
-        <text data-detail="context" x="1240" y="576" class="t-muted" font-size="9" text-anchor="middle">HotelFloor</text>
+          <text data-node-label="" data-detail-anchor="" x="1240" y="140" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Piso</text>
+        <text data-detail="context" x="1240" y="156" class="t-muted" font-size="9" text-anchor="middle">HotelFloor</text>
         </g>
 
         <g id="node-cliente" data-node-id="cliente" data-node-label="Cliente" tabindex="0" role="button" aria-label="Enfocar Cliente, Client, Reservas" aria-pressed="false" data-node-kind="database" data-node-sublabel="Client" data-node-context="Reservas">
@@ -5181,14 +5180,14 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
         <g id="node-tipo" data-node-id="tipo" data-node-label="Tipo de habitación" tabindex="0" role="button" aria-label="Enfocar Tipo de habitación, RoomType, Habitaciones" aria-pressed="false" data-node-kind="database" data-node-sublabel="RoomType" data-node-context="Habitaciones">
           <title>Tipo de habitación · RoomType · Habitaciones</title>
-          <rect x="1150" y="110" width="180" height="64" rx="6" class="c-mask"/>
-          <rect x="1150" y="110" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1156 116) scale(0.6875)">
+          <rect x="1150" y="530" width="180" height="64" rx="6" class="c-mask"/>
+          <rect x="1150" y="530" width="180" height="64" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1156 536) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1240" y="140" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Tipo de habitación</text>
-        <text data-detail="context" x="1240" y="156" class="t-muted" font-size="9" text-anchor="middle">RoomType</text>
+          <text data-node-label="" data-detail-anchor="" x="1240" y="560" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Tipo de habitación</text>
+        <text data-detail="context" x="1240" y="576" class="t-muted" font-size="9" text-anchor="middle">RoomType</text>
         </g>
 
         <g id="node-cargo" data-node-id="cargo" data-node-label="Cargo" tabindex="0" role="button" aria-label="Enfocar Cargo, Charge, Facturación" aria-pressed="false" data-node-kind="database" data-node-sublabel="Charge" data-node-context="Facturación">
@@ -5228,91 +5227,87 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </g>
 
         <!-- Connection labels -->
-        <g data-detail="context" data-edge-from="hotel" data-edge-to="usuario" data-edge-label="1 : N" data-edge-key="0" data-edge-id="hotel-usuarios">
-          <rect x="548" y="122" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="565" y="132" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
+        <g data-detail="context" data-edge-from="hotel" data-edge-to="usuario" data-edge-label="0..1 : N" data-edge-key="0" data-edge-id="hotel-usuarios">
+          <rect x="540.8" y="122" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="565" y="132" class="t-edge-default" font-size="8" text-anchor="middle">0..1 : N</text>
         </g>
         <g data-detail="context" data-edge-from="usuario" data-edge-to="rol" data-edge-label="N : M · UserRole" data-edge-key="1" data-edge-id="usuario-roles">
           <rect x="226.6" y="122" width="86.8" height="14" rx="3" class="c-mask"/>
           <text x="270" y="132" class="t-edge-default" font-size="8" text-anchor="middle">N : M · UserRole</text>
         </g>
-        <g data-detail="context" data-edge-from="hotel" data-edge-to="tipo" data-edge-label="1 : N" data-edge-key="2" data-edge-id="hotel-tipos">
+        <g data-detail="context" data-edge-from="hotel" data-edge-to="piso" data-edge-label="1 : N" data-edge-key="2" data-edge-id="hotel-pisos">
           <rect x="953" y="122" width="34" height="14" rx="3" class="c-mask"/>
           <text x="970" y="132" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
         </g>
-        <g data-detail="context" data-edge-from="hotel" data-edge-to="piso" data-edge-label="1 : N" data-edge-key="3" data-edge-id="hotel-pisos">
-          <rect x="1025.5" y="30" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="1042.5" y="40" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
-        </g>
-        <g data-detail="context" data-edge-from="hotel" data-edge-to="cliente" data-edge-label="1 : N" data-edge-key="4" data-edge-id="hotel-clientes">
+        <g data-detail="context" data-edge-from="hotel" data-edge-to="cliente" data-edge-label="1 : N" data-edge-key="3" data-edge-id="hotel-clientes">
           <rect x="544.5" y="178" width="34" height="14" rx="3" class="c-mask"/>
           <text x="561.5" y="188" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
         </g>
-        <g data-detail="context" data-edge-from="hotel" data-edge-to="reserva" data-edge-label="1 : N" data-edge-key="5" data-edge-id="hotel-reservas">
+        <g data-detail="context" data-edge-from="hotel" data-edge-to="reserva" data-edge-label="1 : N" data-edge-key="4" data-edge-id="hotel-reservas">
           <rect x="667" y="240" width="34" height="14" rx="3" class="c-mask"/>
           <text x="684" y="250" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
         </g>
-        <g data-detail="context" data-edge-from="cliente" data-edge-to="reserva" data-edge-label="1 : N" data-edge-key="6" data-edge-id="cliente-reservas">
+        <g data-detail="context" data-edge-from="cliente" data-edge-to="reserva" data-edge-label="1 : N" data-edge-key="5" data-edge-id="cliente-reservas">
           <rect x="548" y="332" width="34" height="14" rx="3" class="c-mask"/>
           <text x="565" y="342" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
         </g>
-        <g data-detail="context" data-edge-from="reserva" data-edge-to="reserva-hab" data-edge-label="1 : N" data-edge-key="7" data-edge-id="reserva-habitaciones">
+        <g data-detail="context" data-edge-from="reserva" data-edge-to="reserva-hab" data-edge-label="1 : N" data-edge-key="6" data-edge-id="reserva-habitaciones">
           <rect x="818" y="332" width="34" height="14" rx="3" class="c-mask"/>
           <text x="835" y="342" class="t-edge-emphasis" font-size="8" text-anchor="middle">1 : N</text>
         </g>
-        <g data-detail="context" data-edge-from="habitacion" data-edge-to="reserva-hab" data-edge-label="1 : N" data-edge-key="8" data-edge-id="habitacion-reservas">
+        <g data-detail="context" data-edge-from="habitacion" data-edge-to="reserva-hab" data-edge-label="1 : N" data-edge-key="7" data-edge-id="habitacion-reservas">
           <rect x="1088" y="332" width="34" height="14" rx="3" class="c-mask"/>
           <text x="1105" y="342" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
         </g>
-        <g data-detail="context" data-edge-from="piso" data-edge-to="habitacion" data-edge-label="1 : N" data-edge-key="9" data-edge-id="piso-habitaciones">
-          <rect x="1223" y="510" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="1240" y="520" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
+        <g data-detail="context" data-edge-from="piso" data-edge-to="habitacion" data-edge-label="1 : N" data-edge-key="8" data-edge-id="piso-habitaciones">
+          <rect x="1200" y="240" width="34" height="14" rx="3" class="c-mask"/>
+          <text x="1217" y="250" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
         </g>
-        <g data-detail="context" data-edge-from="tipo" data-edge-to="habitacion" data-edge-label="1 : N · room_type opcional" data-edge-key="10" data-edge-id="tipo-habitaciones">
-          <rect x="1099.1999999999998" y="240" width="134.8" height="14" rx="3" class="c-mask"/>
-          <text x="1166.6" y="250" class="t-edge-default" font-size="8" text-anchor="middle">1 : N · room_type opcional</text>
+        <g data-detail="context" data-edge-from="tipo" data-edge-to="habitacion" data-edge-label="0..1 : N" data-edge-key="9" data-edge-id="tipo-habitaciones">
+          <rect x="1215.8" y="510" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="1240" y="520" class="t-edge-default" font-size="8" text-anchor="middle">0..1 : N</text>
         </g>
-        <g data-detail="context" data-edge-from="reserva" data-edge-to="cargo" data-edge-label="1 : N" data-edge-key="11" data-edge-id="reserva-cargos">
+        <g data-detail="context" data-edge-from="reserva" data-edge-to="cargo" data-edge-label="1 : N" data-edge-key="10" data-edge-id="reserva-cargos">
           <rect x="394.5" y="388" width="34" height="14" rx="3" class="c-mask"/>
           <text x="411.5" y="398" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
         </g>
-        <g data-detail="context" data-edge-from="reserva" data-edge-to="factura" data-edge-label="1 : N" data-edge-key="12" data-edge-id="reserva-facturas">
+        <g data-detail="context" data-edge-from="reserva" data-edge-to="factura" data-edge-label="1 : N" data-edge-key="11" data-edge-id="reserva-facturas">
           <rect x="667" y="450" width="34" height="14" rx="3" class="c-mask"/>
           <text x="684" y="460" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
         </g>
-        <g data-detail="context" data-edge-from="cargo" data-edge-to="factura" data-edge-label="N : M opcional · InvoiceCharge" data-edge-key="13" data-edge-id="cargos-facturas">
+        <g data-detail="context" data-edge-from="cargo" data-edge-to="factura" data-edge-label="N : M opcional · InvoiceCharge" data-edge-key="12" data-edge-id="cargos-facturas">
           <rect x="338" y="542" width="154" height="14" rx="3" class="c-mask"/>
           <text x="415" y="552" class="t-edge-dashed" font-size="8" text-anchor="middle">N : M opcional · InvoiceCharge</text>
         </g>
-        <g data-detail="context" data-edge-from="factura" data-edge-to="pago" data-edge-label="1 : N" data-edge-key="14" data-edge-id="factura-pagos">
+        <g data-detail="context" data-edge-from="factura" data-edge-to="pago" data-edge-label="1 : N" data-edge-key="13" data-edge-id="factura-pagos">
           <rect x="818" y="542" width="34" height="14" rx="3" class="c-mask"/>
           <text x="835" y="552" class="t-edge-default" font-size="8" text-anchor="middle">1 : N</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
         <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="Global (sin hotel)">
-          <rect data-graph-role="structural-frame-label-mask" x="14" y="89" width="109.29033338064514" height="17" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="18" y="102.19354938709677" class="t-cloud" font-size="9.193549387096773" font-weight="600">Global (sin hotel)</text>
+          <rect data-graph-role="structural-frame-label-mask" x="14" y="89" width="107.54839789677419" height="17" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="18" y="102.03225906451613" class="t-cloud" font-size="9.03225906451613" font-weight="600">Global (sin hotel)</text>
         </g>
 
         <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="region" data-composition-frame-label="Tenant">
-          <rect data-graph-role="structural-frame-label-mask" x="314" y="89" width="43.096777793548384" height="17" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="318" y="102.19354938709677" class="t-cloud" font-size="9.193549387096773" font-weight="600">Tenant</text>
+          <rect data-graph-role="structural-frame-label-mask" x="314" y="89" width="42.51613263225806" height="17" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="318" y="102.03225906451613" class="t-cloud" font-size="9.03225906451613" font-weight="600">Tenant</text>
         </g>
 
         <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="region" data-composition-frame-label="Reservas">
-          <rect data-graph-role="structural-frame-label-mask" x="314" y="299" width="54.12903705806451" height="17" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="318" y="312.19354938709677" class="t-cloud" font-size="9.193549387096773" font-weight="600">Reservas</text>
+          <rect data-graph-role="structural-frame-label-mask" x="314" y="299" width="53.354843509677416" height="17" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="318" y="312.03225906451615" class="t-cloud" font-size="9.03225906451613" font-weight="600">Reservas</text>
         </g>
 
         <g data-graph-role="structural-frame-label" data-composition-frame-id="3" data-composition-frame-kind="region" data-composition-frame-label="Habitaciones">
-          <rect data-graph-role="structural-frame-label-mask" x="1124" y="89" width="76.19355558709677" height="17" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="1128" y="102.19354938709677" class="t-cloud" font-size="9.193549387096773" font-weight="600">Habitaciones</text>
+          <rect data-graph-role="structural-frame-label-mask" x="1124" y="89" width="75.03226526451613" height="17" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="1128" y="102.03225906451613" class="t-cloud" font-size="9.03225906451613" font-weight="600">Habitaciones</text>
         </g>
 
         <g data-graph-role="structural-frame-label" data-composition-frame-id="4" data-composition-frame-kind="region" data-composition-frame-label="Facturación">
-          <rect data-graph-role="structural-frame-label-mask" x="14" y="509" width="70.6774259548387" height="17" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="18" y="522.1935493870968" class="t-cloud" font-size="9.193549387096773" font-weight="600">Facturación</text>
+          <rect data-graph-role="structural-frame-label-mask" x="14" y="509" width="69.61290982580645" height="17" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="18" y="522.0322590645161" class="t-cloud" font-size="9.03225906451613" font-weight="600">Facturación</text>
         </g>
 
         <!-- Legend -->
@@ -5506,7 +5501,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </div>
         <ul>
           <li>La flecha va del lado 1 al lado N</li>
-          <li>FK opcionales: User.hotel_settings y Room.room_type</li>
+          <li>0..1 : N — la FK del lado N admite nulo</li>
           <li>N : M se resuelve con una tabla intermedia</li>
           <li>Línea discontinua: vínculo opcional</li>
           <li>Bajo cada entidad, su modelo Django</li>
@@ -5519,7 +5514,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <h3>Aislamiento por hotel</h3>
         </div>
         <ul>
-          <li>FK directa a HotelSettings: User, Client, Reservation, HotelFloor y RoomType</li>
+          <li>FK directa a HotelSettings: User, Client, Reservation, HotelFloor y RoomType (esta última no se dibuja)</li>
           <li>Room obtiene el hotel a través de HotelFloor</li>
           <li>Cargo y factura, a través de la reserva; el pago, a través de la factura</li>
           <li>User sin hotel = administrador de plataforma</li>
