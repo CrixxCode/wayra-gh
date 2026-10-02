@@ -1,0 +1,437 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Wayra — Arquitectura general",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1380,
+      760
+    ],
+    "repository": {
+      "url": "https://github.com/CrixxCode/wayra-gh",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "85efff9a5b020640311e475d237aece81cc08f63"
+    },
+    "views": [
+      {
+        "id": "peticion",
+        "label": "Petición autenticada",
+        "focus": [
+          "usuarios",
+          "spa",
+          "web",
+          "middleware",
+          "api",
+          "rbac",
+          "dominio",
+          "db"
+        ],
+        "note": "Del navegador a PostgreSQL: sesión + CSRF, middleware, RBAC por recurso y aislamiento por hotel."
+      },
+      {
+        "id": "segundo-plano",
+        "label": "Señales y comandos",
+        "focus": [
+          "comandos",
+          "dominio",
+          "senales",
+          "db"
+        ],
+        "note": "Notificaciones y auditoría nacen de señales post_save y de comandos manage.py."
+      },
+      {
+        "id": "externos",
+        "label": "Servicios externos",
+        "focus": [
+          "spa",
+          "geo",
+          "dominio",
+          "resend"
+        ],
+        "note": "El frontend geocodifica contra OpenStreetMap; el backend envía correo por la API HTTPS de Resend."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "usuarios",
+      "type": "external",
+      "label": "Usuarios",
+      "sublabel": "staff · admin · huéspedes",
+      "pos": [
+        20,
+        270
+      ],
+      "size": [
+        154,
+        64
+      ]
+    },
+    {
+      "id": "spa",
+      "type": "frontend",
+      "label": "SPA Angular 20",
+      "sublabel": "guards · interceptores",
+      "pos": [
+        214,
+        270
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "PrimeNG",
+      "sources": [
+        {
+          "path": "frontend/src/app/app.routes.ts"
+        },
+        {
+          "path": "frontend/src/app/app.config.ts"
+        }
+      ]
+    },
+    {
+      "id": "geo",
+      "type": "external",
+      "label": "OpenStreetMap",
+      "sublabel": "Nominatim · BigDataCloud",
+      "pos": [
+        214,
+        470
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "frontend/src/app/components/shared/location-picker/location-picker.ts"
+        }
+      ]
+    },
+    {
+      "id": "web",
+      "type": "backend",
+      "label": "Gunicorn + WhiteNoise",
+      "sublabel": "Django 5 · WSGI",
+      "pos": [
+        510,
+        270
+      ],
+      "size": [
+        165,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/entrypoint.sh"
+        },
+        {
+          "path": "backend/backend/urls.py"
+        }
+      ]
+    },
+    {
+      "id": "middleware",
+      "type": "security",
+      "label": "Middleware",
+      "sublabel": "sesión · CSRF · hotel activo",
+      "pos": [
+        730,
+        270
+      ],
+      "size": [
+        165,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/accounts/middleware.py"
+        },
+        {
+          "path": "backend/backend/settings.py",
+          "line": 155,
+          "end_line": 171
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "API REST (DRF)",
+      "sublabel": "ViewSets /api/*",
+      "pos": [
+        950,
+        270
+      ],
+      "size": [
+        165,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/backend/urls.py"
+        }
+      ]
+    },
+    {
+      "id": "rbac",
+      "type": "security",
+      "label": "RBAC + multi-hotel",
+      "sublabel": "Resource.key · hotel_settings",
+      "pos": [
+        950,
+        80
+      ],
+      "size": [
+        165,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/accounts/permissions.py"
+        },
+        {
+          "path": "backend/accounts/tenancy.py"
+        }
+      ]
+    },
+    {
+      "id": "comandos",
+      "type": "backend",
+      "label": "Comandos manage.py",
+      "sublabel": "notify_* · sync_*",
+      "pos": [
+        700,
+        470
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/notifications/management/commands/notify_upcoming_checkins.py"
+        },
+        {
+          "path": "backend/apps/reservations/management/commands/sync_reservation_room_statuses.py"
+        }
+      ]
+    },
+    {
+      "id": "dominio",
+      "type": "backend",
+      "label": "Apps de dominio",
+      "sublabel": "reservas · facturación · …",
+      "pos": [
+        950,
+        470
+      ],
+      "size": [
+        165,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/reservations/services.py"
+        },
+        {
+          "path": "backend/apps/billing/services.py"
+        }
+      ]
+    },
+    {
+      "id": "resend",
+      "type": "external",
+      "label": "Resend",
+      "sublabel": "API de correo HTTPS",
+      "pos": [
+        1205,
+        470
+      ],
+      "size": [
+        144,
+        64
+      ]
+    },
+    {
+      "id": "senales",
+      "type": "messagebus",
+      "label": "Señales Django",
+      "sublabel": "Notification · AuditLog",
+      "pos": [
+        1205,
+        640
+      ],
+      "size": [
+        144,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/notifications/signals.py"
+        },
+        {
+          "path": "backend/accounts/audit.py"
+        }
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "SQLite en desarrollo",
+      "pos": [
+        950,
+        640
+      ],
+      "size": [
+        165,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Railway · un servicio Docker + PostgreSQL",
+      "wraps": [
+        "web",
+        "middleware",
+        "api",
+        "rbac",
+        "comandos",
+        "dominio",
+        "senales",
+        "db"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "usa-spa",
+      "from": "usuarios",
+      "to": "spa"
+    },
+    {
+      "id": "spa-api",
+      "from": "spa",
+      "to": "web",
+      "label": "HTTPS · cookie + CSRF",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sirve-spa",
+      "from": "web",
+      "to": "spa",
+      "label": "sirve la SPA",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top"
+    },
+    {
+      "id": "geocodifica",
+      "from": "spa",
+      "to": "geo",
+      "label": "geocodificación",
+      "variant": "dashed",
+      "labelAt": [
+        294,
+        402
+      ]
+    },
+    {
+      "id": "web-mw",
+      "from": "web",
+      "to": "middleware",
+      "label": "WSGI"
+    },
+    {
+      "id": "mw-api",
+      "from": "middleware",
+      "to": "api"
+    },
+    {
+      "id": "api-rbac",
+      "from": "api",
+      "to": "rbac",
+      "label": "required_scopes",
+      "variant": "security"
+    },
+    {
+      "id": "api-dominio",
+      "from": "api",
+      "to": "dominio",
+      "label": "serializers",
+      "labelAt": [
+        1032,
+        402
+      ]
+    },
+    {
+      "id": "comandos-dominio",
+      "from": "comandos",
+      "to": "dominio",
+      "label": "servicios"
+    },
+    {
+      "id": "dominio-resend",
+      "from": "dominio",
+      "to": "resend",
+      "label": "anymail",
+      "variant": "dashed"
+    },
+    {
+      "id": "dominio-db",
+      "from": "dominio",
+      "to": "db",
+      "label": "ORM",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        1032,
+        587
+      ]
+    },
+    {
+      "id": "dominio-senales",
+      "from": "dominio",
+      "to": "senales",
+      "label": "post_save",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cliente",
+      "items": [
+        "Angular 20 standalone con lazy loading",
+        "Guards: sesión → setup del hotel → RBAC",
+        "Interceptor inyecta ?hotel_settings al admin global"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Servidor",
+      "items": [
+        "Un solo contenedor sirve SPA y API (mismo origen)",
+        "15 apps Django bajo /api/",
+        "Borrado lógico con SoftDeleteMarker"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Seguridad",
+      "items": [
+        "Sesión HttpOnly + X-CSRFToken, sin JWT",
+        "Permisos por Resource.key y aislamiento por hotel",
+        "Throttling en login, reset y demo"
+      ]
+    }
+  ]
+}

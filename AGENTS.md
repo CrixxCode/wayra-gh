@@ -132,6 +132,11 @@ gestion_hotelera/
 ├── RBAC_RESOURCES_LIST.md       # Lista de recursos RBAC
 ├── RBAC_RESOURCES_SCAN.md/.json # Escaneo automático de recursos por ViewSet
 ├── RBAC_SUMMARY.md              # Resumen ejecutivo del escaneo RBAC
+├── diagramas/
+│   ├── arquitectura-general.*   # Diagrama de arquitectura (HTML interactivo + JSON fuente)
+│   ├── modelo-datos.*           # Modelo de datos E-R simplificado (HTML interactivo + JSON fuente)
+│   ├── modulos.*                # Mapa de módulos funcionales y dependencias (HTML + JSON fuente)
+│   └── flujo-funcional.*        # Flujo de punta a punta: alta del hotel → reserva → cierre (HTML + JSON)
 ├── docs/
 │   ├── MANUAL_USUARIO.md        # Manual funcional del usuario final
 │   ├── RAILWAY_DEPLOYMENT.md    # Guía de despliegue en Railway
@@ -1196,6 +1201,89 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-09-26 — Diagrama de flujo funcional de punta a punta en `diagramas/`
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** pendiente
+- **Tipo:** docs
+- **Qué se hizo:** se agregó `diagramas/flujo-funcional.html` (HTML interactivo autocontenido) y su
+  especificación fuente `diagramas/flujo-funcional.workflow.json` (formato Archify, workflow v2).
+  Muestra el recorrido implementado en tres carriles (portal público, plataforma y hotel, bloqueos):
+  solicitud de demo → conversión por el admin de plataforma (hotel + usuario admin + acceso temporal)
+  → setup obligatorio → reserva web PENDIENTE → confirmación → check-in online opcional (desde 48 h
+  antes) → check-in EN_CURSO → cargos y pagos → check-out con revisión de inventario → FINALIZADA
+  (limpieza, descuento de stock y factura). Incluye los bloqueos reales: check-in rechazado
+  (reserva no confirmada, habitación no disponible u hora no habilitada) y saldo pendiente en el
+  check-out, que vuelve a cobro. Todo se extrajo de `ReservationViewSet.confirm/check_in/check_out`,
+  `online_check_in.py`, `billing/services.py`, `billing/signals.py` y la conversión en
+  `demo_requests/views.py`.
+- **Por qué:** documentar los flujos de trabajo clave de la plataforma a partir del código real.
+- **Archivos/áreas afectadas:** `diagramas/flujo-funcional.html`,
+  `diagramas/flujo-funcional.workflow.json`, `AGENTS.md`.
+- **Impacto:** Ninguno. No cambia código, API ni despliegue. Si cambian las reglas de check-in,
+  check-out o del alta de hoteles, hay que actualizar el JSON y regenerar el HTML.
+
+### 2026-09-26 — Diagrama de módulos funcionales en `diagramas/`
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** pendiente
+- **Tipo:** docs
+- **Qué se hizo:** se agregó `diagramas/modulos.html` (HTML interactivo autocontenido) y su
+  especificación fuente `diagramas/modulos.architecture.json` (formato Archify). Agrupa las 15 apps
+  Django y el portal público de Angular en 12 bloques funcionales: Portal público, Panel SaaS,
+  Reservas (+ clientes), Habitaciones, Inventario, Facturación, Catálogo comercial (servicios,
+  paquetes, promociones), Finanzas, Reportes, Notificaciones, y un núcleo compartido con
+  Configuración y catálogos (`hotel_settings`, `master_data`) e Identidad y acceso (`accounts`).
+  Las flechas ("A usa B") se obtuvieron de los imports reales entre apps. Se simplificó a propósito:
+  el núcleo compartido se muestra como base común sin una flecha por módulo, y las dependencias
+  secundarias se describen en las tarjetas del diagrama.
+- **Por qué:** tener una vista de alto nivel de los bloques de la aplicación y sus dependencias.
+- **Archivos/áreas afectadas:** `diagramas/modulos.html`, `diagramas/modulos.architecture.json`,
+  `AGENTS.md`.
+- **Impacto:** Ninguno. No cambia código, API, RBAC ni despliegue. Si se agregan o reorganizan
+  módulos, hay que actualizar el JSON y regenerar el HTML.
+
+### 2026-09-26 — Diagrama de modelo de datos (E-R simplificado) en `diagramas/`
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** pendiente
+- **Tipo:** docs
+- **Qué se hizo:** se agregó `diagramas/modelo-datos.html` (HTML interactivo autocontenido) y su
+  especificación fuente `diagramas/modelo-datos.architecture.json` (formato Archify). Muestra las
+  12 entidades núcleo leídas de los `models.py` reales: `HotelSettings`, `User`, `Role`,
+  `HotelFloor`, `Client`, `Reservation`, `ReservationRoom`, `Room`, `RoomType`, `Charge`, `Invoice`
+  y `Payment`, agrupadas en tenant/acceso, reservas, habitaciones y facturación. Las relaciones
+  muestran su cardinalidad (1:N por FK; N:M vía `UserRole` e `InvoiceCharge`). Se omitieron a
+  propósito los campos, los catálogos `MasterData`, las tablas de auditoría y notificaciones y los
+  módulos secundarios (tarifas, amenidades, servicios, paquetes, promociones, inventario, finanzas,
+  limpieza y mantenimiento). Cada entidad enlaza a su clase en el commit `85efff9`.
+- **Por qué:** tener una vista resumida del modelo de datos basada en lo realmente implementado.
+- **Archivos/áreas afectadas:** `diagramas/modelo-datos.html`,
+  `diagramas/modelo-datos.architecture.json`, `AGENTS.md`.
+- **Impacto:** Ninguno. No cambia modelos, migraciones, API ni despliegue. Si cambian las
+  relaciones núcleo, hay que actualizar el JSON y regenerar el HTML.
+
+### 2026-09-26 — Diagrama de arquitectura general en `diagramas/`
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** pendiente
+- **Tipo:** docs
+- **Qué se hizo:** se agregó la carpeta `diagramas/` con un diagrama de arquitectura general
+  interactivo (`arquitectura-general.html`, HTML autocontenido) y su especificación fuente
+  (`arquitectura-general.architecture.json`, formato Archify). El diagrama se construyó solo con lo
+  verificado en el código: SPA Angular → Gunicorn + WhiteNoise → pila de middleware → API DRF
+  (con RBAC por `Resource.key` y aislamiento por `hotel_settings`) → apps de dominio → PostgreSQL;
+  comandos `manage.py` como segunda entrada al dominio; señales `post_save` que generan
+  `Notification` y `AuditLog`; y los servicios externos reales (Resend vía anymail desde el backend,
+  OpenStreetMap/Nominatim/BigDataCloud desde el frontend). Cada nodo enlaza a sus archivos fuente
+  fijados al commit `85efff9`.
+- **Por qué:** tener una vista general de los componentes y cómo se comunican, derivada del sistema
+  real y no de supuestos.
+- **Archivos/áreas afectadas:** `diagramas/arquitectura-general.html`,
+  `diagramas/arquitectura-general.architecture.json`, `AGENTS.md`.
+- **Impacto:** Ninguno. No cambia código, API, RBAC ni despliegue. Si cambia la arquitectura, hay
+  que actualizar el JSON y regenerar el HTML.
 
 ### 2026-09-21 — Frontend CI estable en Ubuntu
 

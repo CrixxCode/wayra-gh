@@ -1,0 +1,459 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Wayra — Modelo de datos (E-R simplificado)",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1340,
+      660
+    ],
+    "repository": {
+      "url": "https://github.com/CrixxCode/wayra-gh",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "85efff9a5b020640311e475d237aece81cc08f63"
+    },
+    "views": [
+      {
+        "id": "tenant",
+        "label": "Tenant y acceso",
+        "focus": [
+          "hotel",
+          "usuario",
+          "rol",
+          "piso"
+        ],
+        "note": "HotelSettings es la raíz: usuarios y pisos le pertenecen; los roles son globales y se asignan por UserRole."
+      },
+      {
+        "id": "reserva",
+        "label": "Ciclo de reserva",
+        "focus": [
+          "hotel",
+          "cliente",
+          "reserva",
+          "reserva-hab",
+          "habitacion",
+          "tipo"
+        ],
+        "note": "Una reserva agrupa varias habitaciones a través de ReservationRoom."
+      },
+      {
+        "id": "cobro",
+        "label": "Facturación",
+        "focus": [
+          "reserva",
+          "cargo",
+          "factura",
+          "pago"
+        ],
+        "note": "Los cargos de la reserva se agrupan en facturas (InvoiceCharge) y las facturas reciben pagos."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "rol",
+      "type": "database",
+      "label": "Rol",
+      "sublabel": "Role",
+      "pos": [
+        40,
+        110
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/accounts/models.py",
+          "line": 51
+        }
+      ]
+    },
+    {
+      "id": "usuario",
+      "type": "database",
+      "label": "Usuario",
+      "sublabel": "User",
+      "pos": [
+        310,
+        110
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/accounts/models.py",
+          "line": 9
+        }
+      ]
+    },
+    {
+      "id": "hotel",
+      "type": "database",
+      "label": "Hotel",
+      "sublabel": "HotelSettings",
+      "pos": [
+        580,
+        110
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/hotel_settings/models.py",
+          "line": 17
+        }
+      ]
+    },
+    {
+      "id": "piso",
+      "type": "database",
+      "label": "Piso",
+      "sublabel": "HotelFloor",
+      "pos": [
+        1120,
+        110
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/hotel_settings/models.py",
+          "line": 262
+        }
+      ]
+    },
+    {
+      "id": "cliente",
+      "type": "database",
+      "label": "Cliente",
+      "sublabel": "Client",
+      "pos": [
+        310,
+        320
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/clients/models.py",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "id": "reserva",
+      "type": "database",
+      "label": "Reserva",
+      "sublabel": "Reservation",
+      "pos": [
+        580,
+        320
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/reservations/models.py",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "id": "reserva-hab",
+      "type": "database",
+      "label": "Habitación reservada",
+      "sublabel": "ReservationRoom",
+      "pos": [
+        850,
+        320
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/reservations/models.py",
+          "line": 201
+        }
+      ]
+    },
+    {
+      "id": "habitacion",
+      "type": "database",
+      "label": "Habitación",
+      "sublabel": "Room",
+      "pos": [
+        1120,
+        320
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/rooms/models.py",
+          "line": 135
+        }
+      ]
+    },
+    {
+      "id": "tipo",
+      "type": "database",
+      "label": "Tipo de habitación",
+      "sublabel": "RoomType",
+      "pos": [
+        1120,
+        530
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/rooms/models.py",
+          "line": 14
+        }
+      ]
+    },
+    {
+      "id": "cargo",
+      "type": "database",
+      "label": "Cargo",
+      "sublabel": "Charge",
+      "pos": [
+        270,
+        530
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/billing/models.py",
+          "line": 10
+        }
+      ]
+    },
+    {
+      "id": "factura",
+      "type": "database",
+      "label": "Factura",
+      "sublabel": "Invoice",
+      "pos": [
+        580,
+        530
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/billing/models.py",
+          "line": 88
+        }
+      ]
+    },
+    {
+      "id": "pago",
+      "type": "database",
+      "label": "Pago",
+      "sublabel": "Payment",
+      "pos": [
+        850,
+        530
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/billing/models.py",
+          "line": 175
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Tenant y acceso",
+      "wraps": [
+        "rol",
+        "usuario",
+        "hotel"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Reservas",
+      "wraps": [
+        "cliente",
+        "reserva",
+        "reserva-hab"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Habitaciones",
+      "wraps": [
+        "piso",
+        "habitacion",
+        "tipo"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Facturación",
+      "wraps": [
+        "cargo",
+        "factura",
+        "pago"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "hotel-usuarios",
+      "from": "hotel",
+      "to": "usuario",
+      "label": "1 : N"
+    },
+    {
+      "id": "usuario-roles",
+      "from": "usuario",
+      "to": "rol",
+      "label": "N : M · UserRole"
+    },
+    {
+      "id": "hotel-pisos",
+      "from": "hotel",
+      "to": "piso",
+      "label": "1 : N"
+    },
+    {
+      "id": "hotel-reservas",
+      "from": "hotel",
+      "to": "reserva",
+      "label": "1 : N",
+      "labelAt": [
+        670,
+        247
+      ]
+    },
+    {
+      "id": "cliente-reservas",
+      "from": "cliente",
+      "to": "reserva",
+      "label": "1 : N"
+    },
+    {
+      "id": "reserva-habitaciones",
+      "from": "reserva",
+      "to": "reserva-hab",
+      "label": "1 : N",
+      "variant": "emphasis"
+    },
+    {
+      "id": "habitacion-reservas",
+      "from": "habitacion",
+      "to": "reserva-hab",
+      "label": "1 : N"
+    },
+    {
+      "id": "piso-habitaciones",
+      "from": "piso",
+      "to": "habitacion",
+      "label": "1 : N",
+      "labelAt": [
+        1210,
+        247
+      ]
+    },
+    {
+      "id": "tipo-habitaciones",
+      "from": "tipo",
+      "to": "habitacion",
+      "label": "1 : N"
+    },
+    {
+      "id": "reserva-cargos",
+      "from": "reserva",
+      "to": "cargo",
+      "label": "1 : N",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "reserva-facturas",
+      "from": "reserva",
+      "to": "factura",
+      "label": "1 : N",
+      "labelAt": [
+        670,
+        495
+      ]
+    },
+    {
+      "id": "cargos-facturas",
+      "from": "cargo",
+      "to": "factura",
+      "label": "N : M · InvoiceCharge"
+    },
+    {
+      "id": "factura-pagos",
+      "from": "factura",
+      "to": "pago",
+      "label": "1 : N"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cómo leerlo",
+      "items": [
+        "La flecha va del lado 1 al lado N",
+        "N : M se resuelve con una tabla intermedia",
+        "El nombre bajo cada entidad es el modelo Django"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Multi-hotel",
+      "items": [
+        "Client, RoomType, Service y Package también tienen FK a HotelSettings",
+        "Room hereda el hotel a través de HotelFloor",
+        "Cargos, facturas y pagos lo heredan de la reserva"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Omitido",
+      "items": [
+        "Tarifas, amenidades, servicios, paquetes y promociones",
+        "Inventario, finanzas, limpieza y mantenimiento",
+        "Catálogos MasterData, auditoría y notificaciones"
+      ]
+    }
+  ]
+}

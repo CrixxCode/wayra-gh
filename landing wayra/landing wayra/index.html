@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wayra – Gestión Hotelera</title>
+  <meta name="description" content="Reservas, habitaciones, caja y reportes en una sola plataforma. Wayra digitaliza tu hotel sin complicaciones." />
+  <meta name="keywords" content="software hotelero, gestión hotelera, PMS, reservas, recepción, hotel pequeño" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Font Awesome 6 Free -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <style>
+    /* ─── CSS Variables ──────────────────────────────────────────────── */
+    :root {
+      --primary: #0f1f41;
+      --primary-hover: #112853;
+      --secondary: #1a3a6b;
+      --accent: #2563eb;
+      --accent-light: #3b82f6;
+      --bg: #ffffff;
+      --foreground: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --surface: #f8fafc;
+      --surface-alt: #f1f5f9;
+      --radius-pill: 9999px;
+      --radius-card: 1rem;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--foreground); }
+
+    body { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ─── Utility helpers ────────────────────────────────────────────── */
+    .container { max-width: 1152px; margin: 0 auto; padding: 0 1.5rem; }
+    .section-badge {
+      display: inline-flex; align-items: center; gap: .5rem;
+      border: 1px solid rgba(15,31,65,.15); background: rgba(255,255,255,.8);
+      backdrop-filter: blur(8px); border-radius: var(--radius-pill);
+      padding: .375rem 1rem; font-size: .8rem; font-weight: 600;
+      color: var(--primary); margin-bottom: 1.5rem; letter-spacing: .04em; text-transform: uppercase;
+    }
+    .section-title { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 700; line-height: 1.2; color: var(--foreground); }
+    .section-sub { color: var(--muted); font-size: 1.05rem; line-height: 1.7; max-width: 560px; margin: 0 auto; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+      font-weight: 600; font-size: .9rem; padding: .7rem 1.5rem;
+      border-radius: var(--radius-pill); border: none; cursor: pointer;
+      transition: all .2s ease; white-space: nowrap; text-decoration: none;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(15,31,65,.25); }
+    .btn-outline { background: var(--bg); color: var(--foreground); border: 1px solid var(--border); }
+    .btn-outline:hover { background: var(--surface); }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-accent:hover { background: var(--accent-light); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(37,99,235,.25); }
+
+    /* ─── NAVBAR ─────────────────────────────────────────────────────── */
+    #navbar {
+      position: fixed; top: 1rem; left: 0; right: 0; z-index: 100; padding: 0 1rem;
+    }
+    .nav-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 4rem; padding: 0 1.5rem;
+      background: rgba(255,255,255,.92); backdrop-filter: blur(12px);
+      border-radius: var(--radius-pill); border: 1px solid var(--border);
+      box-shadow: 0 4px 24px rgba(15,23,42,.06);
+    }
+    .nav-logo { display: flex; align-items: center; gap: .6rem; text-decoration: none; }
+    .nav-logo-icon {
+      width: 36px; height: 36px; background: var(--primary);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    }
+    .nav-logo-icon svg { color: #fff; }
+    .nav-logo-text { font-size: 1.1rem; font-weight: 700; color: var(--foreground); }
+    .nav-logo-text span { color: var(--accent); }
+    .nav-links { display: flex; align-items: center; gap: .25rem; }
+    .nav-links a {
+      font-size: .875rem; font-weight: 500; color: var(--foreground); text-decoration: none;
+      padding: .5rem 1rem; border-radius: var(--radius-pill); transition: all .15s;
+    }
+    .nav-links a:hover { color: var(--accent); background: rgba(37,99,235,.06); }
+    .nav-ctas { display: flex; align-items: center; gap: .75rem; }
+    .hamburger { display: none; background: none; border: none; cursor: pointer; color: var(--foreground); }
+
+    @media (max-width: 900px) {
+      .nav-links, .nav-ctas { display: none; }
+      .hamburger { display: flex; }
+      .nav-inner { justify-content: space-between; }
+    }
+
+    /* ─── MOBILE MENU ────────────────────────────────────────────────── */
+    #mobile-menu {
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 99;
+      background: rgba(255,255,255,.98); backdrop-filter: blur(12px);
+      flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem;
+    }
+    #mobile-menu.open { display: flex; }
+    #mobile-menu a { font-size: 1.3rem; font-weight: 600; color: var(--foreground); text-decoration: none; }
+    #mobile-menu .close-btn { position: absolute; top: 1.5rem; right: 1.5rem; background: none; border: none; cursor: pointer; color: var(--foreground); }
+
+    /* ─── HERO ───────────────────────────────────────────────────────── */
+    #hero {
+      position: relative; overflow: hidden;
+      background: linear-gradient(135deg, var(--primary) 0%, #1e3a6e 50%, var(--secondary) 100%);
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    }
+    .hero-blur-1 {
+      position: absolute; width: 600px; height: 600px; border-radius: 50%;
+      background: rgba(37,99,235,.18); filter: blur(80px);
+      top: 50%; left: 50%; transform: translate(-50%, -60%);
+    }
+    .hero-blur-2 {
+      position: absolute; width: 400px; height: 400px; border-radius: 50%;
+      background: rgba(255,255,255,.06); filter: blur(60px);
+      bottom: 0; right: 10%;
+    }
+    .hero-content {
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center; padding: 10rem 1.5rem 5rem;
+      max-width: 900px; margin: 0 auto;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: .75rem;
+      background: rgba(255,255,255,.12); backdrop-filter: blur(8px);
+      border-radius: var(--radius-pill); padding: .5rem 1.25rem;
+      margin-bottom: 2rem; color: #fff;
+      opacity: 0; transform: translateY(15px);
+      animation: fadeUp .6s .1s forwards;
+    }
+    .hero-badge .avatars { display: flex; }
+    .hero-badge .avatars .av {
+      width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5);
+      background: linear-gradient(135deg, #a1c4fd, #c2e9fb); margin-left: -8px; font-size: .6rem;
+      display: flex; align-items: center; justify-content: center; color: var(--primary); font-weight: 700;
+    }
+    .hero-badge .avatars .av:first-child { margin-left: 0; }
+    .hero-badge-text { font-size: .85rem; font-weight: 600; color: rgba(255,255,255,.9); }
+    .hero-badge-stars { display: flex; gap: 2px; }
+    .hero-badge-stars svg { width: 10px; height: 10px; fill: #fbbf24; }
+
+    .hero-h1 {
+      font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 800;
+      color: #fff; line-height: 1.1; letter-spacing: -.02em;
+      opacity: 0; transform: translateY(30px);
+      animation: fadeUp .7s .2s forwards;
+    }
+    .hero-h1 span { color: #60a5fa; }
+
+    .hero-sub {
+      margin-top: 1.5rem; font-size: 1.1rem; color: rgba(255,255,255,.8); line-height: 1.7;
+      max-width: 560px;
+      opacity: 0; transform: translateY(30px);
+      animation: fadeUp .7s .35s forwards;
+    }
+
+    .hero-ctas {
+      display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; margin-top: 2.5rem;
+      opacity: 0; transform: translateY(30px);
+      animation: fadeUp .7s .5s forwards;
+    }
+    .btn-hero-primary { background: #fff; color: var(--primary); font-size: 1rem; padding: .85rem 2rem; }
+    .btn-hero-primary:hover { background: #f0f6ff; box-shadow: 0 8px 32px rgba(255,255,255,.2); transform: translateY(-2px); }
+    .btn-hero-secondary { background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.25); font-size: 1rem; padding: .85rem 2rem; backdrop-filter: blur(4px); }
+    .btn-hero-secondary:hover { background: rgba(255,255,255,.2); }
+
+    /* hero dashboard mockup */
+    .hero-mockup {
+      position: relative; margin-top: 4rem; width: 100%; max-width: 900px;
+      opacity: 0; transform: translateY(40px);
+      animation: fadeUp .8s .65s forwards;
+    }
+    .hero-mockup-window {
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.15);
+      backdrop-filter: blur(12px); border-radius: 1.25rem;
+      overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.35);
+    }
+    .window-titlebar {
+      background: rgba(255,255,255,.08); padding: .75rem 1rem;
+      display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid rgba(255,255,255,.1);
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-green { background: #22c55e; }
+    .window-url { margin-left: .5rem; background: rgba(255,255,255,.08); border-radius: 6px; padding: .25rem 1rem; font-size: .75rem; color: rgba(255,255,255,.5); flex: 1; max-width: 280px; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(255,255,255,.08); padding: 1.25rem; gap: 1rem; }
+    .dash-card {
+      background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1);
+      border-radius: .75rem; padding: 1rem; color: #fff;
+    }
+    .dash-card .dc-label { font-size: .7rem; color: rgba(255,255,255,.55); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; }
+    .dash-card .dc-value { font-size: 1.75rem; font-weight: 700; margin-top: .25rem; }
+    .dash-card .dc-sub { font-size: .72rem; color: rgba(255,255,255,.5); margin-top: .25rem; }
+    .dash-card .dc-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .7rem; font-weight: 600; padding: .2rem .5rem; border-radius: 9999px; margin-top: .4rem; }
+    .badge-green { background: rgba(34,197,94,.2); color: #4ade80; }
+    .badge-yellow { background: rgba(251,191,36,.2); color: #fbbf24; }
+    .dash-bar-row { display: flex; align-items: center; gap: .5rem; margin-top: .5rem; }
+    .dash-bar { flex: 1; height: 6px; background: rgba(255,255,255,.1); border-radius: 9999px; overflow: hidden; }
+    .dash-bar-fill { height: 100%; border-radius: 9999px; background: linear-gradient(90deg, #60a5fa, #3b82f6); }
+    .dash-rooms { display: grid; grid-column: span 2; grid-template-columns: repeat(6, 1fr); gap: .35rem; padding-top: .5rem; }
+    .room-cell { aspect-ratio: 1; border-radius: .35rem; display: flex; align-items: center; justify-content: center; font-size: .6rem; font-weight: 600; }
+    .room-occ { background: rgba(37,99,235,.6); color: #bfdbfe; }
+    .room-avail { background: rgba(34,197,94,.25); color: #4ade80; }
+    .room-clean { background: rgba(251,191,36,.2); color: #fbbf24; }
+    .room-maint { background: rgba(239,68,68,.2); color: #fca5a5; }
+
+    /* marquee trusted brands */
+    .hero-brands {
+      width: 100%; position: relative; padding: 2rem 0 1.5rem;
+      opacity: 0; transform: translateY(20px);
+      animation: fadeUp .7s .85s forwards;
+    }
+    .brands-label { text-align: center; font-size: .8rem; font-weight: 600; color: rgba(255,255,255,.5); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 1.25rem; }
+    .brands-track-wrap { overflow: hidden; position: relative;
+      -webkit-mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
+      mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
+    }
+    .brands-track { display: flex; gap: 3rem; animation: marquee 22s linear infinite; width: max-content; align-items: center; }
+    .brand-item { display: flex; align-items: center; gap: .5rem; color: rgba(255,255,255,.4); font-size: .85rem; font-weight: 600; white-space: nowrap; transition: color .2s; }
+    .brand-item:hover { color: rgba(255,255,255,.8); }
+    .brand-item svg { opacity: .5; }
+
+    @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+
+    /* ─── PROBLEMS ───────────────────────────────────────────────────── */
+    #problems { padding: 6rem 0; background: var(--bg); }
+    .problems-ticker { overflow: hidden; position: relative; margin-top: 3.5rem; padding: 1rem 0 2rem; }
+    .problems-ticker::before,
+    .problems-ticker::after {
+      content: ''; position: absolute; top: 0; bottom: 0; z-index: 2; width: 120px; pointer-events: none;
+      background: linear-gradient(90deg, var(--bg) 0%, transparent 100%);
+    }
+    .problems-ticker::after { right: 0; left: auto; transform: scaleX(-1); }
+    .ticker-track { display: flex; gap: 1.5rem; animation: marquee 34s linear infinite; width: max-content; align-items: stretch; }
+    .ticker-track:hover { animation-play-state: paused; }
+    .ticker-item {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+      min-width: 290px; height: 165px; padding: 1.75rem 2rem;
+      background: #ffffff; border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 1.25rem;
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+      flex-shrink: 0;
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .ticker-item:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.08);
+    }
+    .ticker-item i {
+      font-size: 1.85rem; color: #ef4444; margin-bottom: 1.15rem;
+    }
+    .ticker-item p {
+      font-size: 1.05rem; font-weight: 500; color: var(--foreground); margin: 0; line-height: 1.4;
+    }
+
+    /* ─── SOLUTION ───────────────────────────────────────────────────── */
+    #solution { padding: 6rem 0; background: var(--surface); }
+    .solution-tabs { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; margin-top: 2.5rem; margin-bottom: 2.5rem; }
+    .tab-btn {
+      display: flex; align-items: center; gap: .5rem; padding: .6rem 1.25rem;
+      border-radius: var(--radius-pill); border: 1px solid var(--border);
+      background: var(--bg); font-size: .875rem; font-weight: 500; cursor: pointer;
+      color: var(--muted); transition: all .2s;
+    }
+    .tab-btn.active, .tab-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
+    .feature-visual {
+      background: var(--primary); border-radius: var(--radius-card);
+      padding: 2rem; min-height: 280px;
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+    .fv-header { display: flex; align-items: center; gap: .75rem; margin-bottom: .5rem; }
+    .fv-icon { width: 36px; height: 36px; background: rgba(255,255,255,.15); border-radius: .5rem; display: flex; align-items: center; justify-content: center; color: #fff; }
+    .fv-title { font-size: .95rem; font-weight: 600; color: #fff; }
+    .fv-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1);
+      border-radius: .6rem; padding: .65rem 1rem;
+    }
+    .fv-row-left { font-size: .8rem; color: rgba(255,255,255,.7); display: flex; align-items: center; gap: .5rem; }
+    .fv-row-right { font-size: .8rem; font-weight: 600; color: #fff; }
+    .pill-status { border-radius: 9999px; padding: .2rem .6rem; font-size: .7rem; font-weight: 600; }
+    .pill-green { background: rgba(34,197,94,.2); color: #4ade80; }
+    .pill-blue { background: rgba(96,165,250,.2); color: #93c5fd; }
+    .pill-yellow { background: rgba(251,191,36,.2); color: #fbbf24; }
+    .pill-red { background: rgba(239,68,68,.2); color: #fca5a5; }
+    .feature-text h3 { font-size: 1.4rem; font-weight: 700; margin-bottom: 1rem; }
+    .feature-text p { color: var(--muted); line-height: 1.7; font-size: .95rem; }
+    .feature-list { margin-top: 1.5rem; display: flex; flex-direction: column; gap: .75rem; }
+    .feature-list li {
+      display: flex; align-items: flex-start; gap: .75rem;
+      font-size: .9rem; color: var(--muted); list-style: none;
+    }
+    .feature-list li::before {
+      content: ''; flex-shrink: 0; width: 18px; height: 18px;
+      background: rgba(37,99,235,.1); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: center; margin-top: 2px;
+    }
+    @media (max-width: 768px) {
+      .tab-panel.active { grid-template-columns: 1fr; }
+    }
+
+    /* ─── BENEFITS ───────────────────────────────────────────────────── */
+    #benefits { padding: 6rem 0; background: var(--bg); }
+    .benefits-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 3rem; }
+    @media (max-width: 768px) { .benefits-grid { grid-template-columns: 1fr; } }
+    .benefit-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-card); padding: 2rem;
+      transition: all .25s; position: relative; overflow: hidden;
+    }
+    .benefit-card:hover { box-shadow: 0 12px 40px rgba(15,31,65,.1); transform: translateY(-3px); }
+    .benefit-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      opacity: 0; transition: opacity .25s;
+    }
+    .benefit-card:hover::before { opacity: 1; }
+    .benefit-icon {
+      width: 48px; height: 48px; background: rgba(15,31,65,.08);
+      border-radius: .75rem; display: flex; align-items: center; justify-content: center;
+      color: var(--primary); margin-bottom: 1.25rem;
+    }
+    .benefit-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: .75rem; }
+    .benefit-card p { font-size: .9rem; color: var(--muted); line-height: 1.7; }
+
+    /* ─── HOW IT WORKS ───────────────────────────────────────────────── */
+    #process { padding: 6rem 0; background: var(--surface); }
+    .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-top: 3rem; position: relative; }
+    .steps-connector {
+      position: absolute; top: 28px; left: calc(100%/6); right: calc(100%/6);
+      height: 2px; background: repeating-linear-gradient(90deg, var(--border) 0, var(--border) 8px, transparent 8px, transparent 16px);
+    }
+    @media (max-width: 768px) { .steps-grid { grid-template-columns: 1fr; } .steps-connector { display: none; } }
+    .step-card { display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
+    .step-num {
+      width: 56px; height: 56px; background: var(--primary); color: #fff;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; font-weight: 800; margin-bottom: 1.5rem; position: relative; z-index: 1;
+      box-shadow: 0 0 0 8px var(--surface);
+    }
+    .step-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: .75rem; }
+    .step-card p { font-size: .9rem; color: var(--muted); line-height: 1.7; }
+
+    /* ─── INTEGRATIONS / MÓDULOS ─────────────────────────────────────── */
+    #modules { padding: 6rem 0; background: var(--bg); }
+    .modules-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 3rem; }
+    @media (max-width: 768px) { .modules-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) { .modules-grid { grid-template-columns: 1fr; } }
+    .module-card {
+      border: 1px solid var(--border); border-radius: var(--radius-card);
+      padding: 1.5rem; display: flex; align-items: center; gap: 1rem;
+      background: var(--surface); transition: all .2s;
+    }
+    .module-card:hover { border-color: var(--accent-light); background: rgba(37,99,235,.03); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(15,31,65,.07); }
+    .module-icon {
+      width: 44px; height: 44px; border-radius: .75rem; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
+    }
+    .module-card h4 { font-size: .9rem; font-weight: 700; margin-bottom: .2rem; }
+    .module-card p { font-size: .78rem; color: var(--muted); line-height: 1.5; }
+
+    /* ─── TESTIMONIALS ───────────────────────────────────────────────── */
+    #testimonials { padding: 6rem 0; background: var(--surface); }
+    .testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 3rem; }
+    @media (max-width: 900px) { .testimonials-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 600px) { .testimonials-grid { grid-template-columns: 1fr; } }
+    .testimonial-card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius-card); padding: 1.75rem;
+      display: flex; flex-direction: column; gap: 1rem;
+      transition: box-shadow .2s, transform .2s;
+    }
+    .testimonial-card:hover { box-shadow: 0 12px 32px rgba(15,31,65,.09); transform: translateY(-3px); }
+    .stars { display: flex; gap: 3px; }
+    .stars svg { fill: #f59e0b; color: #f59e0b; width: 14px; height: 14px; }
+    .testimonial-text { font-size: .9rem; color: var(--foreground); line-height: 1.7; font-style: italic; }
+    .testimonial-author { display: flex; align-items: center; gap: .75rem; margin-top: auto; }
+    .author-av {
+      width: 40px; height: 40px; border-radius: 50%; font-weight: 700; font-size: .85rem;
+      display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0;
+    }
+    .author-name { font-size: .875rem; font-weight: 700; }
+    .author-role { font-size: .78rem; color: var(--muted); }
+    .verified { display: inline-flex; align-items: center; gap: .3rem; font-size: .7rem; color: var(--accent); font-weight: 600; margin-top: .25rem; }
+
+    /* ─── PRICING ────────────────────────────────────────────────────── */
+    #pricing { padding: 6rem 0; background: var(--bg); }
+    .pricing-toggle {
+      display: flex; align-items: center; gap: 1rem; justify-content: center;
+      margin-top: 2rem; margin-bottom: 3rem;
+    }
+    .toggle-label { font-size: .9rem; font-weight: 500; }
+    .toggle-switch {
+      width: 48px; height: 26px; background: var(--border); border-radius: 9999px;
+      cursor: pointer; position: relative; transition: background .2s;
+    }
+    .toggle-switch.on { background: var(--primary); }
+    .toggle-switch::after {
+      content: ''; width: 20px; height: 20px; background: #fff; border-radius: 50%;
+      position: absolute; top: 3px; left: 3px; transition: transform .2s;
+    }
+    .toggle-switch.on::after { transform: translateX(22px); }
+    .save-badge { background: rgba(37,99,235,.1); color: var(--accent); border-radius: 9999px; padding: .2rem .6rem; font-size: .75rem; font-weight: 700; }
+    .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+    @media (max-width: 900px) { .pricing-grid { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; } }
+    .price-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-card); padding: 2rem;
+      display: flex; flex-direction: column; gap: 1.5rem;
+    }
+    .price-card.featured {
+      background: var(--primary); border-color: var(--primary); position: relative;
+    }
+    .price-card.featured h3,
+    .price-card.featured p,
+    .price-card.featured li { color: rgba(255,255,255,.85) !important; }
+    .price-card.featured .price-val, .price-card.featured .plan-name { color: #fff; }
+    .price-card.featured .check-item { color: rgba(255,255,255,.9); }
+    .recommended-badge {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      background: #fbbf24; color: #7c2d12; font-size: .72rem; font-weight: 700;
+      padding: .25rem .8rem; border-radius: 9999px; white-space: nowrap;
+    }
+    .plan-name { font-size: 1rem; font-weight: 700; margin-bottom: .25rem; }
+    .plan-desc { font-size: .85rem; color: var(--muted); }
+    .price-val { font-size: 2.5rem; font-weight: 800; }
+    .price-val span { font-size: 1rem; font-weight: 500; color: var(--muted); }
+    .price-features { list-style: none; display: flex; flex-direction: column; gap: .65rem; }
+    .check-item {
+      display: flex; align-items: flex-start; gap: .65rem;
+      font-size: .875rem; color: var(--foreground);
+    }
+    .check-item::before {
+      content: '✓'; flex-shrink: 0; font-weight: 700; font-size: .8rem;
+      width: 18px; height: 18px; background: rgba(37,99,235,.12); color: var(--accent);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      margin-top: 1px; line-height: 1;
+    }
+    .price-card.featured .check-item::before { background: rgba(255,255,255,.15); color: #7dd3fc; }
+
+    /* ─── FAQ ────────────────────────────────────────────────────────── */
+    #faq { padding: 6rem 0; background: var(--surface); }
+    .faq-list { max-width: 720px; margin: 3rem auto 0; display: flex; flex-direction: column; gap: .75rem; }
+    .faq-item { border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg); overflow: hidden; }
+    .faq-question {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.25rem 1.5rem; cursor: pointer; font-weight: 600; font-size: .95rem;
+      user-select: none; gap: 1rem;
+    }
+    .faq-question:hover { color: var(--accent); }
+    .faq-icon { flex-shrink: 0; width: 20px; height: 20px; transition: transform .25s; }
+    .faq-item.open .faq-icon { transform: rotate(45deg); }
+    .faq-answer { max-height: 0; overflow: hidden; transition: max-height .35s ease; }
+    .faq-answer-inner { padding: 0 1.5rem 1.25rem; color: var(--muted); font-size: .9rem; line-height: 1.7; border-top: 1px solid var(--border); padding-top: 1rem; }
+
+    /* ─── FINAL CTA ──────────────────────────────────────────────────── */
+    #cta {
+      padding: 6rem 1.5rem; background: linear-gradient(135deg, var(--primary) 0%, #1e3a6e 100%);
+      text-align: center; position: relative; overflow: hidden;
+    }
+    #cta::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse 70% 50% at 50% 50%, rgba(37,99,235,.25), transparent);
+    }
+    #cta .cta-inner { position: relative; z-index: 1; }
+    #cta h2 { font-size: clamp(1.75rem, 4vw, 3rem); font-weight: 800; color: #fff; max-width: 640px; margin: 0 auto 1.5rem; }
+    #cta p { color: rgba(255,255,255,.75); font-size: 1.05rem; margin-bottom: 2.5rem; }
+    .cta-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+    /* ─── FOOTER ─────────────────────────────────────────────────────── */
+    footer { background: var(--foreground); color: rgba(255,255,255,.7); padding: 4rem 0 2rem; }
+    .footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 2rem; margin-bottom: 3rem; }
+    @media (max-width: 768px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px) { .footer-grid { grid-template-columns: 1fr; } }
+    .footer-brand { display: flex; flex-direction: column; gap: 1rem; }
+    .footer-logo { display: flex; align-items: center; gap: .6rem; color: #fff; text-decoration: none; }
+    .footer-logo-icon { width: 32px; height: 32px; background: rgba(255,255,255,.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .footer-logo-text { font-size: 1.1rem; font-weight: 700; }
+    .footer-logo-text span { color: #60a5fa; }
+    .footer-desc { font-size: .875rem; line-height: 1.7; max-width: 260px; }
+    .footer-col h4 { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #fff; margin-bottom: 1rem; }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: .6rem; }
+    .footer-col ul li a { font-size: .875rem; color: rgba(255,255,255,.6); text-decoration: none; transition: color .15s; }
+    .footer-col ul li a:hover { color: #fff; }
+    .footer-bottom { border-top: 1px solid rgba(255,255,255,.1); padding-top: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; font-size: .8rem; }
+
+    /* ─── SCROLL ANIMATIONS ──────────────────────────────────────────── */
+    .reveal { opacity: 0; transform: translateY(50px); transition: opacity .65s ease, transform .65s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ─── RESPONSIVE TWEAKS ──────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+      .dash-rooms { display: none; }
+    }
+    @media (max-width: 480px) {
+      .hero-h1 { font-size: 2.1rem; }
+      .dashboard-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* ─── FONT AWESOME ICON SIZING ───────────────────────────────────── */
+    .section-badge i { font-size: .85rem; }
+    .tab-btn i { font-size: .875rem; }
+    .fv-icon i { font-size: 1rem; color: #fff; }
+    .module-icon i { font-size: 1.2rem; }
+    .fv-row-left i { width: 15px; text-align: center; color: rgba(255,255,255,.65); }
+    .recommended-badge i { font-size: .75rem; }
+    .footer-bottom i.fa-heart { color: #ef4444; }
+  </style>
+</head>
+<body>
+
+  <!-- ────────────────────────────────────────────────────────────
+       NAVBAR
+  ─────────────────────────────────────────────────────────────── -->
+  <nav id="navbar" aria-label="Navegación principal">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo" aria-label="Wayra inicio">
+        <div class="nav-logo-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/></svg>
+        </div>
+        <span class="nav-logo-text">Wayra<span>PMS</span></span>
+      </a>
+
+      <div class="nav-links" role="navigation">
+        <a href="#solution">Funciones</a>
+        <a href="#modules">Módulos</a>
+        <a href="#pricing">Precios</a>
+        <a href="#faq">FAQ</a>
+      </div>
+
+      <div class="nav-ctas">
+        <a href="#" class="btn btn-outline" style="height:2.5rem;padding:.5rem 1.25rem;">Iniciar Sesión</a>
+        <a href="#cta" class="btn btn-primary" style="height:2.5rem;padding:.5rem 1.25rem;">Solicitar Demo</a>
+      </div>
+
+      <button class="hamburger" id="hamburger-btn" aria-label="Abrir menú">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Mobile menu -->
+  <div id="mobile-menu" role="dialog" aria-modal="true" aria-label="Menú de navegación">
+    <button class="close-btn" id="close-menu-btn" aria-label="Cerrar menú">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <a href="#solution" onclick="closeMenu()">Funciones</a>
+    <a href="#modules" onclick="closeMenu()">Módulos</a>
+    <a href="#pricing" onclick="closeMenu()">Precios</a>
+    <a href="#faq" onclick="closeMenu()">FAQ</a>
+    <a href="#cta" class="btn btn-primary" onclick="closeMenu()">Solicitar Demo</a>
+  </div>
+
+  <!-- ────────────────────────────────────────────────────────────
+       HERO
+  ─────────────────────────────────────────────────────────────── -->
+  <section id="hero" role="banner">
+    <div class="hero-blur-1"></div>
+    <div class="hero-blur-2"></div>
+
+    <div class="hero-content">
+      <!-- social proof badge -->
+      <div class="hero-badge">
+        <div class="avatars">
+          <div class="av" aria-label="Avatar">AP</div>
+          <div class="av" aria-label="Avatar">MR</div>
+          <div class="av" aria-label="Avatar">CG</div>
+          <div class="av" aria-label="Avatar">LA</div>
+          <div class="av" aria-label="Avatar">JT</div>
+        </div>
+        <div>
+          <div class="hero-badge-stars" aria-label="5 estrellas">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </div>
+          <span class="hero-badge-text">Usado por +80 hoteles</span>
+        </div>
+      </div>
+
+      <h1 class="hero-h1">Gestiona tu hotel en <span>una sola plataforma</span></h1>
+      <p class="hero-sub">Reservas, habitaciones, caja y reportes conectados en tiempo real. Deja de mezclar planillas, WhatsApp y llamadas.</p>
+
+      <div class="hero-ctas">
+        <a href="#cta" class="btn btn-hero-primary">
+          Solicitar Demo Gratis
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+        <a href="#solution" class="btn btn-hero-secondary">
+          Ver Funciones
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        </a>
+      </div>
+
+      <!-- Dashboard image - real software screenshot -->
+      <div class="hero-mockup" aria-hidden="true">
+        <div class="hero-mockup-window">
+          <div class="window-titlebar">
+            <span class="dot dot-red"></span>
+            <span class="dot dot-yellow"></span>
+            <span class="dot dot-green"></span>
+            <span class="window-url">wayra-travel.com/dashboard</span>
+          </div>
+          <img
+            src="wayra_dashboard.jpg"
+            alt="Dashboard de Wayra PMS mostrando ocupación, check-ins, ingresos y estado de habitaciones"
+            width="1400" height="788"
+            style="width:100%;height:auto;display:block;"
+          />
+        </div>
+      </div>
+
+      <!-- Trusted brands marquee -->
+      <div class="hero-brands">
+        <p class="brands-label">Confiado por alojamientos en toda la región</p>
+        <div class="brands-track-wrap">
+          <div class="brands-track" aria-hidden="true">
+            <!-- repeat twice for seamless loop -->
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Hotel Caribe</div>
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Hostal El Manglar</div>
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Apartahotel Brisa</div>
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Suites La Guajira</div>
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Hotel Punta Gallinas</div>
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Posada del Viento</div>
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Complejo El Palmar</div>
+            <!-- duplicate -->
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Hotel Caribe</div>
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Hostal El Manglar</div>
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Apartahotel Brisa</div>
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Suites La Guajira</div>
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Hotel Punta Gallinas</div>
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Posada del Viento</div>
+            <div class="brand-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 3l9 7.5V21H3z"/></svg> Complejo El Palmar</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────────────────────────────────────────────
+       PROBLEMS
+  ─────────────────────────────────────────────────────────────── -->
+  <section id="problems" aria-labelledby="problems-title">
+    <div class="container" style="text-align:center;">
+      <div class="section-badge reveal"><i class="fas fa-triangle-exclamation"></i> El Problema</div>
+      <h2 id="problems-title" class="section-title reveal">Lo que frena tu operación</h2>
+      <p class="section-sub reveal" style="margin-top:1rem;">La mayoría de hoteles no fallan por falta de ganas, sino por operar con herramientas dispersas e incompatibles entre sí.</p>
+    </div>
+    <div class="problems-ticker reveal" style="margin-top:3rem;">
+      <div class="ticker-track" aria-label="Problemas frecuentes en hotelería">
+        <!-- track 1 -->
+        <div class="ticker-item">
+          <i class="fas fa-arrow-trend-down" aria-hidden="true"></i>
+          <p>Baja Ocupación sin Previsión</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fas fa-calendar-xmark" aria-hidden="true"></i>
+          <p>Reservas en Tres Canales</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fas fa-users-slash" aria-hidden="true"></i>
+          <p>Datos de Huéspedes Duplicados</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fas fa-cash-register" aria-hidden="true"></i>
+          <p>Caja Descuadrada al Cierre</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fab fa-whatsapp" aria-hidden="true"></i>
+          <p>Planillas en WhatsApp sin Orden</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fas fa-receipt" aria-hidden="true"></i>
+          <p>Consumos Anotados a Mano</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fas fa-broom" aria-hidden="true"></i>
+          <p>Limpieza sin Coordinación</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fas fa-chart-pie" aria-hidden="true"></i>
+          <p>Reportes Imposibles de Generar</p>
+        </div>
+        <!-- repeat -->
+        <div class="ticker-item">
+          <i class="fas fa-arrow-trend-down" aria-hidden="true"></i>
+          <p>Baja Ocupación sin Previsión</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fas fa-calendar-xmark" aria-hidden="true"></i>
+          <p>Reservas en Tres Canales</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fas fa-users-slash" aria-hidden="true"></i>
+          <p>Datos de Huéspedes Duplicados</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fas fa-cash-register" aria-hidden="true"></i>
+          <p>Caja Descuadrada al Cierre</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fab fa-whatsapp" aria-hidden="true"></i>
+          <p>Planillas en WhatsApp sin Orden</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fas fa-receipt" aria-hidden="true"></i>
+          <p>Consumos Anotados a Mano</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fas fa-broom" aria-hidden="true"></i>
+          <p>Limpieza sin Coordinación</p>
+        </div>
+        <div class="ticker-item">
+          <i class="fas fa-chart-pie" aria-hidden="true"></i>
+          <p>Reportes Imposibles de Generar</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────────────────────────────────────────────
+       SOLUTION / FEATURES
+  ─────────────────────────────────────────────────────────────── -->
+  <section id="solution" aria-labelledby="solution-title">
+    <div class="container" style="text-align:center;">
+      <div class="section-badge reveal"><i class="fas fa-circle-check"></i> La Solución</div>
+      <h2 id="solution-title" class="section-title reveal">Todo lo que necesitas en un solo lugar</h2>
+      <p class="section-sub reveal" style="margin-top:1rem;">Desde el primer contacto con el huésped hasta el cierre del turno, sin salir del sistema.</p>
+
+      <div class="solution-tabs reveal" role="tablist" aria-label="Funciones de Wayra">
+        <button class="tab-btn active" role="tab" aria-selected="true" data-tab="0"><i class="fas fa-bell-concierge"></i> Recepción</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="1"><i class="fas fa-bed"></i> Habitaciones</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="2"><i class="fas fa-credit-card"></i> Caja y Pagos</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="3"><i class="fas fa-chart-bar"></i> Reportes</button>
+      </div>
+    </div>
+
+    <div class="container">
+      <!-- Tab 0: Recepción -->
+      <div class="tab-panel active reveal" data-panel="0" role="tabpanel">
+        <div class="feature-visual">
+          <div class="fv-header">
+            <div class="fv-icon"><i class="fas fa-bell-concierge"></i></div>
+            <div class="fv-title">Panel de Recepción – Hoy</div>
+          </div>
+          <div class="fv-row">
+            <div class="fv-row-left"><i class="fas fa-right-to-bracket"></i> Juan Pérez – Hab. 203</div>
+            <span class="pill-status pill-blue">Check-in 14:00</span>
+          </div>
+          <div class="fv-row">
+            <div class="fv-row-left"><i class="fas fa-right-from-bracket"></i> Ana García – Hab. 101</div>
+            <span class="pill-status pill-green">Check-out</span>
+          </div>
+          <div class="fv-row">
+            <div class="fv-row-left"><i class="fas fa-key"></i> Carlos López – Hab. 305</div>
+            <span class="pill-status pill-yellow">En casa</span>
+          </div>
+          <div class="fv-row">
+            <div class="fv-row-left"><i class="fas fa-users"></i> Grupo Familia Ruiz – Hab. 402</div>
+            <span class="pill-status pill-blue">Llega mañana</span>
+          </div>
+        </div>
+        <div class="feature-text">
+          <h3>Recepción organizada, turnos sin sorpresas</h3>
+          <p>Wayra centraliza reservas, check-ins y check-outs en una sola vista. Recepción y housekeeping ven exactamente lo mismo, en tiempo real.</p>
+          <ul class="feature-list">
+            <li>Check-in Online para que el huésped complete sus datos antes de llegar</li>
+            <li>Historial completo por huésped sin duplicados</li>
+            <li>Alertas automáticas de llegadas y salidas del día</li>
+            <li>Disponibilidad actualizada al instante con cada movimiento</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Tab 1: Habitaciones -->
+      <div class="tab-panel reveal" data-panel="1" role="tabpanel">
+        <div class="feature-visual">
+          <div class="fv-header">
+            <div class="fv-icon"><i class="fas fa-bed"></i></div>
+            <div class="fv-title">Estado de Habitaciones – Piso 2</div>
+          </div>
+          <div class="fv-row"><div class="fv-row-left"><i class="fas fa-door-open"></i> Hab. 201</div><span class="pill-status pill-green">Disponible</span></div>
+          <div class="fv-row"><div class="fv-row-left"><i class="fas fa-door-open"></i> Hab. 202</div><span class="pill-status pill-blue">Ocupada</span></div>
+          <div class="fv-row"><div class="fv-row-left"><i class="fas fa-door-open"></i> Hab. 203</div><span class="pill-status pill-yellow">Limpieza</span></div>
+          <div class="fv-row"><div class="fv-row-left"><i class="fas fa-door-open"></i> Hab. 204</div><span class="pill-status pill-red">Mantenimiento</span></div>
+        </div>
+        <div class="feature-text">
+          <h3>Estados de habitación al día, sin llamadas internas</h3>
+          <p>Visualiza en tiempo real qué habitaciones están disponibles, ocupadas, en limpieza o con avería pendiente. Evita vender lo que no está listo.</p>
+          <ul class="feature-list">
+            <li>Estados por piso: Disponible, Ocupada, Limpieza, Mantenimiento</li>
+            <li>Coordinación directa con housekeeping sin papeles</li>
+            <li>Bloqueos por mantenimiento con notas de seguimiento</li>
+            <li>Tipos de habitación, amenidades y tarifas base configurables</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Tab 2: Caja -->
+      <div class="tab-panel reveal" data-panel="2" role="tabpanel">
+        <div class="feature-visual">
+          <div class="fv-header">
+            <div class="fv-icon"><i class="fas fa-credit-card"></i></div>
+            <div class="fv-title">Arqueo de Turno – Actual</div>
+          </div>
+          <div class="fv-row"><div class="fv-row-left">Efectivo</div><div class="fv-row-right">$1.200.000</div></div>
+          <div class="fv-row"><div class="fv-row-left">Tarjeta débito</div><div class="fv-row-right">$480.000</div></div>
+          <div class="fv-row"><div class="fv-row-left">Transferencia</div><div class="fv-row-right">$200.000</div></div>
+          <div class="fv-row" style="border-top:1px solid rgba(255,255,255,.2);margin-top:.25rem">
+            <div class="fv-row-left" style="font-weight:700;color:#fff">Total turno</div>
+            <div class="fv-row-right" style="font-size:1rem;color:#4ade80">$1.880.000</div>
+          </div>
+        </div>
+        <div class="feature-text">
+          <h3>Caja que cuadra, facturación que no pierde un peso</h3>
+          <p>Cobros, consumos y arqueo por turno con respaldo. La gerencia recibe el reporte sin pedirlo.</p>
+          <ul class="feature-list">
+            <li>Múltiples medios de pago en un solo cobro</li>
+            <li>Facturas generadas directamente desde el check-out</li>
+            <li>Arqueo automático al cierre del turno</li>
+            <li>Consumos cargados a la habitación sin perder el registro</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Tab 3: Reportes -->
+      <div class="tab-panel reveal" data-panel="3" role="tabpanel">
+        <div class="feature-visual">
+          <div class="fv-header">
+            <div class="fv-icon"><i class="fas fa-chart-bar"></i></div>
+            <div class="fv-title">Resumen Financiero – Este Mes</div>
+          </div>
+          <div class="fv-row"><div class="fv-row-left">Ingresos totales</div><div class="fv-row-right" style="color:#4ade80">$28.450.000</div></div>
+          <div class="fv-row"><div class="fv-row-left">Egresos</div><div class="fv-row-right" style="color:#fca5a5">$9.100.000</div></div>
+          <div class="fv-row"><div class="fv-row-left">Ocupación promedio</div><div class="fv-row-right">74%</div></div>
+          <div class="fv-row"><div class="fv-row-left">RevPAR</div><div class="fv-row-right" style="color:#93c5fd">$85.000</div></div>
+        </div>
+        <div class="feature-text">
+          <h3>Reportes que consolidan toda la operación</h3>
+          <p>Ocupación, ingresos, egresos, actividad y rendimiento operativo en un tablero claro. Si un dato aparece incorrecto, el sistema señala exactamente dónde corregirlo.</p>
+          <ul class="feature-list">
+            <li>Dashboard con ocupación, RevPAR e ingresos del período</li>
+            <li>Auditoría completa: quién editó, qué campo y cuándo</li>
+            <li>Reportes de departamentos, servicios y movimientos de inventario</li>
+            <li>Historial financiero inmutable, sin riesgo de manipulación</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────────────────────────────────────────────
+       BENEFITS
+  ─────────────────────────────────────────────────────────────── -->
+  <section id="benefits" aria-labelledby="benefits-title">
+    <div class="container" style="text-align:center;">
+      <div class="section-badge reveal"><i class="fas fa-lightbulb"></i> Beneficios</div>
+      <h2 id="benefits-title" class="section-title reveal">Opera más rápido con menos esfuerzo</h2>
+      <p class="section-sub reveal" style="margin-top:1rem;">Wayra elimina el trabajo repetitivo para que te concentres en dar la mejor experiencia a tus huéspedes.</p>
+      <div class="benefits-grid">
+        <div class="benefit-card reveal">
+          <div class="benefit-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+          </div>
+          <h3>Un solo registro, cero duplicados</h3>
+          <p>El cliente se registra una vez y su historial queda disponible para cada futura reserva, factura o estadía. Fin de los datos perdidos.</p>
+        </div>
+        <div class="benefit-card reveal" style="transition-delay:.1s">
+          <div class="benefit-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <h3>Tiempo real en toda la operación</h3>
+          <p>Disponibilidad, huéspedes y movimientos de caja actualizados en el momento exacto en que ocurren. Recepción y housekeeping siempre en la misma página.</p>
+        </div>
+        <div class="benefit-card reveal" style="transition-delay:.2s">
+          <div class="benefit-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
+          <h3>Reportes sin trabajo extra</h3>
+          <p>La información que ves en los reportes nace de reservas, habitaciones, facturas y pagos ya capturados. No hay que repetir nada, el sistema lo consolida solo.</p>
+        </div>
+        <div class="benefit-card reveal" style="transition-delay:.3s">
+          <div class="benefit-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <h3>Acceso seguro desde cualquier dispositivo</h3>
+          <p>Wayra funciona desde el navegador. Recepción en el escritorio, housekeeping en la tablet, gerencia en el teléfono. Sin instalaciones.</p>
+        </div>
+        <div class="benefit-card reveal" style="transition-delay:.4s">
+          <div class="benefit-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <h3>Roles y permisos por equipo</h3>
+          <p>Asigna permisos específicos a recepcionistas, housekeeping y gerentes. Cada rol ve solo lo que necesita para su función.</p>
+        </div>
+        <div class="benefit-card reveal" style="transition-delay:.5s">
+          <div class="benefit-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <h3>Trazabilidad total de la operación</h3>
+          <p>Historial de auditoría inmutable: quién creó, editó o eliminó cada registro, desde qué dispositivo y a qué hora. Transparencia completa.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────────────────────────────────────────────
+       HOW IT WORKS
+  ─────────────────────────────────────────────────────────────── -->
+  <section id="process" aria-labelledby="process-title">
+    <div class="container" style="text-align:center;">
+      <div class="section-badge reveal"><i class="fas fa-gear"></i> Proceso</div>
+      <h2 id="process-title" class="section-title reveal">¿Cómo empieza tu hotel con Wayra?</h2>
+      <p class="section-sub reveal" style="margin-top:1rem;">Un proceso diseñado para que tu operación arranque configurada con tu propia estructura, no con datos de prueba.</p>
+
+      <div class="steps-grid reveal">
+        <div class="steps-connector" aria-hidden="true"></div>
+        <div class="step-card">
+          <div class="step-num" aria-label="Paso 1">1</div>
+          <h3>Solicita tu demo</h3>
+          <p>Comparte la estructura de tu hotel: tipos de habitación, pisos y tarifas base. Sin compromiso ni tarjeta de crédito.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num" aria-label="Paso 2">2</div>
+          <h3>Reunión de 30 minutos</h3>
+          <p>Recorremos tu flujo real con tus habitaciones y tus tarifas. Si queda algo pendiente, lo resolvemos en la llamada.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num" aria-label="Paso 3">3</div>
+          <h3>Tu hotel listo para operar</h3>
+          <p>Al aprobar la configuración, tu cuenta se activa con la estructura exacta de tu hotel. Lista para la primera reserva.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────────────────────────────────────────────
+       MODULES (Integrations section equivalent)
+  ─────────────────────────────────────────────────────────────── -->
+  <section id="modules" aria-labelledby="modules-title">
+    <div class="container" style="text-align:center;">
+      <div class="section-badge reveal"><i class="fas fa-puzzle-piece"></i> Módulos</div>
+      <h2 id="modules-title" class="section-title reveal">Cuatro módulos conectados, una sola fuente de verdad</h2>
+      <p class="section-sub reveal" style="margin-top:1rem;">Lo que se registra en recepción se refleja automáticamente en habitaciones, caja y reportes. Sin trabajo doble.</p>
+
+      <div class="modules-grid reveal">
+        <div class="module-card">
+          <div class="module-icon" style="background:rgba(37,99,235,.08)"><i class="fas fa-bell-concierge" style="color:#2563eb"></i></div>
+          <div>
+            <h4>Recepción</h4>
+            <p>Check-in, check-out, reservas y gestión de turno en tiempo real.</p>
+          </div>
+        </div>
+        <div class="module-card">
+          <div class="module-icon" style="background:rgba(34,197,94,.08)"><i class="fas fa-bed" style="color:#16a34a"></i></div>
+          <div>
+            <h4>Habitaciones</h4>
+            <p>Estados, limpieza, mantenimiento y disponibilidad al instante.</p>
+          </div>
+        </div>
+        <div class="module-card">
+          <div class="module-icon" style="background:rgba(251,191,36,.08)"><i class="fas fa-credit-card" style="color:#b45309"></i></div>
+          <div>
+            <h4>Caja y Facturas</h4>
+            <p>Cobros, medios de pago, arqueo de turno y facturación integrada.</p>
+          </div>
+        </div>
+        <div class="module-card">
+          <div class="module-icon" style="background:rgba(239,68,68,.08)"><i class="fas fa-box" style="color:#dc2626"></i></div>
+          <div>
+            <h4>Inventario</h4>
+            <p>Stock de bodega, dotación por habitación y lista de reposición.</p>
+          </div>
+        </div>
+        <div class="module-card">
+          <div class="module-icon" style="background:rgba(168,85,247,.08)"><i class="fas fa-chart-bar" style="color:#7c3aed"></i></div>
+          <div>
+            <h4>Reportes y Finanzas</h4>
+            <p>Ocupación, ingresos, egresos, RevPAR y auditoría completa.</p>
+          </div>
+        </div>
+        <div class="module-card">
+          <div class="module-icon" style="background:rgba(20,184,166,.08)"><i class="fas fa-users" style="color:#0f766e"></i></div>
+          <div>
+            <h4>Usuarios y Roles</h4>
+            <p>Permisos por área: recepcionistas, housekeeping y gerencia.</p>
+          </div>
+        </div>
+        <div class="module-card">
+          <div class="module-icon" style="background:rgba(15,31,65,.06)"><i class="fas fa-key" style="color:#0f1f41"></i></div>
+          <div>
+            <h4>Check-in Online</h4>
+            <p>El huésped completa sus datos antes de llegar. Sin colas en recepción.</p>
+          </div>
+        </div>
+        <div class="module-card">
+          <div class="module-icon" style="background:rgba(37,99,235,.08)"><i class="fas fa-folder-open" style="color:#2563eb"></i></div>
+          <div>
+            <h4>Catálogo Comercial</h4>
+            <p>Tarifas, paquetes, servicios extras y promociones en un solo lugar.</p>
+          </div>
+        </div>
+        <div class="module-card">
+          <div class="module-icon" style="background:rgba(34,197,94,.08)"><i class="fas fa-magnifying-glass" style="color:#16a34a"></i></div>
+          <div>
+            <h4>Auditoría</h4>
+            <p>Registro inmutable de cada acción: quién, qué, cuándo y desde dónde.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────────────────────────────────────────────
+       TESTIMONIALS
+  ─────────────────────────────────────────────────────────────── -->
+  <section id="testimonials" aria-labelledby="testimonials-title">
+    <div class="container" style="text-align:center;">
+      <div class="section-badge reveal"><i class="fas fa-comments"></i> Testimonios</div>
+      <h2 id="testimonials-title" class="section-title reveal">Lo que dicen los hoteleros que ya usan Wayra</h2>
+      <p class="section-sub reveal" style="margin-top:1rem;">Hoteles pequeños, hostales y apartahoteles que dejaron las planillas atrás.</p>
+
+      <div class="testimonials-grid">
+        <div class="testimonial-card reveal">
+          <div class="stars" aria-label="5 estrellas">
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </div>
+          <p class="testimonial-text">"Antes teníamos tres cuadernos y un grupo de WhatsApp para coordinar. Con Wayra, la recepcionista ve lo mismo que yo desde mi celular. Fue un cambio inmediato."</p>
+          <div class="testimonial-author">
+            <div class="author-av" style="background:linear-gradient(135deg,#0f1f41,#2563eb)" aria-hidden="true">AP</div>
+            <div>
+              <div class="author-name">Andrés Peña</div>
+              <div class="author-role">Propietario – Hotel Caribe, Riohacha</div>
+              <div class="verified">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+                Cliente verificado
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card reveal" style="transition-delay:.1s">
+          <div class="stars" aria-label="5 estrellas">
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </div>
+          <p class="testimonial-text">"La caja ya cuadra. Antes el turno de noche y el de día siempre tenían discrepancias. Ahora el arqueo sale automático y la gerencia lo ve sin pedirlo."</p>
+          <div class="testimonial-author">
+            <div class="author-av" style="background:linear-gradient(135deg,#0f766e,#14b8a6)" aria-hidden="true">MR</div>
+            <div>
+              <div class="author-name">Marcela Ríos</div>
+              <div class="author-role">Administradora – Apartahotel Brisa</div>
+              <div class="verified">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+                Cliente verificado
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card reveal" style="transition-delay:.2s">
+          <div class="stars" aria-label="5 estrellas">
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </div>
+          <p class="testimonial-text">"Pensé que implementarlo iba a tomar semanas. La demo duró media hora y al día siguiente ya estábamos operando. El soporte en español fue clave."</p>
+          <div class="testimonial-author">
+            <div class="author-av" style="background:linear-gradient(135deg,#7c2d12,#f97316)" aria-hidden="true">JT</div>
+            <div>
+              <div class="author-name">Juliana Torres</div>
+              <div class="author-role">Gerente – Posada del Viento, Santa Marta</div>
+              <div class="verified">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+                Cliente verificado
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────────────────────────────────────────────
+       PRICING
+  ─────────────────────────────────────────────────────────────── -->
+  <section id="pricing" aria-labelledby="pricing-title">
+    <div class="container" style="text-align:center;">
+      <div class="section-badge reveal"><i class="fas fa-tag"></i> Precios</div>
+      <h2 id="pricing-title" class="section-title reveal">Precios simples para cada tamaño de hotel</h2>
+      <p class="section-sub reveal" style="margin-top:1rem;">Empieza sin riesgo. Escala a medida que creces. Sin instalaciones ni compromisos a largo plazo.</p>
+
+      <div class="pricing-toggle reveal" aria-label="Alternar facturación">
+        <span class="toggle-label">Mensual</span>
+        <div class="toggle-switch" id="billing-toggle" role="switch" aria-checked="false" tabindex="0" onclick="toggleBilling()" onkeydown="if(event.key==='Enter'||event.key===' ')toggleBilling()"></div>
+        <span class="toggle-label">Anual <span class="save-badge">Ahorra 30%</span></span>
+      </div>
+
+      <div class="pricing-grid">
+        <!-- Starter -->
+        <div class="price-card reveal">
+          <div>
+            <div class="plan-name">Básico</div>
+            <div class="plan-desc">Para hostales y alojamientos pequeños que dan sus primeros pasos en la digitalización.</div>
+          </div>
+          <div>
+            <div class="price-val" id="price-basic">$0 <span>/mes</span></div>
+            <p style="font-size:.8rem;color:var(--muted);margin-top:.25rem" id="desc-basic">Gratis durante la demo</p>
+          </div>
+          <a href="#cta" class="btn btn-outline" style="width:100%;justify-content:center;">Solicitar Demo</a>
+          <ul class="price-features">
+            <li class="check-item">Hasta 15 habitaciones</li>
+            <li class="check-item">Recepción y check-in/out</li>
+            <li class="check-item">Estado de habitaciones</li>
+            <li class="check-item">1 usuario</li>
+            <li class="check-item">Soporte en español</li>
+          </ul>
+        </div>
+
+        <!-- Pro (featured) -->
+        <div class="price-card featured reveal" style="transition-delay:.1s">
+          <div class="recommended-badge"><i class="fas fa-star"></i> Más popular</div>
+          <div>
+            <div class="plan-name">Profesional</div>
+            <div class="plan-desc">Para hoteles en crecimiento que necesitan control total de operación y reportes.</div>
+          </div>
+          <div>
+            <div class="price-val" id="price-pro">$149.000 <span style="color:rgba(255,255,255,.55)">/mes</span></div>
+            <p style="font-size:.8rem;color:rgba(255,255,255,.5);margin-top:.25rem" id="desc-pro">Facturado mensualmente</p>
+          </div>
+          <a href="#cta" class="btn" style="width:100%;justify-content:center;background:#fff;color:var(--primary);">Solicitar Demo</a>
+          <ul class="price-features">
+            <li class="check-item">Hasta 60 habitaciones</li>
+            <li class="check-item">Todos los módulos de Básico</li>
+            <li class="check-item">Caja, facturas y arqueos</li>
+            <li class="check-item">Inventario de bodega</li>
+            <li class="check-item">Reportes financieros y RevPAR</li>
+            <li class="check-item">Hasta 10 usuarios con roles</li>
+            <li class="check-item">Auditoría completa</li>
+          </ul>
+        </div>
+
+        <!-- Business -->
+        <div class="price-card reveal" style="transition-delay:.2s">
+          <div>
+            <div class="plan-name">Empresarial</div>
+            <div class="plan-desc">Para cadenas, grupos hoteleros y alojamientos con operaciones avanzadas y múltiples propiedades.</div>
+          </div>
+          <div>
+            <div class="price-val" style="font-size:1.8rem;">A medida</div>
+            <p style="font-size:.8rem;color:var(--muted);margin-top:.25rem">Habla con nuestro equipo</p>
+          </div>
+          <a href="#cta" class="btn btn-primary" style="width:100%;justify-content:center;">Contactar Ventas</a>
+          <ul class="price-features">
+            <li class="check-item">Habitaciones ilimitadas</li>
+            <li class="check-item">Todo lo del plan Profesional</li>
+            <li class="check-item">Multi-propiedad</li>
+            <li class="check-item">Usuarios ilimitados</li>
+            <li class="check-item">Integración API</li>
+            <li class="check-item">Gestor de cuenta dedicado</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────────────────────────────────────────────
+       FAQ
+  ─────────────────────────────────────────────────────────────── -->
+  <section id="faq" aria-labelledby="faq-title">
+    <div class="container" style="text-align:center;">
+      <div class="section-badge reveal"><i class="fas fa-circle-question"></i> Preguntas Frecuentes</div>
+      <h2 id="faq-title" class="section-title reveal">Todo lo que necesitas saber sobre Wayra</h2>
+      <p class="section-sub reveal" style="margin-top:1rem;">Respuestas directas para que tomes la decisión con confianza.</p>
+
+      <div class="faq-list">
+        <div class="faq-item reveal">
+          <div class="faq-question" role="button" tabindex="0" onclick="toggleFaq(this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleFaq(this)">
+            ¿Wayra sirve para un hostal pequeño o solo para hoteles grandes?
+            <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+          <div class="faq-answer"><div class="faq-answer-inner">Wayra está pensado exactamente para hoteles pequeños y medianos, hostales, apartahoteles y alojamientos turísticos. Se adapta al tamaño real de tu operación, desde 5 habitaciones hasta cientos, sin exigir una escala mínima.</div></div>
+        </div>
+        <div class="faq-item reveal">
+          <div class="faq-question" role="button" tabindex="0" onclick="toggleFaq(this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleFaq(this)">
+            ¿Necesito instalar algo o comprar hardware especial?
+            <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+          <div class="faq-answer"><div class="faq-answer-inner">No. Wayra funciona completamente desde el navegador. Puedes usarlo desde una computadora de escritorio, laptop, tablet o teléfono con conexión a internet. Sin instalaciones, sin hardware especial.</div></div>
+        </div>
+        <div class="faq-item reveal">
+          <div class="faq-question" role="button" tabindex="0" onclick="toggleFaq(this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleFaq(this)">
+            ¿Cómo funciona la demo y qué pasa después?
+            <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+          <div class="faq-answer"><div class="faq-answer-inner">Solicitas la demo con tu información y la estructura de tu hotel (tipos de habitación, pisos, tarifas). Agendamos una reunión de 30 minutos donde recorremos tu flujo real. Si aprobamos la configuración, tu cuenta se activa con la estructura exacta de tu hotel, sin cobros ni publicación de datos hasta que tú lo decidas.</div></div>
+        </div>
+        <div class="faq-item reveal">
+          <div class="faq-question" role="button" tabindex="0" onclick="toggleFaq(this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleFaq(this)">
+            ¿Pueden mis recepcionistas y el área de limpieza usar la misma plataforma?
+            <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+          <div class="faq-answer"><div class="faq-answer-inner">Sí. Wayra tiene un sistema de roles y permisos que permite dar acceso específico a cada área. Recepción ve reservas y caja; housekeeping ve estados de habitaciones y tareas; gerencia tiene visibilidad completa. Cada perfil solo ve lo que necesita.</div></div>
+        </div>
+        <div class="faq-item reveal">
+          <div class="faq-question" role="button" tabindex="0" onclick="toggleFaq(this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleFaq(this)">
+            ¿Qué reportes puedo generar con Wayra?
+            <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+          <div class="faq-answer"><div class="faq-answer-inner">Wayra consolida automáticamente: ocupación, ingresos diarios y por período, egresos, RevPAR (ingreso por habitación disponible), actividad operativa, movimientos de inventario y auditoría de cambios. Todo nace de los datos que ya capturas en el sistema, sin trabajo extra.</div></div>
+        </div>
+        <div class="faq-item reveal">
+          <div class="faq-question" role="button" tabindex="0" onclick="toggleFaq(this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleFaq(this)">
+            ¿Qué pasa si tengo un problema técnico?
+            <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+          <div class="faq-answer"><div class="faq-answer-inner">El soporte de Wayra es en español y está pensado para que no pares tu operación. El equipo está disponible para acompañarte en la configuración inicial y resolver incidentes que puedan surgir durante el uso diario.</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────────────────────────────────────────────
+       FINAL CTA
+  ─────────────────────────────────────────────────────────────── -->
+  <section id="cta" aria-labelledby="cta-title">
+    <div class="cta-inner">
+      <h2 id="cta-title">Organiza tu hotel desde hoy,<br>sin complicaciones</h2>
+      <p>Agenda 30 minutos. Recorremos tu flujo real, con tus habitaciones y tus tarifas.</p>
+      <div class="cta-btns">
+        <a href="mailto:demo@wayra-travel.com" class="btn btn-hero-primary">
+          Solicitar Demo Gratis
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+        <a href="#solution" class="btn btn-hero-secondary">Ver Funciones</a>
+      </div>
+      <p style="margin-top:1.5rem;font-size:.8rem;color:rgba(255,255,255,.45);">Sin instalaciones · Sin tarjeta de crédito · Soporte en español</p>
+    </div>
+  </section>
+
+  <!-- ────────────────────────────────────────────────────────────
+       FOOTER
+  ─────────────────────────────────────────────────────────────── -->
+  <footer role="contentinfo">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="#" class="footer-logo" aria-label="Wayra inicio">
+            <div class="footer-logo-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/></svg>
+            </div>
+            <span class="footer-logo-text">Wayra<span>PMS</span></span>
+          </a>
+          <p class="footer-desc">Gestión hotelera en una sola plataforma. Ordena recepción, habitaciones, cobros y reportes sin depender de hojas sueltas.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Plataforma</h4>
+          <ul>
+            <li><a href="#solution">Funciones</a></li>
+            <li><a href="#modules">Módulos</a></li>
+            <li><a href="#pricing">Precios</a></li>
+            <li><a href="#process">Cómo empezar</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Empresa</h4>
+          <ul>
+            <li><a href="#">Acerca de Wayra</a></li>
+            <li><a href="#">Blog</a></li>
+            <li><a href="#">Contacto</a></li>
+            <li><a href="#cta">Solicitar Demo</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <ul>
+            <li><a href="#">Política de Privacidad</a></li>
+            <li><a href="#">Términos de Servicio</a></li>
+            <li><a href="#">Tratamiento de Datos</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 WayraPMS. Todos los derechos reservados.</span>
+        <span>Hecho con <i class="fas fa-heart"></i> para la hotelería independiente</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ────────────────────────────────────────────────────────────
+       JAVASCRIPT
+  ─────────────────────────────────────────────────────────────── -->
+  <script>
+    // ── Mobile menu ──────────────────────────────────────────
+    const hamburger = document.getElementById('hamburger-btn');
+    const mobileMenu = document.getElementById('mobile-menu');
+    const closeBtn = document.getElementById('close-menu-btn');
+    hamburger.addEventListener('click', () => mobileMenu.classList.add('open'));
+    closeBtn.addEventListener('click', closeMenu);
+    function closeMenu() { mobileMenu.classList.remove('open'); }
+
+    // ── Feature Tabs ─────────────────────────────────────────
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = btn.dataset.tab;
+        tabBtns.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+        tabPanels.forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected','true');
+        document.querySelector(`.tab-panel[data-panel="${idx}"]`).classList.add('active');
+      });
+    });
+
+    // ── FAQ accordion ────────────────────────────────────────
+    function toggleFaq(trigger) {
+      const item = trigger.closest('.faq-item');
+      const answer = item.querySelector('.faq-answer');
+      const isOpen = item.classList.contains('open');
+      // close all
+      document.querySelectorAll('.faq-item').forEach(i => {
+        i.classList.remove('open');
+        i.querySelector('.faq-answer').style.maxHeight = '0';
+      });
+      if (!isOpen) {
+        item.classList.add('open');
+        answer.style.maxHeight = answer.scrollHeight + 40 + 'px';
+      }
+    }
+
+    // ── Pricing toggle ────────────────────────────────────────
+    let billingYearly = false;
+    function toggleBilling() {
+      billingYearly = !billingYearly;
+      const toggle = document.getElementById('billing-toggle');
+      toggle.classList.toggle('on', billingYearly);
+      toggle.setAttribute('aria-checked', billingYearly.toString());
+      const priceBasic = document.getElementById('price-basic');
+      const descBasic = document.getElementById('desc-basic');
+      const pricePro = document.getElementById('price-pro');
+      const descPro = document.getElementById('desc-pro');
+      if (billingYearly) {
+        priceBasic.innerHTML = '$0 <span>/mes</span>';
+        descBasic.textContent = 'Gratis durante la demo';
+        pricePro.innerHTML = '$104.300 <span>/mes</span>';
+        descPro.textContent = 'Facturado anualmente · Ahorras $535.240';
+      } else {
+        priceBasic.innerHTML = '$0 <span>/mes</span>';
+        descBasic.textContent = 'Gratis durante la demo';
+        pricePro.innerHTML = '$149.000 <span>/mes</span>';
+        descPro.textContent = 'Facturado mensualmente';
+      }
+    }
+
+    // ── Scroll reveal ─────────────────────────────────────────
+    const revealEls = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    revealEls.forEach(el => observer.observe(el));
+
+    // ── Navbar scroll shadow ──────────────────────────────────
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      navbar.style.filter = window.scrollY > 50 ? 'drop-shadow(0 4px 12px rgba(15,23,42,.1))' : 'none';
+    }, { passive: true });
+  </script>
+</body>
+</html>

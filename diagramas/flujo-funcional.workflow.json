@@ -1,0 +1,309 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Wayra — Flujo funcional de punta a punta",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "alta",
+        "label": "Alta del hotel",
+        "focus": [
+          "demo",
+          "convertir",
+          "setup"
+        ],
+        "note": "Una demo aprobada se convierte en hotel con usuario admin; la operación queda bloqueada hasta completar la configuración."
+      },
+      {
+        "id": "llegada",
+        "label": "Reserva y llegada",
+        "focus": [
+          "reserva",
+          "confirmar",
+          "online",
+          "checkin",
+          "bloqueo"
+        ],
+        "note": "La reserva web nace PENDIENTE; el check-in exige confirmación, habitación disponible y hora habilitada."
+      },
+      {
+        "id": "salida",
+        "label": "Estancia y salida",
+        "focus": [
+          "checkin",
+          "checkout",
+          "saldo",
+          "finalizada"
+        ],
+        "note": "El check-out revisa inventario, cobra faltantes y solo cierra con saldo en cero."
+      }
+    ],
+    "legend": {
+      "entries": {
+        "frontend": {
+          "label": "Portal público"
+        },
+        "backend": {
+          "label": "Acción del back-office"
+        },
+        "security": {
+          "label": "Control o bloqueo"
+        },
+        "database": {
+          "label": "Cierre automático"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "publico",
+      "label": "Portal público"
+    },
+    {
+      "id": "backoffice",
+      "label": "Plataforma y hotel"
+    },
+    {
+      "id": "excepciones",
+      "label": "Bloqueos",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "fase-alta",
+      "label": "Alta del hotel",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "fase-llegada",
+      "label": "Reserva y llegada",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "fase-salida",
+      "label": "Estancia y salida",
+      "fromCol": 4,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "demo",
+    "convertir",
+    "setup",
+    "reserva",
+    "confirmar",
+    "checkin",
+    "checkout",
+    "finalizada"
+  ],
+  "nodes": [
+    {
+      "id": "demo",
+      "lane": "publico",
+      "col": 0,
+      "type": "frontend",
+      "label": "Solicita demo",
+      "sublabel": "verifica su correo",
+      "width": 128
+    },
+    {
+      "id": "convertir",
+      "lane": "backoffice",
+      "col": 0,
+      "type": "backend",
+      "label": "Convierte la demo",
+      "sublabel": "admin de plataforma",
+      "width": 128
+    },
+    {
+      "id": "setup",
+      "lane": "backoffice",
+      "col": 1,
+      "type": "security",
+      "label": "Completa el setup",
+      "sublabel": "ubicación y pisos",
+      "width": 120
+    },
+    {
+      "id": "reserva",
+      "lane": "publico",
+      "col": 2,
+      "type": "frontend",
+      "label": "Reserva en la web",
+      "sublabel": "queda PENDIENTE",
+      "width": 128
+    },
+    {
+      "id": "confirmar",
+      "lane": "backoffice",
+      "col": 2,
+      "type": "backend",
+      "label": "Confirma",
+      "sublabel": "correo al huésped",
+      "width": 96
+    },
+    {
+      "id": "online",
+      "lane": "publico",
+      "col": 3,
+      "type": "frontend",
+      "label": "Check-in online",
+      "sublabel": "huéspedes + firma",
+      "width": 128
+    },
+    {
+      "id": "checkin",
+      "lane": "backoffice",
+      "col": 3,
+      "type": "backend",
+      "label": "Check-in",
+      "sublabel": "EN_CURSO",
+      "width": 128
+    },
+    {
+      "id": "checkout",
+      "lane": "backoffice",
+      "col": 4,
+      "type": "security",
+      "label": "Check-out",
+      "sublabel": "inventario y saldo",
+      "width": 128
+    },
+    {
+      "id": "finalizada",
+      "lane": "backoffice",
+      "col": 5,
+      "type": "database",
+      "label": "Finalizada",
+      "sublabel": "limpieza · stock · factura",
+      "width": 128
+    },
+    {
+      "id": "bloqueo",
+      "lane": "excepciones",
+      "col": 3,
+      "type": "security",
+      "label": "Check-in rechazado",
+      "sublabel": "habitación o hora",
+      "width": 128
+    },
+    {
+      "id": "saldo",
+      "lane": "excepciones",
+      "col": 4,
+      "type": "security",
+      "label": "Saldo pendiente",
+      "sublabel": "cargo por faltantes",
+      "width": 128
+    }
+  ],
+  "edges": [
+    {
+      "from": "demo",
+      "to": "convertir",
+      "label": "solicitud"
+    },
+    {
+      "from": "convertir",
+      "to": "setup",
+      "label": "acceso temporal"
+    },
+    {
+      "from": "setup",
+      "to": "reserva",
+      "label": "visible en portal",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "from": "reserva",
+      "to": "confirmar"
+    },
+    {
+      "from": "confirmar",
+      "to": "checkin",
+      "variant": "emphasis"
+    },
+    {
+      "from": "confirmar",
+      "to": "online",
+      "label": "48 h antes",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "from": "online",
+      "to": "checkin",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "from": "checkin",
+      "to": "checkout",
+      "label": "cargos y pagos"
+    },
+    {
+      "from": "checkout",
+      "to": "finalizada",
+      "label": "saldo 0",
+      "variant": "emphasis"
+    },
+    {
+      "from": "checkin",
+      "to": "bloqueo",
+      "label": "no cumple",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "from": "checkout",
+      "to": "saldo",
+      "label": "saldo > 0",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "from": "saldo",
+      "to": "checkout",
+      "label": "pagar",
+      "variant": "dashed",
+      "role": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Camino feliz",
+      "items": [
+        "PENDIENTE → CONFIRMADA → EN_CURSO → FINALIZADA",
+        "Cargos de habitación y paquete se generan solos",
+        "Al cerrar, el sistema crea limpieza, descuenta stock y emite factura"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Reglas que bloquean",
+      "items": [
+        "Sin setup completo el hotel no opera ni aparece en el portal",
+        "Check-in: reserva confirmada, habitación libre y hora habilitada",
+        "Check-out: los faltantes se cobran y el saldo debe quedar en 0"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Otros caminos",
+      "items": [
+        "Recepción también crea reservas (walk-in, teléfono)",
+        "Pendiente o confirmada puede cancelarse",
+        "Correos de reserva solo para el canal WEB"
+      ]
+    }
+  ]
+}

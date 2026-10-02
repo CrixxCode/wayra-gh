@@ -1,0 +1,439 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Wayra — Mapa de módulos",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1390,
+      760
+    ],
+    "repository": {
+      "url": "https://github.com/CrixxCode/wayra-gh",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "85efff9a5b020640311e475d237aece81cc08f63"
+    },
+    "views": [
+      {
+        "id": "operacion",
+        "label": "Operación del hotel",
+        "focus": [
+          "reservas",
+          "habitaciones",
+          "inventario",
+          "facturacion",
+          "catalogo"
+        ],
+        "note": "Reservas es el centro: ocupa habitaciones, genera cargos y consume inventario por habitación."
+      },
+      {
+        "id": "dinero",
+        "label": "Del cobro al reporte",
+        "focus": [
+          "reservas",
+          "facturacion",
+          "finanzas",
+          "reportes"
+        ],
+        "note": "Finanzas consolida lo facturado y Reportes lee de Finanzas."
+      },
+      {
+        "id": "saas",
+        "label": "Canal público y SaaS",
+        "focus": [
+          "portal",
+          "reservas",
+          "saas",
+          "config"
+        ],
+        "note": "El portal público crea reservas web y solicitudes de demo; convertir una demo da de alta un hotel."
+      },
+      {
+        "id": "nucleo",
+        "label": "Núcleo compartido",
+        "focus": [
+          "config",
+          "identidad"
+        ],
+        "note": "Todos los módulos usan RBAC, aislamiento por hotel y los catálogos maestros."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "notificaciones",
+      "type": "messagebus",
+      "label": "Notificaciones",
+      "sublabel": "señales · comandos",
+      "pos": [
+        370,
+        100
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/notifications/signals.py"
+        },
+        {
+          "path": "backend/apps/notifications/services.py"
+        }
+      ]
+    },
+    {
+      "id": "catalogo",
+      "type": "backend",
+      "label": "Catálogo comercial",
+      "sublabel": "servicios · paquetes",
+      "pos": [
+        640,
+        100
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/services/models.py"
+        },
+        {
+          "path": "backend/apps/packages/models.py"
+        },
+        {
+          "path": "backend/apps/promotions/models.py"
+        }
+      ]
+    },
+    {
+      "id": "portal",
+      "type": "frontend",
+      "label": "Portal público",
+      "sublabel": "landing · reservar",
+      "pos": [
+        40,
+        290
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "frontend/src/app/app.routes.ts"
+        }
+      ]
+    },
+    {
+      "id": "reservas",
+      "type": "backend",
+      "label": "Reservas",
+      "sublabel": "clientes · check-in",
+      "pos": [
+        370,
+        290
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/reservations/models.py"
+        },
+        {
+          "path": "backend/apps/reservations/public_booking.py"
+        },
+        {
+          "path": "backend/apps/clients/models.py"
+        }
+      ]
+    },
+    {
+      "id": "facturacion",
+      "type": "backend",
+      "label": "Facturación",
+      "sublabel": "cargos · pagos",
+      "pos": [
+        640,
+        290
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/billing/models.py"
+        },
+        {
+          "path": "backend/apps/billing/services.py"
+        }
+      ]
+    },
+    {
+      "id": "finanzas",
+      "type": "backend",
+      "label": "Finanzas",
+      "sublabel": "egresos · alertas",
+      "pos": [
+        910,
+        290
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/finance/models.py"
+        },
+        {
+          "path": "backend/apps/finance/services.py"
+        }
+      ]
+    },
+    {
+      "id": "reportes",
+      "type": "backend",
+      "label": "Reportes",
+      "sublabel": "operativos · financieros",
+      "pos": [
+        1180,
+        290
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/reports/views.py"
+        }
+      ]
+    },
+    {
+      "id": "saas",
+      "type": "backend",
+      "label": "Panel SaaS",
+      "sublabel": "demos · hoteles",
+      "pos": [
+        40,
+        480
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/demo_requests/views.py"
+        }
+      ]
+    },
+    {
+      "id": "habitaciones",
+      "type": "backend",
+      "label": "Habitaciones",
+      "sublabel": "limpieza · mantenimiento",
+      "pos": [
+        370,
+        480
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/rooms/models.py"
+        }
+      ]
+    },
+    {
+      "id": "inventario",
+      "type": "backend",
+      "label": "Inventario",
+      "sublabel": "ítems · movimientos",
+      "pos": [
+        640,
+        480
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/inventory/models.py"
+        }
+      ]
+    },
+    {
+      "id": "config",
+      "type": "backend",
+      "label": "Configuración y catálogos",
+      "sublabel": "hotel_settings · master_data",
+      "pos": [
+        40,
+        660
+      ],
+      "size": [
+        770,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/apps/hotel_settings/models.py"
+        },
+        {
+          "path": "backend/apps/master_data/models.py"
+        }
+      ]
+    },
+    {
+      "id": "identidad",
+      "type": "security",
+      "label": "Identidad y acceso",
+      "sublabel": "usuarios · RBAC · tenancy · auditoría",
+      "pos": [
+        910,
+        660
+      ],
+      "size": [
+        440,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/accounts/permissions.py"
+        },
+        {
+          "path": "backend/accounts/tenancy.py"
+        },
+        {
+          "path": "backend/accounts/audit.py"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Núcleo compartido · lo usan todos los módulos",
+      "wraps": [
+        "config",
+        "identidad"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "portal-reservas",
+      "from": "portal",
+      "to": "reservas",
+      "label": "reserva web · check-in",
+      "variant": "emphasis"
+    },
+    {
+      "id": "portal-saas",
+      "from": "portal",
+      "to": "saas",
+      "label": "solicitud de demo",
+      "labelAt": [
+        125,
+        417
+      ]
+    },
+    {
+      "id": "saas-config",
+      "from": "saas",
+      "to": "config",
+      "label": "alta de hotel",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "reservas-facturacion",
+      "from": "reservas",
+      "to": "facturacion",
+      "label": "cargos"
+    },
+    {
+      "id": "reservas-habitaciones",
+      "from": "reservas",
+      "to": "habitaciones",
+      "label": "ocupación",
+      "labelAt": [
+        455,
+        417
+      ]
+    },
+    {
+      "id": "habitaciones-inventario",
+      "from": "habitaciones",
+      "to": "inventario",
+      "label": "por habitación"
+    },
+    {
+      "id": "facturacion-catalogo",
+      "from": "facturacion",
+      "to": "catalogo",
+      "label": "servicios · paquetes"
+    },
+    {
+      "id": "finanzas-facturacion",
+      "from": "finanzas",
+      "to": "facturacion",
+      "label": "ingresos"
+    },
+    {
+      "id": "reportes-finanzas",
+      "from": "reportes",
+      "to": "finanzas",
+      "label": "consolidados"
+    },
+    {
+      "id": "notificaciones-reservas",
+      "from": "notificaciones",
+      "to": "reservas",
+      "label": "post_save",
+      "variant": "dashed",
+      "labelAt": [
+        455,
+        227
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cómo leerlo",
+      "items": [
+        "A → B: el módulo A usa o depende de B",
+        "Cada bloque agrupa apps Django y su pantalla Angular",
+        "Reservas ↔ Facturación se importan en ambos sentidos"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Notificaciones",
+      "items": [
+        "También escucha facturación, habitaciones, inventario y finanzas",
+        "Comandos manage.py avisan check-ins, check-outs y resumen diario"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Núcleo compartido",
+      "items": [
+        "RBAC por Resource.key y aislamiento por hotel_settings",
+        "MasterData provee estados y tipos a todos los módulos",
+        "Convertir una demo crea hotel, pisos, habitaciones y usuario"
+      ]
+    }
+  ]
+}
