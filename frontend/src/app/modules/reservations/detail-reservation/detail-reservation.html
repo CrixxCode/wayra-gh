@@ -188,6 +188,10 @@
               <span>Descuento</span>
               <strong>-{{ formatCurrency(discountAmount) }}</strong>
             </div>
+            <div class="billing-row" *ngIf="promotionDiscountTotal > 0">
+              <span>Promociones</span>
+              <strong>-{{ formatCurrency(promotionDiscountTotal) }}</strong>
+            </div>
             <div class="billing-row total">
               <span>Total</span>
               <strong>{{ formatCurrency(totalAmount) }}</strong>
@@ -200,6 +204,55 @@
               {{ paymentLabel }}
             </strong>
           </div>
+        </section>
+
+        <section *ngIf="showPromotions">
+          <div class="section-headline">
+            <h3>Promociones</h3>
+          </div>
+
+          <ul class="promo-list" *ngIf="appliedPromotions.length">
+            <li *ngFor="let applied of appliedPromotions">
+              <span class="promo-name">
+                {{ applied.promotion_name }}
+                <small>
+                  {{ promotionScopeLabel(applied) }} ·
+                  {{ applied.is_automatic ? 'automatica' : 'aplicada por recepcion' }}
+                </small>
+              </span>
+              <strong>-{{ promotionAmountLabel(applied) }}</strong>
+              <button
+                type="button"
+                class="btn-link btn-link-subtle"
+                *ngIf="!applied.is_automatic && canEditPromotions"
+                (click)="removePromotion(applied)"
+                [disabled]="promotionBusy"
+                [attr.aria-label]="'Quitar promocion ' + applied.promotion_name">
+                Quitar
+              </button>
+            </li>
+          </ul>
+
+          <div class="promo-apply" *ngIf="canEditPromotions && availablePromotions.length">
+            <select
+              [(ngModel)]="selectedPromotionId"
+              [disabled]="promotionBusy"
+              aria-label="Promocion general a aplicar">
+              <option [ngValue]="null">Aplicar promocion general...</option>
+              <option *ngFor="let option of availablePromotions" [ngValue]="option.id">
+                {{ promotionOptionLabel(option) }}
+              </option>
+            </select>
+            <button
+              type="button"
+              class="btn btn-primary"
+              (click)="applyPromotion()"
+              [disabled]="!selectedPromotionId || promotionBusy">
+              {{ promotionBusy ? 'Aplicando...' : 'Aplicar' }}
+            </button>
+          </div>
+
+          <p class="state-msg error" *ngIf="promotionError">{{ promotionError }}</p>
         </section>
 
         <section>
@@ -341,7 +394,7 @@
         type="button"
         class="btn btn-primary"
         (click)="submitCheckOutWithInventoryReview()"
-        [disabled]="actionLoading || checkoutInventoryLoading">
+        [disabled]="actionLoading || checkoutInventoryLoading || checkoutInventoryLoadFailed">
         {{ actionLoading ? 'Procesando...' : 'Confirmar check-out' }}
       </button>
     </footer>

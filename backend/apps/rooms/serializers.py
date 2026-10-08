@@ -402,10 +402,46 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
 
         return fields
 
+    def _validate_manual_status_change(self, new_status) -> None:
+        """
+        El estado de una habitacion lo mueven las reservas y la limpieza. A mano solo se puede
+        cambiar cuando no contradice a una reserva: con un huesped alojado no se toca (un
+        "Disponible" habilitaba un segundo check-in), y "Fuera de servicio" no se pone sobre
+        reservas vivas, que seguirian apuntando a una habitacion que sale del tablero.
+        """
+        if not self.instance or new_status is None:
+            return
+        if new_status.pk == getattr(self.instance, "status_id", None):
+            return
+
+        from apps.reservations.services import find_in_house_reservation_room
+        from .archive import active_reservation_codes
+
+        in_house = find_in_house_reservation_room(self.instance.pk)
+        if in_house:
+            raise serializers.ValidationError({
+                "status": (
+                    f"La habitacion {self.instance.number} tiene un huesped alojado "
+                    f"(reserva {in_house.reservation.code}). Su estado cambia con el check-out."
+                )
+            })
+
+        if str(getattr(new_status, "code", "") or "").upper() == "FUERA_DE_SERVICIO":
+            codes = active_reservation_codes(self.instance)
+            if codes:
+                raise serializers.ValidationError({
+                    "status": (
+                        f"No se puede poner fuera de servicio la habitacion {self.instance.number}: "
+                        f"tiene reservas activas ({', '.join(codes)}). Cancelalas o muevelas "
+                        "a otra habitacion primero."
+                    )
+                })
+
     def validate(self, attrs):
         floor = attrs.get("floor", getattr(self.instance, "floor", None))
         room_type = attrs.get("room_type", getattr(self.instance, "room_type", None))
         rate = attrs.get("rate", getattr(self.instance, "rate", None))
+        self._validate_manual_status_change(attrs.get("status"))
 
         if floor is None:
             raise serializers.ValidationError({

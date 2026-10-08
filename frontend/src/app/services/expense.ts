@@ -93,7 +93,12 @@ export class ExpenseService {
   }
 
   getExpenseById(id: number): Observable<ExpenseI> {
-    return this.http.get<ExpenseI>(`${this.expensesUrl}${id}/`, { withCredentials: true });
+    return this.http.get<ExpenseI>(`${this.expensesUrl}${id}/`, {
+      // Un detalle se abre tambien sobre registros inactivos (p. ej. anulados); los
+      // eliminados logicamente siguen excluidos por el backend.
+      params: new HttpParams().set('include_inactive', 'true'),
+      withCredentials: true
+    });
   }
 
   createExpense(payload: ExpenseCreatePayloadI): Observable<ExpenseI> {

@@ -205,16 +205,19 @@ def _get_or_create_web_client(*, hotel: HotelSettings, data: dict[str, Any]) -> 
         ).first()
 
     if client:
+        # El formulario es anonimo: coincidir en correo o documento no prueba ser esa
+        # persona. Antes se sobrescribian nombre, correo y telefono del perfil, asi que
+        # cualquiera que supiera el documento de un huesped podia renombrarlo o redirigir su
+        # correo de contacto a uno propio. Ahora solo se completan datos que el perfil no
+        # tenia; lo enviado queda en el huesped de la reserva y en `source_metadata` para
+        # que recepcion lo vea al confirmar.
         fields_to_update = []
-        updates = {
-            "first_name": guest_name.first_name,
-            "last_name": guest_name.last_name,
-            "email": email,
+        fill_if_blank = {
             "phone": data.get("guest_phone") or "",
             "country": data.get("guest_country") or "",
         }
-        for field, value in updates.items():
-            if value and getattr(client, field) != value:
+        for field, value in fill_if_blank.items():
+            if value and not getattr(client, field):
                 setattr(client, field, value)
                 fields_to_update.append(field)
         if fields_to_update:
@@ -368,6 +371,15 @@ def _build_source_metadata(*, data: dict[str, Any], request=None) -> dict[str, A
     metadata.setdefault("room_rate_id", data.get("room_rate_id"))
     metadata.setdefault("rooms_requested", data.get("rooms"))
     metadata.setdefault("guests_requested", data.get("guests"))
+    # El contacto tal como lo escribio el visitante. Si la reserva cayo sobre un cliente ya
+    # registrado, su perfil no se toca (ver `_get_or_create_web_client`) y esto es lo unico
+    # que conserva el correo y telefono que dejo quien reservo. Se asigna (no `setdefault`)
+    # porque `source_metadata` llega del cliente y no debe poder suplantarlo.
+    metadata["submitted_contact"] = {
+        "name": str(data.get("guest_name") or "").strip(),
+        "email": str(data.get("guest_email") or "").strip().lower(),
+        "phone": str(data.get("guest_phone") or "").strip(),
+    }
 
     if request is not None:
         metadata.setdefault("ip_address", _get_request_ip(request))

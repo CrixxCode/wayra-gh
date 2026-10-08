@@ -443,6 +443,169 @@ class BillingAutomationTestCase(TestCase):
         self.assertEqual(charge.total_amount, Decimal("30000.00"))
 
 
+    # --- Auditoria, Nivel 2: saldo con notas de credito y facturas anuladas -------------
+
+    @property
+    def invoice(self):
+        return self._get_reservation_invoice()
+
+    def _credit_note(self, amount: str, number: str = "NC-TEST-001", **extra):
+        return CreditNote.objects.create(
+            invoice=self.invoice,
+            status=self._md(MasterData.Group.CREDIT_NOTE_STATUS, "EMITIDA", "Emitida", 1),
+            credit_note_number=number,
+            amount=Decimal(amount),
+            reason="Ajuste comercial",
+            **{"is_active": True, **extra},
+        )
+
+    def _payment_serializer(self, amount: str):
+        from apps.billing.serializers import PaymentSerializer
+
+        return PaymentSerializer(
+            data={
+                "invoice": self.invoice.id,
+                "payment_method": self.payment_method.id,
+                "amount": amount,
+            }
+        )
+
+    def test_credit_note_reduces_invoice_and_reservation_pending_balance(self):
+        # Bloque 8 #4: antes solo la restaban los reportes; el saldo y el check-out no.
+        from apps.billing.services import get_invoice_reconciliation, sync_invoice_status
+
+        invoice = self.invoice
+        self._create_payment(invoice, "15000.00")
+        self._credit_note("10000.00")
+        invoice.refresh_from_db()
+
+        reconciliation = get_invoice_reconciliation(invoice)
+        self.assertEqual(reconciliation["total_credited"], Decimal("10000.00"))
+        self.assertEqual(reconciliation["pending_balance"], Decimal("0.00"))
+
+        self.reservation.refresh_from_db()
+        financials = get_reservation_financials(self.reservation)
+        self.assertEqual(financials["total_credit_notes"], Decimal("10000.00"))
+        self.assertEqual(financials["pending_amount"], Decimal("0.00"))
+        # Lo facturado no cambia: los reportes restan la nota por su cuenta.
+        self.assertEqual(financials["total_amount"], Decimal("25000.00"))
+
+        sync_invoice_status(invoice)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status.code, "PAGADA")
+
+    def test_inactive_credit_note_does_not_reduce_balance(self):
+        from apps.billing.services import get_invoice_reconciliation
+
+        self._credit_note("10000.00", is_active=False)
+
+        self.assertEqual(
+            get_invoice_reconciliation(self.invoice)["pending_balance"], Decimal("25000.00")
+        )
+
+    def test_payment_cap_accounts_for_credit_notes(self):
+        self._credit_note("20000.00")
+
+        too_much = self._payment_serializer("6000.00")
+        self.assertFalse(too_much.is_valid())
+        self.assertIn("amount", too_much.errors)
+
+        exact = self._payment_serializer("5000.00")
+        self.assertTrue(exact.is_valid(), exact.errors)
+
+    def test_payment_on_voided_invoice_is_rejected(self):
+        # Bloque 8 #3: el pago se cobraba pero la factura ANULADA nunca lo reflejaba.
+        invoice = self.invoice
+        invoice.status = self._md(MasterData.Group.INVOICE_STATUS, "ANULADA", "Anulada", 9)
+        invoice.save(update_fields=["status"])
+
+        serializer = self._payment_serializer("1000.00")
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("anulada", str(serializer.errors["invoice"]).lower())
+
+    def test_ensure_default_invoice_never_creates_a_second_active_invoice(self):
+        # Bloque 8 #2a: la comprobacion y la creacion corren con la reserva bloqueada.
+        from apps.billing.services import ensure_default_invoice_for_reservation
+
+        first = ensure_default_invoice_for_reservation(self.reservation.id)
+        second = ensure_default_invoice_for_reservation(self.reservation.id)
+
+        self.assertEqual(first.id, second.id)
+        self.assertEqual(
+            Invoice.objects.filter(reservation=self.reservation, is_active=True).count(), 1
+        )
+
+    # --- Hallazgo transversal: con el orden de mixins corregido, eliminado = no visible ---
+
+    def _admin_api_with_deleted_service(self):
+        from django.contrib.contenttypes.models import ContentType
+        from accounts.models import SoftDeleteMarker
+
+        self.api = APIClient()
+        admin = User.objects.create_superuser(
+            username="platform_mixins", email="platform_mixins@example.com", password="pass12345"
+        )
+        self.api.force_login(admin)
+        self.deleted_service = Service.objects.create(
+            hotel_settings=self.hotel_settings,
+            service_type=self.service_type,
+            name="Servicio eliminado",
+            base_price=Decimal("1000.00"),
+            is_active=True,
+        )
+        SoftDeleteMarker.objects.create(
+            content_type=ContentType.objects.get_for_model(Service),
+            object_id=str(self.deleted_service.pk),
+        )
+
+    def _ids(self, response):
+        data = response.data
+        rows = data.get("results", data) if isinstance(data, dict) else data
+        return {row["id"] for row in rows}
+
+    def test_deleted_service_is_hidden_from_list_and_detail(self):
+        self._admin_api_with_deleted_service()
+        listed = self.api.get("/api/services/", {"hotel_settings": self.hotel_settings.id})
+        self.assertEqual(listed.status_code, 200)
+        self.assertNotIn(self.deleted_service.id, self._ids(listed))
+        self.assertIn(self.service.id, self._ids(listed))
+
+        detail = self.api.get(f"/api/services/{self.deleted_service.id}/")
+        self.assertEqual(detail.status_code, 404)
+
+        restored = self.api.post(f"/api/services/{self.deleted_service.id}/restore/")
+        self.assertEqual(restored.status_code, 200)
+
+    def test_promotion_target_catalog_excludes_deleted_services(self):
+        self._admin_api_with_deleted_service()
+        response = self.api.get(
+            "/api/promotions/target-catalog/", {"hotel_settings": self.hotel_settings.id}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        service_ids = {row["id"] for row in response.data["services"]}
+        self.assertNotIn(self.deleted_service.id, service_ids)
+        self.assertIn(self.service.id, service_ids)
+
+    def test_inactive_payment_is_hidden_unless_requested(self):
+        self._admin_api_with_deleted_service()
+        invoice = self._get_reservation_invoice()
+        voided = self._create_payment(invoice, "1000.00")
+        voided.is_active = False
+        voided.save(update_fields=["is_active"])
+
+        default = self.api.get("/api/payments/", {"invoice": invoice.id})
+        with_inactive = self.api.get(
+            "/api/payments/", {"invoice": invoice.id, "include_inactive": "true"}
+        )
+        detail = self.api.get(f"/api/payments/{voided.id}/", {"include_inactive": "true"})
+
+        self.assertNotIn(voided.id, self._ids(default))
+        self.assertIn(voided.id, self._ids(with_inactive))
+        self.assertEqual(detail.status_code, 200)
+
+
 class BillingTenantIsolationTests(TestCase):
     def _md(self, group, code, name=None, sort_order=1):
         return MasterData.objects.update_or_create(

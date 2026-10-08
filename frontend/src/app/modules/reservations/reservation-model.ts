@@ -76,6 +76,8 @@ export interface ReservationI {
   package_subtotal?: string | number;
   total_deposits?: string | number;
   total_amount?: string | number;
+  /** Descuentos de promociones ya restados de `total_amount`. */
+  promotion_discount_total?: string | number;
   pending_amount?: string | number;
   payment_status_code?: string;
   payment_status_label?: string;
@@ -190,6 +192,42 @@ export interface ReservationCheckoutInventoryReviewLinePayloadI {
   item: number;
   quantity: number;
   notes?: string | null;
+}
+
+/** Descuento de una promocion sobre la reserva (`reservations/{id}/promotions/`). */
+export interface ReservationPromotionAppliedI {
+  promotion: number;
+  promotion_name: string;
+  /** SERVICE y PACKAGE se aplican solas; STAY (general) la elige recepcion. */
+  scope: 'SERVICE' | 'PACKAGE' | 'STAY';
+  is_automatic: boolean;
+  amount: string | number;
+  charge: number | null;
+  charge_description: string | null;
+  applied_by_username: string | null;
+}
+
+/** Promocion general vigente que recepcion puede aplicar. */
+export interface ReservationPromotionOptionI {
+  id: number;
+  name: string;
+  discount_value: string | number;
+  is_percentage: boolean;
+  end_date: string;
+}
+
+export interface ReservationPromotionsI {
+  applied: ReservationPromotionAppliedI[];
+  available: ReservationPromotionOptionI[];
+}
+
+/** Linea a contar al salir, tal como la exige el check-out (`checkout-inventory/`). */
+export interface ReservationCheckoutExpectedLineI {
+  room_id: number;
+  room_number: string;
+  item_id: number;
+  item_name: string;
+  expected_quantity: number;
 }
 
 export interface ReservationCheckOutPayloadI {

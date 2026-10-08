@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import MasterData
+from .models import MasterData, RETIRED_GROUPS
 
 
 class MasterDataSerializer(serializers.ModelSerializer):
@@ -46,6 +46,12 @@ class MasterDataSerializer(serializers.ModelSerializer):
 
         group = attrs.get("group", getattr(self.instance, "group", None))
         code = attrs.get("code", getattr(self.instance, "code", None))
+
+        # Editar o desactivar un valor viejo de un grupo retirado se permite; crear uno nuevo
+        # o moverlo ahi, no.
+        moving_into_group = self.instance is None or group != self.instance.group
+        if group in RETIRED_GROUPS and moving_into_group:
+            raise serializers.ValidationError({"group": RETIRED_GROUPS[group]})
 
         if group and code:
             queryset = MasterData.objects.filter(group=group, code=code)

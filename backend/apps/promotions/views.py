@@ -9,11 +9,11 @@ from apps.services.models import Service
 from apps.packages.models import Package
 from accounts.pagination import OptionalPageNumberPagination
 from accounts.permissions import HasResourcePermission
-from accounts.soft_delete import LogicalDeleteViewSetMixin
+from accounts.soft_delete import LogicalDeleteViewSetMixin, exclude_soft_deleted
 from accounts.tenancy import TenantScopeMixin
 
 
-class PromotionViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+class PromotionViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
     queryset = (
         Promotion.objects.select_related(
             "hotel_settings",
@@ -88,8 +88,9 @@ class PromotionViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.Mod
             services_qs = Service.objects.filter(hotel_settings_id=tenant_id)
             packages_qs = Package.objects.filter(hotel_settings_id=tenant_id)
 
-        services_qs = services_qs.filter(is_active=True).order_by("name", "id")[:500]
-        packages_qs = packages_qs.filter(is_active=True).order_by("name", "id")[:500]
+        # Mismo criterio que los listados: ni inactivos ni eliminados logicamente.
+        services_qs = exclude_soft_deleted(services_qs.filter(is_active=True)).order_by("name", "id")[:500]
+        packages_qs = exclude_soft_deleted(packages_qs.filter(is_active=True)).order_by("name", "id")[:500]
 
         services_payload = [
             {

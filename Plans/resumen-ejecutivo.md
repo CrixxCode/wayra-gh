@@ -16,6 +16,10 @@ seguridad y datos** que los tests actuales no cubren.
 
 ## Nivel 1 — Seguridad y datos sensibles (corregir antes que nada)
 
+> **Estado 2026-10-07:** ✅ los 7 ítems corregidos con tests de abuso — ver la entrada
+> "Auditoría, Nivel 1" en la sección 12 de `AGENTS.md`. El #4 resultó más amplio: el hueco de
+> `restore` afectaba también a usuarios, reservas y sus sub-recursos, no solo a `hotel_settings`.
+
 Estos pueden causar daño real a usuarios reales u otros hoteles, no solo errores visibles.
 
 1. **Reset de contraseña con `base_url` no validado → vector de phishing.** Cualquiera puede
@@ -38,6 +42,11 @@ Estos pueden causar daño real a usuarios reales u otros hoteles, no solo errore
    sin salida posible** — no puede ni cambiar su contraseña ni hacer nada. (Bloque 15)
 
 ## Nivel 2 — Dinero (integridad de facturación/cobros)
+
+> **Estado 2026-10-07:** ✅ #8, #9, #10, #11, #12 y #13 corregidos con tests — ver la entrada
+> "Auditoría, Nivel 2" en la sección 12 de `AGENTS.md`. El #13 resultó en 12 ViewSets
+> (`PaymentRefundViewSet` también estaba afectado). ✅ #14 (promociones) implementado con las reglas
+> acordadas — ver la decisión 5.27 de `AGENTS.md`.
 
 Estos permiten que la plataforma cobre mal, no cobre, o pierda dinero sin que nadie se entere.
 
@@ -65,6 +74,10 @@ Estos permiten que la plataforma cobre mal, no cobre, o pierda dinero sin que na
     publicar y marcar "vigentes", pero nunca descuentan nada en una factura real. (Bloque 7)
 
 ## Nivel 3 — Bloqueos operativos (el producto no se puede usar bien)
+
+> **Estado 2026-10-07:** ✅ los 9 ítems corregidos con tests — ver la entrada "Auditoría,
+> Nivel 3" en la sección 12 de `AGENTS.md`. #21 (sin cron, al consultar) y #23 (tipo de cliente
+> fijable a mano) según decisión del usuario.
 
 Estos no son de seguridad ni de dinero directamente, pero impiden operar el día a día.
 

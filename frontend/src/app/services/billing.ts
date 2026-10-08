@@ -123,11 +123,17 @@ export class BillingService {
   }
 
   getInvoiceById(id: number): Observable<InvoiceI> {
-    return this.http.get<InvoiceI>(`${this.invoicesUrl}${id}/`, { withCredentials: true });
+    return this.http.get<InvoiceI>(`${this.invoicesUrl}${id}/`, {
+      // Un detalle se abre tambien sobre registros inactivos (p. ej. anulados); los
+      // eliminados logicamente siguen excluidos por el backend.
+      params: new HttpParams().set('include_inactive', 'true'),
+      withCredentials: true
+    });
   }
 
   downloadInvoicePdf(id: number): Observable<Blob> {
     return this.http.get(`${this.invoicesUrl}${id}/pdf/`, {
+      params: new HttpParams().set('include_inactive', 'true'),
       withCredentials: true,
       responseType: 'blob'
     });
@@ -207,7 +213,12 @@ export class BillingService {
   }
 
   getChargeById(id: number): Observable<ChargeI> {
-    return this.http.get<ChargeI>(`${this.chargesUrl}${id}/`, { withCredentials: true });
+    return this.http.get<ChargeI>(`${this.chargesUrl}${id}/`, {
+      // Un detalle se abre tambien sobre registros inactivos (p. ej. anulados); los
+      // eliminados logicamente siguen excluidos por el backend.
+      params: new HttpParams().set('include_inactive', 'true'),
+      withCredentials: true
+    });
   }
 
   createCharge(payload: ChargeCreatePayloadI): Observable<ChargeI> {
@@ -371,7 +382,12 @@ export class BillingService {
   }
 
   getPaymentById(id: number): Observable<PaymentI> {
-    return this.http.get<PaymentI>(`${this.paymentsUrl}${id}/`, { withCredentials: true });
+    return this.http.get<PaymentI>(`${this.paymentsUrl}${id}/`, {
+      // Un detalle se abre tambien sobre registros inactivos (p. ej. anulados); los
+      // eliminados logicamente siguen excluidos por el backend.
+      params: new HttpParams().set('include_inactive', 'true'),
+      withCredentials: true
+    });
   }
 
   createPayment(payload: PaymentCreatePayloadI): Observable<PaymentI> {
@@ -466,7 +482,12 @@ export class BillingService {
   }
 
   getPaymentRefundById(id: number): Observable<PaymentRefundI> {
-    return this.http.get<PaymentRefundI>(`${this.paymentRefundsUrl}${id}/`, { withCredentials: true });
+    return this.http.get<PaymentRefundI>(`${this.paymentRefundsUrl}${id}/`, {
+      // Un detalle se abre tambien sobre registros inactivos (p. ej. anulados); los
+      // eliminados logicamente siguen excluidos por el backend.
+      params: new HttpParams().set('include_inactive', 'true'),
+      withCredentials: true
+    });
   }
 
   createPaymentRefund(payload: PaymentRefundCreatePayloadI): Observable<PaymentRefundI> {
@@ -575,7 +596,12 @@ export class BillingService {
   }
 
   getCreditNoteById(id: number): Observable<CreditNoteI> {
-    return this.http.get<CreditNoteI>(`${this.creditNotesUrl}${id}/`, { withCredentials: true });
+    return this.http.get<CreditNoteI>(`${this.creditNotesUrl}${id}/`, {
+      // Un detalle se abre tambien sobre registros inactivos (p. ej. anulados); los
+      // eliminados logicamente siguen excluidos por el backend.
+      params: new HttpParams().set('include_inactive', 'true'),
+      withCredentials: true
+    });
   }
 
   createCreditNote(payload: CreditNoteCreatePayloadI): Observable<CreditNoteI> {

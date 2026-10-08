@@ -155,7 +155,12 @@ export class SaasDashboardService {
 
   getHotelsDirectory(): Observable<SaasHotelSnapshot[]> {
     const now = new Date();
-    return this.fetchAllPages<HotelRow>(this.hotelSettingsUrl, this.withPaginationParams()).pipe(
+    // Con los suspendidos: sin `include_inactive` el backend los oculta y un hotel suspendido
+    // desaparecia del directorio, sin forma de reactivarlo desde la UI.
+    return this.fetchAllPages<HotelRow>(
+      this.hotelSettingsUrl,
+      this.withPaginationParams({ include_inactive: 'true' })
+    ).pipe(
       map((hotels) =>
         hotels
           .map((hotel) => this.buildHotelSnapshot(hotel, now))

@@ -99,7 +99,12 @@ export class PromotionsService {
   }
 
   getPromotionById(id: number): Observable<PromotionI> {
-    return this.http.get<PromotionI>(`${this.promotionsUrl}${id}/`, { withCredentials: true });
+    return this.http.get<PromotionI>(`${this.promotionsUrl}${id}/`, {
+      // Un detalle se abre tambien sobre registros inactivos (p. ej. anulados); los
+      // eliminados logicamente siguen excluidos por el backend.
+      params: new HttpParams().set('include_inactive', 'true'),
+      withCredentials: true
+    });
   }
 
   createPromotion(payload: PromotionFormPayload): Observable<PromotionI> {

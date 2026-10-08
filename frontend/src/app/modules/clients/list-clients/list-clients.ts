@@ -9,6 +9,9 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ConfirmationService } from 'primeng/api';
 import { openActionConfirmation } from '../../../services/action-confirmations';
 import { catchError, forkJoin, of } from 'rxjs';
+import { extractApiErrorMessage } from '../../rooms/api-error';
+
+type ClientTypeChoice = ClientI['client_type'] | 'AUTO';
 
 @Component({
   selector: 'app-show-client',
@@ -30,6 +33,9 @@ export class ListClients implements OnInit {
   typeFilter = 'ALL';
 
   selectedClient: ClientI | null = null;
+  clientTypeChoice: ClientTypeChoice = 'AUTO';
+  savingClientType = false;
+  clientTypeError = '';
   showCreateOverlay = false;
   showUpdateOverlay = false;
   clientToEdit: ClientI | null = null;
@@ -234,6 +240,37 @@ export class ListClients implements OnInit {
 
   openDetail(client: ClientI): void {
     this.selectedClient = client;
+    this.clientTypeChoice = client.client_type_is_manual ? client.client_type : 'AUTO';
+    this.clientTypeError = '';
+  }
+
+  /** Tipo que daria el calculo automatico, para mostrarlo junto a la opcion "Automatico". */
+  get automaticTypeLabel(): string {
+    const level = this.selectedClient?.stay_level || this.selectedClient?.client_type;
+    return this.getTypeLabel(level || 'REGULAR');
+  }
+
+  changeClientType(choice: ClientTypeChoice): void {
+    const client = this.selectedClient;
+    if (!client?.id || this.savingClientType) return;
+
+    this.savingClientType = true;
+    this.clientTypeError = '';
+    this.clientsService.setClientType(client.id, choice).subscribe({
+      next: (updated) => {
+        this.savingClientType = false;
+        this.clients = this.clients.map((row) => (row.id === updated.id ? { ...row, ...updated } : row));
+        this.selectedClient = { ...client, ...updated };
+        this.clientTypeChoice = updated.client_type_is_manual ? updated.client_type : 'AUTO';
+        this.updateStats();
+        this.applyFilters();
+      },
+      error: (error) => {
+        this.savingClientType = false;
+        this.clientTypeChoice = client.client_type_is_manual ? client.client_type : 'AUTO';
+        this.clientTypeError = extractApiErrorMessage(error, 'No se pudo cambiar el tipo de cliente.');
+      }
+    });
   }
 
   openCreateOverlay(): void {

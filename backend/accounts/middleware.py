@@ -77,11 +77,16 @@ class HotelActiveMiddleware:
     exempt because they don't belong to any single hotel.
     """
 
+    # Cambiar la propia contraseña no opera sobre datos del hotel, y bloquearlo dejaba sin
+    # salida a quien tenia `must_change_password`: `ForcePasswordChangeMiddleware` solo le
+    # permite esa ruta y este middleware se la negaba.
     ALLOWED_API_PATH_PREFIXES = (
         "/api/auth/csrf/",
         "/api/auth/login/",
         "/api/auth/logout/",
         "/api/auth/me/",
+        "/api/auth/password/change/",
+        "/api/auth/password/reset/",
         "/api/schema/",
         "/api/docs/",
     )
@@ -122,6 +127,9 @@ class HotelActiveMiddleware:
 class HotelSetupRequiredMiddleware:
     """Bloquea las operaciones de hotel hasta guardar la configuracion obligatoria."""
 
+    # La configuracion exige al menos una habitacion real con tipo y tarifa
+    # (`has_operable_room_structure`), y esas solo se crean desde `/habitaciones`: sus
+    # catalogos tienen que seguir abiertos o el hotel nuevo nunca puede terminar el setup.
     SETUP_PATHS = (
         "/api/auth/",
         "/api/hotel-settings/",
@@ -129,6 +137,14 @@ class HotelSetupRequiredMiddleware:
         "/api/payment-methods/",
         "/api/reservation-policies/",
         "/api/financial-control-configs/",
+        "/api/rooms/",
+        "/api/room-types/",
+        "/api/rates/",
+    )
+    # Catalogos globales que la vista de habitaciones solo lee.
+    SETUP_READ_PATHS = (
+        "/api/master-data/",
+        "/api/amenities/",
     )
 
     def __init__(self, get_response):
@@ -143,7 +159,10 @@ class HotelSetupRequiredMiddleware:
             or not user
             or not user.is_authenticated
             or any(path.startswith(prefix) for prefix in self.SETUP_PATHS)
-            or (request.method in ("GET", "HEAD") and path.startswith("/api/master-data/"))
+            or (
+                request.method in ("GET", "HEAD")
+                and any(path.startswith(prefix) for prefix in self.SETUP_READ_PATHS)
+            )
         ):
             return self.get_response(request)
 

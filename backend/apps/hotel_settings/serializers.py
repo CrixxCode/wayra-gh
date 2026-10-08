@@ -2,7 +2,7 @@ import re
 
 from rest_framework import serializers
 
-from accounts.tenancy import TenantSerializerMixin
+from accounts.tenancy import TenantSerializerMixin, is_effective_global_admin
 
 from .models import (
     HotelFloor,
@@ -234,6 +234,18 @@ class HotelSettingsSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"check_out_time": "Check-out time must be different from check-in time."}
             )
+
+        # Activar o suspender un hotel es una decision de la plataforma (5.5): bloquea a todos
+        # sus usuarios. `hotel_settings.write` lo tiene el propio admin del hotel, asi que sin
+        # esta barrera podia suspenderse a si mismo con un PATCH directo.
+        if "is_active" in attrs:
+            request = self.context.get("request")
+            user = getattr(request, "user", None)
+            current = getattr(self.instance, "is_active", True)
+            if attrs["is_active"] != current and not is_effective_global_admin(user):
+                raise serializers.ValidationError(
+                    {"is_active": "Solo la administracion de la plataforma puede activar o suspender un hotel."}
+                )
 
         return attrs
 

@@ -26,7 +26,10 @@ export class LayoutMain implements OnInit {
     effect(() => {
       const status = this.setup.status();
       const path = this.router.url.split(/[?#]/)[0];
-      if (status && !status.is_complete && !['/', '/login', '/hotel-config', '/hotel-setup', '/mi-perfil'].includes(path)) {
+      // Mismas rutas que deja `hotelSetupChildGuard`: `/habitaciones` es donde se crean las
+      // habitaciones que el setup exige.
+      const setupPaths = ['/', '/login', '/hotel-config', '/hotel-setup', '/mi-perfil', '/habitaciones'];
+      if (status && !status.is_complete && !setupPaths.includes(path)) {
         void this.router.navigateByUrl(status.must_change_password ? '/mi-perfil' :
           status.can_configure ? '/hotel-config' : '/hotel-setup');
       }
@@ -43,6 +46,11 @@ export class LayoutMain implements OnInit {
 
   get showHotelSetupAlert(): boolean {
     return this.setup.status()?.is_complete === false;
+  }
+
+  /** Lo unico pendiente que no se completa en /hotel-config. */
+  get missingRooms(): boolean {
+    return Boolean(this.setup.status()?.missing_fields?.some((item) => item.field === 'floors'));
   }
 
   get mustChangePassword(): boolean {

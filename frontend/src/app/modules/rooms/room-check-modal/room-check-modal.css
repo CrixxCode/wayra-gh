@@ -507,3 +507,84 @@
   display: flex;
   gap: 8px;
 }
+
+/* ------------------------------------------------- revision de inventario */
+
+.count-block {
+  padding: 11px 12px;
+  border: 1px solid var(--gh-border);
+  border-radius: 12px;
+  background: var(--gh-surface-soft);
+}
+
+.count-block > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.count-block h4 {
+  color: var(--gh-text-strong);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.count-block > header strong {
+  color: var(--gh-status-success-text);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.count-block > header strong.is-alert {
+  color: var(--gh-status-danger-text);
+}
+
+.count-block .gh-modal-table-wrap {
+  margin-top: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--gh-surface);
+}
+
+.count-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.count-item small {
+  color: var(--gh-text-soft);
+  font-size: 0.72rem;
+}
+
+.count-input {
+  width: 72px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 8px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  font-size: 0.82rem;
+}
+
+.count-input.count-notes {
+  width: 100%;
+  min-width: 120px;
+}
+
+.count-input.is-short {
+  border-color: var(--gh-status-danger-border);
+  background: var(--gh-status-danger-bg);
+}
+
+.count-input:focus {
+  outline: 0;
+  border-color: var(--gh-search-focus);
+}
+
+.check-submit-error {
+  margin: 0 16px 10px;
+}

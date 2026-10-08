@@ -82,6 +82,7 @@ def build_invoice_pdf(
     charges: Iterable[Charge],
     payments: Iterable[Payment],
     credit_notes: Iterable[CreditNote],
+    promotion_discounts: Iterable = (),
 ) -> bytes:
     try:
         from reportlab.lib import colors
@@ -187,6 +188,20 @@ def build_invoice_pdf(
                 str(int(charge.quantity or 0)),
                 _format_currency(charge.unit_price),
                 _format_currency(charge.total_amount),
+            ]
+        )
+
+    # Los cargos van a precio de lista y la factura ya trae el precio promocional: sin estas
+    # lineas el detalle no sumaria lo mismo que el subtotal.
+    for discount in promotion_discounts:
+        charge_rows.append(
+            [
+                f"Promocion: {discount.promotion.name}",
+                "Descuento",
+                "--",
+                "",
+                "",
+                _format_currency(-_to_decimal(discount.amount)),
             ]
         )
 

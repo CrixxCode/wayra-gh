@@ -4,6 +4,8 @@ import { Observable, map } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
 import {
+  ReservationCheckoutExpectedLineI,
+  ReservationPromotionsI,
   ReservationCheckOutPayloadI,
   ReservationCheckoutInventoryReviewLinePayloadI,
   ReservationDetailI,
@@ -214,6 +216,38 @@ export class ReservationService {
       {},
       this.auth.buildCsrfRequestOptions()
     );
+  }
+
+  getReservationPromotions(id: number): Observable<ReservationPromotionsI> {
+    return this.http.get<ReservationPromotionsI>(`${this.reservationsUrl}${id}/promotions/`, {
+      withCredentials: true
+    });
+  }
+
+  /** Aplica una promocion general (descuenta la estadia). */
+  applyReservationPromotion(id: number, promotionId: number): Observable<ReservationPromotionsI> {
+    return this.http.post<ReservationPromotionsI>(
+      `${this.reservationsUrl}${id}/promotions/`,
+      { promotion: promotionId },
+      this.auth.buildCsrfRequestOptions()
+    );
+  }
+
+  removeReservationPromotion(id: number, promotionId: number): Observable<ReservationPromotionsI> {
+    return this.http.delete<ReservationPromotionsI>(
+      `${this.reservationsUrl}${id}/promotions/${promotionId}/`,
+      this.auth.buildCsrfRequestOptions()
+    );
+  }
+
+  /** Lo que hay que contar en el check-out: el backend rechaza la salida si falta una linea. */
+  getCheckoutInventory(id: number): Observable<ReservationCheckoutExpectedLineI[]> {
+    return this.http
+      .get<{ lines: ReservationCheckoutExpectedLineI[] }>(
+        `${this.reservationsUrl}${id}/checkout-inventory/`,
+        { withCredentials: true }
+      )
+      .pipe(map((response) => response?.lines || []));
   }
 
   checkOutReservation(id: number, payload?: ReservationCheckOutPayloadI): Observable<ReservationDetailI> {

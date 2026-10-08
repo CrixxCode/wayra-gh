@@ -145,6 +145,9 @@ class HotelSettings(models.Model):
 
     # Estado operativo del hotel dentro de Wayra.
     is_active = models.BooleanField(default=True)
+    # Ultimo dia en que se generaron las notificaciones diarias del hotel
+    # (`apps.notifications.scheduled`). Estado interno: no se expone ni se edita.
+    daily_notifications_ran_on = models.DateField(blank=True, null=True, editable=False)
 
     # Fechas de control
     created_at = models.DateTimeField(auto_now_add=True)

@@ -125,6 +125,14 @@
           <i class="fa-solid fa-file-export"></i>
           Exportar
         </button>
+
+        <!-- Embebida en Inventario el encabezado con el boton de alta no se pinta: la accion
+             vive aqui, igual que en la pestaña Items. Es el unico formulario que registra
+             ajustes, transferencias y perdidas a mano. -->
+        <button type="button" class="btn btn-dark" *ngIf="embedded" (click)="openCreateDrawer()" [disabled]="!canCreateMovement">
+          <i class="fa-solid fa-plus"></i>
+          Nuevo movimiento
+        </button>
       </div>
     </div>
   </section>

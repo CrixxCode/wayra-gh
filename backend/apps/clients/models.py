@@ -34,6 +34,9 @@ class Client(models.Model):
         related_name="clients_type",
         limit_choices_to={"group": MasterData.Group.CLIENT_TYPE},
     )
+    # Fijado por el hotel (p. ej. VIP por acuerdo comercial): `save()` deja de recalcularlo
+    # por noches hasta que se vuelva a automatico desde `set-client-type`.
+    client_type_is_manual = models.BooleanField(default=False)
     total_stay_nights = models.PositiveIntegerField(default=0)
     last_stay = models.DateField(blank=True, null=True)
     status = models.ForeignKey(
@@ -85,14 +88,13 @@ class Client(models.Model):
         return "REGULAR"
 
     def save(self, *args, **kwargs):
-        auto_client_type_code = self.resolve_client_type_code_by_stay_nights()
-        auto_client_type = MasterData.objects.filter(
-            group=MasterData.Group.CLIENT_TYPE,
-            code=auto_client_type_code,
-        ).first()
-
-        if auto_client_type:
-            self.client_type = auto_client_type
+        if not self.client_type_is_manual:
+            auto_client_type = MasterData.objects.filter(
+                group=MasterData.Group.CLIENT_TYPE,
+                code=self.resolve_client_type_code_by_stay_nights(),
+            ).first()
+            if auto_client_type:
+                self.client_type = auto_client_type
 
         if self.email:
             self.email = self.email.strip().lower()

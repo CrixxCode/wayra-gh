@@ -1,24 +1,6 @@
-from datetime import timedelta
-
 from django.core.management.base import BaseCommand
-from django.utils import timezone
 
-from apps.notifications.services import notify_reservation_upcoming_checkout
-from apps.reservations.models import Reservation
-
-
-EXCLUDED_RESERVATION_STATUS_CODES = {
-    "CANCELADA",
-    "CANCELADO",
-    "CANCELLED",
-    "ANULADA",
-    "ANULADO",
-    "FINALIZADA",
-    "FINALIZADO",
-    "COMPLETADA",
-    "COMPLETADO",
-    "CHECKED_OUT",
-}
+from apps.notifications.scheduled import notify_upcoming_checkouts
 
 
 class Command(BaseCommand):
@@ -40,40 +22,13 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        days = max(int(options.get("days") or 1), 0)
-        hotel_settings_id = options.get("hotel_settings_id")
-
-        today = timezone.localdate()
-        end_date = today + timedelta(days=days)
-
-        queryset = (
-            Reservation.objects.select_related("hotel_settings", "status", "client")
-            .filter(
-                real_check_out__isnull=True,
-                expected_check_out__gte=today,
-                expected_check_out__lte=end_date,
-            )
-            .exclude(status__code__in=EXCLUDED_RESERVATION_STATUS_CODES)
-            .order_by("expected_check_out", "id")
+        # La logica vive en `apps.notifications.scheduled`, que tambien la dispara la campana.
+        processed, created = notify_upcoming_checkouts(
+            hotel_settings_id=options.get("hotel_settings_id"),
+            days=max(int(options.get("days") or 1), 0),
         )
-        if hotel_settings_id:
-            queryset = queryset.filter(hotel_settings_id=hotel_settings_id)
-
-        notifications_created = 0
-        reservations_processed = 0
-
-        for reservation in queryset:
-            reservations_processed += 1
-            days_until = (reservation.expected_check_out - today).days
-            notifications_created += len(
-                notify_reservation_upcoming_checkout(
-                    reservation,
-                    days_until=max(days_until, 0),
-                )
-            )
-
         self.stdout.write(
             self.style.SUCCESS(
-                f"Upcoming check-outs processed={reservations_processed} notifications_created={notifications_created}"
+                f"Upcoming check-outs processed={processed} notifications_created={created}"
             )
         )

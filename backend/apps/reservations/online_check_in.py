@@ -94,10 +94,18 @@ def _find_reservation_by_code(queryset: QuerySet[Reservation], reservation_code:
     )
 
 
+def _reservation_lookup_error() -> ValidationError:
+    # Codigo inexistente y documento que no coincide responden EXACTAMENTE igual —misma
+    # clave, mismo mensaje—. Cualquier diferencia (aunque sea solo la clave dentro de
+    # `errors`) permite distinguir que codigos existen probando con un documento inventado,
+    # y el codigo no debe ser enumerable (5.24).
+    return ValidationError({"reservation_code": RESERVATION_LOOKUP_ERROR_MESSAGE})
+
+
 def _get_reservation(reservation_code: str) -> Reservation:
     reservation = _find_reservation_by_code(_reservation_queryset(), reservation_code)
     if not reservation:
-        raise ValidationError({"reservation_code": RESERVATION_LOOKUP_ERROR_MESSAGE})
+        raise _reservation_lookup_error()
     return reservation
 
 
@@ -107,7 +115,7 @@ def _get_locked_reservation(reservation_code: str) -> Reservation:
         reservation_code,
     )
     if not reservation:
-        raise ValidationError({"reservation_code": RESERVATION_LOOKUP_ERROR_MESSAGE})
+        raise _reservation_lookup_error()
     return reservation
 
 
@@ -117,7 +125,7 @@ def _verify_titular_document(reservation: Reservation, document_number: str) -> 
     )
     submitted_document = _normalize_document_number(document_number)
     if not submitted_document or client_document != submitted_document:
-        raise ValidationError({"guest_document_number": RESERVATION_LOOKUP_ERROR_MESSAGE})
+        raise _reservation_lookup_error()
 
 
 def _verify_titular_present(reservation: Reservation, guests_payload: list[dict[str, Any]]) -> None:
@@ -128,15 +136,10 @@ def _verify_titular_present(reservation: Reservation, guests_payload: list[dict[
         _normalize_document_number(guest.get("guest_document_number"))
         for guest in guests_payload
     }
+    # Hasta probar que conoce el documento del titular, quien envia no debe poder
+    # distinguir una reserva existente de una inexistente: mismo error que el lookup.
     if not client_document or client_document not in submitted_documents:
-        raise ValidationError(
-            {
-                "guests": (
-                    "Uno de los huespedes debe ser el titular de la reserva "
-                    "(mismo numero de documento verificado)."
-                )
-            }
-        )
+        raise _reservation_lookup_error()
 
 
 def _verify_titular_signature(reservation: Reservation, signature: str) -> None:

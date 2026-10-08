@@ -200,16 +200,19 @@
             <td>{{ refund.reason || '--' }}</td>
             <td>{{ refund.reference || '--' }}</td>
             <td>
-              <button
-                type="button"
-                class="row-btn primary-action"
-                *ngIf="canApprove(refund) || approvingRefundId === refund.id"
-                (click)="approveRefund(refund)"
-                [disabled]="approvingRefundId === refund.id">
-                <i class="fa-solid fa-check"></i>
-                {{ approvingRefundId === refund.id ? 'Aprobando...' : 'Aprobar' }}
-              </button>
-              <span class="row-note" *ngIf="!canApprove(refund) && approvingRefundId !== refund.id">--</span>
+              <div class="row-actions" *ngIf="availableTransitions(refund).length; else noRefundActions">
+                <button
+                  type="button"
+                  *ngFor="let transition of availableTransitions(refund)"
+                  class="row-btn"
+                  [class.primary-action]="transition === 'approve' || transition === 'process'"
+                  (click)="runTransition(refund, transition)"
+                  [disabled]="busyRefundId !== null">
+                  <i [class]="transitionIcon(transition)"></i>
+                  {{ transitionLabel(refund, transition) }}
+                </button>
+              </div>
+              <ng-template #noRefundActions><span class="row-note">--</span></ng-template>
             </td>
           </tr>
         </tbody>
@@ -281,17 +284,19 @@
         <div class="gh-doc-amount">
           <span>Total reembolso</span>
           <strong>{{ getAmountLabel(refund) }}</strong>
-          <small *ngIf="canApprove(refund)">Aun no ha salido de caja</small>
+          <small *ngIf="isAwaitingPayout(refund)">Aun no ha salido de caja</small>
         </div>
 
-        <div class="gh-doc-actions" *ngIf="canApprove(refund) || approvingRefundId === refund.id">
+        <div class="gh-doc-actions" *ngIf="availableTransitions(refund).length">
           <button
             type="button"
-            class="gh-doc-btn is-approve"
-            (click)="approveRefund(refund)"
-            [disabled]="approvingRefundId === refund.id">
-            <i class="fa-solid fa-check"></i>
-            {{ approvingRefundId === refund.id ? 'Aprobando...' : 'Aprobar' }}
+            *ngFor="let transition of availableTransitions(refund)"
+            class="gh-doc-btn"
+            [class.is-approve]="transition === 'approve' || transition === 'process'"
+            (click)="runTransition(refund, transition)"
+            [disabled]="busyRefundId !== null">
+            <i [class]="transitionIcon(transition)"></i>
+            {{ transitionLabel(refund, transition) }}
           </button>
         </div>
       </footer>

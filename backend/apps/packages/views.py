@@ -9,7 +9,7 @@ from accounts.soft_delete import LogicalDeleteViewSetMixin
 from accounts.tenancy import TenantScopeMixin
 
 
-class PackageViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+class PackageViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
     queryset = (
         Package.objects.select_related(
             "hotel_settings",
@@ -59,7 +59,7 @@ class PackageViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.Model
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
 
-class PackageServiceViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+class PackageServiceViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
     queryset = (
         PackageService.objects.select_related(
             "package",

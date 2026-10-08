@@ -10,6 +10,21 @@ from rest_framework.response import Response
 from accounts.models import SoftDeleteMarker
 
 
+def exclude_soft_deleted(queryset):
+    """
+    Excluye los registros con `SoftDeleteMarker`.
+
+    Para consultas que no pasan por un ViewSet (servicios, acciones auxiliares): el borrado
+    logico solo existe en la capa API, y el manager crudo devuelve los eliminados.
+    """
+    content_type = ContentType.objects.get_for_model(queryset.model)
+    deleted_ids_qs = SoftDeleteMarker.objects.filter(content_type=content_type).values("object_id")
+    # Castea la PK a texto para que funcione con PKs enteras y UUID (5.5).
+    return queryset.annotate(_soft_pk=Cast("pk", output_field=models.CharField())).exclude(
+        _soft_pk__in=deleted_ids_qs
+    )
+
+
 class LogicalDeleteViewSetMixin:
     """
     Enforces logical delete for API DELETE operations.
@@ -42,24 +57,12 @@ class LogicalDeleteViewSetMixin:
         return self._parse_bool(request.query_params.get("include_inactive"))
 
     def _should_include_deleted(self) -> bool:
+        if getattr(self, "_resolving_restore_queryset", False):
+            return True
         request = getattr(self, "request", None)
         if not request:
             return False
         return self._parse_bool(request.query_params.get("include_deleted"))
-
-    def _get_base_queryset_for_restore(self):
-        base_queryset_getter = getattr(self, "get_base_queryset", None)
-        if callable(base_queryset_getter):
-            return base_queryset_getter()
-
-        try:
-            return super().get_queryset()
-        except AssertionError:
-            # Some viewsets only define a custom get_queryset and omit `queryset`.
-            view_get_queryset = self.__class__.get_queryset
-            if view_get_queryset is LogicalDeleteViewSetMixin.get_queryset:
-                raise
-            return view_get_queryset(self)
 
     def _apply_tenant_scope_if_available(self, queryset):
         tenant_filter_getter = getattr(self, "get_tenant_filter", None)
@@ -84,8 +87,21 @@ class LogicalDeleteViewSetMixin:
         return queryset.filter(**{f"{tenant_filter_getter()}_id": tenant_id})
 
     def _get_restore_queryset(self):
-        queryset = self._get_base_queryset_for_restore()
-        return self._apply_tenant_scope_if_available(queryset)
+        base_queryset_getter = getattr(self, "get_base_queryset", None)
+        if callable(base_queryset_getter):
+            # Vistas con `TenantScopeMixin`: el aislamiento lo aplica el mixin de tenancy.
+            return self._apply_tenant_scope_if_available(base_queryset_getter())
+
+        # Vistas que filtran el hotel en su propio `get_queryset()` (usuarios, reservas,
+        # configuracion del hotel...). Antes se caia al `queryset` crudo de la clase, sin
+        # filtro de hotel, y cualquier usuario con `<dominio>.write` podia restaurar y leer
+        # registros borrados de otro hotel. Se reutiliza el `get_queryset()` de la vista
+        # —que lleva su aislamiento— pidiendo que incluya los eliminados.
+        self._resolving_restore_queryset = True
+        try:
+            return self.get_queryset()
+        finally:
+            self._resolving_restore_queryset = False
 
     def _get_restore_object(self):
         queryset = self._get_restore_queryset()
@@ -100,15 +116,8 @@ class LogicalDeleteViewSetMixin:
         queryset = super().get_queryset()
         model_class = queryset.model
 
-        content_type = ContentType.objects.get_for_model(model_class)
-        deleted_ids_qs = SoftDeleteMarker.objects.filter(content_type=content_type).values("object_id")
-
         if not self._should_include_deleted():
-            # Works for numeric and UUID PKs by comparing casted PK to marker.object_id.
-            queryset = (
-                queryset.annotate(_soft_pk=Cast("pk", output_field=models.CharField()))
-                .exclude(_soft_pk__in=deleted_ids_qs)
-            )
+            queryset = exclude_soft_deleted(queryset)
 
         if self._model_has_field(model_class, "is_active"):
             if not self._should_include_inactive():

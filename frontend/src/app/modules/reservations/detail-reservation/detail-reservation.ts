@@ -6,8 +6,6 @@ import { Observable } from 'rxjs';
 import { MasterDataI } from '../../../components/pages/master-data/master-data-model';
 import { ReservationService } from '../../../services/reservation';
 import { BillingService } from '../../../services/billing';
-import { RoomInventoryService } from '../../../services/room-inventory';
-import { RoomInventoryI } from '../../room-inventory/room-inventory-model';
 import { InvoiceI } from '../../billing/billing-model';
 import {
   ReservationCheckOutPayloadI,
@@ -16,7 +14,10 @@ import {
   ReservationGuestI,
   ReservationPolicyI,
   ReservationStatusStyleI,
-  ReservationVisualStatus
+  ReservationVisualStatus,
+  ReservationPromotionAppliedI,
+  ReservationPromotionOptionI,
+  ReservationPromotionsI
 } from '../reservation-model';
 
 type CheckoutInventoryLine = {
@@ -60,11 +61,18 @@ export class DetailReservation implements OnChanges {
   checkoutInventoryLoading = false;
   checkoutInventoryError = '';
   checkoutInventoryLines: CheckoutInventoryLine[] = [];
+  checkoutInventoryLoadFailed = false;
+
+  appliedPromotions: ReservationPromotionAppliedI[] = [];
+  availablePromotions: ReservationPromotionOptionI[] = [];
+  promotionsLoaded = false;
+  promotionBusy = false;
+  promotionError = '';
+  selectedPromotionId: number | null = null;
 
   constructor(
     private reservationService: ReservationService,
-    private billingService: BillingService,
-    private roomInventoryService: RoomInventoryService
+    private billingService: BillingService
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -74,7 +82,7 @@ export class DetailReservation implements OnChanges {
       this.showGuestsModal = false;
       this.showPoliciesModal = false;
       this.resetCheckoutInventoryModalState();
-      this.loadInvoicePaymentStatus(this.preloaded.id);
+      this.loadReservationExtras(this.preloaded.id);
       return;
     }
 
@@ -282,6 +290,59 @@ export class DetailReservation implements OnChanges {
       const subtotal = Number(room.subtotal ?? room.night_rate ?? 0);
       return sum + (Number.isNaN(subtotal) ? 0 : subtotal);
     }, 0);
+  }
+
+  get promotionDiscountTotal(): number {
+    const value = Number(this.reservation?.promotion_discount_total || 0);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  /** Abierta: ni cerrada ni cancelada. Despues, sus descuentos quedan fijos. */
+  get canEditPromotions(): boolean {
+    if (!this.reservation || this.reservation.real_check_out) return false;
+    const code = String(this.reservation.status_code || '').toUpperCase();
+    return !code.includes('CANCEL') && !code.includes('FINALIZ');
+  }
+
+  get showPromotions(): boolean {
+    if (!this.promotionsLoaded) return false;
+    return (
+      this.appliedPromotions.length > 0 ||
+      (this.canEditPromotions && this.availablePromotions.length > 0)
+    );
+  }
+
+  promotionScopeLabel(applied: ReservationPromotionAppliedI): string {
+    if (applied.scope === 'SERVICE') {
+      return applied.charge_description ? `Servicio · ${applied.charge_description}` : 'Servicio';
+    }
+    if (applied.scope === 'PACKAGE') return 'Paquete';
+    return 'Estadia';
+  }
+
+  promotionAmountLabel(applied: ReservationPromotionAppliedI): string {
+    const amount = Number(applied.amount || 0);
+    return this.formatCurrency(Number.isFinite(amount) ? amount : 0);
+  }
+
+  promotionOptionLabel(option: ReservationPromotionOptionI): string {
+    const value = Number(option.discount_value || 0);
+    const discount = option.is_percentage ? `${value}%` : this.formatCurrency(value);
+    return `${option.name} (-${discount} de la estadia)`;
+  }
+
+  applyPromotion(): void {
+    if (!this.reservation || !this.selectedPromotionId || this.promotionBusy) return;
+    this.runPromotionChange(
+      this.reservationService.applyReservationPromotion(this.reservation.id, this.selectedPromotionId)
+    );
+  }
+
+  removePromotion(applied: ReservationPromotionAppliedI): void {
+    if (!this.reservation || applied.is_automatic || this.promotionBusy) return;
+    this.runPromotionChange(
+      this.reservationService.removeReservationPromotion(this.reservation.id, applied.promotion)
+    );
   }
 
   get discountAmount(): number {
@@ -517,7 +578,14 @@ export class DetailReservation implements OnChanges {
   }
 
   submitCheckOutWithInventoryReview(): void {
-    if (!this.reservation || this.actionLoading || this.checkoutInventoryLoading) return;
+    if (
+      !this.reservation ||
+      this.actionLoading ||
+      this.checkoutInventoryLoading ||
+      this.checkoutInventoryLoadFailed
+    ) {
+      return;
+    }
 
     const payload = this.buildCheckOutPayload();
     this.runFlowAction(
@@ -642,72 +710,31 @@ export class DetailReservation implements OnChanges {
     }
 
     const roomLabelById = this.buildReservationRoomLabelMap(this.reservation);
-    const reservationRoomIds = new Set(roomLabelById.keys());
-    if (reservationRoomIds.size === 0) {
-      this.checkoutInventoryLoading = false;
-      this.checkoutInventoryLines = [];
-      return;
-    }
-
     this.checkoutInventoryLoading = true;
     this.checkoutInventoryError = '';
+    this.checkoutInventoryLoadFailed = false;
 
-    this.roomInventoryService.listRoomInventory().subscribe({
-      next: (records) => {
-        const lineByKey = new Map<string, CheckoutInventoryLine>();
-
-        records.forEach((record) => {
-          if (!record.is_active) return;
-
-          const roomId = Number(record.room);
-          const itemId = Number(record.item);
-          if (!Number.isFinite(roomId) || roomId <= 0 || !Number.isFinite(itemId) || itemId <= 0) return;
-          if (!reservationRoomIds.has(roomId)) return;
-
-          const key = `${roomId}:${itemId}`;
-          const roomLabel = roomLabelById.get(roomId) || `Hab. ${roomId}`;
-          const itemLabel = this.resolveItemLabel(record, itemId);
-          const quantity = this.toNonNegativeInt(record.quantity);
-          const notes = this.toTrimmedString(record.notes);
-
-          const existing = lineByKey.get(key);
-          if (existing) {
-            existing.expectedQuantity += quantity;
-            existing.reviewedQuantity += quantity;
-            if (!existing.notes && notes) existing.notes = notes;
-            return;
-          }
-
-          lineByKey.set(key, {
-            key,
-            roomId,
-            roomLabel,
-            itemId,
-            itemLabel,
-            expectedQuantity: quantity,
-            reviewedQuantity: quantity,
-            notes
-          });
-        });
-
-        this.checkoutInventoryLines = Array.from(lineByKey.values()).sort((a, b) => {
-          const roomCompare = a.roomLabel.localeCompare(b.roomLabel, 'es-CO', {
-            numeric: true,
-            sensitivity: 'base'
-          });
-          if (roomCompare !== 0) return roomCompare;
-          return a.itemLabel.localeCompare(b.itemLabel, 'es-CO', {
-            numeric: true,
-            sensitivity: 'base'
-          });
-        });
-
+    // Las lineas salen del backend y no de `RoomInventory`: el check-out exige contar
+    // exactamente estas (la foto del check-in, o la dotacion si no hay foto).
+    this.reservationService.getCheckoutInventory(this.reservation.id).subscribe({
+      next: (lines) => {
+        this.checkoutInventoryLines = lines.map((line) => ({
+          key: `${line.room_id}:${line.item_id}`,
+          roomId: line.room_id,
+          roomLabel: roomLabelById.get(line.room_id) || `Hab. ${line.room_number}`,
+          itemId: line.item_id,
+          itemLabel: line.item_name,
+          expectedQuantity: this.toNonNegativeInt(line.expected_quantity),
+          reviewedQuantity: this.toNonNegativeInt(line.expected_quantity),
+          notes: ''
+        }));
         this.checkoutInventoryLoading = false;
       },
       error: () => {
         this.checkoutInventoryLoading = false;
+        this.checkoutInventoryLoadFailed = true;
         this.checkoutInventoryError =
-          'No fue posible cargar el inventario de las habitaciones. Puedes continuar sin diligenciar esta revision.';
+          'No fue posible cargar el inventario de las habitaciones. Sin esa revision no se puede cerrar la estadia; intenta de nuevo.';
       }
     });
   }
@@ -738,21 +765,12 @@ export class DetailReservation implements OnChanges {
     return map;
   }
 
-  private resolveItemLabel(record: RoomInventoryI, itemId: number): string {
-    const itemName = this.toTrimmedString(record.item_name);
-    if (itemName) return itemName;
-
-    const itemSku = this.toTrimmedString(record.item_sku);
-    if (itemSku) return itemSku;
-
-    return `Item #${itemId}`;
-  }
-
   private resetCheckoutInventoryModalState(): void {
     this.showCheckoutInventoryModal = false;
     this.checkoutInventoryLoading = false;
     this.checkoutInventoryError = '';
     this.checkoutInventoryLines = [];
+    this.checkoutInventoryLoadFailed = false;
   }
 
   private clearInvoicePaymentStatus(): void {
@@ -793,6 +811,64 @@ export class DetailReservation implements OnChanges {
       });
   }
 
+  private loadReservationExtras(reservationId: number): void {
+    this.loadInvoicePaymentStatus(reservationId);
+    this.loadPromotions(reservationId);
+  }
+
+  private loadPromotions(reservationId: number): void {
+    this.promotionError = '';
+    this.reservationService.getReservationPromotions(reservationId).subscribe({
+      next: (payload) => {
+        if (this.reservation?.id !== reservationId) return;
+        this.setPromotions(payload);
+      },
+      error: () => {
+        if (this.reservation?.id !== reservationId) return;
+        // Sin la lista no se ofrece aplicar nada; el total ya trae los descuentos.
+        this.setPromotions({ applied: [], available: [] });
+      }
+    });
+  }
+
+  private setPromotions(payload: ReservationPromotionsI): void {
+    this.appliedPromotions = payload.applied || [];
+    this.availablePromotions = payload.available || [];
+    this.promotionsLoaded = true;
+    if (!this.availablePromotions.some((option) => option.id === this.selectedPromotionId)) {
+      this.selectedPromotionId = null;
+    }
+  }
+
+  private runPromotionChange(request$: Observable<ReservationPromotionsI>): void {
+    const reservationId = this.reservation?.id;
+    if (!reservationId) return;
+
+    this.promotionBusy = true;
+    this.promotionError = '';
+    request$.subscribe({
+      next: (payload) => {
+        this.setPromotions(payload);
+        // El descuento mueve el total y el saldo: se relee la reserva y se avisa a la lista.
+        this.reservationService.getReservationById(reservationId).subscribe({
+          next: (detail) => {
+            this.promotionBusy = false;
+            this.reservation = detail;
+            this.loadInvoicePaymentStatus(detail.id);
+            this.flowChanged.emit(detail);
+          },
+          error: () => {
+            this.promotionBusy = false;
+          }
+        });
+      },
+      error: (error: unknown) => {
+        this.promotionBusy = false;
+        this.promotionError = this.extractErrorMessage(error);
+      }
+    });
+  }
+
   private loadReservation(): void {
     if (!this.reservationId) {
       this.reservation = null;
@@ -803,7 +879,7 @@ export class DetailReservation implements OnChanges {
     if (this.preloaded && this.preloaded.id === this.reservationId) {
       this.reservation = this.preloaded;
       this.errorMessage = '';
-      this.loadInvoicePaymentStatus(this.preloaded.id);
+      this.loadReservationExtras(this.preloaded.id);
       return;
     }
 
@@ -814,7 +890,7 @@ export class DetailReservation implements OnChanges {
       next: (detail) => {
         this.loading = false;
         this.reservation = detail;
-        this.loadInvoicePaymentStatus(detail.id);
+        this.loadReservationExtras(detail.id);
       },
       error: () => {
         this.loading = false;
@@ -836,7 +912,7 @@ export class DetailReservation implements OnChanges {
       next: (detail: ReservationDetailI) => {
         this.actionLoading = false;
         this.reservation = detail;
-        this.loadInvoicePaymentStatus(detail.id);
+        this.loadReservationExtras(detail.id);
         onSuccess?.(detail);
         this.flowChanged.emit(detail);
       },

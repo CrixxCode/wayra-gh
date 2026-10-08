@@ -127,6 +127,13 @@
           <i class="fa-solid fa-file-export"></i>
           Exportar
         </button>
+
+        <!-- Embebida en Inventario el encabezado con el boton de alta no se pinta: la accion
+             vive aqui, igual que en la pestaña Items. -->
+        <button type="button" class="btn btn-dark" *ngIf="embedded" (click)="openCreateDrawer()" [disabled]="!rooms.length || !items.length">
+          <i class="fa-solid fa-plus"></i>
+          Nueva asignacion
+        </button>
       </div>
     </div>
   </section>

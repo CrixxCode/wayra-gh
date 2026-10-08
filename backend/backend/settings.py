@@ -56,6 +56,12 @@ def local_frontend_origins() -> list[str]:
     return unique_list(origins)
 
 
+def schema_serve_permissions(debug: bool) -> list[str]:
+    if debug:
+        return ["rest_framework.permissions.AllowAny"]
+    return ["rest_framework.permissions.IsAdminUser"]
+
+
 RESEND_EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
 LOCAL_EMAIL_BACKENDS = {
     "django.core.mail.backends.console.EmailBackend",
@@ -274,6 +280,11 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Autenticacion y RBAC; endpoints v1.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # drf-spectacular NO hereda DEFAULT_PERMISSION_CLASSES: su default es AllowAny, lo que
+    # dejaba `/api/schema/` y `/api/docs/` abiertos sin login en produccion — el mapa
+    # completo de la API para cualquiera. Fuera de DEBUG solo los ve el staff de Django.
+    # `manage.py spectacular` (CI) no pasa por aqui.
+    "SERVE_PERMISSIONS": schema_serve_permissions(DEBUG),
     "TAGS": [
         {"name": "auth", "description": "Autenticacion por sesion"},
         {"name": "users"},

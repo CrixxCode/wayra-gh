@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from accounts.pagination import OptionalPageNumberPagination
 from accounts.permissions import HasResourcePermission
 from accounts.soft_delete import LogicalDeleteViewSetMixin
-from .models import MasterData
+from .models import MasterData, RETIRED_GROUPS
 from .serializers import MasterDataSerializer
 
 
@@ -54,7 +54,7 @@ class MasterDataViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
             .order_by("group")
             .distinct()
         )
-        all_codes = sorted(set(labels_by_code.keys()) | existing_codes)
+        all_codes = sorted((set(labels_by_code.keys()) | existing_codes) - set(RETIRED_GROUPS))
         groups = [
             {
                 "code": code,

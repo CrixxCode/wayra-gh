@@ -41,7 +41,7 @@ class FinancialControlSchemaSerializer(serializers.Serializer):
     payload = serializers.JSONField(required=False)
 
 
-class ExpenseViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+class ExpenseViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
     queryset = (
         Expense.objects.select_related(
             "hotel_settings",
@@ -213,7 +213,7 @@ class OperationalAlertViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, views
             )
 
 
-class FinancialStatementSnapshotViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+class FinancialStatementSnapshotViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
     queryset = FinancialStatementSnapshot.objects.select_related("hotel_settings")
     tenant_filter = "hotel_settings"
     serializer_class = FinancialStatementSnapshotSerializer

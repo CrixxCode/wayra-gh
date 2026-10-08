@@ -99,6 +99,8 @@ def _resolve_active_reservations(room_ids):
             "reservation__rooms_detail",
             "reservation__charges",
             "reservation__invoices__payments__refunds__status",
+            "reservation__invoices__credit_notes",
+            "reservation__promotion_applications",
         )
         .filter(reservation__real_check_out__isnull=True)
         .exclude(reservation__status__code__in=INACTIVE_RESERVATION_STATUS_CODES)

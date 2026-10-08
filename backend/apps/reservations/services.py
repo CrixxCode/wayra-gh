@@ -637,6 +637,33 @@ def _iter_invoice_payments(invoice):
     return invoice.payments.all()
 
 
+def _iter_promotion_applications(reservation):
+    prefetched = getattr(reservation, "_prefetched_objects_cache", {}).get("promotion_applications")
+    if prefetched is not None:
+        return prefetched
+    return reservation.promotion_applications.all()
+
+
+def get_reservation_rooms_subtotal(reservation) -> Decimal:
+    """Valor de la estadia: noches por tarifa de cada habitacion. Base de la promocion general."""
+    nights = max(int(getattr(reservation, "total_nights", 0) or 0), 0)
+
+    rooms_subtotal = MONEY_ZERO
+    for room in _iter_reservation_rooms(reservation):
+        subtotal = getattr(room, "subtotal", None)
+        if subtotal is None:
+            subtotal = _to_decimal(getattr(room, "night_rate", 0)) * Decimal(nights)
+        rooms_subtotal += _to_decimal(subtotal)
+    return rooms_subtotal
+
+
+def _iter_invoice_credit_notes(invoice):
+    prefetched = getattr(invoice, "_prefetched_objects_cache", {}).get("credit_notes")
+    if prefetched is not None:
+        return prefetched
+    return invoice.credit_notes.all()
+
+
 def _iter_payment_refunds(payment):
     prefetched = getattr(payment, "_prefetched_objects_cache", {}).get("refunds")
     if prefetched is not None:
@@ -706,14 +733,7 @@ def get_reservation_financials(
         # Compatibilidad hacia atras con llamadas que aun usan exclude_deposit_id.
         exclude_payment_id = exclude_deposit_id
 
-    nights = max(int(getattr(reservation, "total_nights", 0) or 0), 0)
-
-    rooms_subtotal = MONEY_ZERO
-    for room in _iter_reservation_rooms(reservation):
-        subtotal = getattr(room, "subtotal", None)
-        if subtotal is None:
-            subtotal = _to_decimal(getattr(room, "night_rate", 0)) * Decimal(nights)
-        rooms_subtotal += _to_decimal(subtotal)
+    rooms_subtotal = get_reservation_rooms_subtotal(reservation)
 
     package_subtotal = _to_decimal(getattr(reservation, "package_price", 0))
     if package_subtotal < MONEY_ZERO:
@@ -731,14 +751,33 @@ def get_reservation_financials(
             continue
         additional_charges_total += _to_decimal(getattr(charge, "total_amount", 0))
 
-    total_amount = rooms_subtotal + package_subtotal + additional_charges_total - total_discount
+    # Descuentos de promociones ya calculados (`apps.promotions.services`). A diferencia de
+    # una nota de credito, si bajan lo facturado: la factura nace con el precio promocional.
+    promotion_discount_total = MONEY_ZERO
+    for application in _iter_promotion_applications(reservation):
+        if getattr(application, "is_active", True):
+            promotion_discount_total += _to_decimal(getattr(application, "amount", 0))
+
+    total_amount = (
+        rooms_subtotal
+        + package_subtotal
+        + additional_charges_total
+        - total_discount
+        - promotion_discount_total
+    )
     if total_amount < MONEY_ZERO:
         total_amount = MONEY_ZERO
 
     total_deposits = MONEY_ZERO
+    total_credit_notes = MONEY_ZERO
     for invoice in _iter_reservation_invoices(reservation):
         if not getattr(invoice, "is_active", True):
             continue
+
+        # Mismo criterio que `get_invoice_reconciliation` y que los reportes.
+        for credit_note in _iter_invoice_credit_notes(invoice):
+            if getattr(credit_note, "is_active", True):
+                total_credit_notes += _to_decimal(getattr(credit_note, "amount", 0))
 
         for payment in _iter_invoice_payments(invoice):
             if not getattr(payment, "is_active", True):
@@ -762,7 +801,9 @@ def get_reservation_financials(
     if total_deposits < MONEY_ZERO:
         total_deposits = MONEY_ZERO
 
-    pending_amount = total_amount - total_deposits
+    # `total_amount` sigue siendo lo facturado (alimenta el subtotal de la factura, y los
+    # reportes ya restan las notas por su cuenta); la nota de credito solo baja lo pendiente.
+    pending_amount = total_amount - total_credit_notes - total_deposits
     if pending_amount < MONEY_ZERO:
         pending_amount = MONEY_ZERO
 
@@ -771,8 +812,10 @@ def get_reservation_financials(
         "package_subtotal": package_subtotal,
         "additional_charges_total": additional_charges_total,
         "total_discount": total_discount,
+        "promotion_discount_total": promotion_discount_total,
         "total_amount": total_amount,
         "total_deposits": total_deposits,
+        "total_credit_notes": total_credit_notes,
         "pending_amount": pending_amount,
     }
 
@@ -956,6 +999,27 @@ def _reservation_check_in_started(reservation, room: Room) -> bool:
     check_in_datetime = _build_check_in_datetime(check_in_date, check_in_time)
 
     return timezone.now() >= check_in_datetime
+
+
+def find_in_house_reservation_room(room_id: int, *, exclude_reservation_id: int | None = None):
+    """
+    La reserva que tiene hoy un huesped alojado en la habitacion (check-in hecho, sin
+    check-out), o `None`.
+
+    Es la ocupacion real. `Room.status` es un reflejo de ella que se puede editar a mano, asi
+    que no sirve como unica compuerta: con un PATCH a "Disponible" se podia hacer un segundo
+    check-in sobre una habitacion ocupada.
+    """
+    if not room_id:
+        return None
+    queryset = ReservationRoom.objects.select_related("reservation").filter(
+        room_id=room_id,
+        reservation__real_check_in__isnull=False,
+        reservation__real_check_out__isnull=True,
+    ).exclude(reservation__status__code__in=INACTIVE_RESERVATION_STATUS_CODES)
+    if exclude_reservation_id:
+        queryset = queryset.exclude(reservation_id=exclude_reservation_id)
+    return queryset.order_by("reservation__real_check_in", "id").first()
 
 
 def find_overlapping_reservation_room(
@@ -1543,6 +1607,91 @@ def create_check_in_inventory_snapshot(
     return check
 
 
+def _reservation_room_rows(reservation) -> list[dict[str, Any]]:
+    return list(
+        reservation.rooms_detail.select_related("room").values("id", "room_id", "room__number")
+    )
+
+
+def _item_names(reservation, item_ids) -> dict[int, str]:
+    return dict(
+        Item.objects.filter(
+            id__in=sorted(item_ids),
+            hotel_settings_id=reservation.hotel_settings_id,
+        ).values_list("id", "name")
+    )
+
+
+def get_checkout_expected_inventory(
+    reservation,
+    *,
+    reservation_rooms: list[dict[str, Any]] | None = None,
+) -> dict[tuple[int, int], int]:
+    """
+    Lo que deberia encontrarse en las habitaciones al salir, por `(room_id, item_id)`.
+
+    Manda la foto tomada en el check-in; si no existe, la dotacion actual de cada
+    habitacion. Es la unica fuente: el check-out la exige completa y las pantallas de
+    revision la leen de `GET /api/reservations/{id}/checkout-inventory/`.
+    """
+    check_in_check = (
+        ReservationInventoryCheck.objects.filter(
+            reservation=reservation,
+            check_type=INVENTORY_CHECK_TYPE_CHECK_IN,
+        )
+        .prefetch_related("lines")
+        .first()
+    )
+
+    expected_by_key: dict[tuple[int, int], int] = {}
+    if check_in_check:
+        for line in check_in_check.lines.all():
+            key = (line.room_id, line.item_id)
+            expected_by_key[key] = int(line.reviewed_quantity or 0)
+
+    if not expected_by_key:
+        if reservation_rooms is None:
+            reservation_rooms = _reservation_room_rows(reservation)
+        room_ids = [row["room_id"] for row in reservation_rooms]
+        room_inventory_rows = RoomInventory.objects.filter(
+            room_id__in=room_ids,
+            is_active=True,
+            room__floor__hotel_settings_id=reservation.hotel_settings_id,
+            item__hotel_settings_id=reservation.hotel_settings_id,
+        ).values("room_id", "item_id", "quantity")
+        for row in room_inventory_rows:
+            key = (row["room_id"], row["item_id"])
+            expected_by_key[key] = int(row.get("quantity") or 0)
+
+    return expected_by_key
+
+
+def describe_checkout_expected_inventory(reservation) -> list[dict[str, Any]]:
+    """Lineas a contar en el check-out, con nombres, en el orden en que se recorren."""
+    reservation_rooms = _reservation_room_rows(reservation)
+    room_number_by_id = {
+        row["room_id"]: str(row.get("room__number") or row["room_id"])
+        for row in reservation_rooms
+    }
+    expected_by_key = get_checkout_expected_inventory(
+        reservation, reservation_rooms=reservation_rooms
+    )
+    item_name_by_id = _item_names(reservation, {item_id for _, item_id in expected_by_key})
+
+    lines = [
+        {
+            "room_id": room_id,
+            "room_number": room_number_by_id.get(room_id, str(room_id)),
+            "item_id": item_id,
+            "item_name": item_name_by_id.get(item_id, "Item %s" % item_id),
+            "expected_quantity": quantity,
+        }
+        for (room_id, item_id), quantity in expected_by_key.items()
+    ]
+    lines.sort(key=lambda line: (line["room_number"], line["item_name"], line["item_id"]))
+    return lines
+
+
 def create_checkout_inventory_comparison(
     reservation,
     *,
@@ -1561,41 +1710,14 @@ def create_checkout_inventory_comparison(
 
     inventory_review_lines = inventory_review_lines or []
 
-    reservation_rooms = list(
-        reservation.rooms_detail.select_related("room").values("id", "room_id", "room__number")
-    )
+    reservation_rooms = _reservation_room_rows(reservation)
     reservation_room_by_room_id = {row["room_id"]: row["id"] for row in reservation_rooms}
     room_number_by_id = {
         row["room_id"]: str(row.get("room__number") or row["room_id"])
         for row in reservation_rooms
     }
 
-    check_in_check = (
-        ReservationInventoryCheck.objects.filter(
-            reservation=reservation,
-            check_type=INVENTORY_CHECK_TYPE_CHECK_IN,
-        )
-        .prefetch_related("lines")
-        .first()
-    )
-
-    expected_by_key: dict[tuple[int, int], int] = {}
-    if check_in_check:
-        for line in check_in_check.lines.all():
-            key = (line.room_id, line.item_id)
-            expected_by_key[key] = int(line.reviewed_quantity or 0)
-
-    if not expected_by_key:
-        room_ids = list(reservation_room_by_room_id.keys())
-        room_inventory_rows = RoomInventory.objects.filter(
-            room_id__in=room_ids,
-            is_active=True,
-            room__floor__hotel_settings_id=reservation.hotel_settings_id,
-            item__hotel_settings_id=reservation.hotel_settings_id,
-        ).values("room_id", "item_id", "quantity")
-        for row in room_inventory_rows:
-            key = (row["room_id"], row["item_id"])
-            expected_by_key[key] = int(row.get("quantity") or 0)
+    expected_by_key = get_checkout_expected_inventory(reservation, reservation_rooms=reservation_rooms)
 
     reviewed_by_key: dict[tuple[int, int], int] = {}
     notes_by_key: dict[tuple[int, int], str] = {}
@@ -1604,20 +1726,33 @@ def create_checkout_inventory_comparison(
         reviewed_by_key[key] = int(line["quantity"])
         notes_by_key[key] = str(line.get("notes") or "").strip()
 
-    comparison_keys = set(expected_by_key.keys())
-    if reviewed_by_key:
-        comparison_keys.update(reviewed_by_key.keys())
-    else:
-        reviewed_by_key = dict(expected_by_key)
+    comparison_keys = set(expected_by_key) | set(reviewed_by_key)
+    item_name_by_id = _item_names(reservation, {item_id for _, item_id in comparison_keys})
 
-    item_ids = sorted({item_id for _, item_id in comparison_keys})
-    item_name_by_id = {
-        item_id: name
-        for item_id, name in Item.objects.filter(
-            id__in=item_ids,
-            hotel_settings_id=reservation.hotel_settings_id,
-        ).values_list("id", "name")
-    }
+    # Toda linea esperada tiene que venir contada. Antes, una revision ausente (o parcial)
+    # se daba por cuadrada con lo esperado: omitir `inventory_review` cerraba la estadia
+    # sin detectar faltantes ni generar su cargo.
+    unreviewed_keys = sorted(set(expected_by_key) - set(reviewed_by_key))
+    if unreviewed_keys:
+        pending_labels = [
+            "{item} (hab. {room})".format(
+                item=item_name_by_id.get(item_id, "item %s" % item_id),
+                room=room_number_by_id.get(room_id, room_id),
+            )
+            for room_id, item_id in unreviewed_keys[:5]
+        ]
+        pending = ", ".join(pending_labels)
+        remaining = len(unreviewed_keys) - len(pending_labels)
+        if remaining > 0:
+            pending += " y %s mas" % remaining
+        raise ValidationError(
+            {
+                "inventory_review": (
+                    "Registra la revision de inventario de la habitacion antes del check-out. "
+                    "Falta contar: %s." % pending
+                )
+            }
+        )
 
     default_notes = f"Revision de inventario post check-out de reserva #{reservation.id}."
     check, created = ReservationInventoryCheck.objects.get_or_create(

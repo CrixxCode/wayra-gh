@@ -18,6 +18,7 @@ from accounts.permissions import HasResourcePermission
 from accounts.soft_delete import LogicalDeleteViewSetMixin
 from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
 from apps.master_data.models import MasterData
+from apps.rooms.archive import archive_rooms
 from apps.rooms.models import Room
 
 from .models import HotelFloor, HotelPhoto, HotelSettings, PaymentMethod, ReservationPolicy
@@ -292,9 +293,7 @@ class HotelSettingsViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
             floors = list(HotelFloor.objects.filter(hotel_settings=settings_obj))
             floor_ids = [f.id for f in floors]
             if floor_ids:
-                rooms = list(Room.objects.filter(floor_id__in=floor_ids))
-                for room in rooms:
-                    self.perform_destroy(room)
+                archive_rooms(Room.objects.filter(floor_id__in=floor_ids))
                 for floor in floors:
                     self.perform_destroy(floor)
             for photo in settings_obj.photos.all():
@@ -569,8 +568,9 @@ class HotelFloorViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Mo
             )
 
         if delete_extra_rooms:
-            for room in extra_rooms:
-                self.perform_destroy(room)
+            # Antes llamaba a `self.perform_destroy(room)`, que en este ViewSet espera un
+            # piso: reducir habitaciones daba 500 siempre (auditoria, Bloque 2 #2).
+            archive_rooms(extra_rooms)
         elif extra_rooms:
             restored_numbers = set(target_numbers)
             restore_updates = []
@@ -604,9 +604,7 @@ class HotelFloorViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Mo
                 room_ids_to_delete.append(room.id)
 
         if room_ids_to_delete:
-            rooms = Room.objects.filter(id__in=room_ids_to_delete)
-            for room in rooms:
-                self.perform_destroy(room)
+            archive_rooms(Room.objects.filter(id__in=room_ids_to_delete))
 
         return room_ids_to_delete
 
@@ -638,8 +636,7 @@ class HotelFloorViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Mo
 
     @transaction.atomic
     def perform_destroy(self, instance):
-        for room in Room.objects.filter(floor=instance):
-            super().perform_destroy(room)
+        archive_rooms(Room.objects.filter(floor=instance))
         super().perform_destroy(instance)
 
     def create(self, request, *args, **kwargs):

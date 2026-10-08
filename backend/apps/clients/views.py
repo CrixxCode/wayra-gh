@@ -159,10 +159,23 @@ class ClientViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelV
 
     @action(detail=True, methods=["patch"], url_path="set-client-type")
     def set_client_type(self, request, pk=None):
+        """
+        Fija el tipo de cliente a mano, o lo devuelve a automatico con `client_type: "AUTO"`
+        (o `null`). Antes `Client.save()` lo recalculaba siempre y este endpoint nunca
+        persistia nada (auditoria, Bloque 5 #1).
+        """
         client = self.get_object()
 
+        requested = request.data.get("client_type")
+        if requested is None or str(requested).strip().upper() in {"", "AUTO", "AUTOMATICO"}:
+            client.client_type_is_manual = False
+            client.save(update_fields=["client_type", "client_type_is_manual"])
+            return Response(
+                ClientSerializer(client, context=self.get_serializer_context()).data
+            )
+
         try:
-            new_type = normalize_client_type(request.data.get("client_type"))
+            new_type = normalize_client_type(requested)
         except ValidationError as exc:
             return Response({"client_type": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -184,7 +197,8 @@ class ClientViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelV
             )
 
         client.client_type = type_obj
-        client.save(update_fields=["client_type"])
+        client.client_type_is_manual = True
+        client.save(update_fields=["client_type", "client_type_is_manual"])
 
         return Response(
             ClientSerializer(client, context=self.get_serializer_context()).data

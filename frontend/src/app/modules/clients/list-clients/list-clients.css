@@ -757,3 +757,34 @@ tbody tr.current-guest-row:hover {
     width: 100%;
   }
 }
+
+.client-type-field select {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 10px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+}
+
+.client-type-note {
+  margin-top: 6px;
+  color: var(--gh-text-soft);
+  font-size: 0.78rem;
+}
+
+.client-type-error {
+  margin-top: 6px;
+  color: var(--gh-status-danger-text);
+  font-size: 0.8rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

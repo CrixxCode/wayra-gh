@@ -155,13 +155,13 @@
             no se puede si tiene reservas activas.
           </p>
 
-          <div class="danger-actions" *ngIf="!confirmingDelete">
+          <div class="danger-actions" *ngIf="!confirmingDelete && !confirmingOutOfService">
             <button
               type="button"
               class="gh-mbtn gh-mbtn-light"
               *ngIf="!isOutOfService"
               [disabled]="saving || deleting"
-              (click)="markOutOfService()">
+              (click)="askOutOfService()">
               <i class="fa-solid fa-ban"></i>
               Marcar fuera de servicio
             </button>
@@ -177,6 +177,22 @@
               <i class="fa-solid fa-trash"></i>
               Eliminar habitacion
             </button>
+          </div>
+
+          <div class="danger-confirm" *ngIf="confirmingOutOfService">
+            <p>
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              La habitacion <strong>{{ room.number }}</strong> dejara de poder reservarse hasta que
+              le cambies el estado de nuevo.
+            </p>
+            <div class="danger-actions">
+              <button type="button" class="gh-mbtn gh-mbtn-light" [disabled]="saving" (click)="cancelOutOfService()">
+                Cancelar
+              </button>
+              <button type="button" class="gh-mbtn gh-mbtn-danger" [disabled]="saving" (click)="markOutOfService()">
+                {{ saving ? 'Guardando...' : 'Si, sacar de servicio' }}
+              </button>
+            </div>
           </div>
 
           <div class="danger-confirm" *ngIf="confirmingDelete">

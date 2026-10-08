@@ -1,6 +1,17 @@
 from django.db import models
 
 
+# Grupos que ya no alimentan nada. Siguen en el enum porque hay migraciones y el proxy
+# `RoomType` que los nombran, pero no se ofrecen ni admiten valores nuevos: un "Suite"
+# creado aqui no aparecia en ningun lado y parecia un tipo de habitacion real.
+RETIRED_GROUPS = {
+    # Los tipos de habitacion viven en `apps.rooms.RoomType`, por hotel (5.14).
+    "ROOM_TYPE": "Los tipos de habitacion se crean en Habitaciones, dentro de cada hotel.",
+    # Los metodos de pago viven en `hotel_settings.PaymentMethod`, por hotel (5.16).
+    "PAYMENT_METHOD": "Los metodos de pago se configuran por hotel en Configuracion del hotel.",
+}
+
+
 class MasterData(models.Model):
     class Group(models.TextChoices):
         DOCUMENT_TYPE = "DOCUMENT_TYPE", "Document type"

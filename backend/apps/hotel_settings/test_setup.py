@@ -80,11 +80,45 @@ class HotelSetupGateTests(APITestCase):
     def test_direct_operational_reads_and_writes_are_blocked(self):
         for method, path in (("get", "/api/clients/"), ("post", "/api/clients/"),
                              ("patch", "/api/clients/1/"), ("delete", "/api/clients/1/"),
-                             ("get", "/api/reports/"), ("get", "/api/rooms/")):
+                             ("get", "/api/reports/"), ("get", "/api/reservations/")):
             with self.subTest(method=method, path=path):
                 response = getattr(self.client, method)(path)
                 self.assertEqual(response.status_code, 403)
                 self.assertEqual(response.json()["code"], "hotel_setup_required")
+
+    def test_room_catalog_stays_open_while_setup_is_incomplete(self):
+        # Auditoria, Bloque 2 #1: el setup exige habitaciones reales y solo se crean desde
+        # /habitaciones; si sus endpoints quedaban bloqueados, el hotel nunca terminaba.
+        role = self.user.roles.get()
+        for key in ("rooms.read", "rooms.write", "room_type.read", "room_type.write",
+                    "rates.read", "rates.write", "amenities.read"):
+            resource, _ = Resource.objects.get_or_create(key=key, defaults={"name": key})
+            role.resources.add(resource)
+        Room.objects.all().delete()
+        self.assertFalse(self.client.get("/api/auth/hotel-setup/").data["is_complete"])
+
+        for path in ("/api/rooms/", "/api/room-types/", "/api/rates/", "/api/amenities/"):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 200)
+
+        created = self.client.post(
+            "/api/rooms/",
+            {"number": "102", "floor": self.floor.pk, "room_type": self.room_type.pk,
+             "rate": self.rate.pk, "status": "DISPONIBLE"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+
+        # Lo demas sigue cerrado mientras falten datos del hotel, y amenidades solo se leen.
+        self.assertEqual(self.client.get("/api/clients/").json()["code"], "hotel_setup_required")
+        self.assertEqual(
+            self.client.post("/api/amenities/", {"name": "X"}, format="json").json()["code"],
+            "hotel_setup_required",
+        )
+
+        response = self.client.patch(f"/api/hotel-settings/{self.hotel.pk}/", self.complete_payload(), format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(self.client.get("/api/auth/hotel-setup/").data["is_complete"])
 
     def test_saved_completion_unlocks_and_clear_relocks_operations(self):
         response = self.client.patch(f"/api/hotel-settings/{self.hotel.pk}/", self.complete_payload(), format="json")

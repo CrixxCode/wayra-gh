@@ -598,3 +598,9 @@
   margin-top: 3px;
   color: var(--gh-status-info-strong);
 }
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

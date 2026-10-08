@@ -227,6 +227,10 @@ export class BillingPage implements OnInit, OnDestroy {
    * Se calcula sobre las facturas que siguen esperando cobro —ni pagadas ni anuladas—
    * y no como `facturado - cobrado`, porque esa resta arrastra el histórico completo y
    * daría un pendiente falso en cuanto haya una factura anulada.
+   *
+   * De cada factura abierta se toma el `pending_balance` del backend, que ya descuenta
+   * reembolsos y notas de credito: restar solo pagos aqui hacia que este numero no
+   * cuadrara con el saldo que bloquea el check-out.
    */
   get pendingTotal(): number {
     const openInvoiceIds = new Set(
@@ -239,15 +243,23 @@ export class BillingPage implements OnInit, OnDestroy {
         .map((invoice) => invoice.id)
     );
 
-    const billed = this.invoices
+    const paidByInvoice = new Map<number, number>();
+    for (const payment of this.payments) {
+      if (payment.is_active === false) continue;
+      const invoiceId = Number(payment.invoice);
+      if (!openInvoiceIds.has(invoiceId)) continue;
+      paidByInvoice.set(invoiceId, (paidByInvoice.get(invoiceId) || 0) + this.toNumber(payment.amount));
+    }
+
+    return this.invoices
       .filter((invoice) => openInvoiceIds.has(invoice.id))
-      .reduce((sum, invoice) => sum + this.toNumber(invoice.total_amount), 0);
-
-    const paid = this.payments
-      .filter((payment) => payment.is_active !== false && openInvoiceIds.has(Number(payment.invoice)))
-      .reduce((sum, payment) => sum + this.toNumber(payment.amount), 0);
-
-    return Math.max(billed - paid, 0);
+      .reduce((sum, invoice) => {
+        if (invoice.pending_balance !== undefined && invoice.pending_balance !== null) {
+          return sum + Math.max(this.toNumber(invoice.pending_balance), 0);
+        }
+        const paid = paidByInvoice.get(invoice.id) || 0;
+        return sum + Math.max(this.toNumber(invoice.total_amount) - paid, 0);
+      }, 0);
   }
 
   /** Facturas abiertas que ya tienen algún pago pero no llegan al total. */

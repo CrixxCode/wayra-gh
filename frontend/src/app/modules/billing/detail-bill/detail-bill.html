@@ -274,6 +274,10 @@
 
     <footer class="bill-footer">
       <div class="summary-grid">
+        <div *ngIf="promotionDiscountAmount > 0">
+          <span>Promociones</span>
+          <strong>-{{ formatCurrency(promotionDiscountAmount) }}</strong>
+        </div>
         <div>
           <span>Subtotal</span>
           <strong>{{ formatCurrency(subtotalAmount) }}</strong>

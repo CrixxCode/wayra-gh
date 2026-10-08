@@ -319,7 +319,14 @@ class UserViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
 
     def get_permissions(self):
         allow_public_register = getattr(settings, "ALLOW_PUBLIC_USER_REGISTRATION", False)
-        if self.action == "register" and allow_public_register:
+        # El registro publico es para quien no tiene cuenta. Un usuario con sesion pasa por
+        # el RBAC normal (`users.write`): si no, cualquier cuenta sin permisos podia crear
+        # usuarios en su hotel con solo tener el flag activo.
+        if (
+            self.action == "register"
+            and allow_public_register
+            and not self.request.user.is_authenticated
+        ):
             return [AllowAny()]
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
@@ -346,8 +353,7 @@ class UserViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="register")
     def register(self, request):
-        allow_public_register = getattr(settings, "ALLOW_PUBLIC_USER_REGISTRATION", False)
-        if not request.user.is_authenticated and allow_public_register:
+        if not request.user.is_authenticated:
             _require_public_registration_token(
                 request,
                 setting_name="PUBLIC_USER_REGISTRATION_TOKEN",

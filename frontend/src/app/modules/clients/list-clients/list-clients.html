@@ -282,6 +282,28 @@
         </section>
 
         <section>
+          <h3>Tipo de cliente</h3>
+          <label class="client-type-field">
+            <span class="sr-only">Tipo de cliente</span>
+            <select
+              [ngModel]="clientTypeChoice"
+              (ngModelChange)="changeClientType($event)"
+              [disabled]="savingClientType">
+              <option value="AUTO">Automatico por estadias ({{ automaticTypeLabel }})</option>
+              <option value="REGULAR">Regular (fijo)</option>
+              <option value="FRECUENTE">Frecuente (fijo)</option>
+              <option value="VIP">VIP (fijo)</option>
+            </select>
+          </label>
+          <p class="client-type-note">
+            {{ selectedClient.client_type_is_manual
+              ? 'Fijado por el hotel: no cambia con las estadias.'
+              : 'Sube solo: Frecuente desde 10 noches, VIP desde 30.' }}
+          </p>
+          <p class="client-type-error" *ngIf="clientTypeError" role="alert">{{ clientTypeError }}</p>
+        </section>
+
+        <section>
           <h3>Documento</h3>
           <div class="info-list">
             <div><span>Tipo</span><strong>{{ selectedClient.document_type || 'No registra' }}</strong></div>

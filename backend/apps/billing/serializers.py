@@ -429,6 +429,14 @@ class PaymentSerializer(serializers.ModelSerializer):
                 {"invoice": "No puedes registrar pagos en una factura inactiva."}
             )
 
+        # `sync_invoice_status` congela una factura ANULADA: un pago sobre ella se cobraba
+        # de verdad pero la factura nunca lo reflejaba.
+        invoice_status_code = str(getattr(invoice, "status_code", "") or "").strip().upper()
+        if invoice and invoice_status_code == "ANULADA":
+            raise serializers.ValidationError(
+                {"invoice": "No puedes registrar pagos en una factura anulada."}
+            )
+
         if invoice and payment_method:
             if payment_method.hotel_settings_id != invoice.reservation.hotel_settings_id:
                 raise serializers.ValidationError(
@@ -440,27 +448,10 @@ class PaymentSerializer(serializers.ModelSerializer):
                 )
 
         if invoice and amount:
-            total_paid = sum(
-                payment.amount
-                for payment in invoice.payments.filter(is_active=True).exclude(
-                    pk=getattr(self.instance, "pk", None)
-                )
-            )
-            total_processed_refunds = sum(
-                refund.amount
-                for refund in PaymentRefund.objects.filter(
-                    payment__invoice=invoice,
-                    is_active=True,
-                    status__code__in=["APROBADO", "PROCESADO"],
-                ).only("amount")
-            )
-            net_paid = total_paid - total_processed_refunds
-            if net_paid < 0:
-                net_paid = 0
-
-            pending_balance = invoice.total_amount - net_paid
-            if pending_balance < 0:
-                pending_balance = 0
+            pending_balance = get_invoice_reconciliation(
+                invoice,
+                exclude_payment_id=getattr(self.instance, "pk", None),
+            )["pending_balance"]
 
             if amount > pending_balance:
                 raise serializers.ValidationError(

@@ -1181,6 +1181,21 @@ class ReservationApiFlowTestCase(APITestCase):
         reservation.real_check_in = timezone.now() - timedelta(hours=1)
         reservation.save(update_fields=["status", "real_check_in"])
 
+    def _full_inventory_review(self, reservation: Reservation):
+        """Revision de salida que cuenta exactamente lo esperado: sin faltantes ni sobrantes."""
+        response = self.client.get(f"/api/reservations/{reservation.id}/checkout-inventory/")
+        self.assertEqual(response.status_code, 200)
+        return {
+            "inventory_review": [
+                {
+                    "room": line["room_id"],
+                    "item": line["item_id"],
+                    "quantity": line["expected_quantity"],
+                }
+                for line in response.data["lines"]
+            ]
+        }
+
     def _pay_reservation_balance(self, reservation: Reservation):
         invoice = ensure_default_invoice_for_reservation(reservation.id)
         self.assertIsNotNone(invoice)
@@ -1258,7 +1273,7 @@ class ReservationApiFlowTestCase(APITestCase):
         self.assertIsNotNone(check_in.data["real_check_in"])
 
         self._pay_reservation_balance(reservation)
-        check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
+        check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data=self._full_inventory_review(reservation), format="json")
         self.assertEqual(check_out.status_code, 200)
         self.assertEqual(check_out.data["status_code"], "FINALIZADA")
         self.assertIsNotNone(check_out.data["real_check_out"])
@@ -1298,7 +1313,7 @@ class ReservationApiFlowTestCase(APITestCase):
         self.assertEqual(check_in.status_code, 200)
 
         self._pay_reservation_balance(reservation)
-        check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
+        check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data=self._full_inventory_review(reservation), format="json")
         self.assertEqual(check_out.status_code, 200)
         self.assertEqual(check_out.data["status_code"], "FINALIZADA")
         self.room.refresh_from_db()
@@ -1314,7 +1329,7 @@ class ReservationApiFlowTestCase(APITestCase):
             timezone.localtime(reservation.real_check_out).date(),
         )
 
-        check_out_again = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
+        check_out_again = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data=self._full_inventory_review(reservation), format="json")
         self.assertEqual(check_out_again.status_code, 200)
 
         self.client_model.refresh_from_db()
@@ -1384,7 +1399,7 @@ class ReservationApiFlowTestCase(APITestCase):
         self._mark_reservation_as_checked_in(reservation)
 
         self._pay_reservation_balance(reservation)
-        check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
+        check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data=self._full_inventory_review(reservation), format="json")
         self.assertEqual(check_out.status_code, 200)
         self.assertEqual(check_out.data["status_code"], "FINALIZADA")
 
@@ -1418,7 +1433,7 @@ class ReservationApiFlowTestCase(APITestCase):
         self.assertEqual(checkout_line.reviewed_quantity, 3)
         self.assertEqual(checkout_line.difference_quantity, 0)
 
-        check_out_again = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
+        check_out_again = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data=self._full_inventory_review(reservation), format="json")
         self.assertEqual(check_out_again.status_code, 200)
         self.assertEqual(
             CleaningTask.objects.filter(room_id=self.room.id, task_type__code="SALIDA").count(),
@@ -1450,7 +1465,7 @@ class ReservationApiFlowTestCase(APITestCase):
         self.client.post(f"/api/reservations/{reservation.id}/confirm/", data={}, format="json")
         self._mark_reservation_as_checked_in(reservation)
         self._pay_reservation_balance(reservation)
-        check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
+        check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data=self._full_inventory_review(reservation), format="json")
 
         self.assertEqual(check_out.status_code, 200)
         task = CleaningTask.objects.filter(room_id=self.room.id, task_type__code="SALIDA").first()
@@ -1498,7 +1513,7 @@ class ReservationApiFlowTestCase(APITestCase):
         self.assertEqual(check_in.status_code, 200)
 
         self._pay_reservation_balance(reservation)
-        check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
+        check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data=self._full_inventory_review(reservation), format="json")
         self.assertEqual(check_out.status_code, 200)
 
         self.room.refresh_from_db()
@@ -1536,7 +1551,7 @@ class ReservationApiFlowTestCase(APITestCase):
 
         self._mark_reservation_as_checked_in(reservation)
 
-        check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data={}, format="json")
+        check_out = self.client.post(f"/api/reservations/{reservation.id}/check-out/", data=self._full_inventory_review(reservation), format="json")
         self.assertEqual(check_out.status_code, 400)
         self.assertIn("saldo pendiente", str(check_out.data.get("detail", "")).lower())
 
@@ -1548,7 +1563,7 @@ class ReservationApiFlowTestCase(APITestCase):
         self._pay_reservation_balance(reservation)
         paid_check_out = self.client.post(
             f"/api/reservations/{reservation.id}/check-out/",
-            data={},
+            data=self._full_inventory_review(reservation),
             format="json",
         )
         self.assertEqual(paid_check_out.status_code, 200)
@@ -1583,6 +1598,141 @@ class ReservationApiFlowTestCase(APITestCase):
         self.assertEqual(line.expected_quantity, 3)
         self.assertEqual(line.reviewed_quantity, 3)
         self.assertEqual(line.difference_quantity, 0)
+
+    def _checked_in_paid_reservation(self):
+        reservation = self._create_reservation(status=self.reservation_status_pending)
+        self._create_room_line(reservation=reservation, night_rate=100000)
+        confirm = self.client.post(f"/api/reservations/{reservation.id}/confirm/", data={}, format="json")
+        self.assertEqual(confirm.status_code, 200)
+        self._mark_reservation_as_checked_in(reservation)
+        self._pay_reservation_balance(reservation)
+        return reservation
+
+    def _guest_in_house(self):
+        reservation = self._create_reservation(status=self.reservation_status_pending)
+        self._create_room_line(reservation)
+        self.assertEqual(
+            self.client.post(f"/api/reservations/{reservation.id}/confirm/", data={}, format="json").status_code,
+            200,
+        )
+        self._mark_reservation_as_checked_in(reservation)
+        return reservation
+
+    def test_room_status_cannot_be_changed_by_hand_while_a_guest_is_in_house(self):
+        # Auditoria, Bloque 4 #2: un PATCH a "Disponible" habilitaba un segundo check-in.
+        occupant = self._guest_in_house()
+
+        response = self.client.patch(
+            f"/api/rooms/{self.room.id}/", data={"status": "DISPONIBLE"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(occupant.code, response.json()["detail"])
+
+    def test_check_in_is_blocked_while_another_guest_is_in_house(self):
+        occupant = self._guest_in_house()
+        # Aunque alguien haya forzado el estado por fuera de la API.
+        self.room.status = self.room_status_available
+        self.room.save(update_fields=["status"])
+
+        second = self._create_reservation(
+            check_in_offset=0, check_out_offset=2, status=self.reservation_status_confirmed
+        )
+        ReservationRoom.objects.bulk_create(
+            [ReservationRoom(reservation=second, room=self.room, night_rate=100000, adults=1)]
+        )
+
+        response = self.client.post(f"/api/reservations/{second.id}/check-in/", data={}, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(occupant.code, response.data["detail"])
+        second.refresh_from_db()
+        self.assertIsNone(second.real_check_in)
+
+    def test_room_with_active_reservation_cannot_go_out_of_service(self):
+        # Bloque 4 #1: la reserva seguiria corriendo sobre una habitacion fuera del tablero.
+        self._md(MasterData.Group.ROOM_STATUS, "FUERA_DE_SERVICIO", "Fuera de servicio", 9)
+        reservation = self._create_reservation(
+            check_in_offset=3, check_out_offset=5, status=self.reservation_status_confirmed
+        )
+        self._create_room_line(reservation)
+
+        response = self.client.patch(
+            f"/api/rooms/{self.room.id}/", data={"status": "FUERA_DE_SERVICIO"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(reservation.code, response.json()["detail"])
+
+    def test_check_out_without_inventory_review_is_rejected(self):
+        # Auditoria, Bloque 6 #1: omitir la revision ya no da el inventario por cuadrado.
+        reservation = self._checked_in_paid_reservation()
+
+        for payload in ({}, {"inventory_review": []}):
+            response = self.client.post(
+                f"/api/reservations/{reservation.id}/check-out/", data=payload, format="json"
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("revision de inventario", response.data["detail"].lower())
+            self.assertIn("toalla", response.data["detail"].lower())
+
+        reservation.refresh_from_db()
+        self.assertIsNone(reservation.real_check_out)
+        self.assertFalse(
+            ReservationInventoryCheck.objects.filter(
+                reservation=reservation,
+                check_type=ReservationInventoryCheck.CheckType.CHECK_OUT,
+            ).exists()
+        )
+
+    def test_check_out_with_partial_inventory_review_is_rejected(self):
+        reservation = self._checked_in_paid_reservation()
+        extra_item = Item.objects.create(
+            hotel_settings=self.hotel_settings,
+            item_type=self.item_type_amenity,
+            unit_measure=self.unit_measure_unit,
+            name="Control remoto",
+            sku="REMOTE-1",
+            stock=5,
+            is_active=True,
+        )
+        RoomInventory.objects.create(room=self.room, item=extra_item, quantity=1, is_active=True)
+        expected = self.client.get(f"/api/reservations/{reservation.id}/checkout-inventory/")
+        self.assertEqual(len(expected.data["lines"]), 2)
+
+        response = self.client.post(
+            f"/api/reservations/{reservation.id}/check-out/",
+            data={
+                "inventory_review": [
+                    {"room": self.room.id, "item": self.towel_item.id, "quantity": 3}
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("control remoto", response.data["detail"].lower())
+        reservation.refresh_from_db()
+        self.assertIsNone(reservation.real_check_out)
+
+    def test_checkout_inventory_endpoint_lists_lines_to_review(self):
+        reservation = self._checked_in_paid_reservation()
+
+        response = self.client.get(f"/api/reservations/{reservation.id}/checkout-inventory/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["lines"],
+            [
+                {
+                    "room_id": self.room.id,
+                    "room_number": self.room.number,
+                    "item_id": self.towel_item.id,
+                    "item_name": self.towel_item.name,
+                    "expected_quantity": 3,
+                }
+            ],
+        )
 
     def test_check_out_inventory_review_compares_against_check_in_snapshot(self):
         reservation = self._create_reservation(status=self.reservation_status_pending)
@@ -1789,6 +1939,12 @@ class WebReservationPublicApiTests(APITestCase):
         )[0]
 
     def setUp(self):
+        from django.core.cache import cache
+
+        # Mismo motivo que en OnlineCheckInPublicApiTests: el throttle publico (5/min)
+        # vive en el cache compartido entre tests.
+        cache.clear()
+
         self.document_type = self._md(MasterData.Group.DOCUMENT_TYPE, "CC", "Cedula", 1)
         self._md(MasterData.Group.CLIENT_TYPE, "REGULAR", "Regular", 1)
         self._md(MasterData.Group.CLIENT_STATUS, "ACTIVO", "Activo", 1)
@@ -1974,6 +2130,78 @@ class WebReservationPublicApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 201)
         send_mock.assert_called_once()
+
+
+    def _existing_client(self, **overrides):
+        fields = {
+            "hotel_settings": self.hotel_settings,
+            "document_type": self.document_type,
+            "document_number": "1234567890",
+            "first_name": "Laura",
+            "last_name": "Gomez",
+            "email": "laura@example.com",
+            "phone": "",
+            "country": "",
+            "client_type": MasterData.objects.get(
+                group=MasterData.Group.CLIENT_TYPE, code="REGULAR"
+            ),
+            "status": MasterData.objects.get(group=MasterData.Group.CLIENT_STATUS, code="ACTIVO"),
+        }
+        fields.update(overrides)
+        return Client.objects.create(**fields)
+
+    def test_public_reservation_does_not_overwrite_existing_client_identity(self):
+        # Auditoria, Bloque 14 #1: conocer el documento de un huesped no debe permitir
+        # renombrar su perfil ni redirigir su correo de contacto.
+        victim = self._existing_client(phone="3110000000")
+        payload = self._payload()
+        payload["guestName"] = "Impostor Malicioso"
+        payload["guestEmail"] = "atacante@example.com"
+        payload["guestPhone"] = "3209999999"
+
+        response = self.client.post("/api/web-reservations/", data=payload, format="json")
+
+        self.assertEqual(response.status_code, 201, response.data)
+        victim.refresh_from_db()
+        self.assertEqual(victim.first_name, "Laura")
+        self.assertEqual(victim.last_name, "Gomez")
+        self.assertEqual(victim.email, "laura@example.com")
+        self.assertEqual(victim.phone, "3110000000")
+
+        reservation = Reservation.objects.get(id=response.data["id"])
+        self.assertEqual(reservation.client_id, victim.id)
+        # Lo que escribio el visitante queda para que recepcion lo revise al confirmar.
+        self.assertEqual(
+            reservation.source_metadata["submitted_contact"],
+            {
+                "name": "Impostor Malicioso",
+                "email": "atacante@example.com",
+                "phone": "3209999999",
+            },
+        )
+        self.assertEqual(reservation.guests.get().first_name, "Impostor")
+
+    def test_public_reservation_only_fills_blank_client_fields(self):
+        client = self._existing_client(phone="", country="")
+
+        response = self.client.post("/api/web-reservations/", data=self._payload(), format="json")
+
+        self.assertEqual(response.status_code, 201, response.data)
+        client.refresh_from_db()
+        self.assertEqual(client.phone, "3001234567")
+        self.assertEqual(client.country, "CO")
+
+    def test_submitted_contact_cannot_be_spoofed_through_source_metadata(self):
+        payload = self._payload()
+        payload["sourceMetadata"] = {"submitted_contact": {"email": "falso@example.com"}}
+
+        response = self.client.post("/api/web-reservations/", data=payload, format="json")
+
+        self.assertEqual(response.status_code, 201, response.data)
+        reservation = Reservation.objects.get(id=response.data["id"])
+        self.assertEqual(
+            reservation.source_metadata["submitted_contact"]["email"], "laura@example.com"
+        )
 
 
 class OnlineCheckInPublicApiTests(APITestCase):
@@ -2460,3 +2688,41 @@ class OnlineCheckInPublicApiTests(APITestCase):
         self.assertEqual(len(response.data["existing_guests"]), 2)
         documents = {guest["document_number"] for guest in response.data["existing_guests"]}
         self.assertEqual(documents, {"1234567890", "1234567891"})
+
+
+    def test_lookup_errors_do_not_reveal_whether_the_code_exists(self):
+        # Auditoria, Bloque 14 #2 / decision 5.24: codigo inexistente y documento
+        # equivocado deben ser indistinguibles, incluida la clave dentro de `errors`.
+        unknown_code = self.client.post(
+            "/api/online-check-in/lookup/",
+            data=self._lookup_payload(reservationCode="WYR-999999"),
+            format="json",
+        )
+        wrong_document = self.client.post(
+            "/api/online-check-in/lookup/",
+            data=self._lookup_payload(documentNumber="000000"),
+            format="json",
+        )
+
+        self.assertEqual(unknown_code.status_code, 400)
+        self.assertEqual(unknown_code.json(), wrong_document.json())
+
+    def test_submit_errors_do_not_reveal_whether_the_code_exists(self):
+        invented_guests = [
+            self._guest_payload(documentNumber="555000111"),
+            self._guest_payload(firstName="Otro", documentNumber="555000112"),
+        ]
+        unknown_code = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(guests=invented_guests, reservationCode="WYR-999999"),
+            format="json",
+        )
+        existing_code = self.client.post(
+            "/api/online-check-in/",
+            data=self._payload(guests=invented_guests),
+            format="json",
+        )
+
+        self.assertEqual(unknown_code.status_code, 400)
+        self.assertEqual(unknown_code.json(), existing_code.json())
+        self.assertEqual(self.reservation.guests.count(), 0)

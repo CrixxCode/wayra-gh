@@ -60,6 +60,8 @@ from apps.reservations.services import (
     create_check_in_inventory_snapshot,
     create_checkout_inventory_comparison,
     create_post_checkout_cleaning_tasks,
+    describe_checkout_expected_inventory,
+    find_in_house_reservation_room,
     get_reservation_check_in_start_datetime,
     get_cancelled_reservation_status,
     get_confirmed_reservation_status,
@@ -208,6 +210,8 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
                 "rooms_detail__room__floor__hotel_settings",
                 "charges",
                 "invoices__payments__refunds__status",
+                "invoices__credit_notes",
+                "promotion_applications",
             )
         elif self.action in {"retrieve", "confirm", "check_in", "check_out", "cancel"}:
             queryset = queryset.prefetch_related(
@@ -217,6 +221,8 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
                 "guests__document_type",
                 "charges",
                 "invoices__payments__refunds__status",
+                "invoices__credit_notes",
+                "promotion_applications",
             )
 
         if self.action != "list":
@@ -443,6 +449,15 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
                         "No puedes hacer check-in porque la habitacion "
                         f"{room_number} no esta disponible (estado: {room_status_name})."
                     )
+                in_house = find_in_house_reservation_room(
+                    room.id, exclude_reservation_id=reservation.id
+                )
+                if in_house:
+                    return self._error(
+                        "No puedes hacer check-in porque la habitacion "
+                        f"{getattr(room, 'number', room.id)} tiene un huesped alojado "
+                        f"(reserva {in_house.reservation.code}). Haz primero su check-out."
+                    )
 
             check_in_start_datetime = get_reservation_check_in_start_datetime(reservation)
             if (
@@ -471,6 +486,92 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
 
         serializer = ReservationDetailSerializer(reservation, context=self.get_serializer_context())
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"], url_path="checkout-inventory")
+    def checkout_inventory(self, request, pk=None):
+        """
+        Lo que hay que contar al hacer check-out. El check-out exige una linea revisada por
+        cada una de estas, asi que las pantallas de salida arman su formulario desde aqui y
+        no desde `RoomInventory`, que puede no coincidir con la foto del check-in.
+        """
+        reservation = self.get_object()
+        return Response(
+            {"lines": describe_checkout_expected_inventory(reservation)},
+            status=status.HTTP_200_OK,
+        )
+
+    def _promotions_payload(self, reservation):
+        from apps.promotions.models import PromotionApplication
+        from apps.promotions.services import eligible_general_promotions, is_percentage_discount
+
+        applications = (
+            PromotionApplication.objects.filter(reservation=reservation, is_active=True)
+            .select_related("promotion", "charge", "applied_by")
+            .order_by("scope", "id")
+        )
+        return {
+            "applied": [
+                {
+                    "promotion": application.promotion_id,
+                    "promotion_name": application.promotion.name,
+                    "scope": application.scope,
+                    "is_automatic": application.is_automatic,
+                    "amount": application.amount,
+                    "charge": application.charge_id,
+                    "charge_description": getattr(application.charge, "description", None),
+                    "applied_by_username": getattr(application.applied_by, "username", None),
+                }
+                for application in applications
+            ],
+            # Solo las generales se eligen: las de servicio y paquete se aplican solas.
+            "available": [
+                {
+                    "id": promotion.id,
+                    "name": promotion.name,
+                    "discount_value": promotion.discount_value,
+                    "is_percentage": is_percentage_discount(promotion),
+                    "end_date": promotion.end_date,
+                }
+                for promotion in eligible_general_promotions(reservation)
+            ],
+        }
+
+    @action(detail=True, methods=["get", "post"], url_path="promotions")
+    def promotions(self, request, pk=None):
+        """
+        Promociones de la reserva. `GET` lista las aplicadas y las generales que recepcion
+        puede elegir; `POST {promotion}` aplica una general (descuenta la estadia).
+        """
+        from apps.promotions.services import apply_general_promotion
+
+        reservation = self.get_object()
+        if request.method == "POST":
+            try:
+                apply_general_promotion(
+                    reservation,
+                    request.data.get("promotion"),
+                    applied_by=request.user,
+                )
+            except ValidationError as exc:
+                return self._error(self._validation_error_message(exc))
+            reservation = self.get_object()
+        return Response(self._promotions_payload(reservation), status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=["delete"],
+        url_path=r"promotions/(?P<promotion_id>\d+)",
+        url_name="promotions-remove",
+    )
+    def remove_promotion(self, request, pk=None, promotion_id=None):
+        from apps.promotions.services import remove_general_promotion
+
+        reservation = self.get_object()
+        try:
+            remove_general_promotion(reservation, promotion_id)
+        except ValidationError as exc:
+            return self._error(self._validation_error_message(exc))
+        return Response(self._promotions_payload(self.get_object()), status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="check-out")
     def check_out(self, request, pk=None):

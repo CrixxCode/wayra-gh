@@ -8,6 +8,8 @@ from django.urls import reverse
 from django.utils.encoding import smart_bytes
 from django.utils.http import urlsafe_base64_encode
 
+from accounts.url_safety import safe_frontend_base_url
+
 
 NON_INBOX_EMAIL_BACKENDS = {
     "django.core.mail.backends.console.EmailBackend",
@@ -162,12 +164,14 @@ def build_password_reset_url(user, request=None, base_url=None) -> str:
     uid = urlsafe_base64_encode(smart_bytes(user.pk))
     token = PasswordResetTokenGenerator().make_token(user)
 
-    clean_base_url = str(base_url or "").strip()
+    # El enlace lleva un token de un solo uso: solo se arma sobre un origen de confianza.
+    clean_base_url = safe_frontend_base_url(base_url)
     if clean_base_url:
         return f"{clean_base_url}?uid={uid}&token={token}"
 
-    path = reverse("password_reset_confirm")
+    # Mismo origen que la peticion: en produccion el backend sirve la SPA (5.7).
     if request is not None:
-        return request.build_absolute_uri(f"{path}?uid={uid}&token={token}")
+        return request.build_absolute_uri(f"/reset-password?uid={uid}&token={token}")
 
+    path = reverse("password_reset_confirm")
     return f"http://localhost:8000{path}?uid={uid}&token={token}"

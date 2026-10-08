@@ -100,6 +100,8 @@ describe('RoomCheckModal', () => {
       paymentMethods?: any[];
       payments?: any[];
       refunds?: any[];
+      /** Lineas de `checkout-inventory/`; `null` simula que la carga falla. */
+      countLines?: any[] | null;
     } = {}
   ) => {
     checkIn.calls.reset();
@@ -122,7 +124,11 @@ describe('RoomCheckModal', () => {
               getReservationById: () =>
                 of(reservationQueue.length > 1 ? reservationQueue.shift() : reservationQueue[0]),
               checkInReservation: checkIn,
-              checkOutReservation: checkOut
+              checkOutReservation: checkOut,
+              getCheckoutInventory: () =>
+                options.countLines === null
+                  ? throwError(() => new Error('sin inventario'))
+                  : of(options.countLines || [])
             }
           },
           {
@@ -254,7 +260,7 @@ describe('RoomCheckModal', () => {
       expect(component.canConfirm).toBeTrue();
 
       component.confirm();
-      expect(checkOut).toHaveBeenCalledWith(4521);
+      expect(checkOut).toHaveBeenCalledWith(4521, { inventory_review: [] });
     });
 
     it('propone cobrar el saldo completo y admite abonos parciales', async () => {
@@ -453,8 +459,62 @@ describe('RoomCheckModal', () => {
 
     component.confirm();
 
-    expect(component.errorMessage).toContain('No se pudo registrar el check-out');
+    expect(component.submitError).toContain('No se pudo registrar el check-out');
     expect(component.submitting).toBeFalse();
+    // El error no bloquea: se puede corregir y reintentar.
+    expect(component.canConfirm).toBeTrue();
     checkOut.and.returnValue(of({}));
+  });
+
+  describe('revision de inventario de salida', () => {
+    const towelLine = {
+      room_id: 7,
+      room_number: '101',
+      item_id: 3,
+      item_name: 'Toalla',
+      expected_quantity: 3
+    };
+
+    it('envia lo contado en cada linea al hacer check-out', async () => {
+      await setup('check-out', { countLines: [towelLine] });
+
+      component.setCounted(component.countLines[0], 1);
+      component.countLines[0].notes = ' Se llevo dos ';
+      component.confirm();
+
+      expect(checkOut).toHaveBeenCalledWith(component.reservation!.id, {
+        inventory_review: [{ room: 7, item: 3, quantity: 1, notes: 'Se llevo dos' }]
+      });
+    });
+
+    it('arranca con lo esperado y cuenta los faltantes', async () => {
+      await setup('check-out', { countLines: [towelLine] });
+
+      expect(component.countLines[0].counted).toBe(3);
+      expect(component.missingCountTotal).toBe(0);
+
+      component.setCounted(component.countLines[0], 1);
+      expect(component.missingCountTotal).toBe(2);
+      expect(component.countDifferenceLabel(component.countLines[0])).toBe('Faltan 2');
+    });
+
+    it('no deja cerrar si no se pudo cargar el inventario a revisar', async () => {
+      await setup('check-out', { countLines: null });
+
+      expect(component.canConfirm).toBeFalse();
+      expect(component.blockingReason).toContain('inventario');
+    });
+
+    it('muestra el motivo del backend cuando rechaza la salida', async () => {
+      checkOut.and.returnValue(
+        throwError(() => ({ error: { detail: 'Falta cobrar 24000.00 antes de cerrar la estadia.' } }))
+      );
+      await setup('check-out', { countLines: [towelLine] });
+
+      component.confirm();
+
+      expect(component.submitError).toBe('Falta cobrar 24000.00 antes de cerrar la estadia.');
+      checkOut.and.returnValue(of({}));
+    });
   });
 });

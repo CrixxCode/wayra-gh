@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-09-21
+**Última actualización:** 2026-10-07
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -421,13 +421,21 @@ el RBAC vigente.
 
 Hay deduplicación diaria (`_already_notified_today`) para no saturar con recordatorios repetidos.
 
-**Comandos programados existentes:**
+**Los recordatorios diarios no dependen de un cron** (desde el 2026-10-07, mismo criterio que 5.21).
+`apps/notifications/scheduled.py::ensure_daily_notifications` genera los check-ins y check-outs de
+hoy y mañana y el reporte del día **la primera vez en el día que alguien del hotel consulta la
+campana** (`GET /api/notifications/` o `unread-count/`). `HotelSettings.daily_notifications_ran_on`
+dice si ya corrió hoy —una lectura barata, que no depende de la caché por proceso—; la generación
+corre bajo `select_for_update` del hotel y un fallo se registra sin tumbar la lectura, que lo
+reintenta. Antes los comandos existían, pero nada los programaba y nunca le llegaban a nadie.
+
+**Comandos (opcionales, reutilizan la misma lógica):**
 
 | Comando | Propósito |
 |---|---|
-| `notify_upcoming_checkins` | Avisa de check-ins próximos |
-| `notify_upcoming_checkouts` | Avisa de check-outs próximos |
-| `notify_daily_reports` | Envía el resumen diario |
+| `notify_upcoming_checkins` | Avisa de check-ins próximos (también lo hace la campana) |
+| `notify_upcoming_checkouts` | Avisa de check-outs próximos (también lo hace la campana) |
+| `notify_daily_reports` | Envía el resumen diario (también lo hace la campana) |
 | `sync_reservation_room_statuses` | Sincroniza estados de habitaciones según reservas |
 | `sync_operational_alerts` | Recalcula alertas operativas financieras |
 
@@ -445,6 +453,11 @@ Hay deduplicación diaria (`_already_notified_today`) para no saturar con record
   pertenece a la sesión: `GET /api/auth/hotel-setup/` muestra los campos pendientes del hotel del
   usuario sin requerir permisos de edición. Los endpoints para completar la configuración conservan
   sus permisos existentes y permanecen disponibles mientras el resto de operaciones está bloqueado.
+  **Entre ellos están los de habitaciones** (`/api/rooms/`, `/api/room-types/`, `/api/rates/`, y
+  lectura de `/api/amenities/`), y la ruta `/habitaciones` está en la lista del guard y del
+  redirect de `layout-main`: el setup exige al menos una habitación real con tipo y tarifa, y solo
+  se crean ahí. Sin eso un hotel nuevo no podía terminar nunca de configurarse (ver el registro del
+  2026-10-07, Nivel 3).
 - `hotel-context.interceptor.ts` inyecta el hotel seleccionado en las peticiones del admin global.
 - Rutas en **español** como canónicas (`/reservas`, `/facturas`, `/habitaciones`), con **redirects
   desde los nombres en inglés** (`/reservations` → `/reservas`) por retrocompatibilidad con enlaces
@@ -657,7 +670,10 @@ facturas y pagos, así que hasta ahora había que calcularlo saltando de una vis
 **Cómo se calcula el pendiente, y por qué no es `facturado − cobrado`:** esa resta arrastra el
 histórico completo y daría un pendiente falso en cuanto haya una factura anulada. Se calcula solo
 sobre las facturas **que siguen esperando cobro** —ni `PAGADA` ni `ANULADA`— y sus pagos, con piso
-en cero para que un cobro de más no lo vuelva negativo.
+en cero para que un cobro de más no lo vuelva negativo. Desde el 2026-10-07 se suma el
+`pending_balance` que el backend calcula para cada factura (`get_invoice_reconciliation`), que además
+descuenta reembolsos aprobados/procesados y **notas de crédito activas**: es el mismo saldo que valida
+cada cobro y que bloquea el check-out, así que las tres cifras ya no pueden contradecirse.
 
 **Frontera con Finanzas:** `/consolidado-ingresos` y `/control-financiero` son **análisis por
 periodo**; `/facturacion` es el **libro operativo**, documento a documento. No se mezclan.
@@ -676,8 +692,11 @@ periodo**; `/facturacion` es el **libro operativo**, documento a documento. No s
 **Un reembolso se registra desde el pago, no desde la pestaña de reembolsos.** `PaymentRefund.payment`
 es FK obligatoria y el tope reembolsable, el método y la referencia salen de ese pago; un formulario
 suelto tendría que empezar preguntando "¿de qué pago?". Se entra por el botón **Reembolsar** de la
-tarjeta de pago o del pie de su detalle. La pestaña de reembolsos **consulta y aprueba**, y lo dice
+tarjeta de pago o del pie de su detalle. La pestaña de reembolsos **consulta y decide**, y lo dice
 explícitamente en una nota de origen para que nadie busque ahí un botón "Nuevo" que no puede existir.
+Un administrador recorre ahí el ciclo completo: un pendiente se **aprueba**, **rechaza** o **anula**, y
+un aprobado se **marca pagado** (`PROCESADO`, el único estado que cuenta como salida real de caja) o se
+anula. Las tres acciones terminales piden confirmación.
 
 **Consultar un pago y reembolsarlo son dos modales distintos** (`DetailPayment` y `RefundPayment`).
 La primera intención se repasa, la segunda se decide, y mezclarlas dejaba el formulario apretado
@@ -970,14 +989,25 @@ dos.
 
 - **Fuera de servicio** (`status = FUERA_DE_SERVICIO`) — la habitación sigue existiendo y visible,
   pero no se puede reservar. Es para una habitación en obra o cerrada por temporada. Se revierte
-  cambiando el estado, sin pasar por ningún endpoint especial.
+  cambiando el estado, sin pasar por ningún endpoint especial. El modal pide confirmación, y
+  `RoomSerializer` **no la acepta si la habitación tiene reservas activas**: la reserva seguiría
+  corriendo sobre una habitación que sale del tablero.
 - **Eliminar** (`DELETE /api/rooms/{id}/`) — borrado **lógico** vía `SoftDeleteMarker` (5.5): la
   fila y todo su historial siguen en la base, la habitación desaparece de listados, tablero y
   reservas, y `POST /api/rooms/{id}/restore/` la devuelve.
 
-**`RoomViewSet.perform_destroy()` frena el borrado si la habitación tiene una reserva activa** (una
-cuyo estado no esté en `INACTIVE_RESERVATION_STATUS_CODES`), y nombra los códigos de reserva que
-estorban. Sin ese freno, la reserva seguiría apuntando a una habitación que recepción ya no ve en
+**El borrado se frena si la habitación tiene una reserva activa** (una cuyo estado no esté en
+`INACTIVE_RESERVATION_STATUS_CODES`), y el mensaje nombra los códigos de reserva que estorban. El
+freno vive en `apps/rooms/archive.py` y lo usan **todos** los caminos que archivan habitaciones:
+`RoomViewSet`, reducir o borrar un piso (`HotelFloorViewSet`) y "limpiar" la configuración del
+hotel. Valida todas las habitaciones antes de archivar ninguna, así un piso no queda borrado a
+medias. Hasta el 2026-10-07 solo lo aplicaba `RoomViewSet`.
+
+**El estado de una habitación a mano no puede contradecir a una reserva.** Con un huésped alojado
+(check-in sin check-out, `find_in_house_reservation_room`) el estado no se edita: lo mueve el
+check-out. Y el check-in comprueba esa misma ocupación real, no solo `Room.status`, que es un
+reflejo editable: antes un `PATCH` a "Disponible" habilitaba un segundo check-in en una habitación
+ocupada. Sin ese freno, la reserva seguiría apuntando a una habitación que recepción ya no ve en
 ninguna lista: el huésped llegaría a una habitación que para el sistema no existe. Para borrarla hay
 que cancelar o mover esas reservas primero.
 
@@ -994,6 +1024,52 @@ solicitud de demo (ver el registro del 2026-09-14). Corre en seco por defecto, y
 habitación que tenga reservas, chequeos de inventario, órdenes de mantenimiento, tareas de limpieza,
 trabajos periódicos, inventario asignado o fotos: cinco de esas relaciones son `CASCADE` y un borrado
 físico se las llevaría sin avisar.
+
+### 5.27 Promociones: cómo llegan a la factura
+
+**Decisión (acordada con Cristian Ramirez el 2026-10-07):** el campo "Aplica a" de la promoción
+decide cómo se aplica.
+
+| Aplica a | Quién la aplica | Sobre qué descuenta | Qué fecha debe caer en la vigencia |
+|---|---|---|---|
+| Servicio específico | Sola | Cada cargo de ese servicio | La del cargo (`charge_date`) |
+| Paquete específico | Sola | El precio del paquete de la reserva | El check-in previsto |
+| General | Recepción, en el detalle de la reserva | La estadía (noches × tarifa) | El check-in previsto |
+
+Si varias coinciden sobre lo mismo **se suman**, con tope en el valor de lo que descuentan: nunca
+dejan un cargo, un paquete ni una estadía en negativo. Un monto fijo sobre un servicio se descuenta
+**por unidad** del cargo; sobre paquete o estadía, una vez. Es porcentaje si el código del tipo de
+descuento contiene `PERCENT`/`PORCEN` o es `PCT` —la misma regla que ya usaba el frontend—, y monto
+fijo en cualquier otro caso.
+
+**Por qué la general no es automática:** al no apuntar a nada concreto, aplicarla sola descontaría a
+**todas** las reservas del periodo. Una promoción de servicio o paquete, en cambio, ya dice a qué
+afecta.
+
+**Por qué se guarda el descuento y no se recalcula siempre:** `promotions.PromotionApplication`
+registra cada descuento con su monto. Mientras la reserva está abierta,
+`apps.promotions.services.sync_reservation_promotions` lo recalcula —se llama desde
+`sync_default_invoice_for_reservation`, que ya corre ante cualquier cambio de cargos, habitaciones o
+reserva—. Al cerrarse (`real_check_out`) o cancelarse **queda congelado**: editar o borrar la
+promoción después no puede cambiar lo que ya se cobró. Un descuento que deja de aplicar se
+**desactiva** (monto 0), no se borra, para que quede rastro.
+
+**A diferencia de una nota de crédito, una promoción sí baja lo facturado.**
+`get_reservation_financials` la resta del `total_amount`, así que la factura nace con el precio
+promocional y los reportes no tienen que restarla aparte. La nota de crédito, en cambio, solo baja el
+pendiente (ver la entrada del 2026-10-07, Nivel 2). Los cargos se siguen guardando a precio de lista:
+el PDF y el detalle de factura muestran los descuentos como líneas aparte para que sumen lo mismo que
+el subtotal.
+
+**Al programar:**
+- Crear, editar, eliminar o restaurar una promoción resincroniza las reservas abiertas que toca
+  (`apps/promotions/signals.py`; eliminar/restaurar se detecta por `SoftDeleteMarker`, porque no
+  guarda la promoción — ver 5.5).
+- API: `GET/POST /api/reservations/{id}/promotions/` y
+  `DELETE /api/reservations/{id}/promotions/{promotion_id}/`, con los scopes `reservations.read` /
+  `reservations.write`. Solo se pueden quitar a mano las generales.
+- El precio que se cotiza en la reserva web pública **no** muestra promociones: el descuento aparece
+  cuando el hotel arma la factura.
 
 ## 6. Módulos funcionales
 
@@ -1026,8 +1102,8 @@ como en `apps.rooms`. Es una duplicación conocida — ver [deuda técnica](#13-
 | Endpoint | Descripción |
 |---|---|
 | `GET /health/` | Healthcheck (usado por Railway) |
-| `GET /api/schema/` | Esquema OpenAPI |
-| `GET /api/docs/` | Swagger UI |
+| `GET /api/schema/` | Esquema OpenAPI (fuera de `DEBUG`, solo staff de Django) |
+| `GET /api/docs/` | Swagger UI (fuera de `DEBUG`, solo staff de Django) |
 | `GET /admin/` | Django admin |
 | `GET /api/auth/csrf/` | Inicializa la cookie CSRF |
 | `POST /api/auth/login/` \| `logout/` | Sesión |
@@ -1053,6 +1129,9 @@ como en `apps.rooms`. Es una duplicación conocida — ver [deuda técnica](#13-
                return ["mi_dominio.read"]
            return ["mi_dominio.write"]
    ```
+   El orden importa: `TenantScopeMixin.get_queryset()` no llama a `super()`, así que si va primero
+   el borrado lógico y el filtro de `is_active` nunca corren. `accounts.tests.ViewSetMixinOrderTests`
+   recorre las URLs registradas y falla si algún ViewSet lo invierte.
 2. **Serializers de dominio heredan `TenantSerializerMixin`** y llaman a `assign_target_tenant()` en
    `create()`, y a `validate_same_tenant()` para cada FK a otro modelo del mismo hotel.
 3. **Nombres de clases y campos en inglés**; comentarios, docstrings y mensajes de error al usuario
@@ -1201,6 +1280,231 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-10-07 — Auditoría, Nivel 3: nueve bloqueos operativos
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez (decisiones de #21 y #23 tomadas por él).
+- **Commit(s):** incluido en este commit
+- **Tipo:** fix
+- **Qué se hizo:** se corrigen los nueve ítems del Nivel 3 de `Plans/resumen-ejecutivo.md`:
+  1. **#15 — Un hotel nuevo no podía terminar el setup** (Bloque 2 #1). El callejón estaba en tres
+     capas: `hotelSetupChildGuard` no dejaba entrar a `/habitaciones`, el `effect` de `layout-main`
+     redirigía fuera de ella, y `HotelSetupRequiredMiddleware` bloqueaba sus endpoints. Las tres
+     abren ahora el catálogo de habitaciones (5.13), y el aviso persistente ofrece "Crear
+     habitaciones" cuando es lo que falta. Se actualizó un test del 2026-09-14 que daba
+     `GET /api/rooms/` por bloqueado: era anterior a exigir habitaciones reales.
+  2. **#16 — Reducir habitaciones de un piso daba 500** (Bloque 2 #2): llamaba a
+     `HotelFloorViewSet.perform_destroy(room)`, que espera un piso. Con el nuevo
+     `apps/rooms/archive.py`, reducir, borrar un piso y "limpiar" la configuración frenan además
+     el archivado con reservas activas (Bloque 2 #4), igual que `RoomViewSet` (5.26).
+  3. **#17 — "Fuera de servicio" sin confirmación ni validación** (Bloque 4 #1). El modal pide
+     confirmación y avisa si hay reserva activa; `RoomSerializer` lo rechaza con reservas vivas.
+  4. **#18 — Doble check-in vía `PATCH Room.status`** (Bloque 4 #2). Nuevo
+     `find_in_house_reservation_room`: con un huésped alojado el estado no se edita a mano, y el
+     check-in comprueba la ocupación real además del estado.
+  5. **#19 — Un hotel suspendido desaparecía del panel SaaS** (Bloque 13 #1):
+     `getHotelsDirectory()` pide `include_inactive=true`. De paso (Bloque 13 #2), solo la
+     plataforma puede cambiar `HotelSettings.is_active`: el admin del hotel podía autosuspenderse
+     con un `PATCH`.
+  6. **#20 — "Nueva asignación" y "Nuevo movimiento" inalcanzables** (Bloque 10 #1-#2): mismo
+     arreglo que Items el 2026-08-19, el botón vive en la barra de filtros en modo embebido.
+  7. **#21 — Recordatorios que nunca se ejecutaban** (Bloque 12 #1). **Decisión del usuario: al
+     consultar, sin cron** (5.12). Nuevo `apps/notifications/scheduled.py`; los comandos pasan a
+     ser envoltorios de él.
+  8. **#22 — Grupo `ROOM_TYPE` fantasma en Master Data** (Bloque 3 #1). `RETIRED_GROUPS`
+     (`ROOM_TYPE` y también `PAYMENT_METHOD`, que salió del catálogo global en 5.16): no se
+     ofrecen ni admiten valores nuevos; los viejos se pueden seguir editando o desactivando.
+  9. **#23 — `set-client-type` nunca persistía** (Bloque 5 #1). **Decisión del usuario: permitir
+     fijarlo a mano.** Nuevo `Client.client_type_is_manual`; `set-client-type` acepta un tipo (lo
+     fija) o `AUTO` (vuelve al cálculo por noches). `client_type` deja de ser escribible por el
+     create/update genérico, que lo aceptaba y luego lo pisaba sin avisar (Bloque 5 #2). La ficha
+     del cliente gana el selector "Tipo de cliente".
+- **Por qué:** son los bloqueos que impedían operar el día a día aunque no expusieran datos ni
+  dinero; el #15 dejaba a todo hotel nuevo sin poder empezar.
+- **Archivos/áreas afectadas:** `backend/accounts/middleware.py`, `backend/apps/rooms/archive.py`
+  (nuevo), `backend/apps/rooms/{views,serializers}.py`, `backend/apps/hotel_settings/{views,serializers,models}.py`,
+  `backend/apps/reservations/{services,views}.py`, `backend/apps/notifications/scheduled.py` (nuevo),
+  `backend/apps/notifications/{views.py,management/commands/*}`, `backend/apps/master_data/{models,views,serializers,tests}.py`,
+  `backend/apps/clients/{models,serializers,views,tests}.py`, tests de `hotel_settings`,
+  `reservations` y `notifications`; `frontend/src/app/guards/hotel-setup.guard.ts`,
+  `frontend/src/app/components/layout/layout-main/*`, `frontend/src/app/modules/rooms/room-modal/*`,
+  `frontend/src/app/services/saas-dashboard.ts`,
+  `frontend/src/app/modules/{room-inventory,inventory-movements}/list-*/*.html`,
+  `frontend/src/app/modules/clients/*`, `frontend/src/app/services/client.ts`,
+  `docs/MANUAL_USUARIO.md` (9.3), `AGENTS.md` (5.12, 5.13, 5.26).
+- **Impacto:** **dos migraciones** (`hotel_settings.0013_daily_notifications_ran_on`,
+  `clients.0007_client_type_is_manual`), corren solas al desplegar. Sin variables ni recursos RBAC
+  nuevos. Cambios de comportamiento: (a) la primera consulta del día a la campana de cada hotel
+  genera sus recordatorios — el primer día tras desplegar llegarán los de reservas de hoy y mañana;
+  (b) `PATCH /api/clients/{id}/` ignora `client_type`; (c) un admin de hotel ya no puede cambiar
+  `is_active` de su hotel; (d) `PATCH /api/rooms/{id}/` rechaza cambiar el estado con huésped
+  alojado o poner "Fuera de servicio" con reservas activas.
+
+### 2026-10-07 — Las promociones descuentan en la factura (Bloque 7 #1, Nivel 2 #14)
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez (reglas de negocio definidas por él).
+- **Commit(s):** incluido en este commit
+- **Tipo:** feat
+- **Qué se hizo:** las promociones dejan de ser decorativas. Reglas en la nueva decisión **5.27**:
+  servicio y paquete se aplican solas, la general la elige recepción y descuenta la estadía, las
+  que coinciden se suman con tope. Backend: modelo `promotions.PromotionApplication` (migración
+  `promotions.0002_promotion_application`), motor en `apps/promotions/services.py`, enganche en
+  `sync_default_invoice_for_reservation`, señales que resincronizan las reservas abiertas al tocar
+  una promoción, `get_reservation_financials` resta los descuentos (nueva clave
+  `promotion_discount_total`, expuesta en los serializers de reserva) y acciones
+  `promotions` / `remove_promotion` en `ReservationViewSet`. El PDF de factura lista cada descuento
+  como línea negativa. Frontend: sección "Promociones" en el detalle de la reserva (aplicadas, con
+  origen y monto; selector para aplicar generales; quitar las manuales), fila "Promociones" en el
+  bloque de facturación de la reserva y en el pie del detalle de factura.
+- **Por qué:** se podía crear, publicar y tener "vigente" una promoción del 20% y el huésped pagaba
+  precio completo; ningún archivo fuera de `apps/promotions` la leía.
+- **Archivos/áreas afectadas:** `backend/apps/promotions/{models,services,signals,apps,tests}.py`,
+  `backend/apps/promotions/migrations/0002_promotion_application.py`,
+  `backend/apps/reservations/{services,serializers,views}.py`, `backend/apps/rooms/operations.py`,
+  `backend/apps/billing/{services,views,pdf_generator}.py`,
+  `frontend/src/app/modules/reservations/{reservation-model.ts,detail-reservation/*}`,
+  `frontend/src/app/modules/billing/detail-bill/*`, `frontend/src/app/services/reservation.ts`,
+  `docs/MANUAL_USUARIO.md` (12.3), `AGENTS.md` (5.27).
+- **Pruebas:** `apps.promotions.tests.PromotionBillingTests` (9 tests: servicio sola y sumadas, fuera
+  de vigencia, tope, paquete por check-in, general elegida/quitada por API, automáticas no
+  removibles, una de servicio no se acepta como general, eliminar quita el descuento, reserva cerrada
+  congelada) y 3 tests de la sección en `detail-reservation.spec.ts`.
+- **Impacto:** **requiere migración** `promotions.0002_promotion_application` (corre sola al
+  desplegar, sección 10). Sin variables nuevas ni recursos RBAC nuevos (usa `reservations.*`).
+  Cambio de comportamiento: al desplegar, cualquier promoción de servicio o paquete **ya vigente**
+  empieza a descontar en las reservas **abiertas** la próxima vez que se resincronicen (al moverse un
+  cargo o la reserva, o al editar la promoción); las reservas cerradas no cambian.
+
+### 2026-10-07 — Auditoría, Nivel 2: integridad de cobros, inventario de salida y borrado lógico
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** incluido en este commit
+- **Tipo:** fix
+- **Qué se hizo:** se corrigen seis de los siete hallazgos del Nivel 2 de
+  `Plans/resumen-ejecutivo.md` (el #14, promociones sin efecto en la factura, queda pendiente de
+  definición de negocio):
+  1. **#8 — Check-out sin revisar inventario** (Bloque 6 #1-#2). `create_checkout_inventory_comparison`
+     exige ahora **una línea contada por cada línea esperada**; sin payload, con `[]` o con una
+     revisión parcial responde 400 nombrando lo que falta contar, **antes** de escribir nada. Antes
+     la ausencia se daba por "sin diferencias" y las líneas omitidas por cuadradas. Lo esperado
+     sale de una sola función, `get_checkout_expected_inventory()` (foto del check-in, o la dotación
+     si no hay foto), expuesta en el nuevo `GET /api/reservations/{id}/checkout-inventory/`
+     (scope `reservations.read`). `detail-reservation` arma su formulario desde ahí (antes leía
+     `RoomInventory`, que puede no coincidir con la foto) y ya no permite "continuar sin
+     diligenciar" si la carga falla. `room-check-modal` —el check-out desde la tarjeta de
+     habitación, que enviaba la petición vacía— gana una tabla "Revisión de inventario" con
+     cantidades editables **antes** del cobro (un faltante genera cargo), bloquea la salida si el
+     inventario no carga, muestra el `detail` del backend y relee el saldo tras un rechazo.
+  2. **#13 — Orden de mixins invertido** (hallazgo transversal). 12 ViewSets, no 11:
+     `PaymentRefundViewSet` también lo tenía (su `get_queryset()` llamaba a `super()`, que
+     resolvía en `TenantScopeMixin`). Con el orden corregido, eliminados e inactivos dejan de
+     listarse por defecto en servicios, paquetes, promociones, cargos, facturas, pagos,
+     reembolsos, notas de crédito, egresos y snapshots. Los detalles por id del frontend
+     (`get*ById`) y la descarga del PDF piden `include_inactive=true`, porque se abren también
+     sobre registros anulados. Nuevo test `ViewSetMixinOrderTests` (ver sección 7). De paso,
+     `target_catalog` de promociones excluye servicios/paquetes eliminados (Bloque 7 #3) con el
+     nuevo helper `accounts.soft_delete.exclude_soft_deleted()`.
+  3. **#11 — Pago sobre factura anulada** (Bloque 8 #3). `PaymentSerializer.validate` lo rechaza.
+  4. **#12 — Notas de crédito fuera del saldo** (Bloque 8 #4). `get_invoice_reconciliation` y
+     `get_reservation_financials` restan las notas de crédito activas del **pendiente** (no del
+     total facturado: alimenta el subtotal de la factura y los reportes ya las restan por su
+     cuenta). Una factura cubierta por pagos + notas pasa a `PAGADA` y deja de bloquear el
+     check-out. El tope de cada pago usa ahora esa misma función en vez de una suma propia
+     duplicada. El "Por cobrar" de `/facturacion` suma el `pending_balance` del backend (5.19).
+  5. **#10 — Condiciones de carrera con dinero** (Bloque 8 #2). (a)
+     `ensure_default_invoice_for_reservation` comprueba y crea la factura con la reserva bloqueada
+     (`select_for_update`), así una segunda petición simultánea encuentra la factura de la primera
+     en vez de crear `FAC-...-2`. (b) Nuevo `InvoiceBalanceLockMixin` en `PaymentViewSet`,
+     `PaymentRefundViewSet` y `CreditNoteViewSet`: `create`/`update` corren en una transacción que
+     bloquea la fila de la factura **antes** de validar el monto.
+  6. **#9 — Reembolsos atascados** (Bloque 8 #1). La pestaña de reembolsos ofrece el ciclo
+     completo que el backend ya permitía: aprobar, rechazar, anular y **marcar pagado**
+     (`PROCESADO`). Las terminales piden confirmación (`ConfirmActionType` gana `reject` y
+     `process`) y cada cambio emite `changed`.
+- **Por qué:** son los hallazgos de la auditoría que permiten cobrar mal, no cobrar o perder
+  dinero sin que nadie se entere. El #8 era el más grave de todo el backend por frecuencia de uso.
+- **Archivos/áreas afectadas:** `backend/accounts/soft_delete.py`, `backend/apps/billing/{views,serializers,services}.py`,
+  `backend/apps/reservations/{services,views,serializers}.py`, `backend/apps/rooms/operations.py`,
+  `backend/apps/{finance,packages,promotions,services}/views.py`, tests de `accounts`, `billing` y
+  `reservations`; `frontend/src/app/modules/rooms/room-check-modal/*`,
+  `frontend/src/app/modules/reservations/detail-reservation/*`,
+  `frontend/src/app/modules/payments/list-payment-refunds/*`,
+  `frontend/src/app/modules/billing/{billing-model.ts,billing-page/*}`,
+  `frontend/src/app/services/{reservation,billing,expense,service,package,promotion,action-confirmations}.ts`,
+  `frontend/src/app/modules/reservations/reservation-model.ts`, `AGENTS.md` (5.19 y 7).
+- **Pruebas:** backend 426/426 (1 omitido), frontend 552/552, lint y build limpios, OpenAPI sin
+  errores. Seis tests existentes de `ReservationApiFlowTestCase` hacían check-out sin contar el
+  inventario de su fixture (una toalla) y pasaban: eran la prueba viva del bypass; ahora envían
+  la revisión completa (`_full_inventory_review`). Tests nuevos: check-out sin revisión / con
+  revisión parcial / endpoint de lo esperado; saldo con notas de crédito, tope de pago con notas,
+  pago sobre factura anulada, factura única; eliminado/inactivo oculto en servicios, pagos y
+  `target_catalog`; orden de mixins; revisión y errores en `room-check-modal`; ciclo de reembolsos.
+  Las carreras (#10) no se pueden reproducir en SQLite (serializa escrituras); el lock solo tiene
+  efecto real en PostgreSQL.
+- **Impacto:** sin migraciones ni variables nuevas. Endpoint nuevo de solo lectura
+  `GET /api/reservations/{id}/checkout-inventory/` (scope existente `reservations.read`).
+  Cambios de comportamiento: (a) **un check-out sin revisión de inventario completa ahora se
+  rechaza** si la habitación tiene dotación — cualquier integración externa que cierre estadías
+  por API debe enviar `inventory_review`; (b) los listados de los 12 recursos ya no devuelven
+  inactivos sin `include_inactive=true` ni eliminados sin `include_deleted=true`; (c) una nota de
+  crédito activa reduce el saldo pendiente y puede dejar la factura en `PAGADA`.
+
+### 2026-10-07 — Auditoría, Nivel 1: siete correcciones de seguridad y datos sensibles
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** incluido en este commit
+- **Tipo:** security
+- **Qué se hizo:** se corrigen los siete hallazgos del Nivel 1 de `Plans/resumen-ejecutivo.md`:
+  1. **Reset de contraseña con `base_url` arbitrario** (Bloque 1 #1). Nuevo
+     `accounts/url_safety.py::safe_frontend_base_url()`: el `base_url` solo se usa si su origen
+     está en `CSRF_TRUSTED_ORIGINS` ∪ `CORS_ALLOWED_ORIGINS`; si no, el enlace se arma sobre el
+     host de la petición en `/reset-password` (la SPA, mismo origen — 5.7). Antes el fallback
+     apuntaba al endpoint de la API. Rechaza también `https://origen-confiable@evil.com` y
+     esquemas que no sean http/https.
+  2. **Reserva pública sobrescribía el perfil de un cliente ajeno** (Bloque 14 #1).
+     `_get_or_create_web_client` sigue reutilizando el cliente que coincide por correo o
+     documento, pero ya **no cambia nombre, apellido ni correo**, y solo completa teléfono y país
+     si estaban vacíos. Lo que escribió el visitante queda en el huésped de la reserva (ya era así)
+     y en `source_metadata["submitted_contact"]`, que se **asigna** en el servidor (no
+     `setdefault`) para que el `source_metadata` del cliente no lo pueda suplantar.
+  3. **El check-in online permitía enumerar códigos** (Bloque 14 #2). Código inexistente,
+     documento que no coincide (lookup) y titular ausente entre los huéspedes (submit) responden
+     ahora con **el mismo cuerpo exacto**, incluida la clave dentro de `errors`
+     (`reservation_code`). Antes lookup usaba claves distintas y submit un mensaje propio.
+  4. **`restore` alcanzaba registros borrados de otro hotel** (Bloque 2 #3). El hueco no era
+     solo de `HotelSettingsViewSet`: afectaba a todo ViewSet con `LogicalDeleteViewSetMixin` que
+     filtra el hotel en su propio `get_queryset()` sin `TenantScopeMixin` — usuarios, reservas,
+     habitaciones/huéspedes/depósitos/chequeos de inventario de reserva. `restore` caía al
+     `queryset` crudo de la clase. Ahora, si la vista no define `get_base_queryset()`, `restore`
+     usa el `get_queryset()` de la vista (que lleva su aislamiento) pidiendo incluir eliminados.
+  5. **`/api/schema/` y `/api/docs/` públicos en producción** (Bloque 15 #1).
+     `SPECTACULAR_SETTINGS["SERVE_PERMISSIONS"]` = `IsAdminUser` fuera de `DEBUG`
+     (`AllowAny` en desarrollo). `manage.py spectacular` (CI) no se ve afectado.
+  6. **`register` sin `users.write` para usuarios con sesión** (Bloque 1 #2). Con
+     `ALLOW_PUBLIC_USER_REGISTRATION=True`, `AllowAny` solo aplica a anónimos; una sesión pasa por
+     `HasResourcePermission` como en `create`.
+  7. **Cambio de contraseña obligatorio + hotel desactivado** (Bloque 15 #2).
+     `HotelActiveMiddleware` deja pasar `/api/auth/password/change/` y `/api/auth/password/reset/`:
+     cambiar la propia contraseña no toca datos del hotel. El resto de la API sigue bloqueado.
+- **Por qué:** son los hallazgos de la auditoría que exponen datos de otros hoteles o de
+  huéspedes reales, o permiten phishing con el dominio legítimo de Wayra.
+- **Archivos/áreas afectadas:** `backend/accounts/url_safety.py` (nuevo),
+  `backend/accounts/email_utils.py`, `backend/accounts/soft_delete.py`,
+  `backend/accounts/views.py`, `backend/accounts/middleware.py`, `backend/backend/settings.py`,
+  `backend/apps/reservations/public_booking.py`, `backend/apps/reservations/online_check_in.py`,
+  `backend/accounts/tests.py`, `backend/apps/reservations/tests.py`.
+- **Pruebas:** 18 tests nuevos de abuso (`PasswordResetBaseUrlTests`,
+  `PublicRegisterRequiresScopeWhenAuthenticatedTests`, `RestoreTenantIsolationTests`,
+  `SchemaServePermissionsTests`, `ForcedPasswordChangeWithInactiveHotelTests` y cinco en
+  `WebReservationPublicApiTests`/`OnlineCheckInPublicApiTests`). `WebReservationPublicApiTests`
+  limpia el cache en `setUp`, igual que `OnlineCheckInPublicApiTests`, porque el throttle público
+  (5/min) se acumulaba entre tests.
+- **Impacto:** sin migraciones ni variables nuevas. Cambios de comportamiento visibles:
+  (a) en producción `/api/docs/` exige sesión de staff de Django; (b) un correo de reset pedido
+  con `base_url` no confiable lleva al `/reset-password` del mismo host; (c) una reserva web sobre
+  un cliente existente ya no actualiza su nombre ni su correo — recepción ve lo enviado en el
+  huésped de la reserva y en `source_metadata.submitted_contact`; (d) los errores del check-in
+  online ya no distinguen "código inexistente" de "documento incorrecto" ni de "falta el titular".
 
 ### 2026-10-02 — Modelo de datos: relación Hotel → RoomType y cardinalidades 1 : N
 

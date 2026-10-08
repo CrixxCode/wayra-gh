@@ -295,6 +295,11 @@ Campos obligatorios:
 3. Puede filtrar por tipo: VIP, Frecuente o Regular.
 4. Haga clic en el registro o en el icono de ver detalle.
 
+El tipo de cliente se calcula solo por noches de estadia: Frecuente desde 10 noches y VIP desde 30.
+En el detalle, la seccion "Tipo de cliente" permite fijarlo a mano (por ejemplo, VIP por un acuerdo
+comercial); fijado, ya no cambia con las estadias. Elija "Automatico por estadias" para volver al
+calculo.
+
 El detalle muestra:
 
 - Nombre completo.
@@ -664,6 +669,20 @@ Para crear una promocion:
 13. Presione "Crear promocion".
 
 Revise que la fecha final no sea menor que la fecha inicial.
+
+Como se aplica cada promocion:
+
+- **Servicio especifico:** se descuenta sola en cada cargo de ese servicio registrado dentro de la
+  vigencia. Si el descuento es un monto fijo, se descuenta por cada unidad.
+- **Paquete especifico:** se descuenta sola del precio del paquete cuando la llegada de la reserva
+  cae dentro de la vigencia.
+- **General:** no se aplica sola. Recepcion la elige en el detalle de la reserva, seccion
+  "Promociones", y descuenta el valor de la estadia. Se puede quitar mientras la reserva siga
+  abierta.
+
+Si varias promociones aplican a lo mismo, se suman, sin superar nunca el valor de lo que descuentan.
+Cuando la estadia se cierra con el check-out, sus descuentos quedan fijos aunque despues se edite la
+promocion.
 
 ## 13. Facturacion
 

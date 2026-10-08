@@ -9,6 +9,8 @@ export interface ClientI {
     phone?: string;
     country?: string;
     client_type: 'VIP' | 'FRECUENTE' | 'REGULAR';
+    /** Fijado por el hotel; si es falso, el tipo sale de las noches de estadia. */
+    client_type_is_manual?: boolean;
     stay_level?: 'VIP' | 'FRECUENTE' | 'REGULAR';
     total_stay_nights?: number;
     last_stay?: string | null;

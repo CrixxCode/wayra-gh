@@ -16,11 +16,9 @@ from accounts.permissions import HasResourcePermission
 from accounts.soft_delete import LogicalDeleteViewSetMixin
 from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
 from apps.hotel_settings.models import HotelFloor
-from apps.reservations.services import (
-    INACTIVE_RESERVATION_STATUS_CODES,
-    sync_room_status_for_room_ids,
-)
+from apps.reservations.services import sync_room_status_for_room_ids
 from apps.inventory.models import RoomInventory
+from apps.rooms.archive import ensure_rooms_can_be_archived
 from .models import (
     Rate,
     Amenity,
@@ -249,36 +247,7 @@ class RoomViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
         no ve en ninguna lista, y el huésped llegaría a una habitación que para el
         sistema no existe. Que la cancelen o la muevan primero.
         """
-        blocking_reservations = (
-            instance.reservation_details.exclude(
-                reservation__status__code__in=INACTIVE_RESERVATION_STATUS_CODES
-            )
-            .select_related("reservation")
-            .order_by("reservation__expected_check_in")
-        )
-
-        blocking_codes = [
-            detail.reservation.code
-            for detail in blocking_reservations[:5]
-            if getattr(detail, "reservation", None)
-        ]
-
-        if blocking_codes:
-            # La clave no es `detail` a proposito: `accounts.exceptions.exception_handler`
-            # descarta el `detail` que manda un ValidationError y lo cambia por un
-            # "Solicitud invalida." generico. Bajo otra clave, el mensaje sobrevive y
-            # llega al modal tal como esta escrito aqui.
-            raise ValidationError(
-                {
-                    "room": (
-                        "No se puede eliminar la habitación "
-                        f"{instance.number}: tiene reservas activas "
-                        f"({', '.join(blocking_codes)}). Cancélalas o muévelas a otra "
-                        "habitación primero. Si solo quieres sacarla de operación, "
-                        "cámbiale el estado a 'Fuera de servicio'."
-                    )
-                }
-            )
+        ensure_rooms_can_be_archived([instance])
 
         super().perform_destroy(instance)
         self._sync_floor_room_count(instance.floor_id)

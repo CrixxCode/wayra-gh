@@ -305,6 +305,14 @@ export class DetailBill implements OnChanges {
     return statusCode !== 'EMITIDA' && statusCode !== 'PAGADA' && statusCode !== 'ANULADA';
   }
 
+  /**
+   * Descuentos de promociones de la reserva. Los cargos se listan a precio completo y el
+   * subtotal ya viene con el descuento: sin esta cifra las dos no cuadrarian a la vista.
+   */
+  get promotionDiscountAmount(): number {
+    return this.toNumber(this.reservation?.promotion_discount_total);
+  }
+
   get subtotalAmount(): number {
     const value = this.toNumber(this.activeInvoice?.subtotal);
     if (value > 0) return value;

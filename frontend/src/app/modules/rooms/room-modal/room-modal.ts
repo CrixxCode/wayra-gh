@@ -109,6 +109,7 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
   saving = false;
   deleting = false;
   confirmingDelete = false;
+  confirmingOutOfService = false;
   actionLoading = false;
   photoUploading = false;
   deletingPhotoId: number | null = null;
@@ -866,11 +867,35 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
     });
   }
 
+  /**
+   * Primer paso de "Fuera de servicio". Antes se aplicaba con un solo clic y sin mirar la
+   * reserva: un clic en la habitacion equivocada dejaba la reserva corriendo sobre una
+   * habitacion que sale del tablero. El backend tambien lo frena; aqui se avisa antes.
+   */
+  askOutOfService(): void {
+    if (this.saving || this.deleting) return;
+    const reservation = this.activeReservation;
+    if (reservation) {
+      const who = reservation.client_name ? ` de ${reservation.client_name}` : '';
+      this.setFeedback(
+        `No se puede poner fuera de servicio: tiene la reserva activa${who}. ` +
+          'Cancelala o muevela a otra habitacion primero.',
+        'error'
+      );
+      return;
+    }
+    this.confirmingOutOfService = true;
+  }
+
+  cancelOutOfService(): void {
+    this.confirmingOutOfService = false;
+  }
+
   /** Saca la habitacion de operacion sin archivarla: es reversible desde el mismo select. */
   markOutOfService(): void {
     if (this.saving || !this.room?.floor) return;
 
-    this.form.status = 'FUERA_DE_SERVICIO';
+    this.confirmingOutOfService = false;
     this.persist({
       number: this.room.number,
       floor: Number(this.room.floor),

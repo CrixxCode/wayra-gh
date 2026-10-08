@@ -88,7 +88,8 @@ export class ClientsService {
     );
   }
 
-  setClientType(id: number, client_type: ClientI['client_type']): Observable<ClientI> {
+  /** Fija el tipo a mano, o `AUTO` para volver al calculo por noches de estadia. */
+  setClientType(id: number, client_type: ClientI['client_type'] | 'AUTO'): Observable<ClientI> {
     return this.http.patch<ClientI>(
       `${this.clientsUrl}${id}/set-client-type/`,
       { client_type },

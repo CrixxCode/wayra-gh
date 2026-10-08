@@ -73,6 +73,8 @@ export interface InvoiceI {
   subtotal: string | number;
   tax_amount: string | number;
   total_amount: string | number;
+  /** Saldo del backend: descuenta pagos, reembolsos aprobados/procesados y notas de credito. */
+  pending_balance?: string | number;
   notes?: string | null;
   is_active: boolean;
   invoice_charges?: InvoiceChargeI[];

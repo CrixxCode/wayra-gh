@@ -88,7 +88,12 @@ export class ServicesService {
   }
 
   getServiceById(id: number): Observable<ServiceI> {
-    return this.http.get<ServiceI>(`${this.servicesUrl}${id}/`, { withCredentials: true });
+    return this.http.get<ServiceI>(`${this.servicesUrl}${id}/`, {
+      // Un detalle se abre tambien sobre registros inactivos (p. ej. anulados); los
+      // eliminados logicamente siguen excluidos por el backend.
+      params: new HttpParams().set('include_inactive', 'true'),
+      withCredentials: true
+    });
   }
 
   createService(payload: ServiceFormPayload): Observable<ServiceI> {

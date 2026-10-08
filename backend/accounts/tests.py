@@ -1219,3 +1219,289 @@ class SeedRbacCoverageTests(TestCase):
         self.assertNotIn("Gerente general", names)
         self.assertNotIn("Recepcionista", names)
         self.assertTrue(all(entry["role_id"] == str(Role.objects.get(slug="admin").id) for entry in response.data))
+
+
+TRUSTED_FRONTEND = "https://app.wayra.test"
+
+
+@override_settings(
+    CSRF_TRUSTED_ORIGINS=[TRUSTED_FRONTEND],
+    CORS_ALLOWED_ORIGINS=[TRUSTED_FRONTEND],
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+)
+class PasswordResetBaseUrlTests(APITestCase):
+    """El enlace con uid+token solo puede apuntar a un origen de confianza (auditoria, Bloque 1 #1)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="reset_target",
+            email="reset_target@example.com",
+            password="pass12345",
+        )
+
+    def _request_reset(self, base_url):
+        mail.outbox.clear()
+        response = self.client.post(
+            "/api/auth/password/reset/",
+            {"email": self.user.email, "base_url": base_url},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        bodies = [message.body] + [content for content, _ in getattr(message, "alternatives", [])]
+        return "\n".join(bodies)
+
+    def test_trusted_base_url_is_used_for_the_link(self):
+        body = self._request_reset(f"{TRUSTED_FRONTEND}/reset-password")
+
+        self.assertIn(f"{TRUSTED_FRONTEND}/reset-password?uid=", body)
+
+    def test_untrusted_base_url_is_ignored(self):
+        body = self._request_reset("https://evil.example/reset-password")
+
+        self.assertNotIn("evil.example", body)
+        self.assertIn("/reset-password?uid=", body)
+
+    def test_userinfo_trick_does_not_pass_as_trusted_origin(self):
+        body = self._request_reset("https://app.wayra.test@evil.example/reset-password")
+
+        self.assertNotIn("evil.example", body)
+
+    def test_non_http_scheme_is_ignored(self):
+        body = self._request_reset("javascript:alert(1)//")
+
+        self.assertNotIn("javascript:", body)
+
+
+@override_settings(
+    ALLOW_PUBLIC_USER_REGISTRATION=True,
+    PUBLIC_USER_REGISTRATION_TOKEN="public-token",
+)
+class PublicRegisterRequiresScopeWhenAuthenticatedTests(APITestCase):
+    """Con el registro publico activo, una sesion sin `users.write` no crea usuarios (Bloque 1 #2)."""
+
+    def setUp(self):
+        self.hotel = create_configured_hotel(hotel_name="Hotel Registro")
+        self.user = User.objects.create_user(
+            username="sin_permisos",
+            email="sin_permisos@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel,
+        )
+
+    def _payload(self, username):
+        return {
+            "first_name": "Nuevo",
+            "last_name": "Usuario",
+            "username": username,
+            "email": f"{username}@example.com",
+            "job_title": "Recepcionista",
+            "password": "Pass12345!",
+        }
+
+    def test_authenticated_user_without_users_write_is_forbidden(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            "/api/users/register/",
+            self._payload("colado"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(User.objects.filter(username="colado").exists())
+
+    def test_anonymous_register_still_requires_the_public_token(self):
+        response = self.client.post(
+            "/api/users/register/",
+            self._payload("anonimo"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(User.objects.filter(username="anonimo").exists())
+
+
+class RestoreTenantIsolationTests(APITestCase):
+    """`restore` no puede alcanzar registros borrados de otro hotel (Bloque 2 #3)."""
+
+    def setUp(self):
+        self.hotel_a = create_configured_hotel(hotel_name="Hotel A")
+        self.hotel_b = create_configured_hotel(hotel_name="Hotel B")
+
+        resources = [
+            Resource.objects.create(key=key, name=key)
+            for key in ("hotel_settings.read", "hotel_settings.write", "users.read", "users.write")
+        ]
+        role = Role.objects.create(name="Admin Hotel B", slug="admin-hotel-b")
+        role.resources.add(*resources)
+
+        self.actor_b = User.objects.create_user(
+            username="admin_b",
+            email="admin_b@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel_b,
+        )
+        self.actor_b.roles.add(role)
+        self.victim_a = User.objects.create_user(
+            username="usuario_a",
+            email="usuario_a@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel_a,
+        )
+        self.colleague_b = User.objects.create_user(
+            username="usuario_b",
+            email="usuario_b@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel_b,
+        )
+
+    def _soft_delete(self, instance):
+        from django.contrib.contenttypes.models import ContentType
+        from accounts.models import SoftDeleteMarker
+
+        SoftDeleteMarker.objects.create(
+            content_type=ContentType.objects.get_for_model(instance.__class__),
+            object_id=str(instance.pk),
+        )
+
+    def test_cannot_restore_hotel_settings_of_another_hotel(self):
+        self._soft_delete(self.hotel_a)
+        self.client.force_login(self.actor_b)
+
+        response = self.client.post(f"/api/hotel-settings/{self.hotel_a.id}/restore/")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertNotIn("address", response.data)
+
+    def test_cannot_restore_user_of_another_hotel(self):
+        self._soft_delete(self.victim_a)
+        self.client.force_login(self.actor_b)
+
+        response = self.client.post(f"/api/users/{self.victim_a.pk}/restore/")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertNotIn("email", response.data)
+
+    def test_can_restore_user_of_own_hotel(self):
+        self._soft_delete(self.colleague_b)
+        self.client.force_login(self.actor_b)
+
+        response = self.client.post(f"/api/users/{self.colleague_b.pk}/restore/")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["username"], "usuario_b")
+
+
+class SchemaServePermissionsTests(APITestCase):
+    """El esquema OpenAPI no queda publico fuera de DEBUG (Bloque 15 #1)."""
+
+    def test_production_settings_restrict_schema_to_staff(self):
+        from backend.settings import schema_serve_permissions
+
+        self.assertEqual(
+            schema_serve_permissions(False),
+            ["rest_framework.permissions.IsAdminUser"],
+        )
+
+    def test_schema_views_use_the_configured_permissions(self):
+        from django.conf import settings as django_settings
+        from django.utils.module_loading import import_string
+        from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
+        configured = [
+            import_string(path)
+            for path in django_settings.SPECTACULAR_SETTINGS["SERVE_PERMISSIONS"]
+        ]
+        self.assertEqual(list(SpectacularAPIView.permission_classes), configured)
+        self.assertEqual(list(SpectacularSwaggerView.permission_classes), configured)
+
+    def test_schema_and_docs_reject_anonymous_with_production_permissions(self):
+        from unittest.mock import patch
+        from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+        from rest_framework.permissions import IsAdminUser
+
+        # drf-spectacular fija `permission_classes` al importar la vista, asi que el valor
+        # de produccion se inyecta directamente en vez de recargar settings.
+        with patch.object(SpectacularAPIView, "permission_classes", [IsAdminUser]), patch.object(
+            SpectacularSwaggerView, "permission_classes", [IsAdminUser]
+        ):
+            self.assertEqual(self.client.get("/api/schema/").status_code, 403)
+            self.assertEqual(self.client.get("/api/docs/").status_code, 403)
+
+            staff = User.objects.create_superuser(
+                username="staff_docs",
+                email="staff_docs@example.com",
+                password="pass12345",
+            )
+            self.client.force_login(staff)
+            response = self.client.get("/api/schema/")
+            self.assertEqual(response.status_code, 200, getattr(response, "content", b"")[:300])
+
+
+class ForcedPasswordChangeWithInactiveHotelTests(APITestCase):
+    """Cambio obligatorio + hotel desactivado no deja al usuario sin salida (Bloque 15 #2)."""
+
+    def setUp(self):
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Suspendido")
+        self.user = User.objects.create_user(
+            username="temporal",
+            email="temporal@example.com",
+            password="pass12345",
+            hotel_settings=self.hotel,
+            must_change_password=True,
+        )
+
+    def test_password_change_is_allowed_while_hotel_is_inactive(self):
+        self.client.force_login(self.user)
+        self.hotel.is_active = False
+        self.hotel.save()
+
+        response = self.client.post(
+            "/api/auth/password/change/",
+            {"old_password": "pass12345", "new_password": "Newpass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.must_change_password)
+
+        # El resto de la API sigue bloqueado por el hotel desactivado.
+        blocked = self.client.get("/api/users/")
+        self.assertEqual(blocked.status_code, 403)
+        self.assertEqual(blocked.json().get("code"), "hotel_inactive")
+
+
+class ViewSetMixinOrderTests(TestCase):
+    """
+    `TenantScopeMixin.get_queryset()` no llama a `super()`: si va antes que
+    `LogicalDeleteViewSetMixin` en el MRO, el filtro de borrado logico e `is_active` nunca
+    corre (auditoria, hallazgo transversal). Recorre las URLs registradas para que un ViewSet
+    nuevo con el orden invertido haga fallar esta prueba.
+    """
+
+    def test_logical_delete_mixin_precedes_tenant_scope_mixin(self):
+        from accounts.soft_delete import LogicalDeleteViewSetMixin
+        from accounts.tenancy import TenantScopeMixin
+
+        offenders: set[str] = set()
+
+        def walk(patterns):
+            for entry in patterns:
+                nested = getattr(entry, "url_patterns", None)
+                if nested is not None:
+                    walk(nested)
+                    continue
+                view_class = getattr(entry.callback, "cls", None)
+                if view_class is None:
+                    continue
+                mro = view_class.__mro__
+                if LogicalDeleteViewSetMixin in mro and TenantScopeMixin in mro:
+                    if mro.index(TenantScopeMixin) < mro.index(LogicalDeleteViewSetMixin):
+                        offenders.add(view_class.__name__)
+
+        walk(get_resolver().url_patterns)
+
+        self.assertEqual(sorted(offenders), [], "Orden de mixins invertido")

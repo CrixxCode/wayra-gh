@@ -8,7 +8,11 @@ import { PaymentMethodI, PaymentMethodService } from '../../../services/payment-
 import { ReservationService } from '../../../services/reservation';
 import { RoomInventoryService } from '../../../services/room-inventory';
 import { ChargeI, PaymentI, PaymentRefundI } from '../../billing/billing-model';
-import { ReservationDetailI, ReservationGuestI } from '../../reservations/reservation-model';
+import {
+  ReservationCheckoutExpectedLineI,
+  ReservationDetailI,
+  ReservationGuestI
+} from '../../reservations/reservation-model';
 import { RoomInventoryI } from '../../room-inventory/room-inventory-model';
 import { RoomI } from '../room-model';
 
@@ -35,6 +39,18 @@ export type PaymentHistoryEntry = {
   counts: boolean;
   /** Quien lo registro. Vacio en los pagos anteriores al campo `created_by`. */
   author: string;
+};
+
+/** Una linea de la revision de salida: lo esperado contra lo que se conto. */
+export type CheckoutCountLine = {
+  key: string;
+  roomId: number;
+  roomNumber: string;
+  itemId: number;
+  itemName: string;
+  expected: number;
+  counted: number;
+  notes: string;
 };
 
 /** Un huesped con su casilla de verificacion de documento. */
@@ -73,6 +89,16 @@ export class RoomCheckModal implements OnInit {
   reservation: ReservationDetailI | null = null;
   guests: GuestVerification[] = [];
   lowInventory: RoomInventoryI[] = [];
+
+  /**
+   * Revision de inventario de salida. El check-out la exige completa: antes este modal
+   * cerraba la estadia sin enviarla y el backend daba todo por cuadrado, asi que nunca se
+   * cobraba un faltante desde la tarjeta de habitacion.
+   */
+  countLines: CheckoutCountLine[] = [];
+  countLoadFailed = false;
+  /** Error del ultimo intento de confirmar. No bloquea: el usuario corrige y reintenta. */
+  submitError = '';
 
   /** Consumos y cargos de la reserva, para que el huesped vea el detalle. */
   charges: ChargeI[] = [];
@@ -132,8 +158,13 @@ export class RoomCheckModal implements OnInit {
         ? this.paymentMethodService
             .listPaymentMethods()
             .pipe(catchError(() => of([] as PaymentMethodI[])))
-        : of([] as PaymentMethodI[])
-    }).subscribe(({ reservation, inventory, charges, paymentMethods }) => {
+        : of([] as PaymentMethodI[]),
+      countLines: isCheckOut
+        ? this.reservationService
+            .getCheckoutInventory(reservationId)
+            .pipe(catchError(() => of(null)))
+        : of([] as ReservationCheckoutExpectedLineI[])
+    }).subscribe(({ reservation, inventory, charges, paymentMethods, countLines }) => {
       this.loading = false;
 
       if (!reservation) {
@@ -150,6 +181,8 @@ export class RoomCheckModal implements OnInit {
       // son "lo que el huesped consumio".
       this.charges = charges.filter((charge) => !charge.is_automatic);
       this.paymentMethods = paymentMethods;
+      this.countLoadFailed = countLines === null;
+      this.countLines = (countLines || []).map((line) => this.toCountLine(line));
       this.resetPaymentForm();
 
       if (isCheckOut) this.loadPaymentHistory();
@@ -569,6 +602,10 @@ export class RoomCheckModal implements OnInit {
       return '';
     }
 
+    if (this.countLoadFailed) {
+      return 'No se pudo cargar el inventario a revisar. Cierra y vuelve a abrir la salida.';
+    }
+
     // Sin permiso para ver el saldo no se puede exigir cobrarlo: el cierre queda a
     // cargo de quien si tiene acceso a facturacion.
     if (this.moneyIsHidden) return '';
@@ -590,26 +627,95 @@ export class RoomCheckModal implements OnInit {
     if (!reservationId) return;
 
     this.submitting = true;
-    this.errorMessage = '';
+    this.submitError = '';
 
     const action =
       this.mode === 'check-in'
         ? this.reservationService.checkInReservation(reservationId)
-        : this.reservationService.checkOutReservation(reservationId);
+        : this.reservationService.checkOutReservation(reservationId, {
+            inventory_review: this.countLines.map((line) => ({
+              room: line.roomId,
+              item: line.itemId,
+              quantity: line.counted,
+              notes: line.notes.trim() || null
+            }))
+          });
 
     action.subscribe({
       next: () => {
         this.submitting = false;
         this.confirmed.emit();
       },
-      error: () => {
+      error: (error: unknown) => {
         this.submitting = false;
-        this.errorMessage =
-          this.mode === 'check-in'
+        this.submitError =
+          this.extractDetail(error) ||
+          (this.mode === 'check-in'
             ? 'No se pudo registrar el check-in.'
-            : 'No se pudo registrar el check-out.';
+            : 'No se pudo registrar el check-out.');
+        // Un faltante genera su cargo aunque la salida se rechace por saldo: se relee la
+        // reserva para que el monto a cobrar ya lo incluya.
+        if (this.mode === 'check-out') this.refreshBalance(reservationId);
       }
     });
+  }
+
+  // ------------------------------------------------------ revision de inventario
+
+  get missingCountTotal(): number {
+    return this.countLines.reduce(
+      (total, line) => total + Math.max(line.expected - line.counted, 0),
+      0
+    );
+  }
+
+  setCounted(line: CheckoutCountLine, value: unknown): void {
+    const parsed = Math.trunc(Number(value));
+    line.counted = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  }
+
+  countDifferenceLabel(line: CheckoutCountLine): string {
+    const difference = line.counted - line.expected;
+    if (difference === 0) return 'Completo';
+    return difference < 0 ? `Faltan ${-difference}` : `Sobran ${difference}`;
+  }
+
+  trackByCount(_: number, line: CheckoutCountLine): string {
+    return line.key;
+  }
+
+  private toCountLine(line: ReservationCheckoutExpectedLineI): CheckoutCountLine {
+    const expected = Math.max(Math.trunc(Number(line.expected_quantity) || 0), 0);
+    return {
+      key: `${line.room_id}:${line.item_id}`,
+      roomId: line.room_id,
+      roomNumber: line.room_number,
+      itemId: line.item_id,
+      itemName: line.item_name,
+      expected,
+      counted: expected,
+      notes: ''
+    };
+  }
+
+  private refreshBalance(reservationId: number): void {
+    forkJoin({
+      reservation: this.reservationService
+        .getReservationById(reservationId)
+        .pipe(catchError(() => of(this.reservation))),
+      charges: this.billingService
+        .listCharges({ reservation: reservationId, is_active: true, ordering: 'id' })
+        .pipe(catchError(() => of(this.charges)))
+    }).subscribe(({ reservation, charges }) => {
+      if (reservation) this.reservation = reservation;
+      this.charges = (charges || []).filter((charge) => !charge.is_automatic);
+      this.resetPaymentForm();
+    });
+  }
+
+  private extractDetail(error: unknown): string {
+    const detail = (error as { error?: { detail?: unknown } })?.error?.detail;
+    return typeof detail === 'string' ? detail : '';
   }
 
   close(): void {

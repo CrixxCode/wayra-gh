@@ -77,3 +77,74 @@ class ClientCreateUpdateSerializerTests(TestCase):
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertEqual(serializer.validated_data["phone"], "+573001234567")
+
+
+class ManualClientTypeTests(TestCase):
+    """Auditoria, Bloque 5 #1: el tipo de cliente se puede fijar a mano y volver a automatico."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        from apps.clients.models import Client
+
+        def md(group, code):
+            return MasterData.objects.update_or_create(
+                group=group, code=code, defaults={"name": code.title(), "is_active": True}
+            )[0]
+
+        for code in ("REGULAR", "FRECUENTE", "VIP"):
+            md(MasterData.Group.CLIENT_TYPE, code)
+        hotel = HotelSettings.objects.create(hotel_name="Hotel Tipos")
+        self.customer = Client.objects.create(
+            hotel_settings=hotel,
+            document_type=md(MasterData.Group.DOCUMENT_TYPE, "CC"),
+            document_number="5050",
+            first_name="Marta",
+            last_name="Diaz",
+            email="marta.tipos@example.com",
+            client_type=MasterData.objects.get(group=MasterData.Group.CLIENT_TYPE, code="REGULAR"),
+            status=md(MasterData.Group.CLIENT_STATUS, "ACTIVO"),
+        )
+        self.api = APIClient()
+        self.api.force_login(
+            User.objects.create_superuser(
+                username="platform_types", email="pt@example.com", password="pass12345"
+            )
+        )
+        self.url = f"/api/clients/{self.customer.id}/set-client-type/"
+
+    def test_manual_type_persists_and_survives_later_saves(self):
+        response = self.api.patch(self.url, {"client_type": "VIP"}, format="json")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["client_type"], "VIP")
+        self.assertTrue(response.data["client_type_is_manual"])
+
+        # Un guardado cualquiera (p. ej. el de un check-out) ya no lo pisa.
+        self.customer.refresh_from_db()
+        self.customer.total_stay_nights = 2
+        self.customer.save()
+        self.customer.refresh_from_db()
+        self.assertEqual(self.customer.client_type.code, "VIP")
+
+    def test_auto_returns_to_the_type_by_stay_nights(self):
+        self.api.patch(self.url, {"client_type": "VIP"}, format="json")
+        self.customer.refresh_from_db()
+        self.customer.total_stay_nights = 12
+        self.customer.save()
+
+        response = self.api.patch(self.url, {"client_type": "AUTO"}, format="json")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["client_type"], "FRECUENTE")
+        self.assertFalse(response.data["client_type_is_manual"])
+
+    def test_generic_update_cannot_change_the_type(self):
+        response = self.api.patch(
+            f"/api/clients/{self.customer.id}/", {"client_type": "VIP"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.customer.refresh_from_db()
+        self.assertEqual(self.customer.client_type.code, "REGULAR")
+        self.assertFalse(self.customer.client_type_is_manual)

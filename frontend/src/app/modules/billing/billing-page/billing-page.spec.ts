@@ -176,6 +176,15 @@ describe('BillingPage', () => {
       expect(metric('pending').tone).toBe('warning');
     });
 
+    it('usa el saldo del backend, que ya descuenta notas de credito', async () => {
+      await setup({
+        invoices: [{ ...invoice(1, 1000, 'EMITIDA'), pending_balance: '150.00' }],
+        payments: [payment(10, 1, 250)]
+      });
+
+      expect(component.pendingTotal).toBe(150);
+    });
+
     it('no deja el pendiente en negativo si se cobro de mas', async () => {
       await setup({
         invoices: [invoice(1, 100, 'EMITIDA')],

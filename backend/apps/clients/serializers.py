@@ -151,6 +151,7 @@ class ClientSerializer(serializers.ModelSerializer):
             "country",
             "client_type",
             "client_type_label",
+            "client_type_is_manual",
             "total_stay_nights",
             "last_stay",
             "status",
@@ -161,6 +162,7 @@ class ClientSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             "id",
+            "client_type_is_manual",
             "total_stay_nights",
             "last_stay",
             "created_at",
@@ -195,11 +197,6 @@ class ClientCreateUpdateSerializer(TenantSerializerMixin, serializers.ModelSeria
     )
 
     document_type = MasterDataCodeField(group=MasterData.Group.DOCUMENT_TYPE)
-    client_type = MasterDataCodeField(
-        group=MasterData.Group.CLIENT_TYPE,
-        required=False,
-        allow_null=True,
-    )
     status = MasterDataCodeField(
         group=MasterData.Group.CLIENT_STATUS,
         required=False,
@@ -217,7 +214,6 @@ class ClientCreateUpdateSerializer(TenantSerializerMixin, serializers.ModelSeria
             "email",
             "phone",
             "country",
-            "client_type",
             "status",
         )
         validators = []
@@ -229,10 +225,10 @@ class ClientCreateUpdateSerializer(TenantSerializerMixin, serializers.ModelSeria
             mutable_data["document_type"] = normalize_document_type(
                 mutable_data.get("document_type")
             )
-        if "client_type" in mutable_data:
-            mutable_data["client_type"] = normalize_client_type(
-                mutable_data.get("client_type")
-            )
+        # El tipo de cliente no se escribe por aqui: es derivado o se fija con
+        # `set-client-type`. Se descarta en vez de fallar por compatibilidad con clientes
+        # que todavia lo envian.
+        mutable_data.pop("client_type", None)
         if "status" in mutable_data:
             mutable_data["status"] = normalize_status(
                 mutable_data.get("status")
@@ -337,11 +333,11 @@ class ClientCreateUpdateSerializer(TenantSerializerMixin, serializers.ModelSeria
     def create(self, validated_data):
         self.assign_target_tenant(validated_data)
 
-        if not validated_data.get("client_type"):
-            validated_data["client_type"] = get_master_data(
-                MasterData.Group.CLIENT_TYPE,
-                "REGULAR",
-            )
+        # Punto de partida; `Client.save()` lo recalcula por noches.
+        validated_data["client_type"] = get_master_data(
+            MasterData.Group.CLIENT_TYPE,
+            "REGULAR",
+        )
 
         if not validated_data.get("status"):
             validated_data["status"] = get_master_data(
@@ -358,14 +354,6 @@ class ClientCreateUpdateSerializer(TenantSerializerMixin, serializers.ModelSeria
 
     def update(self, instance, validated_data):
         self.assign_target_tenant(validated_data)
-
-        if "client_type" not in validated_data or validated_data.get("client_type") is None:
-            auto_client_type = get_master_data(
-                MasterData.Group.CLIENT_TYPE,
-                instance.resolve_client_type_code_by_stay_nights(),
-            )
-            if auto_client_type:
-                validated_data["client_type"] = auto_client_type
 
         if "status" not in validated_data or validated_data.get("status") is None:
             validated_data["status"] = instance.status or get_master_data(

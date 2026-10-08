@@ -637,6 +637,8 @@ class ReservationDepositSerializer(serializers.Serializer):
                 "rooms_detail",
                 "charges",
                 "invoices__payments__refunds__status",
+                "invoices__credit_notes",
+                "promotion_applications",
             )
             .select_for_update()
         )
@@ -777,6 +779,7 @@ class ReservationBusinessRulesMixin:
             "rooms_subtotal": financials["rooms_subtotal"],
             "package_subtotal": financials["package_subtotal"],
             "additional_charges_total": financials["additional_charges_total"],
+            "promotion_discount_total": financials["promotion_discount_total"],
             "total_deposits": financials["total_deposits"],
             "total_amount": financials["total_amount"],
             "pending_amount": financials["pending_amount"],
@@ -796,6 +799,9 @@ class ReservationBusinessRulesMixin:
 
     def get_additional_charges_total(self, obj):
         return self._get_business_rules(obj)["additional_charges_total"]
+
+    def get_promotion_discount_total(self, obj):
+        return self._get_business_rules(obj)["promotion_discount_total"]
 
     def get_total_deposits(self, obj):
         return self._get_business_rules(obj)["total_deposits"]
@@ -844,6 +850,7 @@ class ReservationListSerializer(ReservationBusinessRulesMixin, serializers.Model
     rooms_subtotal = serializers.SerializerMethodField()
     package_subtotal = serializers.SerializerMethodField()
     additional_charges_total = serializers.SerializerMethodField()
+    promotion_discount_total = serializers.SerializerMethodField()
     total_deposits = serializers.SerializerMethodField()
     total_amount = serializers.SerializerMethodField()
     pending_amount = serializers.SerializerMethodField()
@@ -893,6 +900,7 @@ class ReservationListSerializer(ReservationBusinessRulesMixin, serializers.Model
             "rooms_subtotal",
             "package_subtotal",
             "additional_charges_total",
+            "promotion_discount_total",
             "total_deposits",
             "total_amount",
             "pending_amount",
@@ -925,6 +933,7 @@ class ReservationListSerializer(ReservationBusinessRulesMixin, serializers.Model
             "rooms_subtotal",
             "package_subtotal",
             "additional_charges_total",
+            "promotion_discount_total",
             "total_deposits",
             "total_amount",
             "pending_amount",
@@ -963,6 +972,7 @@ class ReservationDetailSerializer(ReservationBusinessRulesMixin, serializers.Mod
     rooms_subtotal = serializers.SerializerMethodField()
     package_subtotal = serializers.SerializerMethodField()
     additional_charges_total = serializers.SerializerMethodField()
+    promotion_discount_total = serializers.SerializerMethodField()
     total_deposits = serializers.SerializerMethodField()
     total_amount = serializers.SerializerMethodField()
     pending_amount = serializers.SerializerMethodField()
@@ -1014,6 +1024,7 @@ class ReservationDetailSerializer(ReservationBusinessRulesMixin, serializers.Mod
             "rooms_subtotal",
             "package_subtotal",
             "additional_charges_total",
+            "promotion_discount_total",
             "total_deposits",
             "total_amount",
             "pending_amount",
@@ -1051,6 +1062,7 @@ class ReservationDetailSerializer(ReservationBusinessRulesMixin, serializers.Mod
             "rooms_subtotal",
             "package_subtotal",
             "additional_charges_total",
+            "promotion_discount_total",
             "total_deposits",
             "total_amount",
             "pending_amount",

@@ -35,7 +35,46 @@ from accounts.soft_delete import LogicalDeleteViewSetMixin
 from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
 
 
-class ChargeViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+
+def _to_positive_int(value) -> int | None:
+    try:
+        parsed = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+class InvoiceBalanceLockMixin:
+    """
+    Serializa las escrituras cuyo monto se valida contra el saldo de una factura.
+
+    Pagos, reembolsos y notas de credito comprueban "monto <= disponible" sumando lo que ya
+    existe. Sin transaccion ni lock, dos peticiones simultaneas sumaban lo mismo, pasaban
+    las dos y juntas superaban el saldo real (doble cobro o reembolso de mas). Bloquear la
+    fila de la factura antes de validar hace que la segunda espere y sume ya la primera.
+    """
+
+    def get_balance_invoice_id(self, request, instance=None) -> int | None:
+        raise NotImplementedError
+
+    def _lock_balance_invoice(self, invoice_id: int | None) -> None:
+        if invoice_id:
+            list(Invoice.objects.select_for_update().filter(pk=invoice_id).values_list("pk", flat=True))
+
+    def create(self, request, *args, **kwargs):
+        with transaction.atomic():
+            self._lock_balance_invoice(self.get_balance_invoice_id(request))
+            return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        with transaction.atomic():
+            self._lock_balance_invoice(
+                self.get_balance_invoice_id(request, instance=self.get_object())
+            )
+            return super().update(request, *args, **kwargs)
+
+
+class ChargeViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
     queryset = (
         Charge.objects.select_related(
             "reservation",
@@ -383,7 +422,7 @@ class ChargeViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.ModelV
         return parsed
 
 
-class InvoiceViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+class InvoiceViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
     queryset = (
         Invoice.objects.select_related(
             "reservation",
@@ -461,12 +500,21 @@ class InvoiceViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.Model
             .order_by("issue_date", "id")
         )
 
+        from apps.promotions.models import PromotionApplication
+
+        promotion_discounts = (
+            PromotionApplication.objects.select_related("promotion")
+            .filter(reservation_id=invoice.reservation_id, is_active=True, amount__gt=0)
+            .order_by("id")
+        )
+
         try:
             pdf_content = build_invoice_pdf(
                 invoice=invoice,
                 charges=charges,
                 payments=payments,
                 credit_notes=credit_notes,
+                promotion_discounts=promotion_discounts,
             )
         except RuntimeError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
@@ -478,7 +526,7 @@ class InvoiceViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.Model
         return response
 
 
-class InvoiceChargeViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+class InvoiceChargeViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
     queryset = (
         InvoiceCharge.objects.select_related(
             "invoice",
@@ -544,7 +592,9 @@ class PaymentFilterSet(django_filters.FilterSet):
         fields = ["invoice", "payment_method", "is_active"]
 
 
-class PaymentViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+class PaymentViewSet(
+    InvoiceBalanceLockMixin, LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet
+):
     queryset = (
         Payment.objects.select_related(
             "invoice",
@@ -584,6 +634,11 @@ class PaymentViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.Model
         if self.request.method in ("POST", "PUT", "PATCH", "DELETE"):
             return ["payments.write"]
         return self.required_scopes
+
+    def get_balance_invoice_id(self, request, instance=None) -> int | None:
+        if instance is not None:
+            return instance.invoice_id
+        return _to_positive_int(request.data.get("invoice"))
 
     def perform_create(self, serializer):
         # El autor del cobro sale de la sesion, no del cuerpo de la peticion.
@@ -632,7 +687,9 @@ class PaymentViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.Model
         ).exists()
 
 
-class PaymentRefundViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+class PaymentRefundViewSet(
+    InvoiceBalanceLockMixin, LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet
+):
     queryset = (
         PaymentRefund.objects.select_related(
             "payment",
@@ -703,6 +760,14 @@ class PaymentRefundViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets
     def get_permissions(self):
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
+
+    def get_balance_invoice_id(self, request, instance=None) -> int | None:
+        if instance is not None:
+            return instance.payment.invoice_id
+        payment_id = _to_positive_int(request.data.get("payment"))
+        if not payment_id:
+            return None
+        return Payment.objects.filter(pk=payment_id).values_list("invoice_id", flat=True).first()
 
     def perform_create(self, serializer):
         pending_status = get_or_create_default_payment_refund_status("PENDIENTE")
@@ -788,7 +853,9 @@ class PaymentRefundViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets
         return Response(serializer.data)
 
 
-class CreditNoteViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+class CreditNoteViewSet(
+    InvoiceBalanceLockMixin, LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet
+):
     queryset = (
         CreditNote.objects.select_related(
             "invoice",
@@ -830,6 +897,11 @@ class CreditNoteViewSet(TenantScopeMixin, LogicalDeleteViewSetMixin, viewsets.Mo
         if self.request.method in ("POST", "PUT", "PATCH", "DELETE"):
             return ["credit-notes.write"]
         return self.required_scopes
+
+    def get_balance_invoice_id(self, request, instance=None) -> int | None:
+        if instance is not None:
+            return instance.invoice_id
+        return _to_positive_int(request.data.get("invoice"))
 
     def get_permissions(self):
         self.required_scopes = self.get_required_scopes()

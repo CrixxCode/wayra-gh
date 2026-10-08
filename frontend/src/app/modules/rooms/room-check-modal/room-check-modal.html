@@ -116,6 +116,64 @@
               </article>
             </div>
 
+            <!-- Revision de salida: se cuenta antes de cobrar, porque un faltante genera cargo -->
+            <section class="count-block" *ngIf="countLines.length">
+              <header>
+                <h4>Revision de inventario</h4>
+                <strong [class.is-alert]="missingCountTotal > 0">
+                  {{ missingCountTotal > 0 ? missingCountTotal + ' faltante(s)' : 'Sin faltantes' }}
+                </strong>
+              </header>
+              <p class="consumption-empty">
+                Cuenta lo que hay en la habitacion. Lo que falte se cobra al huesped.
+              </p>
+
+              <div class="gh-modal-table-wrap">
+                <table class="gh-modal-table count-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Esperado</th>
+                      <th>Contado</th>
+                      <th>Notas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let line of countLines; trackBy: trackByCount">
+                      <td>
+                        <span class="count-item">
+                          {{ line.itemName }}
+                          <small>Hab. {{ line.roomNumber }} · {{ countDifferenceLabel(line) }}</small>
+                        </span>
+                      </td>
+                      <td>{{ line.expected }}</td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          class="count-input"
+                          [class.is-short]="line.counted < line.expected"
+                          [attr.aria-label]="'Cantidad contada de ' + line.itemName"
+                          [ngModel]="line.counted"
+                          (ngModelChange)="setCounted(line, $event)"
+                          [disabled]="submitting" />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          class="count-input count-notes"
+                          placeholder="Observaciones"
+                          [attr.aria-label]="'Notas de ' + line.itemName"
+                          [(ngModel)]="line.notes"
+                          [disabled]="submitting" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
             <p class="check-alert is-info" *ngIf="moneyIsHidden">
               <i class="fa-solid fa-lock"></i>
               No tienes permiso para ver el saldo de la reserva. El cobro queda a cargo de quien
@@ -268,6 +326,11 @@
         </ng-container>
       </ng-container>
     </div>
+
+    <p class="check-alert is-error check-submit-error" *ngIf="submitError" role="alert">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      {{ submitError }}
+    </p>
 
     <footer class="gh-modal-foot">
       <span class="gh-foot-note">{{ blockingReason }}</span>

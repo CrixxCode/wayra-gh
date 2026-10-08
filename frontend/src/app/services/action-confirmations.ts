@@ -1,6 +1,14 @@
 import { ConfirmationService } from 'primeng/api';
 
-export type ConfirmActionType = 'delete' | 'remove' | 'deactivate' | 'save' | 'cancel' | 'restore';
+export type ConfirmActionType =
+  | 'delete'
+  | 'remove'
+  | 'deactivate'
+  | 'save'
+  | 'cancel'
+  | 'restore'
+  | 'reject'
+  | 'process';
 
 const ACTION_LABELS: Record<ConfirmActionType, string> = {
   delete: 'eliminacion',
@@ -8,7 +16,9 @@ const ACTION_LABELS: Record<ConfirmActionType, string> = {
   deactivate: 'desactivacion',
   save: 'guardado',
   cancel: 'cancelacion',
-  restore: 'restauracion'
+  restore: 'restauracion',
+  reject: 'rechazo',
+  process: 'confirmacion de pago'
 };
 
 function normalizeTarget(target: string): string {

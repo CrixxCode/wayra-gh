@@ -1,11 +1,35 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { ConfirmationService } from 'primeng/api';
 import { FormsModule } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { PaymentRefundI } from '../../billing/billing-model';
 import { BillingService } from '../../../services/billing';
 import { AuthService } from '../../../services/auth/auth';
 import { errorActionAlert, successActionAlert } from '../../../services/action-alerts';
+import { ConfirmActionType, openActionConfirmation } from '../../../services/action-confirmations';
+
+/**
+ * Pasos que el backend permite sobre un reembolso (`PaymentRefundViewSet.allowed_transitions`).
+ * Antes la pantalla solo ofrecia aprobar: un reembolso aprobado nunca pasaba a PROCESADO
+ * -el unico estado que cuenta como salida real de caja- ni se podia rechazar o anular.
+ */
+export type RefundTransition = 'approve' | 'process' | 'reject' | 'cancel';
+
+const REFUND_TRANSITIONS: Record<
+  RefundTransition,
+  { label: string; busy: string; icon: string; confirm: ConfirmActionType | null }
+> = {
+  approve: { label: 'Aprobar', busy: 'Aprobando...', icon: 'fa-solid fa-check', confirm: null },
+  process: {
+    label: 'Marcar pagado',
+    busy: 'Registrando...',
+    icon: 'fa-solid fa-money-bill-transfer',
+    confirm: 'process'
+  },
+  reject: { label: 'Rechazar', busy: 'Rechazando...', icon: 'fa-solid fa-xmark', confirm: 'reject' },
+  cancel: { label: 'Anular', busy: 'Anulando...', icon: 'fa-solid fa-ban', confirm: 'cancel' }
+};
 
 type RefundActivityFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 type RefundDateFilter = 'ALL' | 'TODAY' | 'LAST_30';
@@ -33,7 +57,9 @@ export class ListPaymentRefunds implements OnInit {
 
   /** Recarga posterior a una accion: la tabla sigue en pantalla. */
   refreshing = false;
-  approvingRefundId: number | null = null;
+  /** Reembolso con un cambio de estado en curso; bloquea las demas acciones. */
+  busyRefundId: number | null = null;
+  busyTransition: RefundTransition | null = null;
   errorMessage = '';
   infoMessage = '';
   isAdmin = false;
@@ -61,7 +87,8 @@ export class ListPaymentRefunds implements OnInit {
 
   constructor(
     private billingService: BillingService,
-    private authService: AuthService
+    private authService: AuthService,
+    private confirmationService: ConfirmationService
   ) {}
 
   ngOnInit(): void {
@@ -197,29 +224,78 @@ export class ListPaymentRefunds implements OnInit {
     URL.revokeObjectURL(url);
   }
 
-  canApprove(refund: PaymentRefundI): boolean {
-    if (!this.isAdmin) return false;
-    if (!refund.is_active) return false;
-    if (this.approvingRefundId !== null) return false;
-    return this.getStatusCode(refund) === 'PENDIENTE';
+  /** Lo que un administrador puede hacer con este reembolso segun su estado. */
+  availableTransitions(refund: PaymentRefundI): RefundTransition[] {
+    if (!this.isAdmin || !refund.is_active) return [];
+    const code = this.getStatusCode(refund);
+    if (code === 'PENDIENTE') return ['approve', 'reject', 'cancel'];
+    if (code === 'APROBADO') return ['process', 'cancel'];
+    return [];
   }
 
-  approveRefund(refund: PaymentRefundI): void {
-    if (!this.canApprove(refund)) return;
+  /** Aprobado o pendiente: el dinero todavia no salio de caja. */
+  isAwaitingPayout(refund: PaymentRefundI): boolean {
+    const code = this.getStatusCode(refund);
+    return refund.is_active && (code === 'PENDIENTE' || code === 'APROBADO');
+  }
 
-    this.approvingRefundId = refund.id;
+  transitionLabel(refund: PaymentRefundI, transition: RefundTransition): string {
+    const config = REFUND_TRANSITIONS[transition];
+    return this.isBusy(refund, transition) ? config.busy : config.label;
+  }
+
+  transitionIcon(transition: RefundTransition): string {
+    return REFUND_TRANSITIONS[transition].icon;
+  }
+
+  isBusy(refund: PaymentRefundI, transition?: RefundTransition): boolean {
+    if (this.busyRefundId !== refund.id) return false;
+    return !transition || this.busyTransition === transition;
+  }
+
+  runTransition(refund: PaymentRefundI, transition: RefundTransition): void {
+    if (this.busyRefundId !== null) return;
+    if (!this.availableTransitions(refund).includes(transition)) return;
+
+    const confirmAction = REFUND_TRANSITIONS[transition].confirm;
+    if (!confirmAction) {
+      this.executeTransition(refund, transition);
+      return;
+    }
+
+    openActionConfirmation(this.confirmationService, {
+      action: confirmAction,
+      target: `reembolso de ${this.getAmountLabel(refund)}`,
+      onAccept: () => this.executeTransition(refund, transition)
+    });
+  }
+
+  private executeTransition(refund: PaymentRefundI, transition: RefundTransition): void {
+    const request = {
+      approve: () => this.billingService.approvePaymentRefund(refund.id),
+      process: () => this.billingService.processPaymentRefund(refund.id),
+      reject: () => this.billingService.rejectPaymentRefund(refund.id),
+      cancel: () => this.billingService.cancelPaymentRefund(refund.id)
+    }[transition];
+
+    this.busyRefundId = refund.id;
+    this.busyTransition = transition;
     this.errorMessage = '';
     this.infoMessage = '';
 
-    this.billingService.approvePaymentRefund(refund.id).subscribe({
+    request().subscribe({
       next: (updated) => {
-        this.approvingRefundId = null;
+        this.busyRefundId = null;
+        this.busyTransition = null;
         this.refunds = this.refunds.map((row) => (row.id === updated.id ? updated : row));
         this.applyFilters();
         this.infoMessage = successActionAlert('update', 'estado del reembolso');
+        // Procesar o anular mueve el "cobrado neto" de las otras pestañas.
+        this.changed.emit();
       },
       error: (error) => {
-        this.approvingRefundId = null;
+        this.busyRefundId = null;
+        this.busyTransition = null;
         this.errorMessage = this.extractErrorMessage(error, errorActionAlert('update', 'estado del reembolso'));
       }
     });

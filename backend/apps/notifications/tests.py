@@ -21,8 +21,13 @@ User = get_user_model()
 
 class NotificationApiTests(APITestCase):
     def setUp(self):
-        self.hotel_a = HotelSettings.objects.create(hotel_name="Hotel A")
-        self.hotel_b = HotelSettings.objects.create(hotel_name="Hotel B")
+        from django.utils import timezone
+
+        # Estas pruebas miran el aislamiento entre usuarios: las notificaciones diarias que
+        # la campana genera sola (`scheduled.py`) se dan por generadas para no mezclarlas.
+        today = timezone.localdate()
+        self.hotel_a = HotelSettings.objects.create(hotel_name="Hotel A", daily_notifications_ran_on=today)
+        self.hotel_b = HotelSettings.objects.create(hotel_name="Hotel B", daily_notifications_ran_on=today)
 
         self.role = Role.objects.create(
             name="Notifications Reader",
@@ -323,3 +328,78 @@ class NotificationEventSignalsTests(TestCase):
                 related_object_id=str(order.id),
             ).exists()
         )
+
+
+class DailyNotificationsOnReadTests(APITestCase):
+    """Auditoria, Bloque 12 #1: los recordatorios se generan sin cron, al consultar la campana."""
+
+    def setUp(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        def md(group, code):
+            return MasterData.objects.update_or_create(
+                group=group, code=code, defaults={"name": code.title(), "is_active": True}
+            )[0]
+
+        self.today = timezone.localdate()
+        from apps.hotel_settings.test_utils import create_configured_hotel
+
+        self.hotel = create_configured_hotel(hotel_name="Hotel Campana")
+        role = Role.objects.create(name="Lector campana", slug="lector-campana", is_active=True)
+        role.resources.add(
+            Resource.objects.create(key="notifications.read", name="Notifications Read", is_active=True)
+        )
+        self.user = User.objects.create_user(
+            username="recepcion_campana", password="pass12345", hotel_settings=self.hotel
+        )
+        UserRole.objects.create(user=self.user, role=role, is_active=True)
+
+        client = Client.objects.create(
+            hotel_settings=self.hotel,
+            document_type=md(MasterData.Group.DOCUMENT_TYPE, "CC"),
+            document_number="8080",
+            first_name="Rosa",
+            last_name="Vega",
+            email="rosa.campana@example.com",
+            client_type=md(MasterData.Group.CLIENT_TYPE, "REGULAR"),
+            status=md(MasterData.Group.CLIENT_STATUS, "ACTIVO"),
+        )
+        self.reservation = Reservation.objects.create(
+            hotel_settings=self.hotel,
+            client=client,
+            status=md(MasterData.Group.RESERVATION_STATUS, "CONFIRMADA"),
+            origin=md(MasterData.Group.RESERVATION_ORIGIN, "DIRECTO"),
+            expected_check_in=self.today + timedelta(days=1),
+            expected_check_out=self.today + timedelta(days=3),
+        )
+        Notification.objects.all().delete()
+        self.client.force_login(self.user)
+
+    def test_first_read_of_the_day_generates_the_reminders_once(self):
+        first = self.client.get("/api/notifications/unread-count/")
+        self.assertEqual(first.status_code, 200)
+        generated = Notification.objects.filter(hotel_settings=self.hotel).count()
+        self.assertGreater(generated, 0)
+
+        self.hotel.refresh_from_db()
+        self.assertEqual(self.hotel.daily_notifications_ran_on, self.today)
+
+        # Ni otra lectura ni el listado vuelven a generar.
+        self.client.get("/api/notifications/unread-count/")
+        self.client.get("/api/notifications/")
+        self.assertEqual(Notification.objects.filter(hotel_settings=self.hotel).count(), generated)
+
+    def test_a_failure_does_not_break_the_bell(self):
+        from unittest.mock import patch
+
+        with patch(
+            "apps.notifications.scheduled.notify_upcoming_checkins", side_effect=RuntimeError("boom")
+        ):
+            response = self.client.get("/api/notifications/unread-count/")
+
+        self.assertEqual(response.status_code, 200)
+        self.hotel.refresh_from_db()
+        # No se marca como hecho: la siguiente lectura lo reintenta.
+        self.assertIsNone(self.hotel.daily_notifications_ran_on)

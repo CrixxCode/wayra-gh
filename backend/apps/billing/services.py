@@ -400,28 +400,41 @@ def ensure_default_invoice_for_reservation(
         reservation_queryset = reservation_queryset.filter(
             hotel_settings_id=expected_hotel_settings_id
         )
-    reservation = reservation_queryset.first()
-    if not reservation:
-        return None
 
     status = get_or_create_default_invoice_status("BORRADOR")
     if not status:
         return None
 
-    for _ in range(3):
-        invoice_number = _generate_invoice_number(reservation_id)
-        try:
-            with transaction.atomic():
-                return Invoice.objects.create(
-                    reservation=reservation,
-                    status=status,
-                    invoice_number=invoice_number,
-                    subtotal=MONEY_ZERO,
-                    tax_amount=MONEY_ZERO,
-                    is_active=True,
-                )
-        except IntegrityError:
-            continue
+    with transaction.atomic():
+        # Sin este lock, dos peticiones simultaneas veian "no hay factura" y cada una
+        # creaba la suya: quedaba una segunda factura activa (`FAC-...-2`) desincronizada
+        # del saldo real. Con la reserva bloqueada, la segunda espera y encuentra la
+        # factura que creo la primera.
+        reservation = reservation_queryset.select_for_update().first()
+        if not reservation:
+            return None
+
+        existing_invoice = _get_existing_default_invoice(
+            reservation_id,
+            expected_hotel_settings_id=expected_hotel_settings_id,
+        )
+        if existing_invoice:
+            return existing_invoice
+
+        for _ in range(3):
+            invoice_number = _generate_invoice_number(reservation_id)
+            try:
+                with transaction.atomic():
+                    return Invoice.objects.create(
+                        reservation=reservation,
+                        status=status,
+                        invoice_number=invoice_number,
+                        subtotal=MONEY_ZERO,
+                        tax_amount=MONEY_ZERO,
+                        is_active=True,
+                    )
+            except IntegrityError:
+                continue
 
     return _get_existing_default_invoice(
         reservation_id,
@@ -429,12 +442,23 @@ def ensure_default_invoice_for_reservation(
     )
 
 
-def get_invoice_reconciliation(invoice: Invoice | None) -> dict[str, Decimal | bool]:
+def get_invoice_reconciliation(
+    invoice: Invoice | None,
+    *,
+    exclude_payment_id: int | None = None,
+) -> dict[str, Decimal | bool]:
+    """
+    Saldo de una factura. Es la unica cuenta: la usan el estado de la factura y la
+    validacion de cada cobro, para que el tope de un pago y lo que muestra la factura no
+    puedan contradecirse. `exclude_payment_id` deja fuera un pago (y sus reembolsos) al
+    editarlo.
+    """
     if not invoice:
         return {
             "total_amount": MONEY_ZERO,
             "total_paid": MONEY_ZERO,
             "total_refunded": MONEY_ZERO,
+            "total_credited": MONEY_ZERO,
             "net_paid": MONEY_ZERO,
             "pending_balance": MONEY_ZERO,
             "fully_refunded": False,
@@ -444,28 +468,30 @@ def get_invoice_reconciliation(invoice: Invoice | None) -> dict[str, Decimal | b
     if total_amount < MONEY_ZERO:
         total_amount = MONEY_ZERO
 
-    total_paid = _to_decimal(
-        sum(
-            payment.amount
-            for payment in invoice.payments.filter(is_active=True).only("amount")
-        )
+    payments = invoice.payments.filter(is_active=True)
+    refunds = PaymentRefund.objects.filter(
+        payment__invoice=invoice,
+        is_active=True,
+        status__code__in=["APROBADO", "PROCESADO"],
     )
-    total_refunded = _to_decimal(
-        sum(
-            refund.amount
-            for refund in PaymentRefund.objects.filter(
-                payment__invoice=invoice,
-                is_active=True,
-                status__code__in=["APROBADO", "PROCESADO"],
-            ).only("amount")
-        )
+    if exclude_payment_id:
+        payments = payments.exclude(pk=exclude_payment_id)
+        refunds = refunds.exclude(payment_id=exclude_payment_id)
+
+    total_paid = _to_decimal(sum(payment.amount for payment in payments.only("amount")))
+    total_refunded = _to_decimal(sum(refund.amount for refund in refunds.only("amount")))
+    # Mismo criterio que Finanzas y Reportes (`net_revenue`): una nota de credito activa
+    # reduce lo que se le debe al hotel. Antes la restaban los reportes pero no el saldo,
+    # y una factura saldada con nota de credito seguia bloqueando el check-out.
+    total_credited = _to_decimal(
+        sum(note.amount for note in invoice.credit_notes.filter(is_active=True).only("amount"))
     )
 
     net_paid = total_paid - total_refunded
     if net_paid < MONEY_ZERO:
         net_paid = MONEY_ZERO
 
-    pending_balance = total_amount - net_paid
+    pending_balance = total_amount - total_credited - net_paid
     if pending_balance < MONEY_ZERO:
         pending_balance = MONEY_ZERO
 
@@ -479,6 +505,7 @@ def get_invoice_reconciliation(invoice: Invoice | None) -> dict[str, Decimal | b
         "total_amount": total_amount,
         "total_paid": total_paid,
         "total_refunded": total_refunded,
+        "total_credited": total_credited,
         "net_paid": net_paid,
         "pending_balance": pending_balance,
         "fully_refunded": fully_refunded,
@@ -499,6 +526,7 @@ def _resolve_invoice_status_code(invoice: Invoice) -> str | None:
     total_amount = _to_decimal(snapshot.get("total_amount"))
     total_paid = _to_decimal(snapshot.get("total_paid"))
     net_paid = _to_decimal(snapshot.get("net_paid"))
+    total_credited = _to_decimal(snapshot.get("total_credited"))
     fully_refunded = bool(snapshot.get("fully_refunded"))
 
     has_checkout = getattr(getattr(invoice, "reservation", None), "real_check_out", None) is not None
@@ -511,7 +539,7 @@ def _resolve_invoice_status_code(invoice: Invoice) -> str | None:
             return "PAGADA"
         return "BORRADOR"
 
-    if net_paid >= total_amount:
+    if net_paid + total_credited >= total_amount:
         return "PAGADA"
     if fully_refunded:
         return "REEMBOLSADA"
@@ -549,6 +577,11 @@ def sync_default_invoice_for_reservation(
     )
     if not invoice:
         return None
+
+    # Antes del total: los descuentos de promociones lo bajan.
+    from apps.promotions.services import sync_reservation_promotions
+
+    sync_reservation_promotions(invoice.reservation)
 
     financials = get_reservation_financials(invoice.reservation)
     subtotal = _to_decimal(financials.get("total_amount"))

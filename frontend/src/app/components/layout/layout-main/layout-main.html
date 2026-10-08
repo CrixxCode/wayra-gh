@@ -57,6 +57,13 @@
           >
             Ir a configuración
           </a>
+          <a
+            *ngIf="!mustChangePassword && setup.status()?.can_configure && missingRooms"
+            routerLink="/habitaciones"
+            class="hotel-setup-alert__primary"
+          >
+            Crear habitaciones
+          </a>
           <span *ngIf="mustChangePassword" class="hotel-setup-alert__hint">
             Cambio de contraseña requerido
           </span>

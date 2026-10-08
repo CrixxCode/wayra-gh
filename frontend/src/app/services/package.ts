@@ -93,7 +93,12 @@ export class PackagesService {
   }
 
   getPackageById(id: number): Observable<PackageI> {
-    return this.http.get<PackageI>(`${this.packagesUrl}${id}/`, { withCredentials: true });
+    return this.http.get<PackageI>(`${this.packagesUrl}${id}/`, {
+      // Un detalle se abre tambien sobre registros inactivos (p. ej. anulados); los
+      // eliminados logicamente siguen excluidos por el backend.
+      params: new HttpParams().set('include_inactive', 'true'),
+      withCredentials: true
+    });
   }
 
   createPackage(payload: PackageFormPayload): Observable<PackageI> {

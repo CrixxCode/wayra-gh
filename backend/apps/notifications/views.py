@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from accounts.permissions import HasResourcePermission
 from accounts.tenancy import is_effective_global_admin, scope_queryset_to_hotel
 from apps.notifications.models import Notification
+from apps.notifications.scheduled import ensure_daily_notifications
 from apps.notifications.permissions import NotificationAccessPolicy
 from apps.notifications.serializers import NotificationSerializer
 
@@ -48,6 +49,17 @@ class NotificationViewSet(
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
 
+    def _ensure_daily_notifications(self):
+        # Lo que hacian los comandos que nadie programaba: la primera consulta del dia a la
+        # campana genera los recordatorios del hotel (ver `apps.notifications.scheduled`).
+        user = self.request.user
+        if user and user.is_authenticated and not is_effective_global_admin(user):
+            ensure_daily_notifications(getattr(user, "hotel_settings_id", None))
+
+    def list(self, request, *args, **kwargs):
+        self._ensure_daily_notifications()
+        return super().list(request, *args, **kwargs)
+
     def get_queryset(self):
         user = self.request.user
         queryset = self.queryset.order_by("-created_at", "-id")
@@ -83,6 +95,7 @@ class NotificationViewSet(
 
     @action(detail=False, methods=["get"], url_path="unread-count")
     def unread_count(self, request):
+        self._ensure_daily_notifications()
         count = self.get_queryset().filter(is_read=False).count()
         return Response({"unread_count": count}, status=status.HTTP_200_OK)
 

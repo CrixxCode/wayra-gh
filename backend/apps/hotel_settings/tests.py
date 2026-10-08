@@ -20,6 +20,7 @@ from apps.hotel_settings.models import (
     PaymentMethod,
     ReservationPolicy,
 )
+from apps.hotel_settings.test_utils import create_configured_hotel
 from apps.hotel_settings.views import PaymentMethodViewSet
 from apps.master_data.models import MasterData
 from apps.reservations.models import Reservation, ReservationRoom
@@ -476,6 +477,106 @@ class HotelSettingsTenantIsolationTests(APITestCase):
         self.assertEqual(room_102.number, "202")
         self.assertEqual(Room.objects.filter(floor=floor).count(), 3)
 
+    def _floor_with_rooms(self, count):
+        floor = HotelFloor.objects.create(
+            hotel_settings=self.hotel_b,
+            floor_number=3,
+            name="Piso 3",
+            prefix="3",
+            room_count=count,
+        )
+        rooms = [
+            Room.objects.create(number=f"30{index}", floor=floor, status=self.room_status_available)
+            for index in range(1, count + 1)
+        ]
+        return floor, rooms
+
+    def _reduce_floor(self, floor, room_count):
+        return self.client.patch(
+            f"/api/hotel-floors/{floor.id}/?delete_extra_rooms=true",
+            {
+                "hotel_settings": self.hotel_b.id,
+                "floor_number": floor.floor_number,
+                "name": floor.name,
+                "prefix": floor.prefix,
+                "room_count": room_count,
+            },
+            format="json",
+        )
+
+    def _active_reservation_on(self, room):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from apps.clients.models import Client
+        from apps.reservations.models import Reservation, ReservationRoom
+
+        def md(group, code):
+            return MasterData.objects.update_or_create(
+                group=group, code=code, defaults={"name": code.title(), "is_active": True}
+            )[0]
+
+        client = Client.objects.create(
+            hotel_settings=self.hotel_b,
+            document_type=md(MasterData.Group.DOCUMENT_TYPE, "CC"),
+            document_number="7001",
+            first_name="Luis",
+            last_name="Mora",
+            email="luis.floor@example.com",
+            client_type=md(MasterData.Group.CLIENT_TYPE, "REGULAR"),
+            status=md(MasterData.Group.CLIENT_STATUS, "ACTIVO"),
+        )
+        today = timezone.localdate()
+        reservation = Reservation.objects.create(
+            hotel_settings=self.hotel_b,
+            client=client,
+            status=md(MasterData.Group.RESERVATION_STATUS, "CONFIRMADA"),
+            origin=md(MasterData.Group.RESERVATION_ORIGIN, "DIRECTO"),
+            expected_check_in=today + timedelta(days=1),
+            expected_check_out=today + timedelta(days=3),
+        )
+        ReservationRoom.objects.create(reservation=reservation, room=room, night_rate=100000, adults=1)
+        return reservation
+
+    def test_reducing_floor_rooms_archives_the_extra_ones(self):
+        # Auditoria, Bloque 2 #2: antes daba 500 siempre.
+        from django.contrib.contenttypes.models import ContentType
+
+        floor, rooms = self._floor_with_rooms(3)
+
+        response = self._reduce_floor(floor, 2)
+
+        self.assertEqual(response.status_code, 200, getattr(response, "data", None))
+        self.assertTrue(
+            SoftDeleteMarker.objects.filter(
+                content_type=ContentType.objects.get_for_model(Room),
+                object_id=str(rooms[2].pk),
+            ).exists()
+        )
+
+    def test_reducing_floor_is_blocked_by_an_active_reservation(self):
+        # Bloque 2 #4: el piso ya no se salta el freno que tiene RoomViewSet.
+        floor, rooms = self._floor_with_rooms(3)
+        reservation = self._active_reservation_on(rooms[2])
+
+        response = self._reduce_floor(floor, 2)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(reservation.code, response.json()["detail"])
+        self.assertFalse(SoftDeleteMarker.objects.filter(object_id=str(rooms[2].pk)).exists())
+        floor.refresh_from_db()
+        self.assertEqual(floor.room_count, 3)
+
+    def test_deleting_a_floor_is_blocked_by_an_active_reservation(self):
+        floor, rooms = self._floor_with_rooms(2)
+        self._active_reservation_on(rooms[0])
+
+        response = self.client.delete(f"/api/hotel-floors/{floor.id}/")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(SoftDeleteMarker.objects.filter(object_id=str(floor.pk)).exists())
+
     def test_by_settings_respects_tenant_scope(self):
         HotelFloor.objects.create(
             hotel_settings=self.hotel_a,
@@ -905,3 +1006,52 @@ class DefaultPaymentMethodTests(TestCase):
 
         self.assertEqual(hotel.payment_methods.get().name, "Caja")
         self.assertEqual(hotel.payment_methods.get().code, "CAJA")
+
+
+class HotelActivationTests(APITestCase):
+    """Auditoria, Bloque 13: suspender y reactivar un hotel es cosa de la plataforma."""
+
+    def setUp(self):
+        self.hotel = create_configured_hotel(hotel_name="Hotel Suspendible")
+        role = Role.objects.create(name="Admin hotel", slug="admin-hotel-activation")
+        for key in ("hotel_settings.read", "hotel_settings.write"):
+            resource, _ = Resource.objects.get_or_create(key=key, defaults={"name": key})
+            role.resources.add(resource)
+        self.hotel_admin = get_user_model().objects.create_user(
+            username="admin_suspendible", password="pass12345", hotel_settings=self.hotel
+        )
+        self.hotel_admin.roles.add(role)
+        self.platform_admin = get_user_model().objects.create_superuser(
+            username="platform_activation", email="pa@example.com", password="pass12345"
+        )
+
+    def test_hotel_admin_cannot_suspend_their_own_hotel(self):
+        self.client.force_login(self.hotel_admin)
+
+        response = self.client.patch(
+            f"/api/hotel-settings/{self.hotel.id}/", {"is_active": False}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.hotel.refresh_from_db()
+        self.assertTrue(self.hotel.is_active)
+
+    def test_platform_can_suspend_find_and_reactivate_a_hotel(self):
+        self.client.force_login(self.platform_admin)
+
+        suspended = self.client.patch(
+            f"/api/hotel-settings/{self.hotel.id}/", {"is_active": False}, format="json"
+        )
+        self.assertEqual(suspended.status_code, 200, suspended.data)
+
+        # Lo que pide el directorio de /saas-hoteles: el suspendido sigue apareciendo.
+        listed = self.client.get("/api/hotel-settings/", {"include_inactive": "true"})
+        rows = listed.data.get("results", listed.data) if isinstance(listed.data, dict) else listed.data
+        self.assertIn(self.hotel.id, {row["id"] for row in rows})
+
+        reactivated = self.client.patch(
+            f"/api/hotel-settings/{self.hotel.id}/", {"is_active": True}, format="json"
+        )
+        self.assertEqual(reactivated.status_code, 200, reactivated.data)
+        self.hotel.refresh_from_db()
+        self.assertTrue(self.hotel.is_active)
