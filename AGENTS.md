@@ -136,7 +136,8 @@ gestion_hotelera/
 │   ├── arquitectura-general.*   # Diagrama de arquitectura (HTML interactivo + JSON fuente)
 │   ├── modelo-datos.*           # Modelo de datos E-R simplificado (HTML interactivo + JSON fuente)
 │   ├── modulos.*                # Mapa de módulos funcionales y dependencias (HTML + JSON fuente)
-│   └── flujo-funcional.*        # Flujo de punta a punta: alta del hotel → reserva → cierre (HTML + JSON)
+│   ├── flujo-funcional.*        # Flujo de punta a punta: alta del hotel → reserva → cierre (HTML + JSON)
+│   └── ciclo-reserva.*          # Ciclo reserva → estadía → limpieza en 3 carriles, para artículo (HTML + JSON)
 ├── docs/
 │   ├── MANUAL_USUARIO.md        # Manual funcional del usuario final
 │   ├── RAILWAY_DEPLOYMENT.md    # Guía de despliegue en Railway
@@ -1505,6 +1506,69 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
   un cliente existente ya no actualiza su nombre ni su correo — recepción ve lo enviado en el
   huésped de la reserva y en `source_metadata.submitted_contact`; (d) los errores del check-in
   online ya no distinguen "código inexistente" de "documento incorrecto" ni de "falta el titular".
+
+### 2026-10-02 — Ciclo de reserva: texto de la nota de cancelación y leyenda
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** incluido en este commit
+- **Tipo:** docs
+- **Qué se hizo:** en `diagramas/ciclo-reserva.*`, la nota bajo "Cancelación" pasa a decir
+  "Solo desde PENDIENTE o CONFIRMADA" con el subtítulo "antes del check-in" (antes era al revés).
+  La nota y el bloque "Cancelación" se ensanchan de 166 a 210 px para que quepa el texto; las
+  flechas "cancelar" se recalculan solas y siguen sin cruces. En la leyenda, "Estado final" pasa a
+  "Estado final o postoperativo", porque el color verde cubre también las acciones al completar el
+  check-out. Espacio de trabajo: `.archify/architecture-ciclo-reserva-20261002-122814/`.
+- **Por qué:** ajustes de redacción pedidos por el usuario para la figura del artículo.
+- **Archivos/áreas afectadas:** `diagramas/ciclo-reserva.html`,
+  `diagramas/ciclo-reserva.architecture.json`, `.archify/architecture-ciclo-reserva-20261002-122814/`,
+  `AGENTS.md`.
+- **Impacto:** Ninguno. No cambia código, modelos, API ni despliegue.
+
+### 2026-10-02 — Ciclo de reserva: check-in online, acciones de cierre y nota de cancelación
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** incluido en este commit
+- **Tipo:** docs
+- **Qué se hizo:** tres correcciones en `diagramas/ciclo-reserva.*`, sin cambiar estilo ni
+  estructura: (1) "Check-in online" pasa a decir "Pre-registro de huéspedes" y su flecha
+  discontinua lleva la etiqueta "datos previos", para que se lea como información auxiliar y no
+  como la ejecución del check-in operativo; (2) el grupo sobre "Reserva finalizada" se titula
+  "Acciones al completar el check-out" (real_check_out, inventario, factura, tarea de limpieza),
+  ligado a la rama "saldo = 0"; (3) bajo "Cancelación / Estado: CANCELADA" se añade la nota "Solo
+  antes del check-in — desde PENDIENTE o CONFIRMADA". Los carriles 02 y 03 bajan 50 px para hacer
+  sitio a esa nota. Espacio de trabajo: `.archify/architecture-ciclo-reserva-20261002-122434/`.
+- **Por qué:** la versión anterior podía leerse como si el check-in online ejecutara el check-in,
+  como si las acciones de cierre ocurrieran con saldo pendiente y como si la cancelación tuviera
+  más orígenes.
+- **Archivos/áreas afectadas:** `diagramas/ciclo-reserva.html`,
+  `diagramas/ciclo-reserva.architecture.json`, `.archify/architecture-ciclo-reserva-20261002-122434/`,
+  `AGENTS.md`.
+- **Impacto:** Ninguno. No cambia código, modelos, API ni despliegue.
+
+### 2026-10-02 — Figura del ciclo de reserva y alojamiento en `diagramas/`
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** incluido en este commit
+- **Tipo:** docs
+- **Qué se hizo:** nueva figura `diagramas/ciclo-reserva.*` ("Flujo funcional del ciclo de reserva
+  y alojamiento en la plataforma") para un artículo científico. Tres carriles: 01 Canales de
+  entrada (reserva web y check-in online, con línea discontinua por no ser obligatorios),
+  02 Operación hotelera (PENDIENTE → asignación → CONFIRMADA → check-in/EN_CURSO → estadía →
+  check-out → FINALIZADA → LIMPIEZA → DISPONIBLE, con la rama de cancelación desde PENDIENTE o
+  CONFIRMADA y el bucle saldo > 0 → registrar pago → revalidar) y 03 Validaciones y bloqueos
+  (conflicto de habitación, check-in no permitido, saldo pendiente). Las validaciones, condiciones
+  y acciones de cada etapa aparecen como listas resumidas junto a la etapa. No incluye
+  alta del hotel, demo, onboarding, reembolsos ni notas crédito, ni nombres de código (salvo los
+  campos `real_check_in`/`real_check_out`, pedidos explícitamente). Se usa el tipo `architecture`
+  de Archify porque el tipo `workflow` admite solo 6 columnas y el flujo tiene 9 etapas.
+  Espacio de trabajo: `.archify/architecture-ciclo-reserva-20261002-121643/` (`build.mjs` genera
+  el JSON).
+- **Por qué:** se necesitaba una figura centrada solo en el ciclo operativo de la reserva, distinta
+  de `flujo-funcional.*`, que abarca también el alta comercial del hotel.
+- **Archivos/áreas afectadas:** `diagramas/ciclo-reserva.html`,
+  `diagramas/ciclo-reserva.architecture.json`, `.archify/architecture-ciclo-reserva-20261002-121643/`,
+  `AGENTS.md`.
+- **Impacto:** Ninguno. No cambia código, modelos, API ni despliegue.
 
 ### 2026-10-02 — Modelo de datos: relación Hotel → RoomType y cardinalidades 1 : N
 

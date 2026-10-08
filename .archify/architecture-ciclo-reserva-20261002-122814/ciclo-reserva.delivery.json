@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "06431d3f-18d6-49c7-9033-5862be802fc1",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "C:\\Users\\Usuario\\Documents\\wayra-gh\\.archify\\architecture-ciclo-reserva-20261002-122814\\candidate.json",
+  "output": "C:\\Users\\Usuario\\Documents\\wayra-gh\\.archify\\architecture-ciclo-reserva-20261002-122814\\ciclo-reserva.html",
+  "specification": {
+    "sha256": "5fac8a815ea21dd0cd43f25bec5828338a9a17c6ba2db35db143e254880256e9",
+    "bytes": 48124
+  },
+  "artifact": {
+    "sha256": "9e43a64b215919080bfe11c540f905d171bd873ca130478e5daefbe0ce0d1bd4",
+    "bytes": 815747
+  }
+}
