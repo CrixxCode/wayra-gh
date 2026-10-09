@@ -368,6 +368,20 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
     return this.roomTypes.find((item) => item.id === id) || null;
   }
 
+  /**
+   * Opciones del modal: las activas y, si la habitacion ya tiene una desactivada, esa
+   * tambien, para que no se vea "sin asignar" ni se pierda al guardar (Bloque 4 #6).
+   */
+  get roomTypeOptions(): RoomTypeI[] {
+    const currentId = this.form.room_type ?? this.room?.room_type ?? null;
+    return this.roomTypes.filter((item) => item.is_active !== false || item.id === currentId);
+  }
+
+  get amenityOptions(): AmenityI[] {
+    const assigned = new Set(this.selectedAmenityIds);
+    return this.amenities.filter((item) => item.is_active !== false || assigned.has(item.id));
+  }
+
   get availableRates(): RateI[] {
     const selectedRoomType = this.selectedRoomType;
     const roomTypeId = selectedRoomType?.id;
@@ -378,7 +392,7 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
       .filter(
         (rate) =>
           rate.room_type === roomTypeId &&
-          rate.is_active !== false &&
+          (rate.is_active !== false || rate.id === (this.form.rate ?? this.room?.rate)) &&
           (rate.billing_mode || 'ROOM') === billingMode
       )
       .sort((a, b) =>

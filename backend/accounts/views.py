@@ -8,6 +8,8 @@ from django.contrib.auth import (
     update_session_auth_hash,
 )
 from django.conf import settings
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import OuterRef, Subquery
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import ensure_csrf_cookie
 import logging
@@ -25,6 +27,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.throttling import ScopedRateThrottle
 from accounts.pagination import OptionalPageNumberPagination
+from apps.hotel_settings.models import HotelSettings
 from accounts.permissions import HasResourcePermission
 from accounts.audit import AuditLog
 from accounts.soft_delete import LogicalDeleteViewSetMixin, exclude_soft_deleted, is_soft_deleted
@@ -142,8 +145,8 @@ class SessionLoginView(APIView):
         # malas: ni entra ni revela que la cuenta existio.
         if not user or is_soft_deleted(user):
             return Response({"detail": "Credenciales inválidas."}, status=status.HTTP_401_UNAUTHORIZED)
-        if not user.is_active:
-            return Response({"detail": "Usuario inactivo."}, status=status.HTTP_403_FORBIDDEN)
+        # No hay rama para `is_active=False`: `ModelBackend.authenticate()` ya rechaza a esos
+        # usuarios, que caen arriba como credenciales invalidas (Bloque 15 #3).
         hotel = getattr(user, "hotel_settings", None)
         if hotel is not None and not hotel.is_active:
             return Response(
@@ -260,6 +263,10 @@ class PasswordResetConfirmView(APIView):
     Confirma el restablecimiento y establece la nueva contraseña.
     """
     permission_classes = [AllowAny]
+    # Mismo limite que pedir el reset (5.11): es el paso que recibe uid+token y antes quedaba
+    # con el anonimo global de 30/min (auditoria, Bloque 15 #5).
+    throttle_scope = "password_reset"
+    throttle_classes = [ScopedRateThrottle]
 
     @extend_schema(
         request=PasswordResetConfirmSerializer,
@@ -482,6 +489,10 @@ class RoleViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
                 self.request.user,
                 force_hotel_context=force_hotel_context,
             )
+        # Como en usuarios: esta vista no pasa por `LogicalDeleteViewSetMixin.get_queryset()`,
+        # y un rol eliminado se seguia listando y asignando.
+        if not self._should_include_deleted():
+            queryset = exclude_soft_deleted(queryset)
         return queryset.order_by("name")
 
     def get_required_scopes(self):
@@ -896,17 +907,29 @@ class NotificationMarkUnreadView(APIView):
 
 
 
+class AuditLogPagination(OptionalPageNumberPagination):
+    page_size = 50
+
+    def paginate_queryset(self, queryset, request, view=None):
+        return PageNumberPagination.paginate_queryset(self, queryset, request, view=view)
+
+
 class AuditLogSerializer(drf_serializers.ModelSerializer):
     """El rastro se lee, nunca se escribe: todos los campos son de solo lectura."""
 
     user_username = drf_serializers.SerializerMethodField()
     action_label = drf_serializers.CharField(source="get_action_display", read_only=True)
+    # Anotado en el queryset: el admin de plataforma ve filas de todos los hoteles y sin esto
+    # no podia distinguirlas (Bloque 11 #2).
+    hotel_name = drf_serializers.CharField(read_only=True, default="")
 
     class Meta:
         model = AuditLog
         fields = [
             "id",
             "occurred_at",
+            "hotel_settings_id",
+            "hotel_name",
             "user",
             "user_username",
             "action",
@@ -937,7 +960,9 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     serializer_class = AuditLogSerializer
-    pagination_class = OptionalPageNumberPagination
+    # Siempre paginado: la tabla crece con cada escritura del ORM y, sin `page`/`page_size`,
+    # la paginacion opcional devolvia el historico entero de una vez (Bloque 11 #3).
+    pagination_class = AuditLogPagination
     permission_classes = [HasResourcePermission]
     required_scopes = ["audit.read"]
 
@@ -951,13 +976,23 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         if not user.is_authenticated:
             return AuditLog.objects.none()
 
-        queryset = AuditLog.objects.select_related("user")
+        queryset = AuditLog.objects.select_related("user").annotate(
+            hotel_name=Subquery(
+                HotelSettings.objects.filter(pk=OuterRef("hotel_settings_id")).values("hotel_name")[:1]
+            )
+        )
 
         # El aislamiento va por la columna denormalizada: resolver la entidad de cada
         # fila para saber de que hotel es costaria una consulta por fila.
         if not is_effective_global_admin(user):
             hotel_id = getattr(user, "hotel_settings_id", None)
             queryset = queryset.filter(hotel_settings_id=hotel_id)
+        else:
+            # El selector de hotel del header (`?hotel_settings=`, 5.4) ahora tambien acota
+            # el rastro, como ya hacia en /reportes (Bloque 11 #2).
+            requested = str(self.request.query_params.get("hotel_settings") or "").strip()
+            if requested.isdigit():
+                queryset = queryset.filter(hotel_settings_id=int(requested))
 
         return self._apply_filters(queryset)
 

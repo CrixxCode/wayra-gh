@@ -664,6 +664,44 @@ export class DetailBill implements OnChanges {
     });
   }
 
+  get canVoidInvoice(): boolean {
+    const code = String(this.activeInvoice?.status_code || '').toUpperCase();
+    return !!this.activeInvoice?.id && code !== 'ANULADA' && !this.voidingInvoice;
+  }
+
+  voidingInvoice = false;
+
+  /**
+   * Anula la factura (antes no habia forma desde la UI). El backend exige rol administrador
+   * y que no haya dinero cobrado: lo cobrado se devuelve primero con un reembolso.
+   */
+  voidInvoice(): void {
+    const invoice = this.activeInvoice;
+    if (!invoice?.id || !this.canVoidInvoice) return;
+
+    openActionConfirmation(this.confirmationService, {
+      action: 'cancel',
+      target: `factura ${invoice.invoice_number}`,
+      onAccept: () => {
+        this.voidingInvoice = true;
+        this.errorMessage = '';
+        this.infoMessage = '';
+        this.billingService.voidInvoice(invoice.id!).subscribe({
+          next: (updated) => {
+            this.voidingInvoice = false;
+            this.activeInvoice = { ...invoice, ...updated };
+            this.infoMessage = successActionAlert('update', 'factura');
+            this.invoiceUpdated.emit(this.activeInvoice);
+          },
+          error: (error) => {
+            this.voidingInvoice = false;
+            this.errorMessage = this.extractErrorMessage(error, 'No fue posible anular la factura.');
+          }
+        });
+      }
+    });
+  }
+
   private refreshInvoiceData(): void {
     if (!this.activeInvoice) return;
 

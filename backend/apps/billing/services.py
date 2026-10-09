@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.core.exceptions import ValidationError
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -200,6 +201,30 @@ def create_inventory_missing_charges_for_checkout(
         ).only("id", "name", "sale_price")
     }
 
+    # Un faltante de un item sin precio de venta se cobraba a $0 en silencio, y uno cuyo item
+    # no aparecia se saltaba sin rastro (auditoria, Bloque 6 #7). Se frena con un mensaje que
+    # dice que configurar, antes de crear ningun cargo.
+    unpriced = sorted(
+        {
+            str(getattr(item_by_id.get(int(line["item_id"])), "name", "") or line.get("item_name") or line["item_id"])
+            for line in shortage_lines
+            if line.get("item_id")
+            and (
+                int(line["item_id"]) not in item_by_id
+                or _to_decimal(getattr(item_by_id[int(line["item_id"])], "sale_price", MONEY_ZERO)) <= MONEY_ZERO
+            )
+        }
+    )
+    if unpriced:
+        raise ValidationError(
+            {
+                "inventory_review": (
+                    "No se puede cobrar el faltante de: " + ", ".join(unpriced) + ". "
+                    "Configura su precio de venta en Inventario (o corrige el conteo) y repite el check-out."
+                )
+            }
+        )
+
     check_id = inventory_comparison.get("check_id")
     created_or_updated = 0
 
@@ -323,6 +348,16 @@ def sync_automatic_charges_for_reservation(reservation_id: int | None):
     if not reservation:
         return
 
+    # Cancelada, la estadia y el paquete dejan de cobrarse: sin esto el siguiente guardado de
+    # la reserva volvia a activar los cargos automaticos (Bloque 6 #9).
+    from apps.reservations.services import is_reservation_status_cancelled
+
+    if is_reservation_status_cancelled(reservation.status_code):
+        Charge.objects.filter(reservation=reservation, is_automatic=True, is_active=True).update(
+            is_active=False
+        )
+        return
+
     room_charge_type = get_or_create_default_charge_type("HABITACION")
     package_charge_type = get_or_create_default_charge_type("PAQUETE")
 
@@ -364,10 +399,12 @@ def _get_existing_default_invoice(
     *,
     expected_hotel_settings_id: int | None = None,
 ):
+    # Una factura anulada ya no es "la factura" de la reserva: si la reserva sigue viva,
+    # `ensure_default_invoice_for_reservation` crea otra en su lugar.
     queryset = Invoice.objects.filter(
         reservation_id=reservation_id,
         is_active=True,
-    )
+    ).exclude(status__code=INVOICE_VOID_STATUS_CODE)
     if expected_hotel_settings_id is not None:
         queryset = queryset.filter(
             reservation__hotel_settings_id=expected_hotel_settings_id
@@ -405,6 +442,8 @@ def ensure_default_invoice_for_reservation(
     if not status:
         return None
 
+    from apps.reservations.services import is_reservation_status_cancelled
+
     with transaction.atomic():
         # Sin este lock, dos peticiones simultaneas veian "no hay factura" y cada una
         # creaba la suya: quedaba una segunda factura activa (`FAC-...-2`) desincronizada
@@ -412,6 +451,9 @@ def ensure_default_invoice_for_reservation(
         # factura que creo la primera.
         reservation = reservation_queryset.select_for_update().first()
         if not reservation:
+            return None
+        # Una reserva cancelada no vuelve a facturarse (su factura se anula al cancelar).
+        if is_reservation_status_cancelled(reservation.status_code):
             return None
 
         existing_invoice = _get_existing_default_invoice(
@@ -622,3 +664,65 @@ def issue_default_invoice_for_reservation(
 
     sync_invoice_status(invoice)
     return invoice
+
+
+INVOICE_VOID_STATUS_CODE = "ANULADA"
+
+
+def void_invoice(invoice: Invoice) -> Invoice:
+    """
+    Anula una factura. Solo sin dinero cobrado: lo que entro se devuelve primero con un
+    reembolso desde el pago, para que caja y factura no se contradigan. Una factura anulada
+    queda congelada (`sync_invoice_status`) y deja de ser la factura por defecto.
+    """
+    code = str(getattr(invoice.status, "code", "") or "").strip().upper()
+    if code == INVOICE_VOID_STATUS_CODE:
+        raise ValidationError({"invoice": "La factura ya esta anulada."})
+
+    net_paid = _to_decimal(get_invoice_reconciliation(invoice).get("net_paid"))
+    if net_paid > MONEY_ZERO:
+        raise ValidationError(
+            {
+                "invoice": (
+                    f"La factura tiene {net_paid:.2f} cobrados. Registra el reembolso desde el "
+                    "pago antes de anularla."
+                )
+            }
+        )
+
+    void_status = get_or_create_default_invoice_status(INVOICE_VOID_STATUS_CODE)
+    if not void_status:
+        raise ValidationError({"invoice": "No existe el estado ANULADA de factura."})
+    invoice.status = void_status
+    invoice.save(update_fields=["status"])
+    return invoice
+
+
+def settle_billing_for_cancelled_reservation(reservation) -> str | None:
+    """
+    Cancelar una reserva anula su facturacion (decision del 2026-10-09, Bloque 6 #9): los
+    consumos se desactivan y la factura se anula. Si ya hay dinero cobrado, la factura no se
+    puede anular y se devuelve el aviso de registrar el reembolso; nunca se devuelve dinero
+    automaticamente.
+    """
+    Charge.objects.filter(reservation=reservation, is_active=True, is_automatic=False).update(
+        is_active=False
+    )
+    sync_automatic_charges_for_reservation(reservation.id)
+
+    pending_refund = MONEY_ZERO
+    for invoice in Invoice.objects.filter(reservation=reservation, is_active=True).exclude(
+        status__code=INVOICE_VOID_STATUS_CODE
+    ):
+        net_paid = _to_decimal(get_invoice_reconciliation(invoice).get("net_paid"))
+        if net_paid > MONEY_ZERO:
+            pending_refund += net_paid
+            continue
+        void_invoice(invoice)
+
+    if pending_refund > MONEY_ZERO:
+        return (
+            f"La reserva tiene {pending_refund:.2f} en abonos. La factura sigue abierta hasta que "
+            "registres el reembolso desde el pago (Facturacion > Pagos > Reembolsar)."
+        )
+    return None

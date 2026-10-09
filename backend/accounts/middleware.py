@@ -1,4 +1,6 @@
-from django.http import JsonResponse
+from django.conf import settings
+from django.core.cache import cache
+from django.http import HttpResponse, JsonResponse
 
 
 def _normalize_api_path(path: str) -> str:
@@ -178,3 +180,48 @@ class HotelSetupRequiredMiddleware:
                 status=403,
             )
         return self.get_response(request)
+
+
+class AdminLoginThrottleMiddleware:
+    """
+    Limita los intentos de login en `/admin/login/` por IP.
+
+    El admin de Django usa su propia vista de login, fuera de los throttles de DRF (5.11), y
+    quedaba abierto a fuerza bruta sin limite (auditoria, Bloque 15 #6). Cuenta solo los POST
+    fallidos: un login correcto no consume cuota. Ventana fija de un minuto en el cache.
+    """
+
+    LOGIN_PATH = "/admin/login/"
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.method != "POST" or _normalize_api_path(request.path) != self.LOGIN_PATH:
+            return self.get_response(request)
+
+        key = f"admin-login-attempts:{self._client_ip(request)}"
+        limit = int(getattr(settings, "ADMIN_LOGIN_ATTEMPTS_PER_MINUTE", 10) or 10)
+        if int(cache.get(key, 0)) >= limit:
+            return HttpResponse(
+                "Demasiados intentos de inicio de sesion. Espera un minuto.",
+                status=429,
+                content_type="text/plain; charset=utf-8",
+            )
+
+        response = self.get_response(request)
+        # El login correcto redirige (302); uno fallido vuelve a pintar el formulario (200).
+        if response.status_code != 302:
+            if cache.add(key, 1, timeout=60) is False:
+                try:
+                    cache.incr(key)
+                except ValueError:
+                    cache.set(key, 1, timeout=60)
+        return response
+
+    @staticmethod
+    def _client_ip(request) -> str:
+        forwarded = str(request.META.get("HTTP_X_FORWARDED_FOR", "") or "")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return str(request.META.get("REMOTE_ADDR", "") or "unknown")

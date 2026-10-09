@@ -348,15 +348,12 @@
                   </label>
                 </div>
 
-                <div class="upload-box">
-                  <span>Documento de identidad</span>
-                  <label>
-                    <input type="file" accept=".jpg,.jpeg,.png,.pdf" />
-                    <strong>Adjunta una foto de tu documento</strong>
-                    <small>JPG o PDF, hasta 5 MB. Opcional si prefieres mostrarlo al llegar.</small>
-                    <em>Subir archivo</em>
-                  </label>
-                </div>
+                <!-- No hay adjunto del documento: el campo de antes nunca enviaba el archivo y
+                     el huesped creia haberlo entregado (auditoria, Bloque 14 #9). El documento
+                     se verifica en recepcion al llegar. -->
+                <p class="upload-note">
+                  Ten a mano tu documento de identidad: recepcion lo verifica al llegar.
+                </p>
 
                 <button type="submit" class="online-primary flow-next">
                   Continuar con acompanantes

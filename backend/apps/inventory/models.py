@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 
 from apps.hotel_settings.models import HotelSettings
 from apps.master_data.models import MasterData
@@ -190,7 +190,16 @@ class InventoryMovement(models.Model):
 
         movement_code = str(self.movement_type.code or "").strip().upper() if self.movement_type else ""
 
-        current_stock = self.item.stock or 0
+        with transaction.atomic():
+            # Se relee el stock con la fila bloqueada: leerlo del objeto en memoria dejaba que
+            # dos movimientos simultaneos partieran del mismo `previous_stock` y el segundo
+            # pisara al primero (auditoria, Bloque 10 #5).
+            locked_item = Item.objects.select_for_update().get(pk=self.item_id)
+            self._apply_to_stock(locked_item, movement_code, *args, **kwargs)
+        self.item.stock = self.new_stock
+
+    def _apply_to_stock(self, locked_item, movement_code, *args, **kwargs):
+        current_stock = locked_item.stock or 0
         self.previous_stock = current_stock
 
         if movement_code == "IN":
@@ -207,10 +216,23 @@ class InventoryMovement(models.Model):
         if self.new_stock < 0:
             raise ValidationError({"new_stock": "New stock cannot be negative."})
 
+        # `Item.clean()` prohibe pasar el maximo, pero el stock se guarda aqui con
+        # `update_fields` y esa regla nunca corria (Bloque 10 #6).
+        maximum = locked_item.maximum_stock
+        if maximum and self.new_stock > maximum and self.new_stock > current_stock:
+            raise ValidationError(
+                {
+                    "quantity": (
+                        f"El stock de {locked_item.name} quedaria en {self.new_stock}, por encima "
+                        f"de su maximo ({maximum}). Ajusta la cantidad o sube el maximo del item."
+                    )
+                }
+            )
+
         super().save(*args, **kwargs)
 
-        self.item.stock = self.new_stock
-        self.item.save(update_fields=["stock", "updated_at"])
+        locked_item.stock = self.new_stock
+        locked_item.save(update_fields=["stock", "updated_at"])
 
     def __str__(self):
         return f"Movement #{self.id} - {self.item.name}"

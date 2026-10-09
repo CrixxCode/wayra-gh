@@ -970,3 +970,9 @@
     transition-delay: 0s !important;
   }
 }
+
+.upload-note {
+  margin: 4px 0 12px;
+  color: var(--gh-text-soft);
+  font-size: 0.85rem;
+}

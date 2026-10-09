@@ -105,7 +105,10 @@
           <strong>
             {{ entry.action_label }} de {{ entry.entity }}
           </strong>
-          <small>{{ entry.object_label || ('registro ' + entry.object_id) }}</small>
+          <small>
+            {{ entry.object_label || ('registro ' + entry.object_id) }}
+            <ng-container *ngIf="entry.hotel_name"> · {{ entry.hotel_name }}</ng-container>
+          </small>
         </span>
 
         <span class="row-who">
@@ -164,5 +167,12 @@
         </dl>
       </div>
     </article>
+  </section>
+
+  <section class="audit-more" *ngIf="entries.length">
+    <p>Mostrando {{ entries.length }} de {{ totalCount }} registros.</p>
+    <button type="button" class="gh-btn gh-btn-light" *ngIf="hasMore" [disabled]="loadingMore" (click)="loadMore()">
+      {{ loadingMore ? 'Cargando...' : 'Cargar mas' }}
+    </button>
   </section>
 </div>

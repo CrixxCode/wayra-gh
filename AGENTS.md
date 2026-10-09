@@ -413,7 +413,14 @@ el hotel no configuró hora) y deja de ser elegible después de la fecha de lleg
 `anon` 30/min, `user` 120/min, `auth_login` 10/min, `password_reset` 5/min, `demo_request` 5/min.
 
 **Por qué:** los endpoints de login, reset de contraseña y solicitud de demo son los blancos
-naturales de fuerza bruta y spam. Usan `ScopedRateThrottle` con esos scopes.
+naturales de fuerza bruta y spam. Usan `ScopedRateThrottle` con esos scopes. El **paso de
+confirmación** del reset (`PasswordResetConfirmView`) usa también `password_reset`.
+
+**`/admin/login/` va aparte**: el admin de Django usa su propia vista, fuera de DRF.
+`accounts.middleware.AdminLoginThrottleMiddleware` cuenta los intentos **fallidos** por IP en el
+cache y responde 429 al pasar `ADMIN_LOGIN_ATTEMPTS_PER_MINUTE` (10 por defecto, variable de
+entorno). La fortaleza de las contraseñas la validan los `AUTH_PASSWORD_VALIDATORS` estándar de
+Django (similitud, longitud 8, comunes, numéricas) en cambio, reset y alta de usuarios.
 
 ### 5.12 Notificaciones internas por eventos + tareas programadas
 
@@ -695,6 +702,15 @@ periodo**; `/facturacion` es el **libro operativo**, documento a documento. No s
 - El cache-aside de `BillingService` usa TTL **operativo** (20 s), no de catálogo: esto es dinero.
   Y **cualquier escritura invalida las tres claves**, porque cada eslabón de la cadena cambia el
   saldo del anterior.
+
+**Una factura se anula con su acción, no editando el estado.** El estado lo calculan los pagos
+(`sync_invoice_status`) y no se acepta por `PATCH`. `POST /api/invoices/{id}/void/` (solo
+administradores) la anula si **no tiene dinero cobrado**: lo cobrado se devuelve antes con un
+reembolso. Una factura anulada deja de ser la factura por defecto: si la reserva sigue viva, se le
+crea otra. **Cancelar una reserva** (decisión del 2026-10-09) desactiva sus consumos y anula su
+factura; si hay abonos, la cancelación procede pero la factura queda abierta y la respuesta trae
+`billing_warning` pidiendo registrar el reembolso —nunca se devuelve dinero automáticamente—, y
+una reserva cancelada no vuelve a facturarse. `InvoiceCharge` es de solo lectura (ver sección 13).
 
 **Un reembolso se registra desde el pago, no desde la pestaña de reembolsos.** `PaymentRefund.payment`
 es FK obligatoria y el tope reembolsable, el método y la referencia salen de ese pago; un formulario
@@ -1291,6 +1307,70 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-10-09 — Auditoría, tanda 5: los "corregir pronto" de cada bloque
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez (decisiones de B6 #9, B8 #6, B14 #9 y
+  B15 #3 tomadas por él).
+- **Commit(s):** incluido en este commit
+- **Tipo:** fix
+- **Qué se hizo:**
+  - **Autenticación (B15).** #3: se quita la rama muerta "Usuario inactivo" del login y se
+    mantiene el aviso de hotel desactivado (decisión). #4: `AUTH_PASSWORD_VALIDATORS` estándar.
+    #5: throttle `password_reset` en la confirmación del reset. #6:
+    `AdminLoginThrottleMiddleware` para `/admin/login/` (5.11).
+  - **Dinero.** B8 #5/#7: acción "Anular factura" (`POST /api/invoices/{id}/void/`, admin, sin
+    dinero cobrado), botón en el detalle de factura, y el estado ya no se edita por `PATCH`. B8 #6:
+    `InvoiceCharge` de solo lectura (decisión; sección 13). B6 #9: cancelar anula factura y
+    consumos, avisa si hay abonos que reembolsar (decisión; 5.19). B6 #6: revisiones de inventario
+    de solo lectura por API. B6 #7: un faltante de un item sin precio frena el check-out en vez de
+    cobrarse a $0.
+  - **Inventario (B10).** #5: `InventoryMovement` relee el stock con `select_for_update`. #6: una
+    entrada o ajuste no puede pasar `maximum_stock`. #7: la dotación por habitación rechaza items
+    inactivos o eliminados y no lista la de items eliminados.
+  - **Auditoría y reportes (B11).** #1: `demo_requests` se audita. #2: el admin de plataforma ve
+    el hotel de cada fila y el selector del header filtra `/actividad`. #3: `/api/audit/` pagina
+    siempre (50 por página). #4: "Mostrando N de M" y "Cargar más". #5: "Actualizar" de Reportes
+    salta el cache.
+  - **Catálogo (B7).** #4/#5: el paquete y sus servicios se crean en una sola petición y
+    transacción (`service_ids`), con al menos un servicio. #6: `services_total` y aviso cuando el
+    precio del paquete queda por debajo de sus servicios.
+  - **Clientes (B5).** #3: documento en mayúsculas al guardar. #4: el admin de Django hace borrado
+    lógico. #5: tipos de documento desde Master Data.
+  - **Master Data, roles y recursos.** B3 #2: fuera las propiedades muertas del proxy `RoomType`.
+    B3 #4 y B1 #7: nuevo `app-deleted-records` para ver y restaurar eliminados en Master Data,
+    Roles y Recursos (y en `/habitaciones`, B4 #10). `RoleViewSet` no excluía los roles eliminados
+    del listado (mismo patrón que usuarios).
+  - **Hotel y habitaciones.** B2 #6: asterisco en razón social y correo de reservas. B2 #7: errores
+    del backend al guardar/limpiar. B2 #8: `/hotel-config` arranca en el hotel del header y lo
+    actualiza. B2 #9 ya lo cubría el handler global (`IntegrityError` → 400). B4 #6: tipos,
+    tarifas y amenidades desactivados que una habitación conserva se siguen mostrando. B4 #7: la
+    tarifa "vigente" del gestor respeta el tipo de cobro.
+  - **Finanzas (B9).** #3: crear/editar un egreso refresca el resumen. #4: edición de concepto,
+    monto, fecha, proveedor, referencia y descripción.
+  - **Notificaciones (B12).** #5: el panel de la campana usa tokens (modo oscuro).
+  - **SaaS y público.** B13 #4: el texto de convertir una solicitud describe lo que se crea. B14
+    #7: si la confirmación no carga tras crear la reserva, se muestra el código y se bloquea un
+    segundo envío. B14 #9: se quita el adjunto de cédula, que nunca se enviaba (decisión).
+  - **Pendientes documentados** como funcionalidad nueva: B6 #8, B12 #8, B12 #9, B13 #3, B14 #10
+    (sección 13, punto 15).
+- **Por qué:** cada plan de bloque los marcó "corregir pronto".
+- **Archivos/áreas afectadas:** `backend/accounts/{middleware,views,audit,tests}.py`,
+  `backend/backend/settings.py`, `backend/apps/billing/{services,serializers,views,tests}.py`,
+  `backend/apps/reservations/{views,tests}.py`, `backend/apps/inventory/{models,serializers,views,tests}.py`,
+  `backend/apps/packages/{serializers,tests}.py`, `backend/apps/clients/{models,admin,tests}.py`,
+  `backend/apps/master_data/models.py`; frontend: `components/shared/deleted-records/` (nuevo),
+  páginas de Master Data, Roles, Recursos, Configuración del hotel, Auditoría y Reportes;
+  módulos de facturación, reservas, habitaciones, paquetes, clientes, egresos, flujo público,
+  check-in online y panel SaaS; `services/{billing,audit,reports,package}.ts`; `AGENTS.md`
+  (5.11, 5.19, 13).
+- **Impacto:** sin migraciones. Variable nueva opcional `ADMIN_LOGIN_ATTEMPTS_PER_MINUTE`
+  (default 10). Endpoint nuevo `POST /api/invoices/{id}/void/` (scope `invoices.write` + rol
+  admin). Cambios de comportamiento: (a) contraseñas débiles se rechazan en cambio, reset y alta;
+  (b) `/api/audit/` siempre responde paginado; (c) `PATCH` del estado de una factura responde 400
+  y `InvoiceCharge`, `reservation-inventory-checks` y `-lines` no aceptan escrituras (405);
+  (d) `POST /api/packages/` exige `service_ids`; (e) un movimiento que pase el stock máximo
+  responde 400; (f) un check-out con faltante de un item sin precio responde 400.
 
 ### 2026-10-08 — Auditoría, tanda 4: los "corregir ya" que quedaban por bloque
 
@@ -10666,6 +10746,16 @@ para que nadie los "descubra" y los cambie sin contexto.
     autogeneración, por lo que `range_display` y los totales de Configuración del Hotel quedan
     desfasados. La vista `/habitaciones` calcula su propio rango desde las habitaciones reales
     para no propagar el dato incorrecto.
+14. **`billing.InvoiceCharge` no tiene ningún efecto** (decisión del 2026-10-09): el total de la
+    factura sale siempre de `get_reservation_financials`. Su endpoint quedó de solo lectura para que
+    nadie crea que "factura" un cargo con él; eliminar el modelo requeriría una migración.
+15. **Pendientes de la auditoría que son funcionalidad nueva** (ver `Plans/bloque-*.md`): editar
+    abonos y huéspedes de una reserva desde la UI (B6 #8); llevar `OperationalAlert` e
+    `InventoryRestockAlert` a la campana, que hoy corre en paralelo a otro aviso de stock bajo
+    (B12 #8); enlaces de notificación al registro concreto y no al listado (B12 #9); capturar
+    pisos y habitaciones en el wizard SaaS como ya hace la solicitud de demo (B13 #3); y validar
+    contra el backend la pantalla pública de confirmación de reserva, hoy armada con query params
+    (B14 #10 — requiere un endpoint público por código, que hay que diseñar sin romper 5.24).
 ### 2026-08-10 - Inventario por uso de item y asignacion desde habitacion
 
 - **Autor:** Codex, a solicitud de rastor65

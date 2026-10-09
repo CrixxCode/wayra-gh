@@ -215,7 +215,7 @@ export class ListDemoRequests implements OnInit {
     this.closeActionMenu();
 
     const confirmed = window.confirm(
-      `Convertir ${request.hotel_name} en hotel activo? Se creara el hotel, el piso inicial, ${request.rooms} habitaciones, el primer usuario administrador y se enviara una clave temporal.`
+      `Convertir ${request.hotel_name} en hotel activo? Se creara el hotel con los pisos, tipos de habitacion y tarifas que capturo la solicitud (${request.rooms} habitaciones), el primer usuario administrador, y se enviara una clave temporal.`
     );
     if (!confirmed) return;
 

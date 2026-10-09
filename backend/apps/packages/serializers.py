@@ -102,6 +102,14 @@ class PackageSerializer(TenantSerializerMixin, serializers.ModelSerializer):
     room_type_name = serializers.CharField(source="room_type.name", read_only=True)
     room_type_code = serializers.CharField(source="room_type.code", read_only=True)
     package_services = PackageServiceSerializer(many=True, read_only=True)
+    # Alta en una sola peticion y transaccion: antes el frontend creaba el paquete y luego
+    # sus lineas por separado, y un fallo a mitad dejaba un paquete a medias (Bloque 7 #5).
+    service_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1), write_only=True, required=False
+    )
+    # Suma de lo que costarian sus servicios sueltos, para avisar si el paquete se vende por
+    # debajo (Bloque 7 #6). No cambia `base_price`: el precio lo decide el hotel.
+    services_total = serializers.SerializerMethodField()
 
     class Meta:
         model = Package
@@ -119,6 +127,8 @@ class PackageSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             "start_date",
             "end_date",
             "package_services",
+            "service_ids",
+            "services_total",
             "created_at",
             "updated_at",
         ]
@@ -171,10 +181,48 @@ class PackageSerializer(TenantSerializerMixin, serializers.ModelSerializer):
 
         return attrs
 
+    def get_services_total(self, obj) -> str:
+        total = sum(
+            (line.service.base_price or 0) * (line.quantity or 1)
+            for line in obj.package_services.all()
+            if line.is_included and line.service and line.service.is_active
+        )
+        return f"{total:.2f}"
+
+    def _resolve_services(self, service_ids, hotel):
+        from accounts.soft_delete import exclude_soft_deleted
+
+        unique_ids = sorted(set(service_ids))
+        services = list(
+            exclude_soft_deleted(
+                Service.objects.filter(id__in=unique_ids, hotel_settings=hotel, is_active=True)
+            )
+        )
+        if len(services) != len(unique_ids):
+            raise serializers.ValidationError(
+                {"service_ids": "Algun servicio no existe, esta inactivo o es de otro hotel."}
+            )
+        return services
+
     def create(self, validated_data):
+        from django.db import transaction
+
+        service_ids = validated_data.pop("service_ids", None)
+        # Un paquete sin servicios quedaba vendible y vacio (Bloque 7 #4).
+        if not service_ids:
+            raise serializers.ValidationError(
+                {"service_ids": "Un paquete debe incluir al menos un servicio."}
+            )
         self.assign_target_tenant(validated_data)
-        return super().create(validated_data)
+        services = self._resolve_services(service_ids, validated_data["hotel_settings"])
+        with transaction.atomic():
+            package = super().create(validated_data)
+            PackageService.objects.bulk_create(
+                [PackageService(package=package, service=service, quantity=1, is_included=True) for service in services]
+            )
+        return package
 
     def update(self, instance, validated_data):
+        validated_data.pop("service_ids", None)
         self.assign_target_tenant(validated_data)
         return super().update(instance, validated_data)

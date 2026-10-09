@@ -83,24 +83,17 @@ class RoomTypeManager(models.Manager):
 
 
 class RoomType(MasterData):
+    """
+    Proxy LEGADO sobre el grupo `ROOM_TYPE`, ya retirado (`RETIRED_GROUPS`). No usar: los tipos
+    de habitacion reales son `apps.rooms.RoomType` (deuda tecnica #2 de AGENTS.md). Tenia
+    `capacity`/`bed_count`/`bed_type` leyendo un `metadata` que ya no existe y devolvian
+    siempre 1/1/None; se quitaron para que nadie las reutilice creyendolas reales
+    (auditoria, Bloque 3 #2).
+    """
+
     objects = RoomTypeManager()
 
     class Meta:
         proxy = True
         verbose_name = "Room type"
         verbose_name_plural = "Room types"
-
-    @property
-    def capacity(self):
-        metadata = getattr(self, "metadata", None) or {}
-        return int(metadata.get("capacity", 1))
-
-    @property
-    def bed_count(self):
-        metadata = getattr(self, "metadata", None) or {}
-        return int(metadata.get("bed_count", 1))
-
-    @property
-    def bed_type(self):
-        metadata = getattr(self, "metadata", None) or {}
-        return metadata.get("bed_type")

@@ -339,6 +339,10 @@
               </p>
             </div>
 
+            <div *ngIf="createdReservationCode" class="booking-inline-warning" role="status">
+              Tu solicitud ya quedo registrada con el codigo <strong>{{ createdReservationCode }}</strong>.
+              No la vuelvas a enviar: te llegara la confirmacion por correo.
+            </div>
             <div *ngIf="submitError" class="booking-inline-warning" role="alert">
               {{ submitError }}
             </div>

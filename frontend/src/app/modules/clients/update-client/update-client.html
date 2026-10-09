@@ -59,10 +59,9 @@
           <label>
             <span>Tipo de documento *</span>
             <select formControlName="document_type">
-              <option value="CC">CC</option>
-              <option value="CE">CE</option>
-              <option value="DNI">DNI</option>
-              <option value="PASAPORTE">Pasaporte</option>
+              <option *ngFor="let documentType of documentTypes" [value]="documentType.code">
+                {{ documentType.name }}
+              </option>
             </select>
           </label>
 

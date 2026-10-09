@@ -1665,3 +1665,101 @@ class JobTitleManagementTests(APITestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertFalse(JobTitle.objects.filter(name="Intruso").exists())
+
+
+class AuthHardeningTests(APITestCase):
+    """Auditoria, Bloque 15 #4-#6."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="fortaleza", email="fortaleza@example.com", password="Clave-Segura-2026",
+            hotel_settings=create_configured_hotel(hotel_name="Hotel Claves"),
+        )
+
+    def test_weak_new_password_is_rejected(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            "/api/auth/password/change/",
+            {"old_password": "Clave-Segura-2026", "new_password": "12345678"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("Clave-Segura-2026"))
+
+    def test_reset_confirm_has_the_password_reset_throttle(self):
+        from accounts.views import PasswordResetConfirmView
+
+        self.assertEqual(PasswordResetConfirmView.throttle_scope, "password_reset")
+
+    @override_settings(ADMIN_LOGIN_ATTEMPTS_PER_MINUTE=2)
+    def test_admin_login_is_throttled_after_failed_attempts(self):
+        payload = {"username": "nadie", "password": "mal", "next": "/admin/"}
+        statuses = [self.client.post("/admin/login/", payload).status_code for _ in range(3)]
+
+        self.assertEqual(statuses[:2], [200, 200])
+        self.assertEqual(statuses[2], 429)
+
+
+class AuditTrailCoverageAndPagingTests(APITestCase):
+    """Auditoria, Bloque 11 #1-#3."""
+
+    def setUp(self):
+        from accounts.models import AuditLog
+
+        self.AuditLog = AuditLog
+        self.hotel_a = create_configured_hotel(hotel_name="Hotel Rastro A")
+        self.hotel_b = create_configured_hotel(hotel_name="Hotel Rastro B")
+        self.client.force_login(
+            User.objects.create_superuser(
+                username="platform_audit", email="platform_audit@example.com", password="pass12345"
+            )
+        )
+
+    def test_listing_is_always_paginated(self):
+        response = self.client.get("/api/audit/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.data, dict)
+        self.assertIn("count", response.data)
+        self.assertLessEqual(len(response.data["results"]), 50)
+
+    def test_platform_admin_can_narrow_to_one_hotel_and_sees_its_name(self):
+        response = self.client.get("/api/audit/", {"hotel_settings": self.hotel_b.id, "page_size": 200})
+
+        rows = response.data["results"]
+        self.assertTrue(rows)
+        self.assertEqual({row["hotel_settings_id"] for row in rows}, {self.hotel_b.id})
+        self.assertEqual({row["hotel_name"] for row in rows}, {"Hotel Rastro B"})
+
+    def test_demo_requests_are_audited(self):
+        from accounts.audit import is_audited
+        from apps.demo_requests.models import DemoRequest
+
+        self.assertTrue(is_audited(DemoRequest))
+
+
+class RoleLogicalDeleteListingTests(APITestCase):
+    """Auditoria, Bloque 1 #7: un rol eliminado no se lista y se puede restaurar."""
+
+    def test_deleted_role_leaves_the_list_and_comes_back_on_restore(self):
+        self.client.force_login(
+            User.objects.create_superuser(
+                username="platform_roles_del", email="prd@example.com", password="pass12345"
+            )
+        )
+        role = Role.objects.create(name="Temporal", slug="temporal-b1")
+
+        self.assertEqual(self.client.delete(f"/api/roles/{role.pk}/").status_code, 204)
+        listed = {row["slug"] for row in self.client.get("/api/roles/").data}
+        with_deleted = {row["slug"] for row in self.client.get("/api/roles/", {"include_deleted": "true"}).data}
+
+        self.assertNotIn("temporal-b1", listed)
+        self.assertIn("temporal-b1", with_deleted)
+        self.assertEqual(self.client.post(f"/api/roles/{role.pk}/restore/").status_code, 200)
+        self.assertIn("temporal-b1", {row["slug"] for row in self.client.get("/api/roles/").data})

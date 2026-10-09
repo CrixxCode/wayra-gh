@@ -730,8 +730,15 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
             except ValueError as exc:
                 return self._error(str(exc))
 
+            from apps.billing.services import settle_billing_for_cancelled_reservation
+
+            billing_warning = settle_billing_for_cancelled_reservation(reservation)
+
         serializer = ReservationDetailSerializer(reservation, context=self.get_serializer_context())
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        response_data = dict(serializer.data)
+        if billing_warning:
+            response_data["billing_warning"] = billing_warning
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class ReservationRoomViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
@@ -905,6 +912,10 @@ class ReservationDepositViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet
         return super().get_permissions()
 
 class ReservationInventoryCheckViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+    # Solo lectura: las escribe el check-in/check-out (`services.py`) y son la evidencia del
+    # cobro de faltantes. Editarlas despues del cargo, o eliminarlas, borraba ese rastro sin
+    # tocar el cargo (auditoria, Bloque 6 #6).
+    http_method_names = ["get", "head", "options"]
     queryset = ReservationInventoryCheck.objects.all()
     serializer_class = ReservationInventoryCheckSerializer
     pagination_class = OptionalPageNumberPagination
@@ -952,6 +963,10 @@ class ReservationInventoryCheckViewSet(LogicalDeleteViewSetMixin, viewsets.Model
         serializer.save(created_by=self.request.user)
 
 class ReservationInventoryCheckLineViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
+    # Solo lectura: las escribe el check-in/check-out (`services.py`) y son la evidencia del
+    # cobro de faltantes. Editarlas despues del cargo, o eliminarlas, borraba ese rastro sin
+    # tocar el cargo (auditoria, Bloque 6 #6).
+    http_method_names = ["get", "head", "options"]
     queryset = ReservationInventoryCheckLine.objects.all()
     serializer_class = ReservationInventoryCheckLineSerializer
     pagination_class = OptionalPageNumberPagination

@@ -606,6 +606,102 @@ class BillingAutomationTestCase(TestCase):
         self.assertEqual(detail.status_code, 200)
 
 
+    # --- Tanda 5: anular factura, estado no editable, cancelacion en cascada -----------
+
+    def _platform_api(self):
+        api = APIClient()
+        api.force_login(
+            User.objects.create_superuser(
+                username="platform_void", email="platform_void@example.com", password="pass12345"
+            )
+        )
+        return api
+
+    def test_invoice_without_payments_can_be_voided_and_a_new_one_takes_its_place(self):
+        # Bloque 8 #5.
+        from apps.billing.services import ensure_default_invoice_for_reservation
+
+        api = self._platform_api()
+        invoice = self.invoice
+
+        response = api.post(f"/api/invoices/{invoice.id}/void/")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["status_code"], "ANULADA")
+        replacement = ensure_default_invoice_for_reservation(self.reservation.id)
+        self.assertNotEqual(replacement.id, invoice.id)
+
+    def test_invoice_with_money_collected_cannot_be_voided(self):
+        api = self._platform_api()
+        invoice = self.invoice
+        self._create_payment(invoice, "1000.00")
+
+        response = api.post(f"/api/invoices/{invoice.id}/void/")
+
+        self.assertEqual(response.status_code, 400)
+        invoice.refresh_from_db()
+        self.assertNotEqual(invoice.status.code, "ANULADA")
+
+    def test_invoice_status_cannot_be_patched_by_hand(self):
+        # Bloque 8 #7: antes cualquiera con invoices.write la ponia PAGADA.
+        api = self._platform_api()
+        paid = self._md(MasterData.Group.INVOICE_STATUS, "PAGADA", "Pagada", 5)
+
+        response = api.patch(f"/api/invoices/{self.invoice.id}/", {"status": paid.id}, format="json")
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_invoice_charges_are_read_only(self):
+        # Bloque 8 #6.
+        api = self._platform_api()
+
+        self.assertEqual(api.get("/api/invoice-charges/").status_code, 200)
+        self.assertEqual(api.post("/api/invoice-charges/", {}, format="json").status_code, 405)
+
+    def test_cancelling_voids_the_invoice_and_deactivates_consumption(self):
+        # Bloque 6 #9 (decision del 2026-10-09).
+        from apps.billing.services import settle_billing_for_cancelled_reservation
+
+        invoice = self.invoice
+        charge = Charge.objects.create(
+            reservation=self.reservation,
+            charge_type=get_or_create_default_charge_type("OTRO"),
+            service=self.service,
+            description="Minibar",
+            quantity=1,
+            unit_price=Decimal("15000.00"),
+        )
+        self.reservation.status = self._md(MasterData.Group.RESERVATION_STATUS, "CANCELADA", "Cancelada", 9)
+        self.reservation.save(update_fields=["status"])
+
+        warning = settle_billing_for_cancelled_reservation(self.reservation)
+
+        self.assertIsNone(warning)
+        invoice.refresh_from_db()
+        charge.refresh_from_db()
+        self.assertEqual(invoice.status.code, "ANULADA")
+        self.assertFalse(charge.is_active)
+        self.assertFalse(
+            Invoice.objects.filter(reservation=self.reservation, is_active=True)
+            .exclude(status__code="ANULADA")
+            .exists()
+        )
+
+    def test_cancelling_with_deposits_keeps_the_invoice_and_asks_for_a_refund(self):
+        from apps.billing.services import settle_billing_for_cancelled_reservation
+
+        invoice = self.invoice
+        self._create_payment(invoice, "5000.00")
+        self.reservation.status = self._md(MasterData.Group.RESERVATION_STATUS, "CANCELADA", "Cancelada", 9)
+        self.reservation.save(update_fields=["status"])
+
+        warning = settle_billing_for_cancelled_reservation(self.reservation)
+
+        self.assertIn("5000.00", warning)
+        invoice.refresh_from_db()
+        self.assertNotEqual(invoice.status.code, "ANULADA")
+
+
 class BillingTenantIsolationTests(TestCase):
     def _md(self, group, code, name=None, sort_order=1):
         return MasterData.objects.update_or_create(

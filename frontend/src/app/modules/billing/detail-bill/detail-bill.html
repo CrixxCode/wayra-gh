@@ -293,6 +293,15 @@
       </div>
 
       <div class="footer-actions">
+        <button
+          type="button"
+          class="btn btn-light"
+          *ngIf="canVoidInvoice || voidingInvoice"
+          [disabled]="voidingInvoice"
+          (click)="voidInvoice()">
+          <i class="fa-solid fa-ban"></i>
+          {{ voidingInvoice ? 'Anulando...' : 'Anular factura' }}
+        </button>
         <button type="button" class="btn btn-light" (click)="closeDrawer()">Cerrar</button>
       </div>
     </footer>

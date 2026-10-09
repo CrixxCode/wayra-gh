@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HotelContextService } from '../../../services/hotel-context';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -198,7 +199,8 @@ export class HotelSettings implements OnInit {
     private financialControlService: FinancialControlService,
     private paymentMethodService: PaymentMethodService,
     private confirmationService: ConfirmationService,
-    private hotelTheme: HotelThemeService
+    private hotelTheme: HotelThemeService,
+    private hotelContext: HotelContextService
   ) {}
 
   ngOnInit(): void {
@@ -600,9 +602,13 @@ export class HotelSettings implements OnInit {
           this.successMessage = successActionAlert('save', 'configuracion del hotel');
           this.hotelSetup.refresh().subscribe();
         },
-        error: () => {
+        error: (error) => {
           this.saving = false;
-          this.errorMessage = errorActionAlert('save', 'configuracion del hotel');
+          // El mensaje del backend dice que campo fallo; el generico no (Bloque 2 #7).
+          this.errorMessage = this.extractApiErrorMessage(
+            error,
+            errorActionAlert('save', 'configuracion del hotel')
+          );
         },
       });
   }
@@ -663,7 +669,10 @@ export class HotelSettings implements OnInit {
                 this.successMessage = 'No habia configuracion activa.';
                 return;
               }
-              this.errorMessage = errorActionAlert('delete', 'configuracion del hotel');
+              this.errorMessage = this.extractApiErrorMessage(
+                error,
+                errorActionAlert('delete', 'configuracion del hotel')
+              );
             },
           });
       }
@@ -786,6 +795,7 @@ export class HotelSettings implements OnInit {
     const selectedId = this.toOptionalPositiveInt(this.selectedHotelSettingsId);
     this.selectedHotelSettingsId = selectedId;
     this.isCreatingHotel = false;
+    if (selectedId) this.hotelContext.selectHotel(selectedId);
 
     if (!selectedId) {
       this.loading = false;
@@ -852,7 +862,9 @@ export class HotelSettings implements OnInit {
 
         if (this.isSuperAdmin) {
           this.isCreatingHotel = false;
-          this.loadSuperAdminHotelOptions();
+          // Arranca en el hotel elegido en el header: antes habia que volver a elegirlo
+          // aqui porque los dos selectores no se hablaban (Bloque 2 #8).
+          this.loadSuperAdminHotelOptions(this.hotelContext.selectedHotelSettingsId);
           return;
         }
 

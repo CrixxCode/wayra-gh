@@ -247,6 +247,9 @@
             <div class="gh-cat-price">
               <span>Precio base</span>
               <strong>{{ getPriceLabel(pkg) }}</strong>
+              <small class="below-services" *ngIf="isBelowServicesTotal(pkg)">
+                Por debajo de sus servicios sueltos
+              </small>
             </div>
 
             <span

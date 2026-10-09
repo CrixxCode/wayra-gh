@@ -148,3 +148,49 @@ class ManualClientTypeTests(TestCase):
         self.customer.refresh_from_db()
         self.assertEqual(self.customer.client_type.code, "REGULAR")
         self.assertFalse(self.customer.client_type_is_manual)
+
+
+class ClientDocumentAndAdminTests(TestCase):
+    """Auditoria, Bloque 5 #3-#4."""
+
+    def setUp(self):
+        from apps.clients.models import Client
+
+        def md(group, code):
+            return MasterData.objects.update_or_create(
+                group=group, code=code, defaults={"name": code.title(), "is_active": True}
+            )[0]
+
+        self.Client = Client
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Documentos")
+        self.fields = {
+            "hotel_settings": self.hotel,
+            "document_type": md(MasterData.Group.DOCUMENT_TYPE, "PASAPORTE"),
+            "first_name": "Ana",
+            "last_name": "Gil",
+            "client_type": md(MasterData.Group.CLIENT_TYPE, "REGULAR"),
+            "status": md(MasterData.Group.CLIENT_STATUS, "ACTIVO"),
+        }
+
+    def test_document_is_stored_uppercase_so_case_variants_collide(self):
+        from django.db import IntegrityError, transaction
+
+        first = self.Client.objects.create(document_number=" ab123 ", email="a@example.com", **self.fields)
+        self.assertEqual(first.document_number, "AB123")
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self.Client.objects.create(document_number="Ab123", email="b@example.com", **self.fields)
+
+    def test_admin_delete_is_a_logical_delete(self):
+        from django.contrib import admin as django_admin
+
+        from accounts.soft_delete import is_soft_deleted
+
+        customer = self.Client.objects.create(document_number="X1", email="x1@example.com", **self.fields)
+        model_admin = django_admin.site._registry[self.Client]
+
+        model_admin.delete_model(None, customer)
+
+        self.assertTrue(self.Client.objects.filter(pk=customer.pk).exists())
+        self.assertTrue(is_soft_deleted(customer))
+        self.assertFalse(model_admin.get_queryset(type("R", (), {"user": None})()).filter(pk=customer.pk).exists())

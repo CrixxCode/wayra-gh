@@ -1,4 +1,6 @@
 import { Component, OnInit } from '@angular/core';
+import { DeletedRecordRow, DeletedRecords } from '../../shared/deleted-records/deleted-records';
+import { forkJoin } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService } from 'primeng/api';
@@ -14,7 +16,7 @@ type StatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 @Component({
   selector: 'app-master-data',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DeletedRecords],
   templateUrl: './master-data.html',
   styleUrls: ['./master-data.css']
 })
@@ -91,6 +93,51 @@ export class MasterDataComponent implements OnInit {
       error: () => {
         this.groups = [];
         this.loadMasterData();
+      }
+    });
+  }
+
+  showDeleted = false;
+  loadingDeleted = false;
+  deletedRows: DeletedRecordRow[] = [];
+  restoringDeletedId: string | number | null = null;
+
+  toggleDeleted(): void {
+    this.showDeleted = !this.showDeleted;
+    if (this.showDeleted) this.loadDeleted();
+  }
+
+  /** Eliminados = lo que aparece con `include_deleted` y no en el listado normal. */
+  loadDeleted(): void {
+    this.loadingDeleted = true;
+    forkJoin({
+      visible: this.masterDataService.listMasterDataAll({ include_inactive: true }),
+      all: this.masterDataService.listMasterDataAll({ include_inactive: true, include_deleted: true })
+    }).subscribe({
+      next: ({ visible, all }) => {
+        const visibleIds = new Set((visible || []).map((row: { id: unknown }) => String(row.id)));
+        this.deletedRows = (all || [])
+          .filter((row: { id: unknown }) => !visibleIds.has(String(row.id)))
+          .map((row: any) => ({ id: row.id, label: `${row.group} · ${row.code}`, detail: row.name }));
+        this.loadingDeleted = false;
+      },
+      error: () => {
+        this.loadingDeleted = false;
+        this.deletedRows = [];
+      }
+    });
+  }
+
+  restoreDeleted(id: string | number): void {
+    this.restoringDeletedId = id;
+    this.masterDataService.restoreMasterData(Number(id)).subscribe({
+      next: () => {
+        this.restoringDeletedId = null;
+        this.loadMasterData();
+        this.loadDeleted();
+      },
+      error: () => {
+        this.restoringDeletedId = null;
       }
     });
   }

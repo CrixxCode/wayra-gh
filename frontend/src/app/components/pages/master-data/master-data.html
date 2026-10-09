@@ -10,6 +10,10 @@
         <i class="fa-solid fa-rotate-right"></i>
         Actualizar
       </button>
+      <button class="btn ghost" (click)="toggleDeleted()">
+        <i class="fa-solid fa-trash-arrow-up"></i>
+        Eliminados
+      </button>
       <button class="btn ghost" (click)="openCreateGroup()">
         <i class="fa-solid fa-layer-group"></i>
         Nuevo grupo
@@ -20,6 +24,15 @@
       </button>
     </div>
   </header>
+
+  <app-deleted-records
+    *ngIf="showDeleted"
+    [title]="'Valores eliminados'"
+    [rows]="deletedRows"
+    [loading]="loadingDeleted"
+    [restoringId]="restoringDeletedId"
+    (restore)="restoreDeleted($event)"
+    (closed)="showDeleted = false"></app-deleted-records>
 
   <section class="stats-grid">
     <article class="stat-card">

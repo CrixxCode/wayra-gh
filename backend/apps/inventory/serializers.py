@@ -2,6 +2,7 @@ from django.db import transaction
 from django.db.models import F
 from rest_framework import serializers
 
+from accounts.soft_delete import is_soft_deleted
 from apps.inventory.models import Item, InventoryMovement, RoomInventory
 from apps.master_data.models import MasterData
 from accounts.tenancy import TenantSerializerMixin, is_effective_global_admin
@@ -311,6 +312,14 @@ class RoomInventorySerializer(serializers.ModelSerializer):
 
         if item is None:
             raise serializers.ValidationError({"item": "El item es obligatorio."})
+
+        # Dotacion nueva o cambio de item: no sobre un item eliminado o inactivo, que seguia
+        # siendo seleccionable y operativo en la habitacion (auditoria, Bloque 10 #7).
+        item_changed = self.instance is None or item.pk != self.instance.item_id
+        if item_changed and (not item.is_active or is_soft_deleted(item)):
+            raise serializers.ValidationError(
+                {"item": f"El item {item.name} esta inactivo o eliminado: no se puede asignar."}
+            )
 
         if getattr(item, "item_purpose", None) != Item.Purpose.ROOM:
             raise serializers.ValidationError(

@@ -10,12 +10,25 @@
         <i class="fa-solid fa-rotate-right"></i>
         Actualizar
       </button>
+      <button class="btn ghost" (click)="toggleDeleted()">
+        <i class="fa-solid fa-trash-arrow-up"></i>
+        Eliminados
+      </button>
       <button class="btn primary" (click)="openCreate()">
         <i class="fa-solid fa-plus"></i>
         Nuevo recurso
       </button>
     </div>
   </header>
+
+  <app-deleted-records
+    *ngIf="showDeleted"
+    [title]="'Recursos eliminados'"
+    [rows]="deletedRows"
+    [loading]="loadingDeleted"
+    [restoringId]="restoringDeletedId"
+    (restore)="restoreDeleted($event)"
+    (closed)="showDeleted = false"></app-deleted-records>
 
   <section class="stats-grid">
     <article class="stat-card">

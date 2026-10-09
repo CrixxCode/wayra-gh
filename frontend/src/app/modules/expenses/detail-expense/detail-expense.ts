@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { catchError, of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
@@ -10,7 +11,7 @@ import { ExpenseI } from '../expense-model';
 @Component({
   selector: 'app-detail-expense',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './detail-expense.html',
   styleUrls: ['./detail-expense.css']
 })
@@ -26,6 +27,85 @@ export class DetailExpense implements OnChanges {
   infoMessage = '';
 
   activeExpense: ExpenseI | null = null;
+
+  /**
+   * Edicion de los datos que se tipean mal. Antes solo existia activar/desactivar: un monto
+   * errado obligaba a desactivar y duplicar el egreso, perdiendo el rastro (Bloque 9 #4). La
+   * auditoria (5.23) ya registra el antes y el despues de cada cambio.
+   */
+  editing = false;
+  editForm = {
+    concept: '',
+    amount: 0,
+    expense_date: '',
+    supplier_name: '',
+    reference: '',
+    description: ''
+  };
+
+  startEdit(): void {
+    const expense = this.activeExpense;
+    if (!expense) return;
+    this.editForm = {
+      concept: expense.concept || '',
+      amount: Number(expense.amount || 0),
+      expense_date: String(expense.expense_date || '').slice(0, 10),
+      supplier_name: String((expense as { supplier_name?: string | null }).supplier_name || ''),
+      reference: String(expense.reference || ''),
+      description: String(expense.description || '')
+    };
+    this.errorMessage = '';
+    this.infoMessage = '';
+    this.editing = true;
+  }
+
+  cancelEdit(): void {
+    this.editing = false;
+  }
+
+  saveEdit(): void {
+    const expense = this.activeExpense;
+    if (!expense || this.updating) return;
+    if (!this.editForm.concept.trim()) {
+      this.errorMessage = 'El concepto es obligatorio.';
+      return;
+    }
+    if (!(Number(this.editForm.amount) > 0)) {
+      this.errorMessage = 'El monto debe ser mayor que cero.';
+      return;
+    }
+    if (!this.editForm.expense_date) {
+      this.errorMessage = 'La fecha es obligatoria.';
+      return;
+    }
+
+    this.updating = true;
+    this.errorMessage = '';
+    this.expenseService
+      .updateExpense(expense.id, {
+        concept: this.editForm.concept,
+        amount: Number(this.editForm.amount),
+        expense_date: this.editForm.expense_date,
+        supplier_name: this.editForm.supplier_name.trim() || null,
+        reference: this.editForm.reference.trim() || null,
+        description: this.editForm.description.trim() || null
+      })
+      .subscribe({
+        next: (updated) => {
+          this.updating = false;
+          this.editing = false;
+          this.activeExpense = updated;
+          this.infoMessage = successActionAlert('update', 'egreso');
+          this.expenseUpdated.emit(updated);
+        },
+        error: (error) => {
+          this.updating = false;
+          const detail = (error as { error?: { detail?: unknown } })?.error?.detail;
+          this.errorMessage =
+            typeof detail === 'string' && detail ? detail : errorActionAlert('update', 'egreso');
+        }
+      });
+  }
 
   constructor(
     private expenseService: ExpenseService,

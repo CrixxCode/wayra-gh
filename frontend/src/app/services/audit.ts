@@ -18,6 +18,8 @@ export interface AuditEntryI {
   /** `{campo: {before, after}}`, o `{after}` en un alta y `{before}` en una baja. */
   changes: Record<string, unknown>;
   ip_address: string | null;
+  /** Solo util para el admin de plataforma, que ve filas de varios hoteles. */
+  hotel_name?: string | null;
   user_agent: string;
   request_path: string;
   request_method: string;
@@ -31,11 +33,19 @@ export interface AuditFiltersI {
   occurred_after?: string;
   occurred_before?: string;
   page_size?: number;
+  page?: number;
   /** Salta el cache y lo repuebla: es lo que usa el boton de actualizar. */
   forceRefresh?: boolean;
 }
 
-type DRFPaginated<T> = { results?: T[] };
+type DRFPaginated<T> = { results?: T[]; count?: number; next?: string | null };
+
+/** Una pagina del rastro: el backend siempre pagina (la tabla solo crece). */
+export interface AuditPageI {
+  results: AuditEntryI[];
+  count: number;
+  hasMore: boolean;
+}
 
 @Injectable({ providedIn: 'root' })
 export class AuditService {
@@ -79,6 +89,28 @@ export class AuditService {
             params: this.buildParams(filters)
           })
           .pipe(map((res) => (Array.isArray(res) ? res : res?.results || []))),
+      CACHE_TTL.OPERATIONAL,
+      filters?.forceRefresh === true
+    );
+  }
+
+  /** Una pagina con el total, para poder decir cuanto historial queda y cargar mas. */
+  listAuditPage(filters?: AuditFiltersI): Observable<AuditPageI> {
+    return this.cache.get(
+      this.cacheKey({ ...(filters || {}), view: 'page' } as Record<string, unknown>),
+      () =>
+        this.http
+          .get<AuditEntryI[] | DRFPaginated<AuditEntryI>>(this.auditUrl, {
+            withCredentials: true,
+            params: this.buildParams(filters)
+          })
+          .pipe(
+            map((res) => {
+              if (Array.isArray(res)) return { results: res, count: res.length, hasMore: false };
+              const results = res?.results || [];
+              return { results, count: Number(res?.count ?? results.length), hasMore: !!res?.next };
+            })
+          ),
       CACHE_TTL.OPERATIONAL,
       filters?.forceRefresh === true
     );

@@ -91,6 +91,12 @@
 
       <section>
         <h2>Servicios incluidos ({{ selectedServiceIds.length }} seleccionados)</h2>
+        <p class="services-total-hint" *ngIf="selectedServiceIds.length">
+          Sueltos costarian {{ selectedServicesTotal | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}.
+          <ng-container *ngIf="toPriceNumber(base_price?.value) < selectedServicesTotal">
+            El precio base esta por debajo de esa suma.
+          </ng-container>
+        </p>
 
         <label class="search-field search-wrap gh-search-wrap">
           <span>Buscar</span>

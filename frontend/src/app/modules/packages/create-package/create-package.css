@@ -365,4 +365,8 @@ small {
   }
 }
 
-
+.services-total-hint {
+  margin: 4px 0 10px;
+  color: var(--gh-text-soft);
+  font-size: 0.82rem;
+}

@@ -318,3 +318,14 @@
     grid-column: 2;
   }
 }
+
+.audit-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--gh-text-soft);
+  font-size: 0.82rem;
+}

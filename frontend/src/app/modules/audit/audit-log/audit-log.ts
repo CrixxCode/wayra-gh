@@ -42,6 +42,11 @@ export class AuditLogPage implements OnInit, OnDestroy {
   errorMessage = '';
 
   entries: AuditEntryI[] = [];
+  /** Total que cumple el filtro; antes se veian solo los 200 mas recientes sin aviso. */
+  totalCount = 0;
+  hasMore = false;
+  loadingMore = false;
+  private currentPage = 1;
   entityOptions: string[] = [];
   userOptions: string[] = [];
 
@@ -103,7 +108,7 @@ export class AuditLogPage implements OnInit, OnDestroy {
       username: this.userFilter || undefined,
       occurred_after: this.fromDate || undefined,
       occurred_before: this.toDate || undefined,
-      page_size: 200
+      page_size: 100
     };
   }
 
@@ -115,7 +120,7 @@ export class AuditLogPage implements OnInit, OnDestroy {
 
     forkJoin({
       entries: this.auditService
-        .listAudit({ ...this.filters, forceRefresh })
+        .listAuditPage({ ...this.filters, page: 1, forceRefresh })
         // `null` y no una lista vacia: una lista vacia afirmaria que no paso nada.
         .pipe(catchError(() => of(null))),
       facets: this.auditService
@@ -132,10 +137,32 @@ export class AuditLogPage implements OnInit, OnDestroy {
         return;
       }
 
-      this.entries = entries;
+      this.entries = entries.results;
+      this.totalCount = entries.count;
+      this.hasMore = entries.hasMore;
+      this.currentPage = 1;
       this.entityOptions = facets.entities;
       this.userOptions = facets.users;
       this.scheduleReveal();
+    });
+  }
+
+  loadMore(): void {
+    if (!this.hasMore || this.loadingMore) return;
+    this.loadingMore = true;
+    const nextPage = this.currentPage + 1;
+    this.auditService.listAuditPage({ ...this.filters, page: nextPage }).subscribe({
+      next: (page) => {
+        this.loadingMore = false;
+        this.currentPage = nextPage;
+        this.entries = [...this.entries, ...page.results];
+        this.totalCount = page.count;
+        this.hasMore = page.hasMore;
+      },
+      error: () => {
+        this.loadingMore = false;
+        this.errorMessage = 'No fue posible cargar mas registros.';
+      }
     });
   }
 

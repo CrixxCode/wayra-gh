@@ -539,9 +539,15 @@ export class DetailReservation implements OnChanges {
     this.openCheckoutInventoryModal();
   }
 
+  /** Aviso tras cancelar con abonos: la factura sigue abierta hasta reembolsarlos. */
+  billingWarning = '';
+
   cancelReservation(): void {
     if (!this.reservation || this.actionLoading || !this.canCancel) return;
-    this.runFlowAction(this.reservationService.cancelReservation(this.reservation.id));
+    this.billingWarning = '';
+    this.runFlowAction(this.reservationService.cancelReservation(this.reservation.id), (detail) => {
+      this.billingWarning = detail.billing_warning || '';
+    });
   }
 
   runPrimaryAction(): void {

@@ -145,6 +145,9 @@ AUDITED_APPS = {
     "accounts",
     "billing",
     "clients",
+    # Convertir una solicitud en hotel crea `HotelSettings` + `User`; marcarla contactada o
+    # descartada es una decision comercial. Ninguna dejaba rastro (auditoria, Bloque 11 #1).
+    "demo_requests",
     "finance",
     "hotel_settings",
     "inventory",

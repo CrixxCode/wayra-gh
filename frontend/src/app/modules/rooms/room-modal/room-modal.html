@@ -113,7 +113,7 @@
             <span>Tipo de habitacion</span>
             <select [(ngModel)]="form.room_type" (ngModelChange)="onRoomTypeChange()">
               <option [ngValue]="null">Sin tipo</option>
-              <option *ngFor="let roomType of roomTypes; trackBy: trackById" [ngValue]="roomType.id">
+              <option *ngFor="let roomType of roomTypeOptions; trackBy: trackById" [ngValue]="roomType.id">
                 {{ roomType.name }}
               </option>
             </select>
@@ -266,14 +266,14 @@
 
       <!-- ================= AMENIDADES ================= -->
       <ng-container *ngIf="activeTab === 'amenities'">
-        <p class="gh-empty" *ngIf="!amenities.length">
+        <p class="gh-empty" *ngIf="!amenityOptions.length">
           Aun no hay amenidades en el catalogo global. Crealas desde SaaS Admin.
         </p>
 
-        <div class="amenity-grid" *ngIf="amenities.length">
+        <div class="amenity-grid" *ngIf="amenityOptions.length">
           <label
             class="amenity-option"
-            *ngFor="let amenity of amenities; trackBy: trackById"
+            *ngFor="let amenity of amenityOptions; trackBy: trackById"
             [class.is-selected]="isAmenitySelected(amenity.id)">
             <input
               type="checkbox"
@@ -292,7 +292,7 @@
           </label>
         </div>
 
-        <div class="tab-actions" *ngIf="amenities.length">
+        <div class="tab-actions" *ngIf="amenityOptions.length">
           <button type="button" class="gh-mbtn gh-mbtn-light" (click)="resetFormFromRoom()" [disabled]="saving || !isDirtyAmenities">
             Descartar cambios
           </button>
@@ -313,10 +313,10 @@
             </button>
           </div>
 
-          <div class="room-type-picker" *ngIf="roomTypes.length">
+          <div class="room-type-picker" *ngIf="roomTypeOptions.length">
             <label
               class="room-type-option"
-              *ngFor="let roomType of roomTypes; trackBy: trackById"
+              *ngFor="let roomType of roomTypeOptions; trackBy: trackById"
               [class.is-selected]="form.room_type === roomType.id">
               <input
                 type="radio"
@@ -347,7 +347,7 @@
             </label>
           </div>
 
-          <p class="gh-empty" *ngIf="!roomTypes.length">
+          <p class="gh-empty" *ngIf="!roomTypeOptions.length">
             Aun no hay tipos de habitacion creados para este hotel.
           </p>
         </div>

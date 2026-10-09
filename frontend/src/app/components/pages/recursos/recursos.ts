@@ -1,4 +1,6 @@
 ﻿import { Component, OnInit } from '@angular/core';
+import { DeletedRecordRow, DeletedRecords } from '../../shared/deleted-records/deleted-records';
+import { forkJoin } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -13,7 +15,7 @@ type ToastKind = 'success' | 'danger' | 'info';
 @Component({
   selector: 'app-recursos',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DeletedRecords],
   templateUrl: './recursos.html',
   styleUrls: ['./recursos.css'],
 })
@@ -134,6 +136,51 @@ export class RecursosComponent implements OnInit {
       this.syncSelectedAvailableWithFilter();
       this.syncSelectedAssignedWithFilter();
     }, 280);
+  }
+
+  showDeleted = false;
+  loadingDeleted = false;
+  deletedRows: DeletedRecordRow[] = [];
+  restoringDeletedId: string | number | null = null;
+
+  toggleDeleted(): void {
+    this.showDeleted = !this.showDeleted;
+    if (this.showDeleted) this.loadDeleted();
+  }
+
+  /** Eliminados = lo que aparece con `include_deleted` y no en el listado normal. */
+  loadDeleted(): void {
+    this.loadingDeleted = true;
+    forkJoin({
+      visible: this.svc.listResources('', { include_inactive: true }),
+      all: this.svc.listResources('', { include_inactive: true, include_deleted: true })
+    }).subscribe({
+      next: ({ visible, all }) => {
+        const visibleIds = new Set((visible || []).map((row: { id: unknown }) => String(row.id)));
+        this.deletedRows = (all || [])
+          .filter((row: { id: unknown }) => !visibleIds.has(String(row.id)))
+          .map((row: any) => ({ id: row.id, label: row.name || row.key, detail: row.key }));
+        this.loadingDeleted = false;
+      },
+      error: () => {
+        this.loadingDeleted = false;
+        this.deletedRows = [];
+      }
+    });
+  }
+
+  restoreDeleted(id: string | number): void {
+    this.restoringDeletedId = id;
+    this.svc.restoreResource(String(id)).subscribe({
+      next: () => {
+        this.restoringDeletedId = null;
+        this.loadResources();
+        this.loadDeleted();
+      },
+      error: () => {
+        this.restoringDeletedId = null;
+      }
+    });
   }
 
   loadResources(): void {

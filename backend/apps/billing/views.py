@@ -1,6 +1,7 @@
 import re
 from decimal import Decimal, InvalidOperation
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import F, Q
 from django.http import HttpResponse
@@ -23,6 +24,7 @@ from apps.billing.serializers import (
     CreditNoteSerializer,
 )
 from apps.billing.services import (
+    void_invoice,
     get_or_create_default_charge_type,
     get_or_create_default_payment_refund_status,
 )
@@ -474,6 +476,21 @@ class InvoiceViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Model
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
 
+    @action(detail=True, methods=["post"], url_path="void")
+    def void(self, request, pk=None):
+        """Anula la factura (Bloque 8 #5). Solo administradores y sin dinero cobrado."""
+        if not PaymentViewSet._is_admin_user(request.user):
+            raise PermissionDenied("Solo un administrador puede anular facturas.")
+        with transaction.atomic():
+            invoice = Invoice.objects.select_for_update().select_related("status").get(
+                pk=self.get_object().pk
+            )
+            try:
+                void_invoice(invoice)
+            except DjangoValidationError as exc:
+                raise ValidationError(exc.message_dict)
+        return Response(self.get_serializer(invoice).data)
+
     @action(detail=True, methods=["get"], url_path="pdf")
     def pdf(self, request, pk=None):
         invoice = self.get_object()
@@ -527,6 +544,9 @@ class InvoiceViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Model
 
 
 class InvoiceChargeViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
+    # Solo lectura (decision del 2026-10-09, Bloque 8 #6): el total de la factura sale de la
+    # reserva, nunca de estas filas, asi que crearlas o borrarlas no "facturaba" nada.
+    http_method_names = ["get", "head", "options"]
     queryset = (
         InvoiceCharge.objects.select_related(
             "invoice",

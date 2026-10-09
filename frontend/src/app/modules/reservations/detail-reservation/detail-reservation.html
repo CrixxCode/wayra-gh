@@ -55,6 +55,7 @@
     <div class="drawer-body">
       <p class="state-msg" *ngIf="loading">Consultando informacion de la reserva...</p>
       <p class="state-msg error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+      <p class="state-msg" *ngIf="!loading && billingWarning" role="status">{{ billingWarning }}</p>
 
       <ng-container *ngIf="!loading && reservation">
         <section>

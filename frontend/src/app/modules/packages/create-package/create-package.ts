@@ -2,7 +2,6 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { forkJoin, map, Observable, of, switchMap } from 'rxjs';
 import { ServiceI } from '../../services/service-model';
 import { PackageFormPayload } from '../package-model';
 import { PackagesService } from '../../../services/package';
@@ -107,12 +106,17 @@ export class CreatePackage {
       return;
     }
 
+    // Un paquete vacio quedaba vendible sin contenido (Bloque 7 #4).
+    if (!this.selectedServiceIds.length) {
+      this.errorMessage = 'Selecciona al menos un servicio para el paquete.';
+      return;
+    }
+
     this.saving = true;
+    // Paquete y servicios en una sola peticion: el backend los crea en una transaccion, asi
+    // un fallo ya no deja un paquete a medias (Bloque 7 #5).
     this.packagesService
-      .createPackage(payload)
-      .pipe(
-        switchMap((createdPackage) => this.createPackageServices(createdPackage.id))
-      )
+      .createPackage({ ...payload, service_ids: this.selectedServiceIds })
       .subscribe({
         next: () => {
           this.saving = false;
@@ -160,24 +164,12 @@ export class CreatePackage {
     return item.id;
   }
 
-  private createPackageServices(packageId: number): Observable<void> {
-    const uniqueServiceIds = Array.from(new Set(this.selectedServiceIds));
-    if (!uniqueServiceIds.length) {
-      return of(void 0);
-    }
-
-    const requests = uniqueServiceIds.map((serviceId) =>
-      this.packagesService
-        .createPackageService({
-          package: packageId,
-          service: serviceId,
-          quantity: 1,
-          is_included: true
-        })
-        .pipe(map(() => void 0))
-    );
-
-    return forkJoin(requests).pipe(map(() => void 0));
+  /** Lo que costarian los servicios elegidos sueltos: referencia para fijar el precio. */
+  get selectedServicesTotal(): number {
+    const selected = new Set(this.selectedServiceIds);
+    return (this.availableServices || [])
+      .filter((service) => selected.has(service.id))
+      .reduce((sum, service) => sum + this.toPriceNumber(service.base_price), 0);
   }
 
   private normalizeDate(value: unknown): string | null {
@@ -191,7 +183,7 @@ export class CreatePackage {
     return endDate < startDate;
   }
 
-  private toPriceNumber(value: unknown): number {
+  protected toPriceNumber(value: unknown): number {
     const asNumber = Number(value);
     if (Number.isNaN(asNumber) || asNumber < 0) return 0;
     return asNumber;

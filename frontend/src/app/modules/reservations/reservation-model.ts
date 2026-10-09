@@ -78,6 +78,8 @@ export interface ReservationI {
   total_amount?: string | number;
   /** Descuentos de promociones ya restados de `total_amount`. */
   promotion_discount_total?: string | number;
+  /** Solo en la respuesta de cancelar: hay abonos que reembolsar a mano. */
+  billing_warning?: string;
   pending_amount?: string | number;
   payment_status_code?: string;
   payment_status_label?: string;

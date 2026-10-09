@@ -99,8 +99,11 @@ class Client(models.Model):
         if self.email:
             self.email = self.email.strip().lower()
 
+        # En mayusculas: la unicidad del serializer no distingue mayusculas (`iexact`) pero
+        # el UniqueConstraint de la base si, y dos altas simultaneas de "ab123" y "AB123"
+        # pasaban las dos (auditoria, Bloque 5 #3). Normalizado, el constraint las frena.
         if self.document_number:
-            self.document_number = self.document_number.strip()
+            self.document_number = self.document_number.strip().upper()
 
         super().save(*args, **kwargs)
 

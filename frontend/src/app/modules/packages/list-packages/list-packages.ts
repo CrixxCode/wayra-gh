@@ -843,4 +843,14 @@ export class ListPackages implements OnInit {
     const escaped = normalized.replace(/"/g, '""');
     return `"${escaped}"`;
   }
+
+  /**
+   * El precio del paquete es independiente de sus servicios: si sube el precio de uno, el
+   * paquete puede quedar vendiendose por debajo sin que nadie lo note (Bloque 7 #6).
+   */
+  isBelowServicesTotal(pkg: PackageI): boolean {
+    const servicesTotal = Number(pkg.services_total || 0);
+    return servicesTotal > 0 && Number(pkg.base_price || 0) < servicesTotal;
+  }
+
 }

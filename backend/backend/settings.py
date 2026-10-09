@@ -160,6 +160,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "accounts.middleware.AdminLoginThrottleMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -175,6 +176,19 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+# Sin validadores, `validate_password()` (cambio, reset y alta de usuarios) no hacia nada:
+# "12345678" pasaba. Se usan los de Django (auditoria, Bloque 15 #4).
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+# Intentos de login en /admin/ por IP y minuto (`AdminLoginThrottleMiddleware`). El admin de
+# Django usa su propia vista, fuera de los throttles de DRF (Bloque 15 #6).
+ADMIN_LOGIN_ATTEMPTS_PER_MINUTE = env_int("ADMIN_LOGIN_ATTEMPTS_PER_MINUTE", 10)
 
 ROOT_URLCONF = "backend.urls"
 WSGI_APPLICATION = "backend.wsgi.application"

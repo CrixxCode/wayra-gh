@@ -155,6 +155,13 @@ export class BillingService {
     ).pipe(tap(() => this.invalidateLedger()));
   }
 
+  /** Anula la factura. Solo un administrador y sin dinero cobrado (backend). */
+  voidInvoice(id: number): Observable<InvoiceI> {
+    return this.http
+      .post<InvoiceI>(`${this.invoicesUrl}${id}/void/`, {}, this.auth.buildCsrfRequestOptions())
+      .pipe(tap(() => this.invalidateLedger()));
+  }
+
   deleteInvoice(id: number): Observable<void> {
     return this.http.delete<void>(
       `${this.invoicesUrl}${id}/`,
@@ -292,28 +299,8 @@ export class BillingService {
       .pipe(map((res) => this.unwrapArray<InvoiceChargeI>(res)));
   }
 
-  createInvoiceCharge(payload: { invoice: number; charge: number }): Observable<InvoiceChargeI> {
-    return this.http.post<InvoiceChargeI>(
-      this.invoiceChargesUrl,
-      payload,
-      this.auth.buildCsrfRequestOptions()
-    ).pipe(tap(() => this.invalidateLedger()));
-  }
-
-  deleteInvoiceCharge(id: number): Observable<void> {
-    return this.http.delete<void>(
-      `${this.invoiceChargesUrl}${id}/`,
-      this.auth.buildCsrfRequestOptions()
-    ).pipe(tap(() => this.invalidateLedger()));
-  }
-
-  restoreInvoiceCharge(id: number): Observable<InvoiceChargeI> {
-    return this.http.post<InvoiceChargeI>(
-      `${this.invoiceChargesUrl}${id}/restore/`,
-      {},
-      this.auth.buildCsrfRequestOptions()
-    ).pipe(tap(() => this.invalidateLedger()));
-  }
+  // `InvoiceCharge` es de solo lectura en el backend (Bloque 8 #6): el total de la factura sale
+  // de la reserva, asi que no hay escrituras que ofrecer aqui.
 
   listPayments(filters?: {
     search?: string;

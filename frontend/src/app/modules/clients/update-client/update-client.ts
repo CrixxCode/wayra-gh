@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ClientsService } from '../../../services/client';
+import { MasterDataService } from '../../../services/master-data.service';
 import { ClientI } from '../client-model';
 import { HotelLocationCountry, loadHotelCountries } from '../../../shared/hotel-location-options';
 
@@ -25,7 +26,8 @@ export class UpdateClient implements OnChanges, OnInit {
 
   constructor(
     private fb: FormBuilder,
-    private clientsService: ClientsService
+    private clientsService: ClientsService,
+    private masterDataService: MasterDataService
   ) {
     this.clientForm = this.fb.group({
       first_name: ['', [Validators.required, Validators.maxLength(80)]],
@@ -38,8 +40,31 @@ export class UpdateClient implements OnChanges, OnInit {
     });
   }
 
+  /**
+   * Tipos de documento del catalogo (`DOCUMENT_TYPE`). Antes iban fijos en el HTML: un tipo
+   * nuevo en Master Data nunca aparecia aqui (auditoria, Bloque 5 #5). La lista fija queda
+   * solo como respaldo si el catalogo no carga.
+   */
+  documentTypes: Array<{ code: string; name: string }> = [
+    { code: 'CC', name: 'CC' },
+    { code: 'CE', name: 'CE' },
+    { code: 'DNI', name: 'DNI' },
+    { code: 'PASAPORTE', name: 'Pasaporte' }
+  ];
+
   ngOnInit(): void {
     void this.loadCountryOptions();
+    this.masterDataService
+      .listMasterData({ group: 'DOCUMENT_TYPE', is_active: 'true' })
+      .subscribe({
+        next: (rows) => {
+          const options = (rows || [])
+            .filter((row) => !!row.code)
+            .map((row) => ({ code: String(row.code), name: String(row.name || row.code) }));
+          if (options.length) this.documentTypes = options;
+        },
+        error: () => undefined
+      });
   }
 
   ngOnChanges(changes: SimpleChanges): void {

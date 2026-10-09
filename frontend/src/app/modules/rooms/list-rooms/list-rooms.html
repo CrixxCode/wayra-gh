@@ -18,6 +18,10 @@
         <i class="fa-solid fa-tags"></i>
         Tarifas
       </button>
+      <button type="button" class="gh-mbtn gh-mbtn-light" (click)="toggleDeletedRooms()">
+        <i class="fa-solid fa-trash-arrow-up"></i>
+        Eliminadas
+      </button>
       <button
         type="button"
         class="gh-mbtn gh-mbtn-dark"
@@ -29,6 +33,15 @@
       </button>
     </div>
   </header>
+
+  <app-deleted-records
+    *ngIf="showDeletedRooms"
+    [title]="'Habitaciones eliminadas'"
+    [rows]="deletedRoomRows"
+    [loading]="loadingDeletedRooms"
+    [restoringId]="restoringRoomId"
+    (restore)="restoreDeletedRoom($event)"
+    (closed)="showDeletedRooms = false"></app-deleted-records>
 
   <p class="setup-hint" *ngIf="!loading && !hasFloors">
     <i class="fa-solid fa-triangle-exclamation"></i>
@@ -402,9 +415,9 @@
     [room]="selectedRoom"
     [floors]="floors"
     [rooms]="rooms"
-    [roomTypes]="roomTypes"
-    [amenities]="amenities"
-    [rates]="rates"
+    [roomTypes]="allRoomTypes"
+    [amenities]="allAmenities"
+    [rates]="allRates"
     (closed)="closeRoomModal()"
     (saved)="onRoomSaved($event)"
     (deleted)="onRoomDeleted($event)"

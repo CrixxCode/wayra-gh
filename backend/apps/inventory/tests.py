@@ -1107,3 +1107,49 @@ class InventoryMovementItemFilterTests(TestCase):
     def test_invalid_item_filter_is_ignored(self):
         # Un valor no numerico no debe romper la vista ni vaciar el listado.
         self.assertEqual(len(self._list("?item=abc")), 3)
+
+
+class InventoryMovementAndAssignmentRulesTests(TestCase):
+    """Auditoria, Bloque 10 #5-#7."""
+
+    def setUp(self):
+        fixture = RoomInventoryAutomaticMovementTestCase()
+        fixture.setUp()
+        self.room, self.item = fixture.room, fixture.item
+        self.movement_in = fixture._md(MasterData.Group.INVENTORY_MOVEMENT_TYPE, "IN", "Entrada", 1)
+
+    def _move_in(self, quantity):
+        return InventoryMovement.objects.create(
+            item=self.item, movement_type=self.movement_in, quantity=quantity
+        )
+
+    def test_movement_reads_the_current_stock_not_a_stale_copy(self):
+        stale_item = Item.objects.get(pk=self.item.pk)
+        Item.objects.filter(pk=self.item.pk).update(stock=50)
+
+        movement = InventoryMovement.objects.create(
+            item=stale_item, movement_type=self.movement_in, quantity=5
+        )
+
+        self.assertEqual(movement.previous_stock, 50)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.stock, 55)
+
+    def test_entry_cannot_push_stock_over_the_maximum(self):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        with self.assertRaises(DjangoValidationError):
+            self._move_in(81)  # 20 + 81 > maximo 100
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.stock, 20)
+
+    def test_inactive_item_cannot_be_assigned_to_a_room(self):
+        self.item.is_active = False
+        self.item.save(update_fields=["is_active"])
+
+        serializer = RoomInventorySerializer(
+            data={"room": self.room.id, "item": self.item.id, "quantity": 1, "minimum_quantity": 0}
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("item", serializer.errors)

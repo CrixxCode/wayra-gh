@@ -23,6 +23,8 @@ export interface PackageI {
   start_date?: string | null;
   end_date?: string | null;
   package_services?: PackageServiceI[];
+  /** Lo que costarian sus servicios sueltos (backend). */
+  services_total?: string | number;
   created_at?: string;
   updated_at?: string;
 }
@@ -36,6 +38,8 @@ export interface PackageFormPayload {
   is_active: boolean;
   start_date?: string | null;
   end_date?: string | null;
+  /** Solo al crear: el paquete y sus servicios nacen en una transaccion. */
+  service_ids?: number[];
 }
 
 export interface PackageServiceFormPayload {

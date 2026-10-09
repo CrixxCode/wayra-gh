@@ -8,7 +8,7 @@ from apps.inventory.serializers import ItemSerializer, InventoryMovementSerializ
 from apps.inventory.services import register_purchase_entry, register_stock_count
 from accounts.pagination import OptionalPageNumberPagination
 from accounts.permissions import HasResourcePermission
-from accounts.soft_delete import LogicalDeleteViewSetMixin
+from accounts.soft_delete import LogicalDeleteViewSetMixin, soft_deleted_ids
 from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
 
 
@@ -225,10 +225,16 @@ class RoomInventoryViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets
     ordering = ["-id"]
 
     def get_base_queryset(self):
-        return self.queryset.filter(
-            item__hotel_settings_id=F("room__floor__hotel_settings_id"),
-            item__item_purpose=Item.Purpose.ROOM,
-        ).order_by("-id")
+        # Sin la dotacion de items eliminados: el borrado logico del item no la tocaba y
+        # seguia apareciendo como inventario real de la habitacion (Bloque 10 #7).
+        return (
+            self.queryset.filter(
+                item__hotel_settings_id=F("room__floor__hotel_settings_id"),
+                item__item_purpose=Item.Purpose.ROOM,
+            )
+            .exclude(item_id__in=soft_deleted_ids(Item))
+            .order_by("-id")
+        )
 
     def get_queryset(self):
         queryset = super().get_queryset()

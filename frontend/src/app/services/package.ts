@@ -198,6 +198,10 @@ export class PackagesService {
       normalized.room_type = null;
     }
 
+    if (Array.isArray(payload.service_ids)) {
+      normalized.service_ids = Array.from(new Set(payload.service_ids.map(Number)));
+    }
+
     if (typeof payload.start_date === 'string' && payload.start_date.trim()) {
       normalized.start_date = payload.start_date.trim();
     } else {

@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { DeletedRecordRow, DeletedRecords } from '../../shared/deleted-records/deleted-records';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { JobTitle, RolesService, Role, UserMini } from '../../../services/roles.service';
@@ -13,7 +14,7 @@ type ToastKind = 'success' | 'danger' | 'info';
 @Component({
   selector: 'app-roles',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DeletedRecords],
   templateUrl: './roles.html',
   styleUrls: ['./roles.css'],
 })
@@ -160,6 +161,51 @@ export class RolesComponent implements OnInit {
   }
 
   // ---------- Roles CRUD ----------
+  showDeleted = false;
+  loadingDeleted = false;
+  deletedRows: DeletedRecordRow[] = [];
+  restoringDeletedId: string | number | null = null;
+
+  toggleDeleted(): void {
+    this.showDeleted = !this.showDeleted;
+    if (this.showDeleted) this.loadDeleted();
+  }
+
+  /** Eliminados = lo que aparece con `include_deleted` y no en el listado normal. */
+  loadDeleted(): void {
+    this.loadingDeleted = true;
+    forkJoin({
+      visible: this.rolesSvc.listRoles(),
+      all: this.rolesSvc.listRoles({ include_deleted: true })
+    }).subscribe({
+      next: ({ visible, all }) => {
+        const visibleIds = new Set((visible || []).map((row: { id: unknown }) => String(row.id)));
+        this.deletedRows = (all || [])
+          .filter((row: { id: unknown }) => !visibleIds.has(String(row.id)))
+          .map((row: any) => ({ id: row.id, label: row.name, detail: row.slug }));
+        this.loadingDeleted = false;
+      },
+      error: () => {
+        this.loadingDeleted = false;
+        this.deletedRows = [];
+      }
+    });
+  }
+
+  restoreDeleted(id: string | number): void {
+    this.restoringDeletedId = id;
+    this.rolesSvc.restoreRole(String(id)).subscribe({
+      next: () => {
+        this.restoringDeletedId = null;
+        this.loadRoles();
+        this.loadDeleted();
+      },
+      error: () => {
+        this.restoringDeletedId = null;
+      }
+    });
+  }
+
   loadRoles(): void {
     this.loadingRoles = true;
     this.rolesSvc.listRoles().subscribe({

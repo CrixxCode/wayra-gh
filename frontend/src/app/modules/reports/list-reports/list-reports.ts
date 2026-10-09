@@ -277,8 +277,9 @@ export class ListReports implements OnInit, OnDestroy {
     this.detailData = null;
   }
 
+  /** "Actualizar" salta el cache de 20 s: antes devolvia los mismos datos (Bloque 11 #5). */
   refreshReports(): void {
-    this.loadReports('all');
+    this.loadReports('all', true);
   }
 
   exportCurrentReportPdf(): void {
@@ -507,7 +508,7 @@ export class ListReports implements OnInit, OnDestroy {
       });
   }
 
-  private loadReports(target: ReportTab | 'all'): void {
+  private loadReports(target: ReportTab | 'all', forceRefresh = false): void {
     this.loading = true;
     this.errorMessage = '';
     this.infoMessage = '';
@@ -518,16 +519,16 @@ export class ListReports implements OnInit, OnDestroy {
     if (target === 'all') {
       forkJoin({
         executive: this.reportsService
-          .getExecutiveReport(this.reportQuery)
+          .getExecutiveReport(this.reportQuery, forceRefresh)
           .pipe(catchError((error) => this.handleTabError<ExecutiveReportResponse>('executive', error))),
         revenue: this.reportsService
-          .getRevenueReport(this.reportQuery)
+          .getRevenueReport(this.reportQuery, forceRefresh)
           .pipe(catchError((error) => this.handleTabError<RevenueReportResponse>('revenue', error))),
         occupancy: this.reportsService
-          .getOccupancyReport(this.reportQuery)
+          .getOccupancyReport(this.reportQuery, forceRefresh)
           .pipe(catchError((error) => this.handleTabError<OccupancyReportResponse>('occupancy', error))),
         services: this.reportsService
-          .getServicesReport(this.reportQuery)
+          .getServicesReport(this.reportQuery, forceRefresh)
           .pipe(catchError((error) => this.handleTabError<ServicesReportResponse>('services', error))),
       })
         .pipe(
@@ -554,7 +555,7 @@ export class ListReports implements OnInit, OnDestroy {
       return;
     }
 
-    this.getRequestByTab(target)
+    this.getRequestByTab(target, forceRefresh)
       .pipe(
         catchError((error) =>
           this.handleTabError<
@@ -579,18 +580,19 @@ export class ListReports implements OnInit, OnDestroy {
   }
 
   private getRequestByTab(
-    tab: ReportTab
+    tab: ReportTab,
+    forceRefresh = false
   ): Observable<ExecutiveReportResponse | RevenueReportResponse | OccupancyReportResponse | ServicesReportResponse> {
     if (tab === 'executive') {
-      return this.reportsService.getExecutiveReport(this.reportQuery);
+      return this.reportsService.getExecutiveReport(this.reportQuery, forceRefresh);
     }
     if (tab === 'revenue') {
-      return this.reportsService.getRevenueReport(this.reportQuery);
+      return this.reportsService.getRevenueReport(this.reportQuery, forceRefresh);
     }
     if (tab === 'occupancy') {
-      return this.reportsService.getOccupancyReport(this.reportQuery);
+      return this.reportsService.getOccupancyReport(this.reportQuery, forceRefresh);
     }
-    return this.reportsService.getServicesReport(this.reportQuery);
+    return this.reportsService.getServicesReport(this.reportQuery, forceRefresh);
   }
 
   private assignTabData(

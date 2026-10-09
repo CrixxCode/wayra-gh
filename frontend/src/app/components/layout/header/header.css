@@ -165,3 +165,29 @@
     max-width: 48vw;
   }
 }
+
+/* Campana: colores por tokens (5.15). Las utilidades fijas de Tailwind (bg-white,
+   text-gray-800...) dejaban el panel blanco e ilegible en modo oscuro (Bloque 12 #5). */
+.notifications-panel {
+  background: var(--gh-surface);
+  border: 1px solid var(--gh-border);
+  color: var(--gh-text);
+}
+
+.notifications-panel .text-gray-800,
+.notifications-panel .text-\[\#1F2937\] {
+  color: var(--gh-text-strong);
+}
+
+.notifications-panel .text-gray-500 {
+  color: var(--gh-text-soft);
+}
+
+.notifications-panel .border-gray-100,
+.notifications-panel .divide-gray-100 > * {
+  border-color: var(--gh-border-soft);
+}
+
+.notifications-panel .hover\:bg-gray-50:hover {
+  background: var(--gh-surface-soft);
+}

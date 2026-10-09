@@ -127,3 +127,73 @@ class PackageTenantIsolationTests(TestCase):
         ids = set(PackageServiceViewSet().get_base_queryset().values_list("id", flat=True))
         self.assertIn(valid_link.id, ids)
         self.assertNotIn(invalid_link.id, ids)
+
+
+class PackageCreationRulesTests(TestCase):
+    """Auditoria, Bloque 7 #4-#6."""
+
+    def setUp(self):
+        from decimal import Decimal
+
+        from django.contrib.auth import get_user_model
+        from rest_framework.test import APIClient
+
+        from apps.rooms.models import RoomType
+        from apps.services.models import Service
+
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Paquetes Nuevos")
+        service_type = MasterData.objects.update_or_create(
+            group=MasterData.Group.SERVICE_TYPE, code="SPA", defaults={"name": "Spa", "is_active": True}
+        )[0]
+        self.massage = Service.objects.create(
+            hotel_settings=self.hotel, service_type=service_type, name="Masaje",
+            base_price=Decimal("80000.00"), is_active=True,
+        )
+        self.dinner = Service.objects.create(
+            hotel_settings=self.hotel, service_type=service_type, name="Cena",
+            base_price=Decimal("60000.00"), is_active=True,
+        )
+        self.room_type = RoomType.objects.create(
+            hotel_settings=self.hotel, code="STD", name="Estandar", capacity=2, is_active=True
+        )
+        self.api = APIClient()
+        self.api.force_login(
+            get_user_model().objects.create_superuser(
+                username="platform_pk", email="platform_pk@example.com", password="pass12345"
+            )
+        )
+
+    def _payload(self, **extra):
+        return {
+            "hotel_settings": self.hotel.id,
+            "room_type": self.room_type.id,
+            "name": "Relax",
+            "base_price": "120000.00",
+            "is_active": True,
+            **extra,
+        }
+
+    def test_package_and_its_services_are_created_together(self):
+        response = self.api.post(
+            "/api/packages/", self._payload(service_ids=[self.massage.id, self.dinner.id]), format="json"
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        package = Package.objects.get(pk=response.data["id"])
+        self.assertEqual(package.package_services.count(), 2)
+        # 120.000 frente a 140.000 de los servicios sueltos.
+        self.assertEqual(response.data["services_total"], "140000.00")
+
+    def test_package_without_services_is_rejected(self):
+        response = self.api.post("/api/packages/", self._payload(), format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Package.objects.filter(name="Relax").exists())
+
+    def test_invalid_service_rolls_back_the_whole_package(self):
+        response = self.api.post(
+            "/api/packages/", self._payload(service_ids=[self.massage.id, 999999]), format="json"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Package.objects.filter(name="Relax").exists())

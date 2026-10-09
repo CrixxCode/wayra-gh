@@ -615,3 +615,9 @@
     transform: rotate(360deg);
   }
 }
+
+.below-services {
+  display: block;
+  color: var(--gh-status-danger-text);
+  font-size: 0.72rem;
+}

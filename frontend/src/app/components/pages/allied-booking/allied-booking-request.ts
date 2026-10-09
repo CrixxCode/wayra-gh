@@ -65,6 +65,8 @@ export class AlliedBookingRequestPage implements OnInit {
   hotelsLoadError = '';
   saving = false;
   submitError = '';
+  /** Codigo de una reserva ya creada cuya pantalla de confirmacion no cargo. */
+  createdReservationCode = '';
 
   readonly requestForm = this.formBuilder.nonNullable.group({
     guestName: ['', [Validators.required, Validators.minLength(3)]],
@@ -192,7 +194,8 @@ export class AlliedBookingRequestPage implements OnInit {
   }
 
   submitBooking(): void {
-    if (this.saving) {
+    // Ya hay una reserva creada en este formulario: reenviar crearia un duplicado.
+    if (this.saving || this.createdReservationCode) {
       return;
     }
 
@@ -244,14 +247,26 @@ export class AlliedBookingRequestPage implements OnInit {
       .subscribe({
         next: (reservation) => {
           this.saving = false;
-          this.router.navigate(['/reservar/confirmacion', reservation.id], {
-            queryParams: {
-              hotel: reservation.hotel_name,
-              code: reservation.code,
-              checkIn: reservation.expected_check_in,
-              checkOut: reservation.expected_check_out,
-            },
-          });
+          // La reserva ya existe en el servidor. Si la navegacion falla (conexion debil en el
+          // movil), el huesped veia el mismo formulario sin error y reintentaba, creando una
+          // reserva duplicada (auditoria, Bloque 14 #7). Se le muestra su codigo y se bloquea
+          // un segundo envio, como ya hace el paso de tarifas.
+          const showCreated = () => {
+            this.createdReservationCode = reservation.code || String(reservation.id);
+          };
+          this.router
+            .navigate(['/reservar/confirmacion', reservation.id], {
+              queryParams: {
+                hotel: reservation.hotel_name,
+                code: reservation.code,
+                checkIn: reservation.expected_check_in,
+                checkOut: reservation.expected_check_out,
+              },
+            })
+            .then((navigated) => {
+              if (!navigated) showCreated();
+            })
+            .catch(showCreated);
         },
         error: (error) => {
           this.saving = false;

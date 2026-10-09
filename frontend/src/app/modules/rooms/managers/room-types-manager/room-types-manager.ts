@@ -87,7 +87,7 @@ export class RoomTypesManager implements OnInit {
         this.deletedRoomTypes = this.sortTypes(withDeleted.filter((item) => !visibleIds.has(item.id)));
 
         this.rates = rates;
-        this.activeRateByType = this.buildActiveRateMap(rates);
+        this.activeRateByType = this.buildActiveRateMap(rates, [...this.roomTypes, ...this.deletedRoomTypes]);
         this.applyFilters();
       },
       error: () => {
@@ -365,10 +365,18 @@ export class RoomTypesManager implements OnInit {
     return usage;
   }
 
-  private buildActiveRateMap(rates: RateI[]): Map<number, RateI> {
+  /**
+   * Tarifa vigente por tipo: la mas reciente activa **con el mismo tipo de cobro**. Es la
+   * regla del modal de habitacion (`availableRates`); sin el filtro, el gestor anunciaba
+   * una tarifa que ninguna habitacion de ese tipo podia usar (auditoria, Bloque 4 #7).
+   */
+  private buildActiveRateMap(rates: RateI[], roomTypes: RoomTypeI[] = []): Map<number, RateI> {
+    const billingModeByType = new Map(roomTypes.map((type) => [type.id, type.billing_mode || 'ROOM']));
     const map = new Map<number, RateI>();
     for (const rate of rates) {
       if (!rate?.room_type || rate.is_active === false) continue;
+      const typeMode = billingModeByType.get(rate.room_type);
+      if (typeMode && (rate.billing_mode || 'ROOM') !== typeMode) continue;
 
       const existing = map.get(rate.room_type);
       if (!existing) {

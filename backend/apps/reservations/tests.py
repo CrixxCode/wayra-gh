@@ -1768,6 +1768,23 @@ class ReservationApiFlowTestCase(APITestCase):
 
         self.assertTrue({"status", "real_check_in", "real_check_out"} <= readonly)
 
+    def test_missing_item_without_sale_price_blocks_check_out_instead_of_charging_zero(self):
+        # Auditoria, Bloque 6 #7: antes se cobraba $0 en silencio.
+        self.towel_item.sale_price = 0
+        self.towel_item.save(update_fields=["sale_price"])
+        reservation = self._checked_in_paid_reservation()
+
+        response = self.client.post(
+            f"/api/reservations/{reservation.id}/check-out/",
+            data={"inventory_review": [{"room": self.room.id, "item": self.towel_item.id, "quantity": 1}]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Toalla", response.data["detail"])
+        reservation.refresh_from_db()
+        self.assertIsNone(reservation.real_check_out)
+
     def test_check_out_without_inventory_review_is_rejected(self):
         # Auditoria, Bloque 6 #1: omitir la revision ya no da el inventario por cuadrado.
         reservation = self._checked_in_paid_reservation()
@@ -2843,3 +2860,20 @@ class OnlineCheckInPublicApiTests(APITestCase):
         self.assertEqual(unknown_code.status_code, 400)
         self.assertEqual(unknown_code.json(), existing_code.json())
         self.assertEqual(self.reservation.guests.count(), 0)
+
+
+class InventoryEvidenceIsReadOnlyTests(APITestCase):
+    """Auditoria, Bloque 6 #6: la revision de inventario no se edita ni se borra por API."""
+
+    def test_inventory_check_endpoints_reject_writes(self):
+        self.client.force_login(
+            User.objects.create_superuser(
+                username="platform_evidence", email="pe@example.com", password="pass12345"
+            )
+        )
+        for path in ("/api/reservation-inventory-checks/", "/api/reservation-inventory-check-lines/"):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 200)
+                self.assertEqual(self.client.post(path, {}, format="json").status_code, 405)
+                self.assertEqual(self.client.patch(f"{path}1/", {}, format="json").status_code, 405)
+                self.assertEqual(self.client.delete(f"{path}1/").status_code, 405)

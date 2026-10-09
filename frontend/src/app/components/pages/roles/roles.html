@@ -11,12 +11,25 @@
         <i class="fa-solid fa-rotate-right"></i>
         Actualizar
       </button>
+      <button class="btn ghost" (click)="toggleDeleted()">
+        <i class="fa-solid fa-trash-arrow-up"></i>
+        Eliminados
+      </button>
       <button class="btn primary" (click)="openCreateRole()">
         <i class="fa-solid fa-plus"></i>
         Nuevo rol
       </button>
     </div>
   </div>
+
+  <app-deleted-records
+    *ngIf="showDeleted"
+    [title]="'Roles eliminados'"
+    [rows]="deletedRows"
+    [loading]="loadingDeleted"
+    [restoringId]="restoringDeletedId"
+    (restore)="restoreDeleted($event)"
+    (closed)="showDeleted = false"></app-deleted-records>
 
   <section class="stats-grid">
     <article class="stat-card">

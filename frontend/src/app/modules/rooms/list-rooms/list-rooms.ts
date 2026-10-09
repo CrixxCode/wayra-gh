@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, ElementRef, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
+import { DeletedRecordRow, DeletedRecords } from '../../../components/shared/deleted-records/deleted-records';
 import { AuthService, hasResourceScope } from '../../../services/auth/auth';
 import { MotionService } from '../../../services/motion';
 import { CleaningTasksService } from '../../../services/cleaning-task';
@@ -97,7 +98,8 @@ export type BoardColumn = {
     RoomModal,
     RoomCheckModal,
     RoomTypesManager,
-    RatesManager
+    RatesManager,
+    DeletedRecords
   ],
   templateUrl: './list-rooms.html',
   styleUrls: ['./list-rooms.css']
@@ -118,6 +120,15 @@ export class ListRooms implements OnInit, OnDestroy {
   roomTypes: RoomTypeI[] = [];
   amenities: AmenityI[] = [];
   rates: RateI[] = [];
+  /**
+   * Catalogos completos, incluidos los desactivados. Una habitacion conserva el tipo, la
+   * tarifa o la amenidad aunque se desactiven, y con solo los activos se mostraba como "sin
+   * configurar" y perdia la opcion en el modal (auditoria, Bloque 4 #6). Las listas activas
+   * de arriba siguen alimentando el alta y los filtros.
+   */
+  allRoomTypes: RoomTypeI[] = [];
+  allAmenities: AmenityI[] = [];
+  allRates: RateI[] = [];
 
   search = '';
   statusFilter: RoomVisualStatus | 'ALL' = 'ALL';
@@ -471,6 +482,59 @@ export class ListRooms implements OnInit, OnDestroy {
    * repuebla. La carga normal se sirve del cache, que es lo que evita repetir las
    * cinco peticiones cada vez que se entra a la vista.
    */
+  // ------------------------------------------------- habitaciones eliminadas
+
+  /**
+   * `restoreRoom()` existia pero ninguna pantalla lo llamaba: una habitacion eliminada no se
+   * podia recuperar desde la UI (auditoria, Bloque 4 #10).
+   */
+  showDeletedRooms = false;
+  loadingDeletedRooms = false;
+  deletedRoomRows: DeletedRecordRow[] = [];
+  restoringRoomId: string | number | null = null;
+
+  toggleDeletedRooms(): void {
+    this.showDeletedRooms = !this.showDeletedRooms;
+    if (this.showDeletedRooms) this.loadDeletedRooms();
+  }
+
+  loadDeletedRooms(): void {
+    this.loadingDeletedRooms = true;
+    this.roomService.listRooms({ include_deleted: true, forceRefresh: true }).subscribe({
+      next: (all) => {
+        const visibleIds = new Set(this.rooms.map((room) => room.id));
+        this.deletedRoomRows = (all || [])
+          .filter((room) => !visibleIds.has(room.id))
+          .map((room) => ({
+            id: room.id,
+            label: `Habitacion ${room.number}`,
+            detail: room.floor_name || ''
+          }));
+        this.loadingDeletedRooms = false;
+      },
+      error: () => {
+        this.loadingDeletedRooms = false;
+        this.deletedRoomRows = [];
+      }
+    });
+  }
+
+  restoreDeletedRoom(id: string | number): void {
+    this.restoringRoomId = id;
+    this.roomService.restoreRoom(Number(id)).subscribe({
+      next: () => {
+        this.restoringRoomId = null;
+        this.loadModuleData(true);
+        this.deletedRoomRows = this.deletedRoomRows.filter((row) => row.id !== id);
+      },
+      error: (error) => {
+        this.restoringRoomId = null;
+        // El backend explica por que (p. ej. otra habitacion viva ya usa ese numero).
+        this.errorMessage = String(error?.error?.detail || 'No se pudo restaurar la habitacion.');
+      }
+    });
+  }
+
   loadModuleData(forceRefresh = false): void {
     this.loading = true;
     this.errorMessage = '';
@@ -481,18 +545,27 @@ export class ListRooms implements OnInit, OnDestroy {
 
     forkJoin({
       rooms: this.roomService.listRooms({ forceRefresh }).pipe(catchError(() => of([] as RoomI[]))),
-      roomTypes: this.roomService.listRoomTypes().pipe(catchError(() => of([] as RoomTypeI[]))),
-      amenities: this.roomService.listAmenities().pipe(catchError(() => of([] as AmenityI[]))),
+      roomTypes: this.roomService
+        .listRoomTypes({ include_inactive: true })
+        .pipe(catchError(() => of([] as RoomTypeI[]))),
+      amenities: this.roomService
+        .listAmenities({ include_inactive: true })
+        .pipe(catchError(() => of([] as AmenityI[]))),
       floors: this.roomService.listFloors().pipe(catchError(() => of([] as HotelFloorI[]))),
-      rates: this.roomService.listRates().pipe(catchError(() => of([] as RateI[])))
+      rates: this.roomService
+        .listRates({ include_inactive: true })
+        .pipe(catchError(() => of([] as RateI[])))
     }).subscribe({
       next: ({ rooms, roomTypes, amenities, floors, rates }) => {
         this.loading = false;
         this.rooms = rooms;
-        this.roomTypes = roomTypes;
-        this.amenities = amenities;
+        this.allRoomTypes = roomTypes;
+        this.allAmenities = amenities;
+        this.allRates = rates;
+        this.roomTypes = roomTypes.filter((item) => item.is_active !== false);
+        this.amenities = amenities.filter((item) => item.is_active !== false);
         this.floors = floors;
-        this.rates = rates;
+        this.rates = rates.filter((item) => item.is_active !== false);
         this.buildMaps();
         this.applyFilters();
         this.syncSelectedRoom();
@@ -1063,8 +1136,8 @@ export class ListRooms implements OnInit, OnDestroy {
   // ---------------------------------------------------------------- privados
 
   private buildMaps(): void {
-    this.roomTypeMap = new Map(this.roomTypes.map((roomType) => [roomType.id, roomType]));
-    this.rateMap = new Map(this.rates.map((rate) => [rate.id, rate]));
+    this.roomTypeMap = new Map(this.allRoomTypes.map((roomType) => [roomType.id, roomType]));
+    this.rateMap = new Map(this.allRates.map((rate) => [rate.id, rate]));
   }
 
   private mergeRoom(updatedRoom: RoomI): void {

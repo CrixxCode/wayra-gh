@@ -324,6 +324,14 @@ class InvoiceSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
 
+        # El estado de una factura lo calculan sus pagos (`sync_invoice_status`); a mano
+        # cualquiera con `invoices.write` la ponia PAGADA sin un peso cobrado (Bloque 8 #7).
+        # Anularla tiene su propia accion, con sus reglas.
+        if self.instance is not None and "status" in attrs and attrs["status"] != self.instance.status:
+            raise serializers.ValidationError(
+                {"status": "El estado de la factura no se edita: lo calculan sus pagos. Para anularla usa Anular."}
+            )
+
         user = _get_serializer_user(self)
         reservation = attrs.get("reservation", getattr(self.instance, "reservation", None))
 

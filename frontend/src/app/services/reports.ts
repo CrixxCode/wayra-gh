@@ -41,7 +41,7 @@ export class ReportsService {
     return entries.length ? `${base}:${entries.join('&')}` : base;
   }
 
-  getExecutiveReport(params?: ReportQueryParams): Observable<ExecutiveReportResponse> {
+  getExecutiveReport(params?: ReportQueryParams, forceRefresh = false): Observable<ExecutiveReportResponse> {
     return this.cache.get(
       this.cacheKey('executive', params as Record<string, unknown>),
       () =>
@@ -49,11 +49,12 @@ export class ReportsService {
           withCredentials: true,
           params: this.buildParams(params),
         }),
-      CACHE_TTL.OPERATIONAL
+      CACHE_TTL.OPERATIONAL,
+      forceRefresh
     );
   }
 
-  getRevenueReport(params?: ReportQueryParams): Observable<RevenueReportResponse> {
+  getRevenueReport(params?: ReportQueryParams, forceRefresh = false): Observable<RevenueReportResponse> {
     return this.cache.get(
       this.cacheKey('revenue', params as Record<string, unknown>),
       () =>
@@ -61,11 +62,12 @@ export class ReportsService {
           withCredentials: true,
           params: this.buildParams(params),
         }),
-      CACHE_TTL.OPERATIONAL
+      CACHE_TTL.OPERATIONAL,
+      forceRefresh
     );
   }
 
-  getOccupancyReport(params?: ReportQueryParams): Observable<OccupancyReportResponse> {
+  getOccupancyReport(params?: ReportQueryParams, forceRefresh = false): Observable<OccupancyReportResponse> {
     return this.cache.get(
       this.cacheKey('occupancy', params as Record<string, unknown>),
       () =>
@@ -73,11 +75,12 @@ export class ReportsService {
           withCredentials: true,
           params: this.buildParams(params),
         }),
-      CACHE_TTL.OPERATIONAL
+      CACHE_TTL.OPERATIONAL,
+      forceRefresh
     );
   }
 
-  getServicesReport(params?: ReportQueryParams): Observable<ServicesReportResponse> {
+  getServicesReport(params?: ReportQueryParams, forceRefresh = false): Observable<ServicesReportResponse> {
     return this.cache.get(
       this.cacheKey('services', params as Record<string, unknown>),
       () =>
@@ -85,7 +88,8 @@ export class ReportsService {
           withCredentials: true,
           params: this.buildParams(params),
         }),
-      CACHE_TTL.OPERATIONAL
+      CACHE_TTL.OPERATIONAL,
+      forceRefresh
     );
   }
 

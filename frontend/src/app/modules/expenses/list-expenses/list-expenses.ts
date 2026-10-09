@@ -391,6 +391,9 @@ export class ListExpenses implements OnInit, OnChanges, OnDestroy {
   onExpenseCreated(_: ExpenseI): void {
     this.showCreateDrawer = false;
     this.refreshExpensesData();
+    // El resumen "Resultado" del contenedor quedaba con las cifras viejas hasta pulsar
+    // Actualizar (auditoria, Bloque 9 #3).
+    this.changed.emit();
   }
 
   openDetail(expense: ExpenseI): void {
@@ -403,6 +406,7 @@ export class ListExpenses implements OnInit, OnChanges, OnDestroy {
   }
 
   onExpenseUpdated(updatedExpense: ExpenseI): void {
+    this.changed.emit();
     const index = this.expenses.findIndex((expense) => expense.id === updatedExpense.id);
     if (index >= 0) {
       this.expenses[index] = updatedExpense;
