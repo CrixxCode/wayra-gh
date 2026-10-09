@@ -9,7 +9,7 @@
 > sección [12. Registro de cambios](#12-registro-de-cambios), siguiendo el formato indicado en
 > [11. Cómo registrar un cambio](#11-cómo-registrar-un-cambio).
 
-**Última actualización:** 2026-10-07
+**Última actualización:** 2026-10-08
 **Rama principal:** `main`
 **Repositorio:** https://github.com/CrixxCode/gestion_hotelera
 
@@ -1281,6 +1281,16 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-10-08 — Guia visual de operaciones
+
+- **Autor:** Codex, a solicitud del usuario
+- **Commit(s):** _(pendiente)_
+- **Tipo:** docs
+- **Qué se hizo:** se agrego `docs/GUIA_VISUAL_OPERACIONES.md` como guia de usuario orientada a capturas reales tomadas del frontend local, con imagenes por operacion diaria: ingreso, dashboard, clientes, reservas, check-in, habitaciones, check-out, facturacion, inventario, limpieza, mantenimiento, finanzas, reportes y administracion. Tambien se creo `docs/imagenes/guia-operaciones/README.md` con la convencion y lista base de capturas.
+- **Por qué:** se necesitaba una guia mayoritariamente visual para explicar como ejecutar operaciones dentro del sistema sin repetir el manual de usuario textual.
+- **Archivos/áreas afectadas:** `docs/GUIA_VISUAL_OPERACIONES.md`, `docs/imagenes/guia-operaciones/README.md`, `AGENTS.md`.
+- **Impacto:** documentacion nueva; sin migraciones, variables de entorno, cambios de API ni recursos RBAC.
 
 ### 2026-10-07 — Auditoría, Nivel 3: nueve bloqueos operativos
 
