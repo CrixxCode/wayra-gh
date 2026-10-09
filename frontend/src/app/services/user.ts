@@ -177,16 +177,6 @@ export class UserService {
     return this.http.delete<void>(`${this.usersUrl}${id}/`, this.buildGlobalUserActionOptions());
   }
 
-  /** Elimina logicamente un usuario (por ejemplo, desactiva el estado) */
-  deleteUserLogic(id: number | string): Observable<UserI> {
-    // Supone que el backend permite PATCH a /api/users/:id/ con {"is_active": false}
-    const body = { is_active: false }; // o { status: 'INACTIVE' } segun tu modelo
-    return this.http.patch<UserI>(
-      `${this.usersUrl}${id}/`,
-      body,
-      this.buildGlobalUserActionOptions()
-    );
-  }
 
   restoreUser(id: number | string): Observable<UserI> {
     return this.http.post<UserI>(

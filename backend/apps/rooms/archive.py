@@ -61,3 +61,30 @@ def archive_rooms(rooms) -> None:
     content_type = ContentType.objects.get_for_model(Room)
     for room in rooms:
         SoftDeleteMarker.objects.get_or_create(content_type=content_type, object_id=str(room.pk))
+
+
+def ensure_catalog_not_in_use(instance, *, field: str, label: str) -> None:
+    """
+    Frena el borrado logico de un tipo de habitacion o una tarifa que usan habitaciones vivas.
+
+    El borrado logico nunca dispara el `PROTECT` del FK, asi que antes el tipo o la tarifa
+    "desaparecian" de los selectores mientras las habitaciones seguian apuntandoles, y el setup
+    seguia contandolas como configuradas (auditoria, Bloque 4 #3).
+    """
+    from accounts.soft_delete import exclude_soft_deleted
+
+    numbers = list(
+        exclude_soft_deleted(Room.objects.filter(**{field: instance}))
+        .order_by("number")
+        .values_list("number", flat=True)[:6]
+    )
+    if numbers:
+        shown = ", ".join(numbers[:5]) + (" y otras" if len(numbers) > 5 else "")
+        raise ValidationError(
+            {
+                field: (
+                    f"No se puede eliminar {label}: la usan las habitaciones {shown}. "
+                    "Asignales otro primero, o desactivalo si solo quieres dejar de ofrecerlo."
+                )
+            }
+        )

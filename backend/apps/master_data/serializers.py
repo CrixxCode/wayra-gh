@@ -33,6 +33,16 @@ class MasterDataSerializer(serializers.ModelSerializer):
         group = str(value or "").strip().upper()
         if not group:
             raise serializers.ValidationError("El grupo es obligatorio.")
+        # El codigo consume cada grupo por su nombre literal (`'CLEANING_TASK_TYPE'`...): un
+        # grupo inventado, o un typo como `PAYMENT_METHODS`, se guardaba sin error y ninguna
+        # pantalla lo mostraba nunca (auditoria, Bloque 3 #3). Solo se aceptan los conocidos;
+        # un grupo nuevo de verdad nace en `MasterData.Group`, junto al codigo que lo usa.
+        known_groups = set(MasterData.Group.values)
+        current_group = getattr(self.instance, "group", None)
+        if group not in known_groups and group != current_group:
+            raise serializers.ValidationError(
+                f"El grupo '{group}' no existe. Elige uno de los grupos del catalogo."
+            )
         return group
 
     def validate_code(self, value):

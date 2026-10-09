@@ -18,6 +18,7 @@ from accounts.soft_delete import LogicalDeleteViewSetMixin
 from accounts.tenancy import is_effective_global_admin, scope_queryset_to_hotel
 from apps.billing.models import Payment
 from apps.inventory.services import apply_checkout_consumption_inventory
+from apps.rooms.models import Room
 from apps.reservations.models import (
     Reservation,
     ReservationInventoryCheck,
@@ -62,6 +63,8 @@ from apps.reservations.services import (
     create_post_checkout_cleaning_tasks,
     describe_checkout_expected_inventory,
     find_in_house_reservation_room,
+    find_overlapping_reservation_room,
+    sync_room_status_for_room_ids,
     get_reservation_check_in_start_datetime,
     get_cancelled_reservation_status,
     get_confirmed_reservation_status,
@@ -77,6 +80,20 @@ from apps.reservations.services import (
     validate_reservation_status_transition,
     validate_checkout_inventory_review_payload,
 )
+
+
+def _lock_rooms(room_ids) -> None:
+    """
+    Bloquea las filas de las habitaciones antes de validar el solapamiento de fechas.
+
+    La validacion (`find_overlapping_reservation_room`) es un SELECT sin lock: dos peticiones
+    simultaneas pasaban las dos y la misma habitacion quedaba reservada dos veces en fechas
+    superpuestas (auditoria, Bloque 6 #4). Con la fila bloqueada, la segunda espera y ve la
+    reserva de la primera. Solo tiene efecto real en PostgreSQL.
+    """
+    ids = sorted({int(room_id) for room_id in room_ids if str(room_id or "").isdigit()})
+    if ids:
+        list(Room.objects.select_for_update().filter(id__in=ids).values_list("id", flat=True))
 
 
 class ReservationPagination(PageNumberPagination):
@@ -260,6 +277,40 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        with transaction.atomic():
+            instance = self.get_object()
+            _lock_rooms(instance.rooms_detail.values_list("room_id", flat=True))
+            return super().update(request, *args, **kwargs)
+
+    def perform_destroy(self, instance):
+        room_ids = list(instance.rooms_detail.values_list("room_id", flat=True))
+        super().perform_destroy(instance)
+        # Eliminada, la reserva deja de contar para el estado de sus habitaciones (Bloque 6 #3).
+        sync_room_status_for_room_ids(room_ids)
+
+    @action(detail=True, methods=["post"], url_path="restore")
+    def restore(self, request, *args, **kwargs):
+        with transaction.atomic():
+            reservation = self._get_restore_object()
+            room_lines = list(reservation.rooms_detail.select_related("room"))
+            _lock_rooms([line.room_id for line in room_lines])
+            for line in room_lines:
+                conflict = find_overlapping_reservation_room(
+                    room_id=line.room_id,
+                    expected_check_in=reservation.expected_check_in,
+                    expected_check_out=reservation.expected_check_out,
+                    exclude_reservation_id=reservation.id,
+                )
+                if conflict:
+                    return self._error(
+                        f"No se puede restaurar: la habitacion {line.room.number} ya esta "
+                        f"reservada en esas fechas (reserva {conflict.reservation.code})."
+                    )
+            response = super().restore(request, *args, **kwargs)
+        sync_room_status_for_room_ids(reservation.rooms_detail.values_list("room_id", flat=True))
+        return response
 
     @staticmethod
     def _normalize_code(value) -> str:
@@ -733,6 +784,22 @@ class ReservationRoomViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
     def get_permissions(self):
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
+
+    def create(self, request, *args, **kwargs):
+        with transaction.atomic():
+            _lock_rooms([request.data.get("room")])
+            return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        with transaction.atomic():
+            instance = self.get_object()
+            _lock_rooms([instance.room_id, request.data.get("room")])
+            return super().update(request, *args, **kwargs)
+
+    def perform_destroy(self, instance):
+        room_id = instance.room_id
+        super().perform_destroy(instance)
+        sync_room_status_for_room_ids([room_id])
 
 class ReservationGuestViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
     queryset = ReservationGuest.objects.all()

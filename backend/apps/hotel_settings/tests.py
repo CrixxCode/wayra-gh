@@ -577,6 +577,33 @@ class HotelSettingsTenantIsolationTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(SoftDeleteMarker.objects.filter(object_id=str(floor.pk)).exists())
 
+    def test_restoring_a_floor_brings_back_the_rooms_deleted_with_it(self):
+        # Auditoria, Bloque 2 #5: antes el piso volvia vacio.
+        from datetime import timedelta
+
+        from django.contrib.contenttypes.models import ContentType
+
+        floor, rooms = self._floor_with_rooms(3)
+        room_type = ContentType.objects.get_for_model(Room)
+        # Una habitacion archivada por su cuenta, mucho antes que el piso: no debe volver.
+        SoftDeleteMarker.objects.create(content_type=room_type, object_id=str(rooms[2].pk))
+        SoftDeleteMarker.objects.filter(object_id=str(rooms[2].pk), content_type=room_type).update(
+            deleted_at=timezone.now() - timedelta(days=3)
+        )
+
+        self.assertEqual(self.client.delete(f"/api/hotel-floors/{floor.id}/").status_code, 204)
+        response = self.client.post(f"/api/hotel-floors/{floor.id}/restore/")
+
+        self.assertEqual(response.status_code, 200, getattr(response, "data", None))
+        archived = set(
+            SoftDeleteMarker.objects.filter(content_type=room_type).values_list("object_id", flat=True)
+        )
+        self.assertNotIn(str(rooms[0].pk), archived)
+        self.assertNotIn(str(rooms[1].pk), archived)
+        self.assertIn(str(rooms[2].pk), archived)
+        floor.refresh_from_db()
+        self.assertEqual(floor.room_count, 2)
+
     def test_by_settings_respects_tenant_scope(self):
         HotelFloor.objects.create(
             hotel_settings=self.hotel_a,

@@ -785,25 +785,27 @@ def notify_user_role_updated(
         f"El rol de {getattr(user, 'username', '--')} fue {action_label}: "
         f"{str(role_name or 'Sin rol')}."
     )
-    recipients = list(
+    managers = list(
         _get_hotel_users_by_roles(
             hotel_settings=hotel_settings,
             role_slugs=DEFAULT_MANAGER_ROLE_SLUGS,
         )
     )
-    if getattr(user, "is_active", False):
-        recipients.append(user)
-
-    return notify_users(
-        recipients,
-        hotel_settings=hotel_settings,
-        title="Rol de usuario actualizado",
-        message=message,
-        notification_type=Notification.NotificationType.USER,
-        priority=Notification.Priority.HIGH,
-        action_url="/roles",
-        related_object=user,
-    )
+    common = {
+        "hotel_settings": hotel_settings,
+        "title": "Rol de usuario actualizado",
+        "message": message,
+        "notification_type": Notification.NotificationType.USER,
+        "priority": Notification.Priority.HIGH,
+        "related_object": user,
+    }
+    # Antes todos iban a `/roles`, que es solo de plataforma: el propio afectado y los
+    # gerentes del hotel caian en un 403 al abrirla (auditoria, Bloque 12 #2).
+    created = notify_users(managers, action_url="/usuarios-hotel", **common)
+    manager_ids = {manager.pk for manager in managers}
+    if getattr(user, "is_active", False) and user.pk not in manager_ids:
+        created += notify_users([user], action_url="/mi-perfil", **common)
+    return created
 
 
 def notify_expense_registered(expense) -> list[Notification]:

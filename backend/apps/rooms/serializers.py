@@ -260,6 +260,12 @@ class RateSerializer(TenantSerializerMixin, serializers.ModelSerializer):
                 "room_type": "El tipo de habitacion es obligatorio."
             })
 
+        # La reserva recorta a 0 un precio negativo: la UI mostraba "-50.00" y la factura
+        # cobraba 0 (auditoria, Bloque 4 #5).
+        price = attrs.get("price", getattr(self.instance, "price", None))
+        if price is not None and price < 0:
+            raise serializers.ValidationError({"price": "El precio de la tarifa no puede ser negativo."})
+
         self.validate_same_tenant(room_type, "hotel_settings", "room_type", attrs)
 
         start_date = attrs.get("start_date", getattr(self.instance, "start_date", None))

@@ -1505,3 +1505,163 @@ class ViewSetMixinOrderTests(TestCase):
         walk(get_resolver().url_patterns)
 
         self.assertEqual(sorted(offenders), [], "Orden de mixins invertido")
+
+
+class UserLogicalDeleteTests(APITestCase):
+    """Auditoria, Bloque 1 #3: eliminar un usuario es borrado logico real, y se restaura."""
+
+    def setUp(self):
+        self.hotel = create_configured_hotel(hotel_name="Hotel Usuarios")
+        role = Role.objects.create(name="Admin usuarios", slug="admin-usuarios-b1")
+        for key in ("users.read", "users.write", "users.read_deleted"):
+            role.resources.add(Resource.objects.create(key=key, name=key))
+        self.admin = User.objects.create_user(
+            username="admin_b1", email="admin_b1@example.com", password="pass12345",
+            hotel_settings=self.hotel,
+        )
+        self.admin.roles.add(role)
+        self.target = User.objects.create_user(
+            username="objetivo_b1", email="objetivo_b1@example.com", password="pass12345",
+            hotel_settings=self.hotel,
+        )
+        self.client.force_login(self.admin)
+
+    def _usernames(self, **params):
+        response = self.client.get("/api/users/", params)
+        rows = response.data.get("results", response.data) if isinstance(response.data, dict) else response.data
+        return {row["username"] for row in rows}
+
+    def test_deleted_user_leaves_the_list_and_can_be_restored(self):
+        self.assertEqual(self.client.delete(f"/api/users/{self.target.pk}/").status_code, 204)
+
+        self.assertNotIn("objetivo_b1", self._usernames())
+        self.assertIn("objetivo_b1", self._usernames(include_deleted="true"))
+
+        restored = self.client.post(f"/api/users/{self.target.pk}/restore/")
+        self.assertEqual(restored.status_code, 200, restored.data)
+        self.assertIn("objetivo_b1", self._usernames())
+
+    def test_deleted_user_cannot_log_in(self):
+        self.client.delete(f"/api/users/{self.target.pk}/")
+        self.client.logout()
+
+        response = self.client.post(
+            "/api/auth/login/", {"username": "objetivo_b1", "password": "pass12345"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 401)
+
+
+class UserUpdateKeepsExtraRolesTests(APITestCase):
+    """Bloque 1 #4: editar un usuario no le quita en silencio sus roles adicionales."""
+
+    def setUp(self):
+        self.hotel = create_configured_hotel(hotel_name="Hotel Roles")
+        self.primary = Role.objects.create(name="Recepcion", slug="recepcion-b1")
+        self.extra = Role.objects.create(name="Caja", slug="caja-b1")
+        JobTitle.objects.create(role=self.primary, name="Recepcionista", slug="recepcionista")
+        self.target = User.objects.create_user(
+            username="dos_roles", email="dos_roles@example.com", password="pass12345",
+            hotel_settings=self.hotel,
+        )
+        UserRole.objects.create(user=self.target, role=self.primary, is_active=True)
+        UserRole.objects.create(user=self.target, role=self.extra, is_active=True)
+        self.client.force_login(
+            User.objects.create_superuser(
+                username="platform_b1", email="platform_b1@example.com", password="pass12345"
+            )
+        )
+
+    def _active_roles(self):
+        return set(
+            UserRole.objects.filter(user=self.target, is_active=True).values_list("role__slug", flat=True)
+        )
+
+    def test_resending_a_role_the_user_already_has_keeps_the_others(self):
+        response = self.client.patch(
+            f"/api/users/{self.target.pk}/",
+            {"email": "nuevo_correo@example.com", "role": str(self.primary.pk)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(self._active_roles(), {"recepcion-b1", "caja-b1"})
+
+
+class ResourceParentCycleTests(APITestCase):
+    """Bloque 1 #5: el menu no admite ciclos de padres."""
+
+    def setUp(self):
+        self.client.force_login(
+            User.objects.create_superuser(
+                username="platform_menu", email="platform_menu@example.com", password="pass12345"
+            )
+        )
+        self.group = Resource.objects.create(key="grupo.menu", name="Grupo", is_menu=True)
+        self.child = Resource.objects.create(
+            key="hijo.menu", name="Hijo", is_menu=True, parent=self.group
+        )
+
+    def test_parent_cannot_close_a_cycle(self):
+        response = self.client.patch(
+            f"/api/resources/{self.group.pk}/", {"parent": str(self.child.pk)}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.group.refresh_from_db()
+        self.assertIsNone(self.group.parent_id)
+
+    def test_resource_cannot_be_its_own_parent(self):
+        response = self.client.patch(
+            f"/api/resources/{self.group.pk}/", {"parent": str(self.group.pk)}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+
+class JobTitleManagementTests(APITestCase):
+    """Bloque 1 #6: los cargos de un rol se pueden crear, renombrar y desactivar."""
+
+    def setUp(self):
+        self.role = Role.objects.create(name="Mantenimiento", slug="mantenimiento-b1")
+        self.url = f"/api/roles/{self.role.pk}/job-titles/"
+        self.client.force_login(
+            User.objects.create_superuser(
+                username="platform_jobs", email="platform_jobs@example.com", password="pass12345"
+            )
+        )
+
+    def test_create_rename_and_deactivate_a_job_title(self):
+        created = self.client.post(self.url, {"name": "Tecnico electrico"}, format="json")
+        self.assertEqual(created.status_code, 201, created.data)
+        job_title_id = created.data["id"]
+
+        duplicate = self.client.post(self.url, {"name": "Tecnico electrico"}, format="json")
+        self.assertEqual(duplicate.status_code, 400)
+
+        renamed = self.client.patch(f"{self.url}{job_title_id}/", {"name": "Electricista"}, format="json")
+        self.assertEqual(renamed.status_code, 200, renamed.data)
+        self.assertEqual(renamed.data["slug"], "electricista")
+
+        deactivated = self.client.patch(f"{self.url}{job_title_id}/", {"is_active": False}, format="json")
+        self.assertEqual(deactivated.status_code, 200, deactivated.data)
+
+        self.assertEqual(self.client.get(self.url).data, [])
+        everything = self.client.get(self.url, {"include_inactive": "true"}).data
+        self.assertEqual([row["name"] for row in everything], ["Electricista"])
+
+    def test_managing_job_titles_requires_roles_write(self):
+        hotel = create_configured_hotel(hotel_name="Hotel Cargos")
+        reader_role = Role.objects.create(name="Solo lectura", slug="solo-lectura-b1")
+        reader_role.resources.add(Resource.objects.create(key="roles.read", name="roles.read"))
+        reader = User.objects.create_user(
+            username="lector_cargos", email="lector_cargos@example.com", password="pass12345",
+            hotel_settings=hotel,
+        )
+        reader.roles.add(reader_role)
+        self.client.force_login(reader)
+
+        response = self.client.post(self.url, {"name": "Intruso"}, format="json")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(JobTitle.objects.filter(name="Intruso").exists())

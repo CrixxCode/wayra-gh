@@ -50,3 +50,14 @@ class RetiredMasterDataGroupsTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 201, response.data)
+
+    def test_unknown_group_is_rejected(self):
+        # Bloque 3 #3: un typo creaba un grupo huerfano sin error.
+        response = self.client.post(
+            "/api/master-data/",
+            {"group": "PAYMENT_METHODS_TYPO", "code": "X", "name": "X"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("group", response.json().get("errors", {}))

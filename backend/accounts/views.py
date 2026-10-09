@@ -27,7 +27,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from accounts.pagination import OptionalPageNumberPagination
 from accounts.permissions import HasResourcePermission
 from accounts.audit import AuditLog
-from accounts.soft_delete import LogicalDeleteViewSetMixin
+from accounts.soft_delete import LogicalDeleteViewSetMixin, exclude_soft_deleted, is_soft_deleted
 from accounts.tenancy import is_effective_global_admin, scope_queryset_to_hotel
 from accounts.role_assignment import assignable_roles_for_actor
 
@@ -138,7 +138,9 @@ class SessionLoginView(APIView):
             return Response({"detail": "Faltan credenciales."}, status=status.HTTP_400_BAD_REQUEST)
 
         user = authenticate(request, username=username, password=password)
-        if not user:
+        # Un usuario eliminado (borrado logico, 5.5) responde igual que unas credenciales
+        # malas: ni entra ni revela que la cuenta existio.
+        if not user or is_soft_deleted(user):
             return Response({"detail": "Credenciales inválidas."}, status=status.HTTP_401_UNAUTHORIZED)
         if not user.is_active:
             return Response({"detail": "Usuario inactivo."}, status=status.HTTP_403_FORBIDDEN)
@@ -297,6 +299,12 @@ class UserViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
 
         if not user.is_authenticated:
             return User.objects.none()
+
+        # Esta vista no pasa por `LogicalDeleteViewSetMixin.get_queryset()`, asi que el borrado
+        # logico se aplica aqui. Solo ese: un usuario inactivo se sigue listando, porque su
+        # estado se administra desde la misma pantalla.
+        if not self._should_include_deleted():
+            qs = exclude_soft_deleted(qs)
 
         if is_effective_global_admin(user):
             scope = (self.request.query_params.get("scope") or "").strip().lower()
@@ -465,7 +473,7 @@ class RoleViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = Role.objects.all()
-        if getattr(self, "action", "") in {"list", "job_titles"}:
+        if getattr(self, "action", "") in {"list", "job_titles", "job_title_detail"}:
             force_hotel_context = (
                 (self.request.query_params.get("assign_context") or "").strip().lower()
                 == "hotel"
@@ -540,15 +548,42 @@ class RoleViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
 
         return Response(JobTitleSerializer(job_titles, many=True).data, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=["get"], url_path="job-titles")
+    @action(detail=True, methods=["get", "post"], url_path="job-titles")
     def job_titles(self, request, pk=None):
         """
-        GET /api/roles/<id>/job-titles/
-        Devuelve los cargos disponibles para ese rol.
+        GET /api/roles/<id>/job-titles/ — cargos activos del rol (`?include_inactive=true`
+        para todos). POST — crea un cargo. El cargo es obligatorio al crear un usuario, y antes
+        no habia forma de darlo de alta: un rol nuevo bloqueaba el alta de usuarios (auditoria,
+        Bloque 1 #6).
         """
         role = self.get_object()
-        qs = role.job_titles.filter(is_active=True).order_by("sort_order", "name")
+        if request.method == "POST":
+            serializer = JobTitleSerializer(data=request.data, context={"role": role})
+            serializer.is_valid(raise_exception=True)
+            job_title = serializer.save(role=role)
+            return Response(JobTitleSerializer(job_title).data, status=status.HTTP_201_CREATED)
+
+        qs = role.job_titles.order_by("sort_order", "name")
+        if str(request.query_params.get("include_inactive") or "").lower() not in {"1", "true"}:
+            qs = qs.filter(is_active=True)
         return Response(JobTitleSerializer(qs, many=True).data, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=["patch"],
+        url_path=r"job-titles/(?P<job_title_id>[0-9a-f-]+)",
+        url_name="job-title-detail",
+    )
+    def job_title_detail(self, request, pk=None, job_title_id=None):
+        """PATCH — renombra, reordena o desactiva un cargo. No se borra: lo nombran usuarios."""
+        role = self.get_object()
+        job_title = get_object_or_404(role.job_titles.all(), pk=job_title_id)
+        serializer = JobTitleSerializer(
+            job_title, data=request.data, partial=True, context={"role": role}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["get"], url_path="users")
     def users(self, request, pk=None):

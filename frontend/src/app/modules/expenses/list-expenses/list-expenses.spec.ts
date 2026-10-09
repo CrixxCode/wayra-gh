@@ -266,6 +266,9 @@ describe('ListExpenses', () => {
   });
 
   describe('el orden', () => {
+    // Estas pruebas miran el orden, no el periodo: con el filtro por defecto (mes en curso),
+    // `daysAgo(n)` cae en el mes anterior los primeros dias de cada mes y el CI daba rojo
+    // segun la fecha en que corriera. Se abre el periodo completo antes de ordenar.
     it('por defecto ensena lo mas reciente primero', async () => {
       await setup({
         expenses: [
@@ -273,6 +276,7 @@ describe('ListExpenses', () => {
           expense(2, 900, { expense_date: today() })
         ]
       });
+      component.showAllPeriods();
 
       expect(component.filteredExpenses.map((item) => item.id)).toEqual([2, 1]);
     });
@@ -285,6 +289,7 @@ describe('ListExpenses', () => {
           expense(3, 500, { expense_date: daysAgo(1) })
         ]
       });
+      component.showAllPeriods();
 
       component.sortBy = 'AMOUNT_DESC';
       component.applyFilters();
@@ -304,6 +309,7 @@ describe('ListExpenses', () => {
           expense(2, 900, { expense_date: daysAgo(5) })
         ]
       });
+      component.showAllPeriods();
 
       component.sortBy = 'DATE_ASC';
       component.applyFilters();

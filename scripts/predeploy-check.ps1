@@ -29,8 +29,17 @@ if ($status) {
 Write-Host "Running backend tests..."
 Push-Location backend
 try {
-    Invoke-CheckedNativeCommand -Executable "..\env\Scripts\python.exe" -Arguments @("manage.py", "test")
-    Invoke-CheckedNativeCommand -Executable "..\env\Scripts\python.exe" -Arguments @("manage.py", "spectacular", "--file", "schema.yml", "--validate")
+    # El entorno del proyecto vive en backend/.venv (seccion 8 de AGENTS.md); `env` y
+    # `..\env` quedan como respaldo para entornos creados con la guia anterior.
+    $python = @(".venv\Scripts\python.exe", "env\Scripts\python.exe", "..\env\Scripts\python.exe") |
+        Where-Object { Test-Path $_ } |
+        Select-Object -First 1
+    if (-not $python) {
+        Write-Error "No se encontro el entorno virtual del backend (backend\.venv)."
+        exit 1
+    }
+    Invoke-CheckedNativeCommand -Executable $python -Arguments @("manage.py", "test")
+    Invoke-CheckedNativeCommand -Executable $python -Arguments @("manage.py", "spectacular", "--file", "schema.yml", "--validate")
 }
 finally {
     Pop-Location

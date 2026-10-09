@@ -309,8 +309,14 @@ trata distinto.
 **Query params soportados:** `?include_inactive=true` (incluye inactivos) y `?include_deleted=true`
 (incluye eliminados, requiere scope `*.read_deleted`).
 
-**Detalle técnico:** el filtrado castea la PK a texto (`Cast("pk", CharField())`) para que funcione
-tanto con PKs enteras como con UUID.
+**Detalle técnico:** el filtrado vive en `accounts.soft_delete.exclude_soft_deleted()` y castea la
+PK a texto. Con **PK UUID** compara además ambas formas sin guiones: PostgreSQL castea un uuid con
+guiones (como lo guarda el marcador), pero SQLite lo guarda como 32 hex sin ellos, y hasta el
+2026-10-07 en desarrollo y CI los usuarios, roles y recursos eliminados se seguían listando. Para
+filtrar por una relación (`reservation_id__in=…`) usar `soft_deleted_ids(Modelo)`, y para un objeto
+suelto `is_soft_deleted(obj)`. **Las consultas de servicio usan el manager crudo**: si una regla de
+negocio no debe contar registros eliminados (disponibilidad, estado de habitación, catálogo de
+promociones…), tiene que excluirlos explícitamente.
 
 **Caso especial — `HotelSettings.is_active`:** desde el 2026-08-18, `is_active=False` en el hotel
 tiene una consecuencia real de acceso: bloquea el login y toda petición API de **todos** los usuarios
@@ -1004,6 +1010,10 @@ freno vive en `apps/rooms/archive.py` y lo usan **todos** los caminos que archiv
 hotel. Valida todas las habitaciones antes de archivar ninguna, así un piso no queda borrado a
 medias. Hasta el 2026-10-07 solo lo aplicaba `RoomViewSet`.
 
+El mismo módulo frena borrar un **tipo de habitación o una tarifa** que usan habitaciones vivas
+(`ensure_catalog_not_in_use`): el borrado lógico nunca dispara el `PROTECT` del FK, y la habitación
+quedaba apuntando a un catálogo que ya no aparece en ningún selector.
+
 **El estado de una habitación a mano no puede contradecir a una reserva.** Con un huésped alojado
 (check-in sin check-out, `find_in_house_reservation_room`) el estado no se edita: lo mueve el
 check-out. Y el check-in comprueba esa misma ocupación real, no solo `Room.status`, que es un
@@ -1182,8 +1192,8 @@ como en `apps.rooms`. Es una duplicación conocida — ver [deuda técnica](#13-
 
 ```bash
 cd backend
-python -m venv env
-env\Scripts\activate            # Windows
+python -m venv .venv
+.venv\Scripts\activate          # Windows (scripts/predeploy-check.ps1 busca este entorno)
 pip install -r requirements.txt
 cp .env.example .env            # y ajustar valores para desarrollo
 python manage.py migrate
@@ -1281,6 +1291,65 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-10-08 — Auditoría, tanda 4: los "corregir ya" que quedaban por bloque
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** incluido en este commit
+- **Tipo:** fix
+- **Qué se hizo:** se cierran los hallazgos marcados "bloquean despliegue / corregir ya" en cada
+  `Plans/bloque-*.md` que no estaban en el resumen ejecutivo:
+  - **Bloque 1 (accounts).** #3: eliminar usuario hace `DELETE` (borrado lógico real) en vez de
+    `PATCH is_active:false`; `UserViewSet.get_queryset()` excluye eliminados y un usuario eliminado
+    no puede iniciar sesión. #4: editar un usuario reenviando un rol que ya tiene no desactiva sus
+    otros roles. #5: `ResourceSerializer.validate_parent` rechaza ciclos (el subárbol desaparecía
+    del menú) y el armado del menú corta ciclos viejos. #6: CRUD de cargos —
+    `POST /api/roles/{id}/job-titles/` y `PATCH /api/roles/{id}/job-titles/{job_title_id}/`
+    (scope `roles.write`), sección "Cargos del rol" en `/roles`.
+  - **Borrado lógico con UUID en SQLite** (hallado al probar el #3): `exclude_soft_deleted`
+    nunca excluía usuarios, roles ni recursos eliminados fuera de PostgreSQL (5.5).
+  - **Bloque 2 #5.** Restaurar un piso devuelve las habitaciones archivadas con él (no las
+    archivadas antes por su cuenta ni las que chocarían por número) y recalcula `room_count`.
+  - **Bloque 3 #3.** Master Data solo acepta grupos de `MasterData.Group`; un typo creaba un grupo
+    huérfano. El modal "Nuevo grupo" lo avisa antes de enviar.
+  - **Bloque 4.** #3: no se borra un tipo o una tarifa en uso (5.26). #4: eliminar o restaurar una
+    tarea de limpieza resincroniza la habitación, y las eliminadas ya no la retienen en limpieza.
+    #5: precio de tarifa no negativo.
+  - **Bloque 6.** #3: una reserva (o línea) eliminada deja de bloquear fechas y estado de la
+    habitación (`_exclude_deleted_reservations`), eliminarla/restaurarla resincroniza, y restaurar
+    no puede pisar una reserva hecha entretanto. #4: alta/edición de líneas de habitación y edición
+    de fechas bloquean la fila de la habitación antes de validar el solapamiento. #5: en el admin de
+    Django `status`, `real_check_in` y `real_check_out` son de solo lectura. De paso (#13) el
+    mensaje de solapamiento pasa al español con el código de la reserva.
+  - **Bloque 7 #2.** No se elimina un servicio incluido en un paquete activo.
+  - **Bloque 9 #2.** En el what-if la parte de habitaciones no supera el ingreso neto: una nota de
+    crédito grande ya no deja "otros ingresos" negativos escalados por la ocupación.
+  - **Bloque 12.** #2: "Rol de usuario actualizado" enlaza a `/usuarios-hotel` (gerentes) y
+    `/mi-perfil` (afectado), no a `/roles`. #3: el contador de la campana se refresca cada minuto
+    con la pestaña visible y al volver a la ventana. #4: marcar como leídas revierte y avisa si
+    falla.
+  - **Bloque 14 #3.** La reserva pública exige la misma configuración completa que el directorio;
+    mismo mensaje para "inactivo" y "sin configurar".
+  - **Bloque 16.** #1: `scripts/predeploy-check.ps1` busca `backend/.venv` (y la sección 8 lo
+    documenta así). #2: los tests de orden de `list-expenses.spec.ts` abren el periodo completo y
+    ya no dan rojo los primeros días de cada mes.
+- **Por qué:** cada plan de bloque los marcó como bloqueantes; varios eran el mismo patrón —el
+  borrado lógico solo existe en la capa API y las reglas de negocio usan el manager crudo—.
+- **Archivos/áreas afectadas:** `backend/accounts/{soft_delete,views,serializers,tests}.py`,
+  `backend/apps/hotel_settings/{views,tests}.py`, `backend/apps/master_data/{serializers,tests}.py`,
+  `backend/apps/rooms/{views,serializers,archive}.py`, `backend/apps/reservations/{services,views,models,serializers,admin,public_booking,tests}.py`,
+  `backend/apps/services/{views,tests}.py`, `backend/apps/finance/{services,tests}.py`,
+  `backend/apps/notifications/{services,tests}.py`; `frontend/src/app/services/{user,roles.service}.ts`,
+  `frontend/src/app/modules/users/list/user-list.ts`, `frontend/src/app/components/pages/{roles,master-data}/*`,
+  `frontend/src/app/components/layout/header/header.ts`,
+  `frontend/src/app/modules/expenses/list-expenses/list-expenses.spec.ts`,
+  `scripts/predeploy-check.ps1`, `AGENTS.md` (5.5, 5.26, 8).
+- **Impacto:** sin migraciones ni variables nuevas. Endpoints nuevos bajo scopes existentes
+  (`roles.write`). Cambios de comportamiento: (a) usuarios, roles y recursos eliminados dejan de
+  listarse también en SQLite; un usuario eliminado no inicia sesión (una sesión ya abierta sigue
+  hasta que expire o cierre); (b) `DELETE` de tipo, tarifa o servicio en uso responde 400; (c) un
+  grupo de Master Data desconocido responde 400; (d) la reserva pública rechaza hoteles con
+  configuración incompleta; (e) la campana hace una petición por minuto con la pestaña visible.
 
 ### 2026-10-08 — Guia visual de operaciones
 

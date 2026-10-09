@@ -290,9 +290,9 @@ class ReservationRoom(models.Model):
             if conflict:
                 conflict_reservation = conflict.reservation
                 errors["room"] = (
-                    f"Room {self.room.number} already has an active reservation "
-                    f"(#{conflict_reservation.id}) from "
-                    f"{conflict_reservation.expected_check_in} to "
+                    f"La habitacion {self.room.number} ya tiene la reserva activa "
+                    f"{conflict_reservation.code} del "
+                    f"{conflict_reservation.expected_check_in} al "
                     f"{conflict_reservation.expected_check_out}."
                 )
 

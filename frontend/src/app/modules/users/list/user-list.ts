@@ -313,7 +313,9 @@ export class UserList implements OnInit {
       onAccept: () => {
         if (!user.id) return;
 
-        this.userService.deleteUserLogic(user.id).subscribe({
+        // Borrado logico real (5.5): `is_active` es el estado operativo, no un borrado,
+        // y con el PATCH de antes "Restaurar" nunca tenia nada que restaurar.
+        this.userService.deleteUser(user.id).subscribe({
           next: () => {
             this.messageService.add({
               severity: 'success',

@@ -1001,6 +1001,21 @@ def _reservation_check_in_started(reservation, room: Room) -> bool:
     return timezone.now() >= check_in_datetime
 
 
+def _exclude_deleted_reservations(reservation_rooms):
+    """
+    Saca las lineas cuya reserva (o la propia linea) se elimino logicamente.
+
+    El borrado logico solo existia en la capa API: estas consultas usan el manager crudo, asi
+    que una reserva "eliminada" seguia bloqueando sus fechas y el estado de la habitacion
+    para siempre (auditoria, Bloque 6 #3).
+    """
+    from accounts.soft_delete import soft_deleted_ids
+
+    return reservation_rooms.exclude(reservation_id__in=soft_deleted_ids(Reservation)).exclude(
+        id__in=soft_deleted_ids(ReservationRoom)
+    )
+
+
 def find_in_house_reservation_room(room_id: int, *, exclude_reservation_id: int | None = None):
     """
     La reserva que tiene hoy un huesped alojado en la habitacion (check-in hecho, sin
@@ -1012,11 +1027,13 @@ def find_in_house_reservation_room(room_id: int, *, exclude_reservation_id: int 
     """
     if not room_id:
         return None
-    queryset = ReservationRoom.objects.select_related("reservation").filter(
-        room_id=room_id,
-        reservation__real_check_in__isnull=False,
-        reservation__real_check_out__isnull=True,
-    ).exclude(reservation__status__code__in=INACTIVE_RESERVATION_STATUS_CODES)
+    queryset = _exclude_deleted_reservations(
+        ReservationRoom.objects.select_related("reservation").filter(
+            room_id=room_id,
+            reservation__real_check_in__isnull=False,
+            reservation__real_check_out__isnull=True,
+        ).exclude(reservation__status__code__in=INACTIVE_RESERVATION_STATUS_CODES)
+    )
     if exclude_reservation_id:
         queryset = queryset.exclude(reservation_id=exclude_reservation_id)
     return queryset.order_by("reservation__real_check_in", "id").first()
@@ -1033,13 +1050,13 @@ def find_overlapping_reservation_room(
     if not room_id or not expected_check_in or not expected_check_out:
         return None
 
-    queryset = ReservationRoom.objects.select_related("reservation", "reservation__status").filter(
-        room_id=room_id,
-        reservation__expected_check_in__lt=expected_check_out,
-        reservation__expected_check_out__gt=expected_check_in,
-        reservation__real_check_out__isnull=True,
-    ).exclude(
-        reservation__status__code__in=INACTIVE_RESERVATION_STATUS_CODES
+    queryset = _exclude_deleted_reservations(
+        ReservationRoom.objects.select_related("reservation", "reservation__status").filter(
+            room_id=room_id,
+            reservation__expected_check_in__lt=expected_check_out,
+            reservation__expected_check_out__gt=expected_check_in,
+            reservation__real_check_out__isnull=True,
+        ).exclude(reservation__status__code__in=INACTIVE_RESERVATION_STATUS_CODES)
     )
 
     if exclude_reservation_id:
@@ -1070,9 +1087,11 @@ def _set_room_status(room: Room, status_code: str) -> bool:
 
 def _get_desired_room_status_code(room: Room) -> str | None:
     reservation_details = list(
-        room.reservation_details.select_related("reservation", "reservation__status")
-        .filter(reservation__real_check_out__isnull=True)
-        .exclude(reservation__status__code__in=INACTIVE_RESERVATION_STATUS_CODES)
+        _exclude_deleted_reservations(
+            room.reservation_details.select_related("reservation", "reservation__status")
+            .filter(reservation__real_check_out__isnull=True)
+            .exclude(reservation__status__code__in=INACTIVE_RESERVATION_STATUS_CODES)
+        )
     )
     if not reservation_details:
         return None
@@ -1087,8 +1106,12 @@ def _get_desired_room_status_code(room: Room) -> str | None:
 
 
 def _room_has_active_cleaning_tasks(room: Room) -> bool:
-    return room.cleaning_tasks.filter(
-        status__code__in=CLEANING_ACTIVE_STATUS_CODES
+    # Una tarea eliminada logicamente ya no retiene la habitacion en limpieza: antes eliminar
+    # la tarea no la liberaba, y restaurarla tampoco la volvia a marcar (Bloque 4 #4).
+    from accounts.soft_delete import exclude_soft_deleted
+
+    return exclude_soft_deleted(
+        room.cleaning_tasks.filter(status__code__in=CLEANING_ACTIVE_STATUS_CODES)
     ).exists()
 
 

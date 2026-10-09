@@ -1664,6 +1664,110 @@ class ReservationApiFlowTestCase(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn(reservation.code, response.json()["detail"])
 
+    def test_deleted_reservation_releases_its_dates_and_room(self):
+        # Auditoria, Bloque 6 #3: antes una reserva eliminada bloqueaba la habitacion siempre.
+        from apps.reservations.services import find_overlapping_reservation_room
+
+        reservation = self._create_reservation(
+            check_in_offset=2, check_out_offset=4, status=self.reservation_status_confirmed
+        )
+        self._create_room_line(reservation)
+        self.assertIsNotNone(
+            find_overlapping_reservation_room(
+                room_id=self.room.id,
+                expected_check_in=reservation.expected_check_in,
+                expected_check_out=reservation.expected_check_out,
+            )
+        )
+
+        self.assertEqual(self.client.delete(f"/api/reservations/{reservation.id}/").status_code, 204)
+
+        self.assertIsNone(
+            find_overlapping_reservation_room(
+                room_id=self.room.id,
+                expected_check_in=reservation.expected_check_in,
+                expected_check_out=reservation.expected_check_out,
+            )
+        )
+
+    def test_restoring_a_reservation_cannot_overlap_one_made_meanwhile(self):
+        first = self._create_reservation(
+            check_in_offset=2, check_out_offset=4, status=self.reservation_status_confirmed
+        )
+        self._create_room_line(first)
+        self.client.delete(f"/api/reservations/{first.id}/")
+
+        second = self._create_reservation(
+            check_in_offset=3, check_out_offset=5, status=self.reservation_status_confirmed
+        )
+        self._create_room_line(second)
+
+        response = self.client.post(f"/api/reservations/{first.id}/restore/")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(second.code, response.data["detail"])
+
+    def test_deleting_an_open_cleaning_task_frees_the_room_and_restoring_it_blocks_again(self):
+        # Bloque 4 #4: el estado de la habitacion sigue a la tarea al eliminarla y restaurarla.
+        from apps.rooms.models import CleaningTask
+
+        task = CleaningTask.objects.create(
+            room=self.room,
+            task_type=self.cleaning_task_type_checkout,
+            status=self.cleaning_status_pending,
+            priority=self.cleaning_priority_low,
+        )
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.status.code, "LIMPIEZA")
+
+        self.assertEqual(self.client.delete(f"/api/cleaning-tasks/{task.id}/").status_code, 204)
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.status.code, "DISPONIBLE")
+
+        self.assertEqual(self.client.post(f"/api/cleaning-tasks/{task.id}/restore/").status_code, 200)
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.status.code, "LIMPIEZA")
+
+    def _configure_room_catalog(self):
+        room_type = RoomType.objects.create(
+            hotel_settings=self.hotel_settings, code="DBL", name="Doble", capacity=2, is_active=True
+        )
+        rate = Rate.objects.create(
+            hotel_settings=self.hotel_settings, room_type=room_type, name="Base", price=100000, is_active=True
+        )
+        self.room.room_type = room_type
+        self.room.rate = rate
+        self.room.save(update_fields=["room_type", "rate"])
+        return self.room
+
+    def test_room_type_and_rate_in_use_cannot_be_deleted(self):
+        # Bloque 4 #3: el borrado logico nunca disparaba el PROTECT del FK.
+        configured = self._configure_room_catalog()
+
+        type_response = self.client.delete(f"/api/room-types/{configured.room_type_id}/")
+        rate_response = self.client.delete(f"/api/rates/{configured.rate_id}/")
+
+        self.assertEqual(type_response.status_code, 400)
+        self.assertIn(configured.number, type_response.json()["detail"])
+        self.assertEqual(rate_response.status_code, 400)
+
+    def test_rate_price_cannot_be_negative(self):
+        # Bloque 4 #5.
+        rate = self._configure_room_catalog().rate
+
+        response = self.client.patch(f"/api/rates/{rate.id}/", {"price": "-50.00"}, format="json")
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_admin_cannot_edit_the_reservation_lifecycle(self):
+        # Bloque 6 #5: el admin de Django se saltaba el check-out completo.
+        from django.contrib import admin as django_admin
+
+        model_admin = django_admin.site._registry[Reservation]
+        readonly = set(model_admin.get_readonly_fields(None))
+
+        self.assertTrue({"status", "real_check_in", "real_check_out"} <= readonly)
+
     def test_check_out_without_inventory_review_is_rejected(self):
         # Auditoria, Bloque 6 #1: omitir la revision ya no da el inventario por cuadrado.
         reservation = self._checked_in_paid_reservation()
@@ -1963,7 +2067,9 @@ class WebReservationPublicApiTests(APITestCase):
         self._md(MasterData.Group.RESERVATION_STATUS, "PENDIENTE", "Pendiente", 1)
         self._md(MasterData.Group.RESERVATION_ORIGIN, "WEB", "Web", 1)
 
-        self.hotel_settings = HotelSettings.objects.create(
+        # Configurado de verdad: la reserva publica exige lo mismo que el directorio.
+        self.hotel_settings = create_configured_hotel(
+            with_structure=False,
             hotel_name="Hotel Web",
             city="Bogota",
             country="Colombia",
@@ -2202,6 +2308,17 @@ class WebReservationPublicApiTests(APITestCase):
         self.assertEqual(
             reservation.source_metadata["submitted_contact"]["email"], "laura@example.com"
         )
+
+
+    def test_hotel_with_incomplete_setup_does_not_accept_public_reservations(self):
+        # Auditoria, Bloque 14 #3: oculto en el directorio, pero el slug seguia reservando.
+        self.hotel_settings.address = ""
+        self.hotel_settings.save(update_fields=["address"])
+
+        response = self.client.post("/api/web-reservations/", data=self._payload(), format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Reservation.objects.count(), 0)
 
 
 class OnlineCheckInPublicApiTests(APITestCase):

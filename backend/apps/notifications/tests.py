@@ -403,3 +403,29 @@ class DailyNotificationsOnReadTests(APITestCase):
         self.hotel.refresh_from_db()
         # No se marca como hecho: la siguiente lectura lo reintenta.
         self.assertIsNone(self.hotel.daily_notifications_ran_on)
+
+
+class RoleUpdatedNotificationLinkTests(TestCase):
+    """Auditoria, Bloque 12 #2: el enlace lleva a una pantalla que el destinatario puede abrir."""
+
+    def test_affected_user_and_managers_get_links_they_can_open(self):
+        from apps.notifications.services import notify_user_role_updated
+
+        hotel = HotelSettings.objects.create(hotel_name="Hotel Enlaces")
+        manager_role = Role.objects.create(name="Gerente", slug="manager", is_active=True)
+        manager = User.objects.create_user(
+            username="gerente_enlace", password="pass12345", hotel_settings=hotel
+        )
+        UserRole.objects.create(user=manager, role=manager_role, is_active=True)
+        affected = User.objects.create_user(
+            username="afectado_enlace", password="pass12345", hotel_settings=hotel
+        )
+
+        notify_user_role_updated(user=affected, role_name="Recepcion", action_label="asignado")
+
+        links = dict(
+            Notification.objects.filter(title="Rol de usuario actualizado").values_list(
+                "user__username", "action_url"
+            )
+        )
+        self.assertEqual(links, {"gerente_enlace": "/usuarios-hotel", "afectado_enlace": "/mi-perfil"})

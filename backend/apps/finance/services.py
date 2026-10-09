@@ -322,8 +322,12 @@ def build_what_if_scenario(
     )
 
     base_revenue = base_metrics["net_revenue"]
-    base_room_revenue = base_metrics["room_revenue"]
-    base_other_revenue = base_revenue - base_room_revenue
+    # `net_revenue` ya resta las notas de credito y `room_revenue` (desde los cargos) no: una
+    # nota grande dejaba "otros ingresos" en negativo y el escenario escalaba ese negativo con
+    # la ocupacion (auditoria, Bloque 9 #2). La parte de habitaciones no puede superar el
+    # ingreso neto real del periodo.
+    base_room_revenue = max(min(base_metrics["room_revenue"], base_revenue), MONEY_ZERO)
+    base_other_revenue = max(base_revenue - base_room_revenue, MONEY_ZERO)
     base_occupancy = base_metrics["occupancy_rate_pct"]
 
     if target_occupancy_pct is not None:

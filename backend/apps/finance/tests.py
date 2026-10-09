@@ -1009,3 +1009,46 @@ class OperationalAlertsAutomationTests(TestCase):
                 status=OperationalAlert.Status.OPEN,
             ).exists()
         )
+
+
+
+class WhatIfCreditNoteDistortionTests(TestCase):
+    """Auditoria, Bloque 9 #2: una nota de credito grande no deja "otros ingresos" negativos."""
+
+    def test_room_share_never_exceeds_net_revenue(self):
+        from datetime import date
+        from decimal import Decimal
+        from unittest.mock import patch
+
+        from apps.finance import services
+
+        class Stop(Exception):
+            pass
+
+        captured = {}
+
+        def capture(**kwargs):
+            captured.update(kwargs)
+            raise Stop
+
+        metrics = {
+            # Facturado 300.000 en habitaciones, menos una nota de credito de 200.000.
+            "net_revenue": Decimal("100000.00"),
+            "room_revenue": Decimal("300000.00"),
+            "occupancy_rate_pct": Decimal("50.00"),
+            "fixed_costs": Decimal("0.00"),
+            "variable_costs": Decimal("0.00"),
+        }
+        with patch.object(services, "_resolve_required_hotel_settings_id", return_value=1),                 patch.object(services, "_resolve_financial_config"),                 patch.object(services, "_build_period_metrics", return_value=metrics),                 patch.object(services, "_build_tourism_law_status", side_effect=capture):
+            with self.assertRaises(Stop):
+                services.build_what_if_scenario(
+                    hotel_settings_id=1,
+                    start_date=date(2026, 1, 1),
+                    end_date=date(2026, 1, 31),
+                    target_occupancy_pct=Decimal("100.00"),
+                    rate_change_pct=Decimal("10.00"),
+                )
+
+        # Ocupacion x2 y tarifa +10% sobre los 100.000 netos. Con "otros ingresos" negativos
+        # daba 300.000 x 2 x 1,1 - 200.000 x 2 = 260.000.
+        self.assertEqual(captured["net_revenue"], Decimal("220000.00"))

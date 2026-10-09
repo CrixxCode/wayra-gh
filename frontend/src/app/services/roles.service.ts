@@ -141,6 +141,36 @@ export class RolesService {
     );
   }
 
+  /** Todos los cargos del rol, incluidos los desactivados, para administrarlos. */
+  allRoleJobTitles(roleId: string): Observable<JobTitle[]> {
+    return this.http
+      .get<any>(`${this.rolesUrl}${roleId}/job-titles/`, {
+        params: { include_inactive: 'true' },
+        withCredentials: true
+      })
+      .pipe(map((res) => this.unwrapArray<JobTitle>(res)));
+  }
+
+  createJobTitle(roleId: string, payload: { name: string; description?: string }): Observable<JobTitle> {
+    return this.http.post<JobTitle>(
+      `${this.rolesUrl}${roleId}/job-titles/`,
+      payload,
+      this.auth.buildCsrfRequestOptions()
+    );
+  }
+
+  updateJobTitle(
+    roleId: string,
+    jobTitleId: string,
+    payload: Partial<Pick<JobTitle, 'name' | 'description' | 'is_active' | 'sort_order'>>
+  ): Observable<JobTitle> {
+    return this.http.patch<JobTitle>(
+      `${this.rolesUrl}${roleId}/job-titles/${jobTitleId}/`,
+      payload,
+      this.auth.buildCsrfRequestOptions()
+    );
+  }
+
   roleJobTitles(roleId: string): Observable<JobTitle[]> {
     return this.http.get<any>(`${this.rolesUrl}${roleId}/job-titles/`, { withCredentials: true }).pipe(
       map((res) => this.unwrapArray<JobTitle>(res))

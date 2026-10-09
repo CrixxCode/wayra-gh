@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, HostListener, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { catchError, of } from 'rxjs';
+import { Subscription, catchError, of, timer } from 'rxjs';
 import { AuthService, isEffectivePlatformAdmin } from '../../../services/auth/auth';
 import { NotificationI, NotificationService } from '../../../services/notification';
 import { HotelSettingsService } from '../../../services/hotel-settings';
@@ -12,6 +12,9 @@ import { HotelSettings } from '../../pages/hotel-settings/hotel-setting-model';
 import { LogoutScreen } from '../../pages/logout-screen/logout-screen';
 
 type NotificationTone = 'warning' | 'info' | 'success';
+
+/** Cada cuanto se refresca el contador de la campana. */
+const UNREAD_POLL_MS = 60_000;
 
 interface HeaderNotification {
   id: number | 'none';
@@ -31,7 +34,7 @@ interface HeaderNotification {
   templateUrl: './header.html',
   styleUrl: './header.css',
 })
-export class Header implements OnInit {
+export class Header implements OnInit, OnDestroy {
   @Input() asideOpen = true;
   @Input() isMobile = false;
   @Output() menuToggle = new EventEmitter<void>();
@@ -48,6 +51,7 @@ export class Header implements OnInit {
   userRole = '';
   userAvatar = 'avatar/default-avatar.png';
   unreadCountSnapshot = 0;
+  private unreadPoll?: Subscription;
   hotelOptions: HotelSettings[] = [];
   selectedHotelSettingsId: number | null = null;
   hotelSelectorLoading = false;
@@ -101,6 +105,21 @@ export class Header implements OnInit {
     this.darkMode = this.resolveStoredDarkMode();
     this.applyDarkModeClass();
     this.loadUserInfo();
+    this.loadUnreadCount();
+    // El contador quedaba congelado desde que cargaba la pagina: una alerta urgente no se
+    // notaba hasta recargar (auditoria, Bloque 12 #3). Solo con la pestana visible, para no
+    // gastar peticiones en una pestana olvidada.
+    this.unreadPoll = timer(UNREAD_POLL_MS, UNREAD_POLL_MS).subscribe(() => {
+      if (document.visibilityState === 'visible') this.loadUnreadCount();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.unreadPoll?.unsubscribe();
+  }
+
+  @HostListener('window:focus')
+  onWindowFocus(): void {
     this.loadUnreadCount();
   }
 
@@ -176,15 +195,22 @@ export class Header implements OnInit {
     );
     if (!hasUnread) return;
 
+    const previousNotifications = this.notifications;
+    const previousCount = this.unreadCountSnapshot;
     this.notifications = this.notifications.map((notification) =>
       notification.id === 'none' ? notification : { ...notification, unread: false }
     );
     this.unreadCountSnapshot = 0;
 
-    this.notificationsService
-      .markAllAsRead()
-      .pipe(catchError(() => of({ updated: 0 })))
-      .subscribe();
+    // Optimista, pero si el backend falla se deshace y se avisa: antes la UI quedaba en
+    // "leidas" y al recargar volvian a aparecer sin explicacion (Bloque 12 #4).
+    this.notificationsService.markAllAsRead().subscribe({
+      error: () => {
+        this.notifications = previousNotifications;
+        this.unreadCountSnapshot = previousCount;
+        this.notificationsError = 'No se pudieron marcar como leidas. Intenta de nuevo.';
+      }
+    });
   }
 
   openNotification(notification: HeaderNotification): void {
@@ -193,10 +219,10 @@ export class Header implements OnInit {
         current.id === notification.id ? { ...current, unread: false } : current
       );
       this.unreadCountSnapshot = Math.max(0, this.unreadCountSnapshot - 1);
-      this.notificationsService
-        .markAsRead(Number(notification.id))
-        .pipe(catchError(() => of(null)))
-        .subscribe();
+      this.notificationsService.markAsRead(Number(notification.id)).subscribe({
+        // Se navega igual; el contador vuelve a la cifra real del servidor.
+        error: () => this.loadUnreadCount()
+      });
     }
     this.notificationsOpen = false;
     void this.router.navigate([notification.route]);

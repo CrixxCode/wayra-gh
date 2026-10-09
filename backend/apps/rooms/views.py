@@ -18,7 +18,7 @@ from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
 from apps.hotel_settings.models import HotelFloor
 from apps.reservations.services import sync_room_status_for_room_ids
 from apps.inventory.models import RoomInventory
-from apps.rooms.archive import ensure_rooms_can_be_archived
+from apps.rooms.archive import ensure_catalog_not_in_use, ensure_rooms_can_be_archived
 from .models import (
     Rate,
     Amenity,
@@ -66,6 +66,10 @@ class RoomTypeViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Mode
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
 
+    def perform_destroy(self, instance):
+        ensure_catalog_not_in_use(instance, field="room_type", label="el tipo de habitacion")
+        super().perform_destroy(instance)
+
 class RateViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):
     queryset = Rate.objects.select_related("hotel_settings", "room_type").all()
     serializer_class = RateSerializer
@@ -88,6 +92,10 @@ class RateViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelVie
     def get_permissions(self):
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
+
+    def perform_destroy(self, instance):
+        ensure_catalog_not_in_use(instance, field="rate", label="la tarifa")
+        super().perform_destroy(instance)
 
 class AmenityViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
     queryset = Amenity.objects.all()
@@ -596,6 +604,15 @@ class CleaningTaskViewSet(
         room_id = instance.room_id
         super().perform_destroy(instance)
         sync_room_status_for_room_ids([room_id])
+
+    @action(detail=True, methods=["post"], url_path="restore")
+    def restore(self, request, *args, **kwargs):
+        # Restaurar solo quita el marcador, sin `save()` ni senales: hay que resincronizar a
+        # mano o la habitacion queda "Disponible" con una limpieza abierta (Bloque 4 #4).
+        response = super().restore(request, *args, **kwargs)
+        task = self._get_restore_object()
+        sync_room_status_for_room_ids([task.room_id])
+        return response
 
 
 class RecurringWorkViewSet(MaterializeRecurringWorkMixin, TenantScopeMixin, viewsets.ModelViewSet):

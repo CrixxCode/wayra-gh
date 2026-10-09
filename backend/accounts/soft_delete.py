@@ -1,6 +1,7 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
-from django.db.models.functions import Cast
+from django.db.models import Value
+from django.db.models.functions import Cast, Lower, Replace
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.decorators import action
@@ -18,11 +19,48 @@ def exclude_soft_deleted(queryset):
     logico solo existe en la capa API, y el manager crudo devuelve los eliminados.
     """
     content_type = ContentType.objects.get_for_model(queryset.model)
-    deleted_ids_qs = SoftDeleteMarker.objects.filter(content_type=content_type).values("object_id")
-    # Castea la PK a texto para que funcione con PKs enteras y UUID (5.5).
+    markers = SoftDeleteMarker.objects.filter(content_type=content_type)
+
+    if isinstance(queryset.model._meta.pk, models.UUIDField):
+        # El marcador guarda `str(uuid)` (con guiones). PostgreSQL castea un uuid a texto con
+        # guiones, pero SQLite lo guarda como 32 hex sin ellos: comparar el cast tal cual
+        # nunca coincidia en desarrollo/CI y los usuarios, roles y recursos eliminados se
+        # seguian listando. Se comparan las dos formas sin guiones y en minusculas.
+        def compact(expression):
+            return Lower(Replace(expression, Value("-"), Value("")))
+
+        deleted_ids_qs = markers.annotate(_compact_id=compact("object_id")).values("_compact_id")
+        return queryset.annotate(
+            _soft_pk=compact(Cast("pk", output_field=models.CharField()))
+        ).exclude(_soft_pk__in=deleted_ids_qs)
+
+    # PK entera: el cast a texto basta (5.5).
     return queryset.annotate(_soft_pk=Cast("pk", output_field=models.CharField())).exclude(
-        _soft_pk__in=deleted_ids_qs
+        _soft_pk__in=markers.values("object_id")
     )
+
+
+def soft_deleted_ids(model):
+    """
+    PKs eliminadas logicamente de un modelo de PK entera, como subconsulta.
+
+    Para filtrar por una relacion (`reservation_id__in=...`) en vez de por la PK del propio
+    queryset, que es lo que resuelve `exclude_soft_deleted`.
+    """
+    return (
+        SoftDeleteMarker.objects.filter(content_type=ContentType.objects.get_for_model(model))
+        .annotate(_deleted_pk=Cast("object_id", output_field=models.BigIntegerField()))
+        .values("_deleted_pk")
+    )
+
+
+def is_soft_deleted(instance) -> bool:
+    if instance is None or getattr(instance, "pk", None) is None:
+        return False
+    return SoftDeleteMarker.objects.filter(
+        content_type=ContentType.objects.get_for_model(instance.__class__),
+        object_id=str(instance.pk),
+    ).exists()
 
 
 class LogicalDeleteViewSetMixin:

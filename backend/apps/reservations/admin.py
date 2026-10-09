@@ -70,12 +70,17 @@ class ReservationAdmin(admin.ModelAdmin):
     )
     autocomplete_fields = (
         "client",
-        "status",
         "origin",
         "package",
         "created_by",
     )
+    # El estado y las fechas reales solo los mueven confirmar, check-in, check-out y cancelar:
+    # editados aqui se saltaban el saldo en cero, la revision de inventario, los cargos por
+    # faltante, la factura y la limpieza de salida (auditoria, Bloque 6 #5).
     readonly_fields = (
+        "status",
+        "real_check_in",
+        "real_check_out",
         "created_at",
         "total_rooms",
         "total_guests",

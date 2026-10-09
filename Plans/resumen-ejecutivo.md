@@ -106,6 +106,13 @@ Estos no son de seguridad ni de dinero directamente, pero impiden operar el día
 
 ---
 
+## Tanda 4 — "corregir ya" de cada bloque fuera del resumen
+
+> **Estado 2026-10-08:** ✅ corregidos B1 #3-#6, B2 #5, B3 #3, B4 #3-#5, B6 #3-#5 (+#13), B7 #2,
+> B9 #2, B12 #2-#4, B14 #3 y B16 #1-#2 — ver la entrada "Auditoría, tanda 4" en la sección 12 de
+> `AGENTS.md`. Al probar B1 #3 apareció un bug nuevo: el borrado lógico con PK UUID no excluía nada
+> en SQLite (corregido). Quedan los "corregir pronto" y "mejorable" de cada bloque.
+
 ## Resumen por bloque (para navegar al detalle)
 
 | Bloque | Hallazgo más grave | Archivo |

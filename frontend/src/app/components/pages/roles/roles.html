@@ -277,6 +277,71 @@
             </div>
           </div>
 
+          <section class="job-titles">
+            <div class="job-titles-head">
+              <div>
+                <div class="card-title">Cargos del rol</div>
+                <div class="muted">
+                  Al crear un usuario con este rol se elige uno de estos cargos.
+                  @if (!loadingJobTitles && activeJobTitlesCount === 0) {
+                    <strong class="job-titles-warning">Sin cargos activos no se pueden crear usuarios con este rol.</strong>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <form class="job-titles-new" (ngSubmit)="createJobTitle()">
+              <input
+                type="text"
+                name="newJobTitleName"
+                [(ngModel)]="newJobTitleName"
+                placeholder="Nuevo cargo, ej. Recepcionista nocturno"
+                maxlength="120"
+                aria-label="Nombre del nuevo cargo" />
+              <button class="btn primary" type="submit" [disabled]="savingJobTitle || !newJobTitleName.trim()">
+                <i class="fa-solid fa-plus"></i>
+                Agregar cargo
+              </button>
+            </form>
+
+            @if (loadingJobTitles) {
+              <div class="skeletons"><div class="sk"></div><div class="sk"></div></div>
+            } @else {
+              <ul class="job-titles-list">
+                @for (jobTitle of jobTitles; track jobTitle.id) {
+                  <li [class.off]="jobTitle.is_active === false">
+                    @if (editingJobTitleId === jobTitle.id) {
+                      <input
+                        type="text"
+                        [(ngModel)]="editingJobTitleName"
+                        (keydown.enter)="saveJobTitleName(jobTitle)"
+                        (keydown.escape)="cancelEditJobTitle()"
+                        maxlength="120"
+                        aria-label="Nombre del cargo" />
+                      <button class="btn xs primary" type="button" [disabled]="savingJobTitle" (click)="saveJobTitleName(jobTitle)">Guardar</button>
+                      <button class="btn xs ghost" type="button" (click)="cancelEditJobTitle()">Cancelar</button>
+                    } @else {
+                      <span class="job-title-name">{{ jobTitle.name }}</span>
+                      <span class="status" [class.ok]="jobTitle.is_active !== false" [class.off]="jobTitle.is_active === false">
+                        {{ jobTitle.is_active === false ? 'Inactivo' : 'Activo' }}
+                      </span>
+                      <button class="btn xs ghost" type="button" [disabled]="savingJobTitle" (click)="startEditJobTitle(jobTitle)">Renombrar</button>
+                      <button class="btn xs ghost" type="button" [disabled]="savingJobTitle" (click)="toggleJobTitle(jobTitle)">
+                        {{ jobTitle.is_active === false ? 'Activar' : 'Desactivar' }}
+                      </button>
+                    }
+                  </li>
+                }
+              </ul>
+              @if (jobTitles.length === 0) {
+                <div class="empty small">
+                  <div class="e-title">Sin cargos</div>
+                  <div class="e-sub">Agrega al menos uno para poder crear usuarios con este rol.</div>
+                </div>
+              }
+            }
+          </section>
+
         }
       </div>
     </section>

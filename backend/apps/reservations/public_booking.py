@@ -11,6 +11,7 @@ from rest_framework.exceptions import ValidationError
 from apps.clients.models import Client
 from apps.clients.serializers import normalize_document_type
 from apps.hotel_settings.models import HotelSettings
+from apps.hotel_settings.services import is_hotel_setup_complete
 from apps.master_data.models import MasterData
 from apps.reservations.emails import send_reservation_registered_email
 from apps.reservations.models import Reservation, ReservationGuest, ReservationRoom
@@ -88,8 +89,11 @@ def _resolve_hotel(hotel_slug: str) -> HotelSettings:
         raise ValidationError({"hotel_slug": "El hotel seleccionado no es valido."})
 
     hotel = HotelSettings.objects.filter(id=int(raw_id), is_active=True).first()
-    if not hotel:
-        raise ValidationError({"hotel_slug": "El hotel seleccionado no esta activo."})
+    # Misma regla que el directorio publico: un hotel que no aparece ahi por configuracion
+    # incompleta no recibe reservas aunque alguien adivine su slug (auditoria, Bloque 14 #3).
+    # Mismo mensaje en los dos casos para no revelar cual de las dos condiciones falla.
+    if not hotel or not is_hotel_setup_complete(hotel):
+        raise ValidationError({"hotel_slug": "El hotel seleccionado no esta disponible para reservas."})
 
     # El ID al final del slug es la parte estable. Si el nombre cambio, aceptamos el ID
     # para no romper enlaces generados antes del cambio de nombre.

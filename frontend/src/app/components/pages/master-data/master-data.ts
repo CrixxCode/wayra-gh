@@ -165,6 +165,16 @@ export class MasterDataComponent implements OnInit {
       return;
     }
 
+    // Solo grupos que el sistema lee: uno inventado (o con un typo) quedaba huerfano, sin
+    // que ninguna pantalla lo mostrara. El backend tambien lo rechaza.
+    if (!this.groups.some((group) => group.code === normalizedGroup)) {
+      this.toast(
+        `El grupo ${normalizedGroup} no existe en el catalogo. Revisa el nombre; los grupos nuevos se agregan en el sistema.`,
+        'danger'
+      );
+      return;
+    }
+
     this.closeCreateGroup();
     this.openCreate();
     this.form.group = normalizedGroup;

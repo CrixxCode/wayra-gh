@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from accounts.pagination import OptionalPageNumberPagination
 from accounts.models import SoftDeleteMarker
 from accounts.permissions import HasResourcePermission
-from accounts.soft_delete import LogicalDeleteViewSetMixin
+from accounts.soft_delete import LogicalDeleteViewSetMixin, exclude_soft_deleted
 from accounts.tenancy import TenantScopeMixin, is_effective_global_admin
 from apps.master_data.models import MasterData
 from apps.rooms.archive import archive_rooms
@@ -638,6 +638,49 @@ class HotelFloorViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Mo
     def perform_destroy(self, instance):
         archive_rooms(Room.objects.filter(floor=instance))
         super().perform_destroy(instance)
+
+    # Las habitaciones se archivan en la misma transaccion que el piso, un instante antes.
+    FLOOR_CASCADE_WINDOW = timedelta(seconds=10)
+
+    @action(detail=True, methods=["post"], url_path="restore")
+    @transaction.atomic
+    def restore(self, request, *args, **kwargs):
+        """
+        Restaura el piso y las habitaciones que se archivaron **con** el. Antes solo quitaba el
+        marcador del piso: volvia vacio, con `room_count` desfasado (auditoria, Bloque 2 #5).
+        Las habitaciones archivadas por su cuenta antes de borrar el piso siguen archivadas, y
+        tambien las que chocarian por numero con otra habitacion viva del hotel.
+        """
+        floor = self._get_restore_object()
+        floor_marker = SoftDeleteMarker.objects.filter(
+            content_type=ContentType.objects.get_for_model(HotelFloor),
+            object_id=str(floor.pk),
+        ).first()
+
+        response = super().restore(request, *args, **kwargs)
+        if response.status_code != status.HTTP_200_OK or floor_marker is None:
+            return response
+
+        room_content_type = ContentType.objects.get_for_model(Room)
+        cascaded_ids = set(
+            SoftDeleteMarker.objects.filter(
+                content_type=room_content_type,
+                deleted_at__gte=floor_marker.deleted_at - self.FLOOR_CASCADE_WINDOW,
+                deleted_at__lte=floor_marker.deleted_at + self.FLOOR_CASCADE_WINDOW,
+            ).values_list("object_id", flat=True)
+        )
+        candidates = [room for room in Room.objects.filter(floor=floor) if str(room.pk) in cascaded_ids]
+        live_numbers = {
+            number.lower()
+            for number in exclude_soft_deleted(
+                Room.objects.filter(floor__hotel_settings_id=floor.hotel_settings_id)
+            ).values_list("number", flat=True)
+        }
+        self._restore_rooms([room for room in candidates if room.number.lower() not in live_numbers])
+
+        floor.room_count = exclude_soft_deleted(Room.objects.filter(floor=floor)).count()
+        floor.save(update_fields=["room_count"])
+        return Response(self.get_serializer(floor).data, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
         """

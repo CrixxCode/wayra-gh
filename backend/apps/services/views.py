@@ -1,10 +1,11 @@
 from rest_framework import filters, viewsets
+from rest_framework.exceptions import ValidationError
 
 from apps.services.models import Service
 from apps.services.serializers import ServiceSerializer
 from accounts.pagination import OptionalPageNumberPagination
 from accounts.permissions import HasResourcePermission
-from accounts.soft_delete import LogicalDeleteViewSetMixin
+from accounts.soft_delete import LogicalDeleteViewSetMixin, exclude_soft_deleted
 from accounts.tenancy import TenantScopeMixin
 
 
@@ -49,3 +50,36 @@ class ServiceViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Model
     def get_permissions(self):
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
+
+    def perform_destroy(self, instance):
+        """
+        El borrado logico nunca dispara el `PROTECT` de `PackageService.service`: antes el
+        servicio desaparecia del catalogo y los paquetes que lo incluian quedaban con un
+        servicio fantasma, sin aviso (auditoria, Bloque 7 #2).
+        """
+        from apps.packages.models import Package, PackageService
+
+        package_names = list(
+            exclude_soft_deleted(
+                Package.objects.filter(
+                    id__in=exclude_soft_deleted(
+                        PackageService.objects.filter(service=instance)
+                    ).values("package_id"),
+                    is_active=True,
+                )
+            )
+            .order_by("name")
+            .values_list("name", flat=True)[:6]
+        )
+        if package_names:
+            shown = ", ".join(package_names[:5]) + (" y otros" if len(package_names) > 5 else "")
+            raise ValidationError(
+                {
+                    "service": (
+                        f"No se puede eliminar el servicio: lo incluyen los paquetes {shown}. "
+                        "Quitalo de esos paquetes primero, o desactivalo si solo quieres dejar "
+                        "de ofrecerlo."
+                    )
+                }
+            )
+        super().perform_destroy(instance)

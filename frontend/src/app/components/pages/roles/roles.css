@@ -828,3 +828,71 @@
     width: 100%;
   }
 }
+
+/* ------------------------------------------------------------------ cargos */
+
+.job-titles {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gh-border);
+}
+
+.job-titles-head {
+  margin-bottom: 10px;
+}
+
+.job-titles-warning {
+  display: block;
+  margin-top: 4px;
+  color: var(--gh-status-danger-text);
+}
+
+.job-titles-new {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.job-titles-new input,
+.job-titles-list input {
+  flex: 1;
+  min-width: 180px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+}
+
+.job-titles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.job-titles-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--gh-border);
+  border-radius: 10px;
+  background: var(--gh-surface-soft);
+}
+
+.job-titles-list li.off .job-title-name {
+  color: var(--gh-text-soft);
+  text-decoration: line-through;
+}
+
+.job-title-name {
+  flex: 1;
+  min-width: 0;
+  color: var(--gh-text);
+}

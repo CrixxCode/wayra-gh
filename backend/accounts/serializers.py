@@ -1,5 +1,6 @@
 import logging
 
+from django.utils.text import slugify
 from django.contrib.auth import get_user_model, password_validation
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils import timezone
@@ -52,6 +53,24 @@ class ResourceSerializer(serializers.ModelSerializer):
             "parent",
         ]
 
+    def validate_parent(self, parent):
+        """
+        El menu es un arbol (5.6): un padre que termina apuntando al propio recurso deja todo
+        ese subarbol sin raiz y desaparece del menu de todos sin ningun error.
+        """
+        if parent is None or self.instance is None:
+            return parent
+        seen = set()
+        current = parent
+        while current is not None and current.pk not in seen:
+            if current.pk == self.instance.pk:
+                raise serializers.ValidationError(
+                    "Ese padre crea un ciclo en el menu: el recurso quedaria dentro de si mismo."
+                )
+            seen.add(current.pk)
+            current = current.parent
+        return parent
+
 
 class RoleSerializer(serializers.ModelSerializer):
     resources = serializers.SerializerMethodField()
@@ -79,6 +98,25 @@ class JobTitleSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobTitle
         fields = ["id", "name", "slug", "description", "is_active", "sort_order", "role_id"]
+        read_only_fields = ["id", "slug", "role_id"]
+
+    def validate_name(self, value):
+        name = str(value or "").strip()
+        if not name:
+            raise serializers.ValidationError("El nombre del cargo es obligatorio.")
+        role = self.context.get("role") or getattr(self.instance, "role", None)
+        duplicates = JobTitle.objects.filter(role=role, slug=slugify(name))
+        if self.instance is not None:
+            duplicates = duplicates.exclude(pk=self.instance.pk)
+        if role is not None and duplicates.exists():
+            raise serializers.ValidationError("Este rol ya tiene un cargo con ese nombre.")
+        return name
+
+    def update(self, instance, validated_data):
+        # El slug sigue al nombre: es la clave de unicidad por rol.
+        if "name" in validated_data:
+            instance.slug = slugify(validated_data["name"])
+        return super().update(instance, validated_data)
 
 
 class UserHotelSettingsSerializer(serializers.ModelSerializer):
@@ -233,14 +271,16 @@ class UserSerializer(serializers.ModelSerializer):
         for r in resources:
             children_map.setdefault(r.parent_id, []).append(r)
 
-        def node(r: Resource):
-            children = children_map.get(r.id, [])
+        def node(r: Resource, path: frozenset = frozenset()):
+            # `path` corta cualquier ciclo que haya quedado en datos viejos.
+            path = path | {r.id}
+            children = [ch for ch in children_map.get(r.id, []) if ch.id not in path]
             return {
                 "id": str(r.id),
                 "label": r.name,
                 "icon": r.icon or "",
                 "route": r.link or "",
-                "children": [node(ch) for ch in children],
+                "children": [node(ch, path) for ch in children],
             }
 
         # Top-level = parent null o parent fuera del set
@@ -626,7 +666,15 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                     )
                 instance.hotel_settings = actor.hotel_settings
 
-        if selected_role is not marker:
+        already_has_role = (
+            selected_role is not marker
+            and selected_role is not None
+            and UserRole.objects.filter(user=instance, role=selected_role, is_active=True).exists()
+        )
+        # El formulario de edicion reenvia siempre un rol (el primero del usuario). Si ya lo
+        # tiene, no es un cambio de rol: antes se desactivaban todos los demas y editar el
+        # correo de alguien le quitaba en silencio sus roles adicionales (auditoria, Bloque 1 #4).
+        if selected_role is not marker and not already_has_role:
             if selected_role is None:
                 UserRole.objects.filter(user=instance, is_active=True).update(is_active=False)
             else:

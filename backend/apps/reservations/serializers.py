@@ -226,9 +226,9 @@ class ReservationRoomSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {
                         "room": (
-                            f"Room {room.number} already has an active reservation "
-                            f"(#{conflict_reservation.id}) from "
-                            f"{conflict_reservation.expected_check_in} to "
+                            f"La habitacion {room.number} ya tiene la reserva activa "
+                            f"{conflict_reservation.code} del "
+                            f"{conflict_reservation.expected_check_in} al "
                             f"{conflict_reservation.expected_check_out}."
                         )
                     }

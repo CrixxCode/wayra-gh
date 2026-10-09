@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RolesService, Role, UserMini } from '../../../services/roles.service';
+import { JobTitle, RolesService, Role, UserMini } from '../../../services/roles.service';
 import { catchError, forkJoin, map, of } from 'rxjs';
 import { ConfirmationService } from 'primeng/api';
 import { errorActionAlert, successActionAlert } from '../../../services/action-alerts';
@@ -21,6 +21,17 @@ export class RolesComponent implements OnInit {
   // Data
   roles: Role[] = [];
   selectedRole: Role | null = null;
+
+  /**
+   * Cargos del rol seleccionado. El cargo es obligatorio al crear un usuario y no habia
+   * pantalla para darlos de alta: un rol nuevo sin cargos bloqueaba el alta de usuarios.
+   */
+  jobTitles: JobTitle[] = [];
+  loadingJobTitles = false;
+  savingJobTitle = false;
+  newJobTitleName = '';
+  editingJobTitleId: string | null = null;
+  editingJobTitleName = '';
 
   assignedUsers: UserMini[] = [];
   catalogUsers: UserMini[] = []; // resultados de búsqueda (disponibles del servidor)
@@ -177,6 +188,101 @@ export class RolesComponent implements OnInit {
     // cargar asignados + precargar catálogo
     this.loadAssignedUsers();
     this.searchCatalogUsers(''); // primer load
+    this.loadJobTitles();
+  }
+
+  // ---------------------------------------------------------------- cargos
+
+  get activeJobTitlesCount(): number {
+    return this.jobTitles.filter((jobTitle) => jobTitle.is_active !== false).length;
+  }
+
+  loadJobTitles(): void {
+    const roleId = this.selectedRole?.id;
+    this.cancelEditJobTitle();
+    if (!roleId) {
+      this.jobTitles = [];
+      return;
+    }
+    this.loadingJobTitles = true;
+    this.rolesSvc.allRoleJobTitles(roleId).subscribe({
+      next: (jobTitles) => {
+        if (this.selectedRole?.id !== roleId) return;
+        this.jobTitles = jobTitles;
+        this.loadingJobTitles = false;
+      },
+      error: () => {
+        this.jobTitles = [];
+        this.loadingJobTitles = false;
+        this.toast('No se pudieron cargar los cargos del rol.', 'danger');
+      }
+    });
+  }
+
+  createJobTitle(): void {
+    const roleId = this.selectedRole?.id;
+    const name = this.newJobTitleName.trim();
+    if (!roleId || !name || this.savingJobTitle) return;
+
+    this.savingJobTitle = true;
+    this.rolesSvc.createJobTitle(roleId, { name }).subscribe({
+      next: () => {
+        this.savingJobTitle = false;
+        this.newJobTitleName = '';
+        this.toast(successActionAlert('create', 'cargo'), 'success');
+        this.loadJobTitles();
+      },
+      error: (error) => {
+        this.savingJobTitle = false;
+        this.toast(this.jobTitleError(error, errorActionAlert('create', 'cargo')), 'danger');
+      }
+    });
+  }
+
+  startEditJobTitle(jobTitle: JobTitle): void {
+    this.editingJobTitleId = jobTitle.id;
+    this.editingJobTitleName = jobTitle.name;
+  }
+
+  cancelEditJobTitle(): void {
+    this.editingJobTitleId = null;
+    this.editingJobTitleName = '';
+  }
+
+  saveJobTitleName(jobTitle: JobTitle): void {
+    const name = this.editingJobTitleName.trim();
+    if (!name || name === jobTitle.name) {
+      this.cancelEditJobTitle();
+      return;
+    }
+    this.patchJobTitle(jobTitle, { name });
+  }
+
+  toggleJobTitle(jobTitle: JobTitle): void {
+    this.patchJobTitle(jobTitle, { is_active: jobTitle.is_active === false });
+  }
+
+  private patchJobTitle(jobTitle: JobTitle, payload: Partial<JobTitle>): void {
+    const roleId = this.selectedRole?.id;
+    if (!roleId || this.savingJobTitle) return;
+
+    this.savingJobTitle = true;
+    this.rolesSvc.updateJobTitle(roleId, jobTitle.id, payload).subscribe({
+      next: () => {
+        this.savingJobTitle = false;
+        this.toast(successActionAlert('update', 'cargo'), 'success');
+        this.loadJobTitles();
+      },
+      error: (error) => {
+        this.savingJobTitle = false;
+        this.toast(this.jobTitleError(error, errorActionAlert('update', 'cargo')), 'danger');
+      }
+    });
+  }
+
+  private jobTitleError(error: unknown, fallback: string): string {
+    const detail = (error as { error?: { detail?: unknown } })?.error?.detail;
+    return typeof detail === 'string' && detail ? detail : fallback;
   }
 
   openCreateRole(): void {
