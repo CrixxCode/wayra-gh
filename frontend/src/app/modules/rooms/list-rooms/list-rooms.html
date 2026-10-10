@@ -412,6 +412,7 @@
 
   <app-room-modal
     *ngIf="selectedRoom"
+    [initialTab]="initialRoomTab"
     [room]="selectedRoom"
     [floors]="floors"
     [rooms]="rooms"

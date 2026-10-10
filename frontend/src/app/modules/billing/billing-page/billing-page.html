@@ -56,7 +56,11 @@
   <section class="ledger-panel">
     <!-- Cada lista se monta solo cuando su pestaña esta activa: montar las tres a la
          vez dispararia sus peticiones y sus animaciones sin que nadie las vea. -->
-    <app-list-bill *ngIf="activeTab === 'invoices'" [embedded]="true" (changed)="onBillingChanged()">
+    <app-list-bill
+      *ngIf="activeTab === 'invoices'"
+      [embedded]="true"
+      [focusInvoiceId]="focusInvoiceId"
+      (changed)="onBillingChanged()">
     </app-list-bill>
 
     <app-list-payments

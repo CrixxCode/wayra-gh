@@ -1082,3 +1082,59 @@ class HotelActivationTests(APITestCase):
         self.assertEqual(reactivated.status_code, 200, reactivated.data)
         self.hotel.refresh_from_db()
         self.assertTrue(self.hotel.is_active)
+
+
+class SaasWizardInitialStructureTests(APITestCase):
+    """El wizard SaaS crea el hotel con sus pisos y habitaciones (auditoria, Bloque 13 #3)."""
+
+    def setUp(self):
+        MasterData.objects.get_or_create(
+            group=MasterData.Group.ROOM_STATUS,
+            code="DISPONIBLE",
+            defaults={"name": "Disponible", "is_active": True},
+        )
+        self.platform_admin = User.objects.create_superuser(
+            username="plataforma_wizard", password="pass12345", email="plataforma@test.local"
+        )
+        self.client.force_authenticate(self.platform_admin)
+
+    def test_create_hotel_with_initial_floors_numbers_the_rooms(self):
+        response = self.client.post(
+            "/api/hotel-settings/",
+            {
+                "hotel_name": "Hotel Wizard",
+                "initial_floors": [
+                    {"floor_number": 1, "room_count": 3},
+                    {"floor_number": 2, "name": "Segundo", "prefix": "2", "room_count": 2},
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        hotel = HotelSettings.objects.get(pk=response.data["id"])
+        self.assertEqual(
+            list(hotel.floors.values_list("floor_number", "name", "room_count")),
+            [(1, "Piso 1", 3), (2, "Segundo", 2)],
+        )
+        self.assertEqual(
+            sorted(Room.objects.filter(floor__hotel_settings=hotel).values_list("number", flat=True)),
+            ["101", "102", "103", "201", "202"],
+        )
+        self.assertEqual(response.data["total_rooms"], 5)
+
+    def test_repeated_prefix_is_rejected_and_nothing_is_created(self):
+        response = self.client.post(
+            "/api/hotel-settings/",
+            {
+                "hotel_name": "Hotel Prefijo",
+                "initial_floors": [
+                    {"floor_number": 1, "prefix": "A", "room_count": 2},
+                    {"floor_number": 2, "prefix": "A", "room_count": 2},
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(HotelSettings.objects.filter(hotel_name="Hotel Prefijo").exists())

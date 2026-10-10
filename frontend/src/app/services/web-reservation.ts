@@ -43,6 +43,15 @@ export interface WebReservationResponse {
   created_at: string;
 }
 
+export interface WebReservationConfirmation {
+  code: string;
+  hotel_name: string;
+  expected_check_in: string;
+  expected_check_out: string;
+  status_code: string;
+  status_label: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class WebReservationService {
   private readonly apiBase = environment.API_URI.replace(/\/$/, '');
@@ -52,5 +61,13 @@ export class WebReservationService {
 
   createWebReservation(payload: WebReservationPayload): Observable<WebReservationResponse> {
     return this.http.post<WebReservationResponse>(this.webReservationsUrl, payload);
+  }
+
+  /** Datos de la confirmacion, verificados por el backend con el id y el codigo. */
+  getConfirmation(reservationId: string, code: string): Observable<WebReservationConfirmation> {
+    return this.http.post<WebReservationConfirmation>(`${this.webReservationsUrl}confirmation/`, {
+      reservation_id: reservationId,
+      code
+    });
   }
 }

@@ -24,6 +24,9 @@ type InvoiceViewMode = 'cards' | 'table';
 export class ListBill implements OnInit {
   /** Dentro del contenedor de facturacion: sin encabezado ni metricas propias. */
   @Input() embedded = false;
+  /** Factura a abrir en cuanto cargue la lista (enlace de una notificacion). */
+  @Input() focusInvoiceId: number | null = null;
+  private focusHandled = false;
 
   /** Un cambio aqui mueve las cifras de las otras dos pestañas. */
   @Output() changed = new EventEmitter<void>();
@@ -136,6 +139,11 @@ export class ListBill implements OnInit {
         this.loading = false;
         this.refreshing = false;
         this.invoices = [...invoices].sort((a, b) => b.id - a.id);
+        if (this.focusInvoiceId && !this.focusHandled) {
+          this.focusHandled = true;
+          const focused = this.invoices.find((invoice) => invoice.id === this.focusInvoiceId);
+          if (focused) this.openDetail(focused);
+        }
         this.invoiceStatuses = invoiceStatuses;
         this.reservationsMap = new Map(
           (reservationsPage.results || []).map((reservation) => [reservation.id, reservation])

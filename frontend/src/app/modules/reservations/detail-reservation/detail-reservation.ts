@@ -3,6 +3,8 @@ import { PaymentMethodI } from '../../../services/payment-method';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
+import { ConfirmationService } from 'primeng/api';
+import { openActionConfirmation } from '../../../services/action-confirmations';
 import { MasterDataI } from '../../../components/pages/master-data/master-data-model';
 import { ReservationService } from '../../../services/reservation';
 import { BillingService } from '../../../services/billing';
@@ -10,6 +12,7 @@ import { InvoiceI } from '../../billing/billing-model';
 import {
   ReservationCheckOutPayloadI,
   ReservationCheckoutInventoryReviewLinePayloadI,
+  ReservationDepositI,
   ReservationDetailI,
   ReservationGuestI,
   ReservationPolicyI,
@@ -19,6 +22,25 @@ import {
   ReservationPromotionOptionI,
   ReservationPromotionsI
 } from '../reservation-model';
+
+type GuestDraft = {
+  first_name: string;
+  last_name: string;
+  document_number: string;
+  birth_date: string;
+  nationality: string;
+  blood_type: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+};
+
+type DepositDraft = {
+  deposit_date: string;
+  payment_method: number | null;
+  amount: number | null;
+  reference: string;
+  notes: string;
+};
 
 type CheckoutInventoryLine = {
   key: string;
@@ -70,9 +92,22 @@ export class DetailReservation implements OnChanges {
   promotionError = '';
   selectedPromotionId: number | null = null;
 
+  // Correccion de huespedes y abonos ya registrados (auditoria, Bloque 6 #8). Antes el modal
+  // de huespedes era de solo lectura y los abonos ni se listaban en el detalle.
+  editingGuestId: number | null = null;
+  guestDraft: GuestDraft = this.emptyGuestDraft();
+  guestBusy = false;
+  guestError = '';
+
+  editingDepositId: number | null = null;
+  depositDraft: DepositDraft = this.emptyDepositDraft();
+  depositBusy = false;
+  depositError = '';
+
   constructor(
     private reservationService: ReservationService,
-    private billingService: BillingService
+    private billingService: BillingService,
+    private confirmationService: ConfirmationService
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -297,11 +332,204 @@ export class DetailReservation implements OnChanges {
     return Number.isFinite(value) ? value : 0;
   }
 
-  /** Abierta: ni cerrada ni cancelada. Despues, sus descuentos quedan fijos. */
+  /** Abierta: ni cerrada ni cancelada. Despues, sus descuentos y abonos quedan fijos. */
   get canEditPromotions(): boolean {
     if (!this.reservation || this.reservation.real_check_out) return false;
     const code = String(this.reservation.status_code || '').toUpperCase();
     return !code.includes('CANCEL') && !code.includes('FINALIZ');
+  }
+
+  get canEditDeposits(): boolean {
+    return this.canEditPromotions;
+  }
+
+  /**
+   * Los datos de un huesped se pueden corregir tambien despues de la salida (un documento mal
+   * escrito sigue siendo un error del registro); solo una reserva cancelada queda fija.
+   */
+  get canEditGuests(): boolean {
+    if (!this.reservation) return false;
+    return !String(this.reservation.status_code || '').toUpperCase().includes('CANCEL');
+  }
+
+  get deposits(): ReservationDepositI[] {
+    return this.reservation?.deposits || [];
+  }
+
+  depositLabel(deposit: ReservationDepositI): string {
+    const parts = [this.formatDate(deposit.deposit_date || null), deposit.payment_method_name || 'Sin metodo'];
+    if (deposit.reference) parts.push(`Ref. ${deposit.reference}`);
+    return parts.join(' · ');
+  }
+
+  depositAmount(deposit: ReservationDepositI): string {
+    const amount = Number(deposit.amount || 0);
+    return this.formatCurrency(Number.isFinite(amount) ? amount : 0);
+  }
+
+  startGuestEdit(guest: ReservationGuestI): void {
+    if (!this.canEditGuests || this.guestBusy) return;
+    this.editingGuestId = guest.id;
+    this.guestError = '';
+    this.guestDraft = {
+      first_name: guest.first_name || '',
+      last_name: guest.last_name || '',
+      document_number: guest.document_number || '',
+      birth_date: guest.birth_date || '',
+      nationality: guest.nationality || '',
+      blood_type: guest.blood_type || '',
+      emergency_contact_name: guest.emergency_contact_name || '',
+      emergency_contact_phone: guest.emergency_contact_phone || ''
+    };
+  }
+
+  cancelGuestEdit(): void {
+    this.editingGuestId = null;
+    this.guestError = '';
+    this.guestDraft = this.emptyGuestDraft();
+  }
+
+  saveGuest(): void {
+    const guestId = this.editingGuestId;
+    if (!guestId || this.guestBusy) return;
+    const draft = this.guestDraft;
+    if (!draft.first_name.trim() || !draft.last_name.trim() || !draft.document_number.trim()) {
+      this.guestError = 'Nombre, apellido y documento son obligatorios.';
+      return;
+    }
+
+    this.guestBusy = true;
+    this.guestError = '';
+    this.reservationService
+      .updateReservationGuest(guestId, {
+        ...draft,
+        birth_date: draft.birth_date || null
+      })
+      .subscribe({
+        next: () => {
+          // La ocupacion puede mover la tarifa: se relee la reserva completa.
+          this.reloadAfterRecordChange(() => {
+            this.guestBusy = false;
+            this.cancelGuestEdit();
+          });
+        },
+        error: (error: unknown) => {
+          this.guestBusy = false;
+          this.guestError = this.extractErrorMessage(error);
+        }
+      });
+  }
+
+  startDepositEdit(deposit: ReservationDepositI): void {
+    if (!this.canEditDeposits || this.depositBusy) return;
+    this.editingDepositId = deposit.id;
+    this.depositError = '';
+    const amount = Number(deposit.amount);
+    this.depositDraft = {
+      deposit_date: deposit.deposit_date || '',
+      payment_method: deposit.payment_method ?? null,
+      amount: Number.isFinite(amount) ? amount : null,
+      reference: deposit.reference || '',
+      notes: deposit.notes || ''
+    };
+  }
+
+  cancelDepositEdit(): void {
+    this.editingDepositId = null;
+    this.depositError = '';
+    this.depositDraft = this.emptyDepositDraft();
+  }
+
+  saveDeposit(): void {
+    const depositId = this.editingDepositId;
+    if (!depositId || this.depositBusy) return;
+    const draft = this.depositDraft;
+    if (!draft.payment_method || !draft.amount || draft.amount <= 0) {
+      this.depositError = 'El metodo de pago y un monto mayor a cero son obligatorios.';
+      return;
+    }
+
+    this.depositBusy = true;
+    this.depositError = '';
+    this.reservationService
+      .updateReservationDeposit(depositId, {
+        payment_method: draft.payment_method,
+        amount: draft.amount,
+        reference: draft.reference,
+        notes: draft.notes,
+        ...(draft.deposit_date ? { deposit_date: draft.deposit_date } : {})
+      })
+      .subscribe({
+        next: () => {
+          this.reloadAfterRecordChange(() => {
+            this.depositBusy = false;
+            this.cancelDepositEdit();
+          });
+        },
+        error: (error: unknown) => {
+          this.depositBusy = false;
+          this.depositError = this.extractErrorMessage(error);
+        }
+      });
+  }
+
+  voidDeposit(deposit: ReservationDepositI): void {
+    if (!this.canEditDeposits || this.depositBusy) return;
+    openActionConfirmation(this.confirmationService, {
+      action: 'void',
+      target: `abono de ${this.depositAmount(deposit)}`,
+      onAccept: () => {
+        this.depositBusy = true;
+        this.depositError = '';
+        this.reservationService.voidReservationDeposit(deposit.id).subscribe({
+          next: () => {
+            this.reloadAfterRecordChange(() => {
+              this.depositBusy = false;
+              this.cancelDepositEdit();
+            });
+          },
+          error: (error: unknown) => {
+            this.depositBusy = false;
+            this.depositError = this.extractErrorMessage(error);
+          }
+        });
+      }
+    });
+  }
+
+  /** Relee la reserva (total, saldo y estado de pago) y avisa a la lista. */
+  private reloadAfterRecordChange(done: () => void): void {
+    const reservationId = this.reservation?.id;
+    if (!reservationId) {
+      done();
+      return;
+    }
+    this.reservationService.getReservationById(reservationId).subscribe({
+      next: (detail) => {
+        this.reservation = detail;
+        this.loadInvoicePaymentStatus(detail.id);
+        this.flowChanged.emit(detail);
+        done();
+      },
+      error: () => done()
+    });
+  }
+
+  private emptyGuestDraft(): GuestDraft {
+    return {
+      first_name: '',
+      last_name: '',
+      document_number: '',
+      birth_date: '',
+      nationality: '',
+      blood_type: '',
+      emergency_contact_name: '',
+      emergency_contact_phone: ''
+    };
+  }
+
+  private emptyDepositDraft(): DepositDraft {
+    return { deposit_date: '', payment_method: null, amount: null, reference: '', notes: '' };
   }
 
   get showPromotions(): boolean {
@@ -508,6 +736,7 @@ export class DetailReservation implements OnChanges {
 
   closeGuestsModal(): void {
     this.showGuestsModal = false;
+    this.cancelGuestEdit();
   }
 
   openPoliciesModal(): void {

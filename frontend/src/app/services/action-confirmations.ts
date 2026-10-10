@@ -8,7 +8,8 @@ export type ConfirmActionType =
   | 'cancel'
   | 'restore'
   | 'reject'
-  | 'process';
+  | 'process'
+  | 'void';
 
 const ACTION_LABELS: Record<ConfirmActionType, string> = {
   delete: 'eliminacion',
@@ -18,7 +19,8 @@ const ACTION_LABELS: Record<ConfirmActionType, string> = {
   cancel: 'cancelacion',
   restore: 'restauracion',
   reject: 'rechazo',
-  process: 'confirmacion de pago'
+  process: 'confirmacion de pago',
+  void: 'anulacion'
 };
 
 function normalizeTarget(target: string): string {

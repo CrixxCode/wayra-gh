@@ -32,7 +32,13 @@
           <div class="booking-confirmation-copy">
             <h2>El hotel revisará tu solicitud</h2>
 
-            <div *ngIf="hasConfirmationDetails" class="booking-confirmation-details">
+            <p *ngIf="verification === 'loading'" class="booking-copy-status">Verificando tu reserva...</p>
+            <p *ngIf="verification === 'unverified'" class="booking-copy-status">
+              No pudimos mostrar los datos de esta reserva desde este enlace. Revisa el correo de
+              confirmacion: ahi estan tu codigo, el hotel y las fechas.
+            </p>
+
+            <div *ngIf="verification === 'verified' && hasConfirmationDetails" class="booking-confirmation-details">
               <span *ngIf="hotelName">
                 <i class="pi pi-building"></i>
                 {{ hotelName }}

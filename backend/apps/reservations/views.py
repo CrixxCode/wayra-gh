@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 
 from django.conf import settings
@@ -7,6 +8,8 @@ from django.db.models import F
 from django.utils import timezone
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -121,6 +124,53 @@ class WebReservationViewSet(viewsets.GenericViewSet):
             context=self.get_serializer_context(),
         )
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    def get_throttles(self):
+        # La confirmacion se consulta al cargar la pantalla: no debe gastar la cuota de crear.
+        if getattr(self, "action", None) == "confirmation":
+            self.throttle_scope = "web_reservation_confirmation"
+        return super().get_throttles()
+
+    @action(detail=False, methods=["post"], url_path="confirmation")
+    def confirmation(self, request, *args, **kwargs):
+        """
+        Datos minimos de una reserva web para la pantalla de confirmacion publica.
+
+        Antes esa pantalla repintaba lo que traia la URL: cualquiera podia armar un enlace con
+        el dominio de Wayra mostrando un hotel y fechas inventados (auditoria, Bloque 14 #10).
+        Exige el id **y** el codigo aleatorio (5.24): conocer los dos es haber hecho la
+        reserva, y fallar por cualquiera de los dos responde lo mismo, asi que no sirve para
+        enumerar. No devuelve datos del huesped.
+        """
+        reservation_id = str(request.data.get("reservation_id") or "").strip()
+        code = re.sub(r"\s+", "", str(request.data.get("code") or "")).upper()
+        reservation = None
+        if reservation_id.isdigit() and code:
+            reservation = (
+                Reservation.objects.select_related("hotel_settings", "status")
+                .filter(
+                    pk=int(reservation_id),
+                    code__iexact=code,
+                    source_channel=WEB_RESERVATION_SOURCE_CHANNEL,
+                )
+                .first()
+            )
+        if reservation is None:
+            return Response(
+                {"detail": "No encontramos una reserva con esos datos."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(
+            {
+                "code": reservation.code,
+                "hotel_name": reservation.hotel_settings.hotel_name,
+                "expected_check_in": reservation.expected_check_in,
+                "expected_check_out": reservation.expected_check_out,
+                "status_code": reservation.status_code,
+                "status_label": getattr(reservation.status, "name", "") or "",
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class OnlineCheckInViewSet(viewsets.GenericViewSet):
@@ -910,6 +960,39 @@ class ReservationDepositViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet
     def get_permissions(self):
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
+
+    def perform_destroy(self, instance):
+        # Un abono es un `Payment`: "eliminarlo" es anularlo, con la misma regla que en
+        # `PaymentViewSet`. Antes el DELETE solo dejaba la marca de borrado logico, que no
+        # recalcula la factura ni la ven los servicios de dinero (auditoria, Bloque 6 #8).
+        self._void_deposit(instance)
+
+    @action(detail=True, methods=["post"], url_path="void")
+    def void(self, request, pk=None):
+        """Anula un abono: queda inactivo (con rastro) y deja de contar en la factura."""
+        payment = self._void_deposit(self.get_object())
+        return Response(self.get_serializer(payment).data)
+
+    def _void_deposit(self, instance):
+        from apps.billing.views import PaymentViewSet
+
+        if not PaymentViewSet._is_admin_user(self.request.user):
+            raise PermissionDenied("Solo un administrador puede anular abonos.")
+        with transaction.atomic():
+            payment = Payment.objects.select_for_update().get(pk=instance.pk)
+            open_refunds = payment.refunds.filter(is_active=True).exclude(
+                status__code__in=["RECHAZADO", "ANULADO"]
+            )
+            if open_refunds.exists():
+                # Anularlo descontaria dos veces el dinero ya devuelto o comprometido.
+                raise DRFValidationError(
+                    {"amount": "Este abono tiene reembolsos registrados: no se puede anular."}
+                )
+            if payment.is_active:
+                payment.is_active = False
+                payment.save(update_fields=["is_active", "updated_at"])
+        return payment
+
 
 class ReservationInventoryCheckViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
     # Solo lectura: las escribe el check-in/check-out (`services.py`) y son la evidencia del

@@ -356,6 +356,32 @@ export class ReservationService {
     );
   }
 
+  /** Corrige un huesped ya registrado (antes solo se podia ver; Bloque 6 #8). */
+  updateReservationGuest(id: number, payload: Partial<ReservationGuestPayloadI>): Observable<ReservationGuestI> {
+    return this.http.patch<ReservationGuestI>(
+      `${this.reservationGuestsUrl}${id}/`,
+      this.normalizeGuestPayload(payload),
+      this.auth.buildCsrfRequestOptions()
+    );
+  }
+
+  updateReservationDeposit(id: number, payload: Partial<ReservationDepositPayloadI>): Observable<ReservationDepositI> {
+    return this.http.patch<ReservationDepositI>(
+      `${this.reservationDepositsUrl}${id}/`,
+      this.normalizeDepositPayload(payload),
+      this.auth.buildCsrfRequestOptions()
+    );
+  }
+
+  /** Anula el abono: queda inactivo y deja de contar. Solo administradores (backend). */
+  voidReservationDeposit(id: number): Observable<ReservationDepositI> {
+    return this.http.post<ReservationDepositI>(
+      `${this.reservationDepositsUrl}${id}/void/`,
+      {},
+      this.auth.buildCsrfRequestOptions()
+    );
+  }
+
   private unwrapArray<T>(res: unknown): T[] {
     return this.unwrapPaginated<T>(res).results;
   }

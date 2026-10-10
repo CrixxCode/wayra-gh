@@ -225,7 +225,9 @@ export class Header implements OnInit, OnDestroy {
       });
     }
     this.notificationsOpen = false;
-    void this.router.navigate([notification.route]);
+    // `navigateByUrl`: el enlace puede traer query params (registro concreto, B12 #9) y
+    // `navigate([ruta])` los tomaria como parte del path.
+    void this.router.navigateByUrl(notification.route);
   }
 
   openAllNotifications(): void {

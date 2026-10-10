@@ -443,6 +443,18 @@ dice si ya corrió hoy —una lectura barata, que no depende de la caché por pr
 corre bajo `select_for_update` del hotel y un fallo se registra sin tumbar la lectura, que lo
 reintenta. Antes los comandos existían, pero nada los programaba y nunca le llegaban a nadie.
 
+**El enlace de una notificación abre el registro, no el listado** (desde el 2026-10-09).
+`reservation_detail_url`, `room_detail_url` e `invoice_detail_url` arman `action_url`:
+`/reservas?action=detail&reservationId=ID`, `/habitaciones?room=ID` (con `&tab=operations` para
+limpieza y mantenimiento) y `/facturacion?tab=invoices&invoice=ID` (también para pagos). Cada vista
+lee su query param una sola vez, tras la primera carga. La campana navega con `navigateByUrl`:
+`navigate([ruta])` tomaría el query string como parte del path.
+
+**Las alertas de Finanzas e Inventario llegan a la campana.** Crear una `OperationalAlert` notifica
+a los gerentes (`notify_operational_alert`, CRITICAL si la alerta lo es). El aviso de "Stock bajo"
+sale de crear una `InventoryRestockAlert`, no de un umbral propio en la señal de `Item`: antes eran
+dos reglas distintas (`<=` y `<`) que podían contradecirse. El aviso de stock agotado se mantiene.
+
 **Comandos (opcionales, reutilizan la misma lógica):**
 
 | Comando | Propósito |
@@ -711,6 +723,15 @@ crea otra. **Cancelar una reserva** (decisión del 2026-10-09) desactiva sus con
 factura; si hay abonos, la cancelación procede pero la factura queda abierta y la respuesta trae
 `billing_warning` pidiendo registrar el reembolso —nunca se devuelve dinero automáticamente—, y
 una reserva cancelada no vuelve a facturarse. `InvoiceCharge` es de solo lectura (ver sección 13).
+
+**Un abono de reserva se corrige o se anula, no se borra** (desde el 2026-10-09). Un abono es un
+`Payment`, así que sigue la regla de los pagos: `POST /api/reservation-deposits/{id}/void/` —y
+también `DELETE`, que hace lo mismo— lo deja **inactivo** (con rastro, y la factura se recalcula
+por la señal de `Payment`). Solo un administrador puede hacerlo, y no se puede si el abono tiene
+reembolsos que no estén rechazados ni anulados. Antes, `DELETE` dejaba solo la marca de borrado
+lógico: no recalculaba la factura, y como los servicios de dinero leen con el manager crudo, el
+abono seguía contando. Editar un abono (`PATCH`: fecha, método, monto, referencia, notas) sigue
+pasando por `validate_reservation_deposit_rules`.
 
 **Un reembolso se registra desde el pago, no desde la pestaña de reembolsos.** `PaymentRefund.payment`
 es FK obligatoria y el tope reembolsable, el método y la referencia salen de ese pago; un formulario
@@ -1005,6 +1026,15 @@ propósito** en `DemoRequestCreateSerializer.validate_structure()` (backend) y e
 que el usuario vea el error antes de enviar, no para reemplazar la del backend. Si cambia una regla
 —pisos sin habitaciones, prefijos repetidos, nombres de tipo repetidos, topes— hay que cambiar las
 dos.
+
+**El wizard "Crear hotel" de la consola SaaS captura pisos y habitaciones** (desde el 2026-10-09).
+`HotelSettingsSerializer` acepta `initial_floors` (de solo escritura, y solo al crear):
+`[{floor_number, prefix?, name?, room_count}]`. En la misma transacción crea los pisos y numera
+las habitaciones con `create_initial_rooms_for_floor()`. Las habitaciones nacen **sin tipo ni
+tarifa**: el wizard es una herramienta interna y los tipos se asignan después en `/habitaciones`.
+Las reglas (números y prefijos de piso únicos, 1-99 habitaciones por piso, 60 pisos como máximo)
+están en `validate_initial_floors` y repetidas en `validateWizardFloors()` del wizard. Crear sin
+pisos sigue permitido: el paso de revisión avisa que el hotel quedará en observación.
 
 ### 5.26 Una habitación se saca de operación de dos formas distintas, y no son lo mismo
 
@@ -1307,6 +1337,49 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-10-09 — Auditoría, tanda 6: los pendientes que eran funcionalidad nueva
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez
+- **Commit(s):** incluido en este commit
+- **Tipo:** funcional
+- **Qué se hizo:**
+  - **B14 #10 — confirmación pública verificada.** Nuevo
+    `POST /api/web-reservations/confirmation/` (`AllowAny`, throttle
+    `web_reservation_confirmation` 20/min). Exige id **y** código (5.24), solo reservas del canal
+    web, y devuelve código, hotel, fechas y estado, sin datos del huésped. Fallar por cualquiera
+    de los dos responde el mismo 404. La pantalla `/reservar/confirmacion/:id` ya no pinta los
+    query params: muestra lo que devuelve el backend, o un aviso si el enlace no coincide.
+  - **B12 #8 — alertas en la campana.** `OperationalAlert` e `InventoryRestockAlert` notifican al
+    crearse. El aviso de "Stock bajo" sale de la alerta de reposición, no de la señal de `Item`
+    (5.12).
+  - **B12 #9 — enlaces al registro.** Las notificaciones de reservas, habitaciones, limpieza,
+    mantenimiento, facturas y pagos abren ese registro. `/habitaciones` acepta `?room=` y `&tab=`;
+    `/facturacion` acepta `?invoice=` (5.12).
+  - **B6 #8 — corregir huéspedes y abonos.** El modal de huéspedes permite editar cada uno (salvo
+    en reservas canceladas). El detalle de la reserva lista los abonos con **Editar** y **Anular**
+    mientras la reserva está abierta. En el backend, anular un abono (`void/` o `DELETE`) lo hace
+    solo un administrador y deja el pago inactivo; antes `DELETE` lo marcaba como borrado sin
+    recalcular la factura (5.19).
+  - **B13 #3 — estructura en el wizard SaaS.** Nuevo paso "Estructura" con pisos, prefijo y número
+    de habitaciones; se envía como `initial_floors` y el backend crea todo en una transacción
+    (5.25). De paso, B13 #7: el modal ya no queda bloqueado en "guardando" si falta el id al editar.
+- **Por qué:** eran los cinco pendientes de la auditoría que la tanda 5 dejó documentados como
+  funcionalidad nueva (sección 13, punto 15).
+- **Archivos/áreas afectadas:** `backend/backend/settings.py`,
+  `backend/apps/reservations/{views,tests}.py`, `backend/apps/notifications/{services,signals,tests}.py`,
+  `backend/apps/hotel_settings/{serializers,tests}.py`; frontend: `services/{web-reservation,reservation}.ts`,
+  `services/action-confirmations.ts` (acción `void`), `components/layout/header/header.ts`,
+  `components/pages/allied-booking/allied-booking-confirmation.*`,
+  `modules/reservations/detail-reservation/*`, `modules/rooms/{list-rooms,room-modal}/*`,
+  `modules/billing/{billing-page,list-bill}/*`, `modules/saas/list-saas-hotels/*`; `AGENTS.md`
+  (5.12, 5.19, 5.25, 13).
+- **Impacto:** sin migraciones. Endpoints nuevos: `POST /api/web-reservations/confirmation/`
+  y `POST /api/reservation-deposits/{id}/void/`. Campo nuevo de escritura `initial_floors` en
+  `POST /api/hotel-settings/`. Cambios de comportamiento: (a) `DELETE` de un abono exige rol
+  administrador (403 si no) y deja el pago inactivo en vez de marcarlo como borrado; (b) un ítem
+  avisa "Stock bajo" al quedar **por debajo** del mínimo, no al igualarlo; (c) el `action_url` de
+  las notificaciones nuevas trae query params (las ya guardadas conservan su enlace al listado).
 
 ### 2026-10-09 — Auditoría, tanda 5: los "corregir pronto" de cada bloque
 
@@ -10749,13 +10822,9 @@ para que nadie los "descubra" y los cambie sin contexto.
 14. **`billing.InvoiceCharge` no tiene ningún efecto** (decisión del 2026-10-09): el total de la
     factura sale siempre de `get_reservation_financials`. Su endpoint quedó de solo lectura para que
     nadie crea que "factura" un cargo con él; eliminar el modelo requeriría una migración.
-15. **Pendientes de la auditoría que son funcionalidad nueva** (ver `Plans/bloque-*.md`): editar
-    abonos y huéspedes de una reserva desde la UI (B6 #8); llevar `OperationalAlert` e
-    `InventoryRestockAlert` a la campana, que hoy corre en paralelo a otro aviso de stock bajo
-    (B12 #8); enlaces de notificación al registro concreto y no al listado (B12 #9); capturar
-    pisos y habitaciones en el wizard SaaS como ya hace la solicitud de demo (B13 #3); y validar
-    contra el backend la pantalla pública de confirmación de reserva, hoy armada con query params
-    (B14 #10 — requiere un endpoint público por código, que hay que diseñar sin romper 5.24).
+15. ~~**Pendientes de la auditoría que son funcionalidad nueva**~~ **RESUELTO el 2026-10-09**
+    (B6 #8, B12 #8, B12 #9, B13 #3, B14 #10). Ver la entrada "Auditoría, tanda 6" del registro de
+    cambios.
 ### 2026-08-10 - Inventario por uso de item y asignacion desde habitacion
 
 - **Autor:** Codex, a solicitud de rastor65

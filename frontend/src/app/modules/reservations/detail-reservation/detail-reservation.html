@@ -207,6 +207,81 @@
           </div>
         </section>
 
+        <section>
+          <div class="section-headline">
+            <h3>Abonos</h3>
+          </div>
+
+          <ul class="deposit-list" *ngIf="deposits.length; else noDeposits">
+            <li *ngFor="let deposit of deposits; trackBy: trackById">
+              <div class="deposit-row">
+                <span class="deposit-name">
+                  {{ depositLabel(deposit) }}
+                  <small *ngIf="deposit.status_name">{{ deposit.status_name }}</small>
+                </span>
+                <strong>{{ depositAmount(deposit) }}</strong>
+                <ng-container *ngIf="canEditDeposits && editingDepositId !== deposit.id">
+                  <button
+                    type="button"
+                    class="btn-link btn-link-subtle"
+                    (click)="startDepositEdit(deposit)"
+                    [disabled]="depositBusy">
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-link btn-link-subtle"
+                    (click)="voidDeposit(deposit)"
+                    [disabled]="depositBusy"
+                    [attr.aria-label]="'Anular abono de ' + depositAmount(deposit)">
+                    Anular
+                  </button>
+                </ng-container>
+              </div>
+
+              <form class="record-edit" *ngIf="editingDepositId === deposit.id" (ngSubmit)="saveDeposit()">
+                <label>
+                  Fecha
+                  <input type="date" name="deposit_date" [(ngModel)]="depositDraft.deposit_date" />
+                </label>
+                <label>
+                  Metodo
+                  <select name="payment_method" [(ngModel)]="depositDraft.payment_method">
+                    <option [ngValue]="null">Selecciona...</option>
+                    <option *ngFor="let method of paymentMethods" [ngValue]="method.id">{{ method.name }}</option>
+                  </select>
+                </label>
+                <label>
+                  Monto
+                  <input type="number" min="0" step="0.01" name="amount" [(ngModel)]="depositDraft.amount" />
+                </label>
+                <label>
+                  Referencia
+                  <input type="text" name="reference" [(ngModel)]="depositDraft.reference" />
+                </label>
+                <label class="record-edit-wide">
+                  Notas
+                  <input type="text" name="notes" [(ngModel)]="depositDraft.notes" />
+                </label>
+                <div class="record-edit-actions">
+                  <button type="button" class="btn btn-secondary" (click)="cancelDepositEdit()" [disabled]="depositBusy">
+                    Cancelar
+                  </button>
+                  <button type="submit" class="btn btn-primary" [disabled]="depositBusy">
+                    {{ depositBusy ? 'Guardando...' : 'Guardar' }}
+                  </button>
+                </div>
+              </form>
+            </li>
+          </ul>
+
+          <ng-template #noDeposits>
+            <p class="state-msg">Esta reserva no tiene abonos registrados.</p>
+          </ng-template>
+
+          <p class="state-msg error" *ngIf="depositError">{{ depositError }}</p>
+        </section>
+
         <section *ngIf="showPromotions">
           <div class="section-headline">
             <h3>Promociones</h3>
@@ -428,10 +503,12 @@
               <th>Nacionalidad</th>
               <th>Sangre</th>
               <th>Emergencia</th>
+              <th *ngIf="canEditGuests"><span class="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let guest of guests; trackBy: trackById">
+            <ng-container *ngFor="let guest of guests; trackBy: trackById">
+            <tr>
               <td>{{ guest.full_name || ((guest.first_name || '') + ' ' + (guest.last_name || '')).trim() || 'Sin nombre' }}</td>
               <td>{{ getGuestDocumentLabel(guest) }}</td>
               <td>{{ formatDate(guest.birth_date || null) }}</td>
@@ -444,7 +521,65 @@
                     : 'No registra'
                 }}
               </td>
+              <td *ngIf="canEditGuests">
+                <button
+                  type="button"
+                  class="btn-link btn-link-subtle"
+                  *ngIf="editingGuestId !== guest.id"
+                  (click)="startGuestEdit(guest)"
+                  [disabled]="guestBusy">
+                  Editar
+                </button>
+              </td>
             </tr>
+            <tr *ngIf="editingGuestId === guest.id" class="guest-edit-row">
+              <td [attr.colspan]="canEditGuests ? 7 : 6">
+                <form class="record-edit" (ngSubmit)="saveGuest()">
+                  <label>
+                    Nombre
+                    <input type="text" name="first_name" [(ngModel)]="guestDraft.first_name" required />
+                  </label>
+                  <label>
+                    Apellido
+                    <input type="text" name="last_name" [(ngModel)]="guestDraft.last_name" required />
+                  </label>
+                  <label>
+                    Documento ({{ guest.document_type_code || guest.document_type_name || 'Doc' }})
+                    <input type="text" name="document_number" [(ngModel)]="guestDraft.document_number" required />
+                  </label>
+                  <label>
+                    Nacimiento
+                    <input type="date" name="birth_date" [(ngModel)]="guestDraft.birth_date" />
+                  </label>
+                  <label>
+                    Nacionalidad
+                    <input type="text" name="nationality" [(ngModel)]="guestDraft.nationality" />
+                  </label>
+                  <label>
+                    Sangre
+                    <input type="text" name="blood_type" [(ngModel)]="guestDraft.blood_type" />
+                  </label>
+                  <label>
+                    Contacto de emergencia
+                    <input type="text" name="emergency_contact_name" [(ngModel)]="guestDraft.emergency_contact_name" />
+                  </label>
+                  <label>
+                    Telefono de emergencia
+                    <input type="tel" name="emergency_contact_phone" [(ngModel)]="guestDraft.emergency_contact_phone" />
+                  </label>
+                  <p class="state-msg error record-edit-wide" *ngIf="guestError">{{ guestError }}</p>
+                  <div class="record-edit-actions">
+                    <button type="button" class="btn btn-secondary" (click)="cancelGuestEdit()" [disabled]="guestBusy">
+                      Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" [disabled]="guestBusy">
+                      {{ guestBusy ? 'Guardando...' : 'Guardar' }}
+                    </button>
+                  </div>
+                </form>
+              </td>
+            </tr>
+            </ng-container>
           </tbody>
         </table>
       </div>

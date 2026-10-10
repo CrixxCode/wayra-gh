@@ -245,12 +245,14 @@ class NotificationEventSignalsTests(TestCase):
             created_by=self.manager,
         )
 
-        self.assertTrue(
-            Notification.objects.filter(
-                user=self.manager,
-                title="Nueva reserva registrada",
-                related_object_id=str(reservation.id),
-            ).exists()
+        notification = Notification.objects.get(
+            user=self.manager,
+            title="Nueva reserva registrada",
+            related_object_id=str(reservation.id),
+        )
+        # El enlace abre esa reserva, no el listado (Bloque 12 #9).
+        self.assertEqual(
+            notification.action_url, f"/reservas?action=detail&reservationId={reservation.id}"
         )
 
     def test_payment_creation_generates_notification(self):
@@ -279,13 +281,25 @@ class NotificationEventSignalsTests(TestCase):
             is_active=True,
         )
 
-        self.assertTrue(
-            Notification.objects.filter(
-                user=self.manager,
-                title="Pago registrado",
-                related_object_id=str(payment.id),
-            ).exists()
+        notification = Notification.objects.get(
+            user=self.manager,
+            title="Pago registrado",
+            related_object_id=str(payment.id),
         )
+        self.assertEqual(notification.action_url, f"/facturacion?tab=invoices&invoice={invoice.id}")
+
+    def test_room_notifications_link_to_the_room(self):
+        from apps.notifications.services import notify_room_out_of_service, room_detail_url
+
+        notify_room_out_of_service(self.room)
+        notification = Notification.objects.get(user=self.manager, related_object_id=str(self.room.id))
+        self.assertEqual(notification.action_url, f"/habitaciones?room={self.room.id}")
+        # Limpieza y mantenimiento abren la pestana de operaciones de la habitacion.
+        self.assertEqual(
+            room_detail_url(self.room, tab="operations"),
+            f"/habitaciones?room={self.room.id}&tab=operations",
+        )
+        self.assertEqual(room_detail_url(None), "/habitaciones")
 
     def test_low_stock_generates_notification(self):
         item = Item.objects.create(
@@ -301,7 +315,13 @@ class NotificationEventSignalsTests(TestCase):
             is_active=True,
         )
 
+        # Igual al minimo todavia no es "bajo minimo": la regla es la de la alerta de
+        # reposicion, que la campana ahora sigue (Bloque 12 #8).
         item.stock = 5
+        item.save(update_fields=["stock", "updated_at"])
+        self.assertFalse(Notification.objects.filter(title="Stock bajo").exists())
+
+        item.stock = 4
         item.save(update_fields=["stock", "updated_at"])
 
         self.assertTrue(
@@ -429,3 +449,30 @@ class RoleUpdatedNotificationLinkTests(TestCase):
             )
         )
         self.assertEqual(links, {"gerente_enlace": "/usuarios-hotel", "afectado_enlace": "/mi-perfil"})
+
+
+class OperationalAlertReachesTheBellTests(TestCase):
+    """Auditoria, Bloque 12 #8: una alerta de Finanzas llega a la campana."""
+
+    def test_new_operational_alert_notifies_hotel_managers(self):
+        from apps.finance.models import OperationalAlert
+
+        hotel = HotelSettings.objects.create(hotel_name="Hotel Alertas")
+        manager_role = Role.objects.create(name="Gerente", slug="manager", is_active=True)
+        manager = User.objects.create_user(
+            username="gerente_alertas", password="pass12345", hotel_settings=hotel
+        )
+        UserRole.objects.create(user=manager, role=manager_role, is_active=True)
+
+        alert = OperationalAlert.objects.create(
+            hotel_settings=hotel,
+            alert_type=OperationalAlert.AlertType.REVENUE_DROP,
+            severity=OperationalAlert.Severity.CRITICAL,
+            status=OperationalAlert.Status.OPEN,
+            title="Caida de ingresos",
+            message="Los ingresos cayeron 40% frente al periodo anterior.",
+        )
+
+        notification = Notification.objects.get(user=manager, related_object_id=str(alert.id))
+        self.assertEqual(notification.action_url, "/control-financiero")
+        self.assertEqual(notification.priority, Notification.Priority.CRITICAL)

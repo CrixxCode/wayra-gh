@@ -20,7 +20,16 @@ type SaasHotelsKpiCard = {
 type HotelActiveFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 type HotelPageControl = number | 'ellipsis';
 type HotelModalMode = 'create' | 'detail' | 'edit' | null;
-type CreateHotelStepKey = 'identity' | 'location' | 'operation' | 'review';
+type CreateHotelStepKey = 'identity' | 'location' | 'operation' | 'structure' | 'review';
+
+/** Piso declarado en el wizard; el backend numera sus habitaciones (prefijo + 01..). */
+type WizardFloor = {
+  floor_number: number;
+  prefix: string;
+  room_count: number;
+};
+
+const MAX_WIZARD_ROOMS_PER_FLOOR = 99;
 
 type CreateHotelStep = {
   key: CreateHotelStepKey;
@@ -78,6 +87,13 @@ export class ListSaasHotels implements OnInit {
   modalError = '';
   hotelForm: SaasHotelForm = this.buildEmptyHotelForm();
   createHotelStep = 0;
+  /**
+   * Antes el wizard creaba el hotel sin pisos ni habitaciones y aparecia de inmediato en
+   * observacion por "sin habitaciones" (auditoria, Bloque 13 #3). Se envian como
+   * `initial_floors` y el backend crea todo en la misma transaccion.
+   */
+  wizardFloors: WizardFloor[] = [];
+  readonly maxWizardRoomsPerFloor = MAX_WIZARD_ROOMS_PER_FLOOR;
   readonly createHotelSteps: CreateHotelStep[] = [
     {
       key: 'identity',
@@ -96,6 +112,12 @@ export class ListSaasHotels implements OnInit {
       label: 'Operacion',
       description: 'Horarios, moneda, impuesto y estado inicial.',
       icon: 'fa-solid fa-sliders',
+    },
+    {
+      key: 'structure',
+      label: 'Estructura',
+      description: 'Pisos y habitaciones con que arranca el hotel.',
+      icon: 'fa-solid fa-building',
     },
     {
       key: 'review',
@@ -251,6 +273,30 @@ export class ListSaasHotels implements OnInit {
     this.modalLoading = false;
     this.createHotelStep = 0;
     this.hotelForm = this.buildEmptyHotelForm();
+    this.wizardFloors = [];
+  }
+
+  addWizardFloor(): void {
+    const nextNumber = this.wizardFloors.reduce((max, floor) => Math.max(max, Number(floor.floor_number) || 0), 0) + 1;
+    this.wizardFloors = [
+      ...this.wizardFloors,
+      { floor_number: nextNumber, prefix: String(nextNumber), room_count: 10 },
+    ];
+  }
+
+  removeWizardFloor(index: number): void {
+    this.wizardFloors = this.wizardFloors.filter((_, position) => position !== index);
+  }
+
+  get wizardRoomTotal(): number {
+    return this.wizardFloors.reduce((sum, floor) => sum + (Number(floor.room_count) || 0), 0);
+  }
+
+  wizardFloorRange(floor: WizardFloor): string {
+    const count = Number(floor.room_count) || 0;
+    const prefix = String(floor.prefix || floor.floor_number || '').trim();
+    if (count < 1) return 'Sin habitaciones';
+    return `${prefix}01 - ${prefix}${String(count).padStart(2, '0')}`;
   }
 
   openHotelDetails(hotel: SaasHotelSnapshot): void {
@@ -270,6 +316,7 @@ export class ListSaasHotels implements OnInit {
     this.modalLoading = false;
     this.createHotelStep = 0;
     this.hotelForm = this.buildEmptyHotelForm();
+    this.wizardFloors = [];
   }
 
   toggleHotelActive(hotel: SaasHotelSnapshot): void {
@@ -336,18 +383,27 @@ export class ListSaasHotels implements OnInit {
       return;
     }
 
-    this.modalSaving = true;
-    this.modalError = '';
     const savingMode = this.modalMode;
     const targetId = this.modalDetails?.id || this.modalHotel?.id || 0;
+    // Se valida antes de marcar `modalSaving`: si no, el modal quedaba bloqueado (Bloque 13 #7).
     if (savingMode === 'edit' && !targetId) {
       this.modalError = 'No se encontro el hotel que se va a actualizar.';
       return;
     }
+    if (savingMode === 'create' && !this.validateWizardFloors()) {
+      this.createHotelStep = this.createHotelSteps.findIndex((step) => step.key === 'structure');
+      return;
+    }
+
+    this.modalSaving = true;
+    this.modalError = '';
 
     const request =
       savingMode === 'create'
-        ? this.hotelSettingsService.createSettings(payload)
+        ? this.hotelSettingsService.createSettings({
+            ...payload,
+            ...(this.wizardFloors.length ? { initial_floors: this.buildInitialFloorsPayload() } : {}),
+          } as Partial<HotelSettingsModel>)
         : this.hotelSettingsService.updateSettings(targetId, payload);
 
     request
@@ -804,6 +860,48 @@ export class ListSaasHotels implements OnInit {
       this.modalError = 'Escribe el nombre comercial del hotel para continuar.';
       return false;
     }
+    if (this.createHotelSteps[this.createHotelStep]?.key === 'structure') {
+      return this.validateWizardFloors();
+    }
     return true;
+  }
+
+  /** Mismas reglas que `initial_floors` en el backend, para avisar antes de enviar. */
+  private validateWizardFloors(): boolean {
+    const numbers = new Set<number>();
+    const prefixes = new Set<string>();
+    for (const floor of this.wizardFloors) {
+      const floorNumber = Number(floor.floor_number);
+      const roomCount = Number(floor.room_count);
+      const prefix = String(floor.prefix || floorNumber || '').trim();
+      if (!Number.isInteger(floorNumber) || floorNumber < 1) {
+        this.modalError = 'Cada piso necesita un numero mayor a cero.';
+        return false;
+      }
+      if (!Number.isInteger(roomCount) || roomCount < 1 || roomCount > MAX_WIZARD_ROOMS_PER_FLOOR) {
+        this.modalError = `Cada piso debe tener entre 1 y ${MAX_WIZARD_ROOMS_PER_FLOOR} habitaciones.`;
+        return false;
+      }
+      if (numbers.has(floorNumber)) {
+        this.modalError = `Hay dos pisos con el numero ${floorNumber}.`;
+        return false;
+      }
+      if (prefixes.has(prefix)) {
+        this.modalError = `Hay dos pisos con el prefijo "${prefix}": repetirian numeros de habitacion.`;
+        return false;
+      }
+      numbers.add(floorNumber);
+      prefixes.add(prefix);
+    }
+    this.modalError = '';
+    return true;
+  }
+
+  private buildInitialFloorsPayload(): WizardFloor[] {
+    return this.wizardFloors.map((floor) => ({
+      floor_number: Number(floor.floor_number),
+      prefix: String(floor.prefix || floor.floor_number).trim(),
+      room_count: Number(floor.room_count),
+    }));
   }
 }

@@ -3,9 +3,10 @@ from django.dispatch import receiver
 
 from accounts.models import User, UserRole
 from apps.billing.models import Invoice, Payment
-from apps.finance.models import Expense
-from apps.inventory.models import Item
+from apps.finance.models import Expense, OperationalAlert
+from apps.inventory.models import InventoryRestockAlert, Item
 from apps.notifications.services import (
+    notify_operational_alert,
     notify_cleaning_completed,
     notify_expense_registered,
     notify_invoice_generated,
@@ -237,17 +238,27 @@ def create_inventory_notifications(sender, instance, created, raw=False, **kwarg
     previous_stock = getattr(instance, "_previous_stock", None)
     previous_minimum = getattr(instance, "_previous_minimum_stock", None)
 
-    if current_minimum > 0 and current_stock <= current_minimum:
-        if previous_stock is None:
-            notify_stock_low(instance)
-        else:
-            threshold = int(previous_minimum or current_minimum)
-            if int(previous_stock) > threshold:
-                notify_stock_low(instance)
+    # "Stock bajo" ya no se decide aqui: sale de la alerta de reposicion
+    # (`InventoryRestockAlert`, receptor de abajo). Eran dos sistemas con umbrales distintos
+    # (`<=` aqui, `<` alli) que podian contradecirse (auditoria, Bloque 12 #8).
 
     if current_stock == 0:
         if previous_stock is None or int(previous_stock) > 0:
             notify_product_out_of_stock(instance)
+
+
+@receiver(post_save, sender=InventoryRestockAlert)
+def notify_stock_low_on_restock_alert(sender, instance, created, raw=False, **kwargs):
+    if raw or not created:
+        return
+    notify_stock_low(instance.item)
+
+
+@receiver(post_save, sender=OperationalAlert)
+def notify_operational_alert_on_create(sender, instance, created, raw=False, **kwargs):
+    if raw or not created:
+        return
+    notify_operational_alert(instance)
 
 
 @receiver(post_save, sender=Expense)

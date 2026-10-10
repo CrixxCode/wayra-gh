@@ -1082,3 +1082,98 @@ h3 {
   background: var(--gh-surface);
   color: var(--gh-text);
 }
+
+/* ------------------------------------------- abonos y correccion de registros */
+
+.deposit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+}
+
+.deposit-list li {
+  padding: 8px 10px;
+  border: 1px solid var(--gh-border);
+  border-radius: 10px;
+  background: var(--gh-surface-soft);
+}
+
+.deposit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.deposit-name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--gh-text);
+  font-size: 0.85rem;
+}
+
+.deposit-name small {
+  color: var(--gh-text-soft);
+  font-size: 0.74rem;
+}
+
+.deposit-row strong {
+  color: var(--gh-text);
+  white-space: nowrap;
+}
+
+.record-edit {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 10px;
+  margin-top: 10px;
+}
+
+.record-edit label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--gh-text-soft);
+  font-size: 0.76rem;
+}
+
+.record-edit input,
+.record-edit select {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--gh-border-strong);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.record-edit-wide,
+.record-edit-actions {
+  grid-column: 1 / -1;
+}
+
+.record-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.guest-edit-row td {
+  background: var(--gh-surface-soft);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+

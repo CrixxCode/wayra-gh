@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
+import { ActivatedRoute, convertToParamMap, Params } from '@angular/router';
 
 import { ListRooms } from './list-rooms';
 import { RoomService } from '../../../services/room';
@@ -37,10 +38,22 @@ describe('ListRooms', () => {
   let component: ListRooms;
   let fixture: ComponentFixture<ListRooms>;
 
+  // Query params de la ruta: los enlaces de notificacion abren una habitacion (`?room=`).
+  let queryParams: Params = {};
+  const routeStub = {
+    snapshot: {
+      get queryParamMap() {
+        return convertToParamMap(queryParams);
+      }
+    }
+  };
+
   beforeEach(async () => {
+    queryParams = {};
     await TestBed.configureTestingModule({
       imports: [ListRooms],
       providers: [
+        { provide: ActivatedRoute, useValue: routeStub },
         {
           provide: RoomService,
           useValue: {
@@ -85,6 +98,17 @@ describe('ListRooms', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('abre la habitacion y la pestana que trae el enlace de una notificacion', () => {
+    queryParams = { room: '2', tab: 'operations' };
+    component.rooms = [buildRoom(1, '101', 'DISPONIBLE'), buildRoom(2, '102', 'LIMPIEZA')];
+    (component as unknown as { deepLinkHandled: boolean }).deepLinkHandled = false;
+
+    (component as unknown as { openRoomFromLink: () => void }).openRoomFromLink();
+
+    expect(component.selectedRoom?.id).toBe(2);
+    expect(component.initialRoomTab).toBe('operations');
   });
 
   describe('filtros operativos', () => {

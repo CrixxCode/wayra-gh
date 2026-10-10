@@ -113,6 +113,13 @@ Estos no son de seguridad ni de dinero directamente, pero impiden operar el día
 > `AGENTS.md`. Al probar B1 #3 apareció un bug nuevo: el borrado lógico con PK UUID no excluía nada
 > en SQLite (corregido). Quedan los "corregir pronto" y "mejorable" de cada bloque.
 
+## Tanda 6 — pendientes que eran funcionalidad nueva
+
+> **Estado 2026-10-09:** ✅ resueltos B6 #8 (editar huéspedes y abonos), B12 #8 (alertas en la
+> campana), B12 #9 (enlaces al registro), B13 #3 (estructura en el wizard SaaS) y B14 #10
+> (confirmación pública verificada), más B13 #7. Ver la entrada "Auditoría, tanda 6" en la
+> sección 12 de `AGENTS.md`.
+
 ## Tanda 5 — "corregir pronto" de cada bloque
 
 > **Estado 2026-10-09:** ✅ corregidos los "corregir pronto" de los bloques 1-15 salvo cinco que son

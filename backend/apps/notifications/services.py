@@ -323,6 +323,25 @@ def _format_days_until_message(days_until: int) -> str:
     return f"en {days_until} dias"
 
 
+# Enlaces al registro concreto: antes todos apuntaban al listado y habia que buscar a mano
+# la reserva, la factura o la habitacion de la notificacion (auditoria, Bloque 12 #9).
+def reservation_detail_url(reservation) -> str:
+    reservation_id = getattr(reservation, "pk", None)
+    return f"/reservas?action=detail&reservationId={reservation_id}" if reservation_id else "/reservas"
+
+
+def room_detail_url(room, *, tab: str | None = None) -> str:
+    room_id = getattr(room, "pk", None)
+    if not room_id:
+        return "/habitaciones"
+    return f"/habitaciones?room={room_id}" + (f"&tab={tab}" if tab else "")
+
+
+def invoice_detail_url(invoice) -> str:
+    invoice_id = getattr(invoice, "pk", None)
+    return f"/facturacion?tab=invoices&invoice={invoice_id}" if invoice_id else "/facturacion"
+
+
 def notify_reservation_created(reservation) -> list[Notification]:
     if reservation is None:
         return []
@@ -345,7 +364,7 @@ def notify_reservation_created(reservation) -> list[Notification]:
         message=message,
         notification_type=Notification.NotificationType.RESERVATION,
         priority=Notification.Priority.HIGH if is_web_reservation else Notification.Priority.MEDIUM,
-        action_url="/reservas",
+        action_url=reservation_detail_url(reservation),
         related_object=reservation,
         metadata={
             "source_channel": source_channel,
@@ -367,7 +386,7 @@ def notify_reservation_cancelled(reservation) -> list[Notification]:
         message=message,
         notification_type=Notification.NotificationType.RESERVATION,
         priority=Notification.Priority.HIGH,
-        action_url="/reservas",
+        action_url=reservation_detail_url(reservation),
         related_object=reservation,
     )
 
@@ -390,7 +409,7 @@ def notify_online_check_in_submitted(reservation, guests) -> list[Notification]:
         message=message,
         notification_type=Notification.NotificationType.RESERVATION,
         priority=Notification.Priority.MEDIUM,
-        action_url="/reservas",
+        action_url=reservation_detail_url(reservation),
         related_object=reservation,
         metadata={
             "guest_ids": [guest.id for guest in guests],
@@ -421,7 +440,7 @@ def notify_reservation_pending_balance(
         message=message,
         notification_type=Notification.NotificationType.RESERVATION,
         priority=Notification.Priority.HIGH,
-        action_url="/reservas",
+        action_url=reservation_detail_url(reservation),
         related_object=reservation,
     )
 
@@ -466,7 +485,7 @@ def notify_reservation_upcoming_checkin(reservation, *, days_until: int) -> list
             message=message,
             notification_type=Notification.NotificationType.RESERVATION,
             priority=Notification.Priority.MEDIUM,
-            action_url="/reservas",
+            action_url=reservation_detail_url(reservation),
             related_object=reservation,
         )
         if notification is not None:
@@ -514,7 +533,7 @@ def notify_reservation_upcoming_checkout(reservation, *, days_until: int) -> lis
             message=message,
             notification_type=Notification.NotificationType.RESERVATION,
             priority=Notification.Priority.MEDIUM,
-            action_url="/reservas",
+            action_url=reservation_detail_url(reservation),
             related_object=reservation,
         )
         if notification is not None:
@@ -534,7 +553,7 @@ def notify_room_pending_cleaning(room) -> list[Notification]:
         message=message,
         notification_type=Notification.NotificationType.CLEANING,
         priority=Notification.Priority.HIGH,
-        action_url="/tareas-limpieza",
+        action_url=room_detail_url(room, tab="operations"),
         related_object=room,
     )
 
@@ -552,7 +571,7 @@ def notify_cleaning_completed(task) -> list[Notification]:
         message=message,
         notification_type=Notification.NotificationType.CLEANING,
         priority=Notification.Priority.MEDIUM,
-        action_url="/tareas-limpieza",
+        action_url=room_detail_url(room, tab="operations"),
         related_object=task,
     )
 
@@ -569,7 +588,7 @@ def notify_room_ready_for_assignment(room) -> list[Notification]:
         message=message,
         notification_type=Notification.NotificationType.ROOM,
         priority=Notification.Priority.MEDIUM,
-        action_url="/habitaciones",
+        action_url=room_detail_url(room),
         related_object=room,
     )
 
@@ -588,7 +607,7 @@ def notify_maintenance_created(order) -> list[Notification]:
         message=message,
         notification_type=Notification.NotificationType.MAINTENANCE,
         priority=Notification.Priority.MEDIUM,
-        action_url="/ordenes-mantenimiento",
+        action_url=room_detail_url(room, tab="operations"),
         related_object=order,
     )
 
@@ -610,7 +629,7 @@ def notify_maintenance_urgent(order) -> list[Notification]:
         message=message,
         notification_type=Notification.NotificationType.MAINTENANCE,
         priority=Notification.Priority.CRITICAL,
-        action_url="/ordenes-mantenimiento",
+        action_url=room_detail_url(room, tab="operations"),
         related_object=order,
     )
 
@@ -627,7 +646,7 @@ def notify_room_out_of_service(room) -> list[Notification]:
         message=message,
         notification_type=Notification.NotificationType.MAINTENANCE,
         priority=Notification.Priority.CRITICAL,
-        action_url="/habitaciones",
+        action_url=room_detail_url(room),
         related_object=room,
     )
 
@@ -649,7 +668,7 @@ def notify_payment_registered(payment) -> list[Notification]:
         message=message,
         notification_type=Notification.NotificationType.PAYMENT,
         priority=Notification.Priority.MEDIUM,
-        action_url="/pagos",
+        action_url=invoice_detail_url(invoice),
         related_object=payment,
     )
 
@@ -666,7 +685,7 @@ def notify_invoice_generated(invoice) -> list[Notification]:
         message=message,
         notification_type=Notification.NotificationType.INVOICE,
         priority=Notification.Priority.MEDIUM,
-        action_url="/facturas",
+        action_url=invoice_detail_url(invoice),
         related_object=invoice,
     )
 
@@ -700,7 +719,7 @@ def notify_invoice_pending_payment(
         message=message,
         notification_type=Notification.NotificationType.INVOICE,
         priority=Notification.Priority.HIGH,
-        action_url="/facturas",
+        action_url=invoice_detail_url(invoice),
         related_object=invoice,
     )
 
@@ -729,6 +748,25 @@ def notify_stock_low(item) -> list[Notification]:
         priority=Notification.Priority.HIGH,
         action_url="/items",
         related_object=item,
+    )
+
+
+def notify_operational_alert(alert) -> list[Notification]:
+    """
+    Alerta operativa de Finanzas (ocupacion, caida de ingresos, reembolsos...). Antes solo se
+    veia entrando a /control-financiero; la campana no se enteraba (auditoria, Bloque 12 #8).
+    """
+    if alert is None:
+        return []
+    critical = str(getattr(alert, "severity", "") or "").upper() == "CRITICAL"
+    return notify_hotel_managers(
+        hotel_settings=getattr(alert, "hotel_settings", None),
+        title=str(getattr(alert, "title", "") or "Alerta operativa"),
+        message=str(getattr(alert, "message", "") or ""),
+        notification_type=Notification.NotificationType.FINANCE,
+        priority=Notification.Priority.CRITICAL if critical else Notification.Priority.HIGH,
+        action_url="/control-financiero",
+        related_object=alert,
     )
 
 

@@ -1111,3 +1111,69 @@ tr.is-last-row .action-menu {
     width: 100%;
   }
 }
+
+/* Paso Estructura del wizard (Bloque 13 #3) */
+.wizard-structure-note {
+  margin: 0 0 12px;
+  color: var(--gh-text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.wizard-floor-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.wizard-floor {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto auto;
+  align-items: end;
+  gap: 10px;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 12px;
+  background: var(--gh-surface-soft);
+  padding: 10px 12px;
+}
+
+.wizard-floor label > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--gh-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.wizard-floor-range {
+  padding-bottom: 9px;
+  color: var(--gh-text-soft);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.wizard-floor-remove {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--gh-border-soft);
+  border-radius: 9px;
+  background: var(--gh-surface);
+  color: var(--gh-text-muted);
+  cursor: pointer;
+}
+
+.wizard-floor-remove:hover {
+  color: var(--gh-status-danger-text);
+}
+
+.wizard-floor-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .wizard-floor {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -75,6 +75,8 @@ type ReceptionCartLine = {
 })
 export class RoomModal implements OnChanges, OnDestroy, OnInit {
   @Input({ required: true }) room!: RoomI;
+  /** Pestana inicial al llegar por un enlace (p. ej. una notificacion de limpieza). */
+  @Input() initialTab: string | null = null;
   @Input() floors: HotelFloorI[] = [];
   @Input() rooms: RoomI[] = [];
   @Input() roomTypes: RoomTypeI[] = [];
@@ -216,7 +218,10 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
   ngOnInit(): void {
     this.resetFormFromRoom();
     this.resetOperationForms();
-    this.activeTab = this.getDefaultTabForRoom();
+    this.activeTab =
+      this.initialTab && this.isKnownTab(this.initialTab)
+        ? (this.initialTab as RoomModalTab)
+        : this.getDefaultTabForRoom();
     this.loadPanel();
     this.loadOperations();
     this.loadOperationCatalogs();
@@ -2375,4 +2380,9 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
       year: 'numeric'
     }).format(date);
   }
+
+  private isKnownTab(tab: string): boolean {
+    return (['general', 'photos', 'amenities', 'rate', 'reservation', 'operations', 'inventory'] as string[]).includes(tab);
+  }
+
 }

@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewInit, Component, ElementRef, inject, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, inject, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { PublicFooterComponent } from '../../shared/public-footer/public-footer';
 import { PublicHeaderComponent } from '../../shared/public-header/public-header';
+import { WebReservationService } from '../../../services/web-reservation';
 
 @Component({
   selector: 'app-allied-booking-confirmation',
@@ -12,23 +13,48 @@ import { PublicHeaderComponent } from '../../shared/public-header/public-header'
   templateUrl: './allied-booking-confirmation.html',
   styleUrls: ['./allied-booking.css', './allied-booking-flow.css'],
 })
-export class AlliedBookingConfirmationPage implements AfterViewInit {
+export class AlliedBookingConfirmationPage implements OnInit, AfterViewInit {
   private readonly route = inject(ActivatedRoute);
 
   @ViewChild('confirmationRegion')
   private readonly confirmationRegion?: ElementRef<HTMLElement>;
 
+  private readonly webReservationService = inject(WebReservationService);
+
   readonly reservationId = this.route.snapshot.paramMap.get('reservationId') ?? '';
 
-  readonly reservationReference =
-    this.route.snapshot.queryParamMap.get('code') ||
-    (this.reservationId ? `#${this.reservationId}` : '');
+  /** Codigo que trae la URL: solo sirve para pedir la verificacion, no se muestra tal cual. */
+  private readonly codeFromUrl = this.route.snapshot.queryParamMap.get('code') ?? '';
 
-  readonly hotelName = this.route.snapshot.queryParamMap.get('hotel') ?? '';
+  /**
+   * Lo que se pinta sale del backend, no de la URL. Antes la pantalla repetia los query
+   * params y un enlace manipulado mostraba un hotel y fechas falsos con el dominio de Wayra
+   * (auditoria, Bloque 14 #10).
+   */
+  verification: 'loading' | 'verified' | 'unverified' = 'loading';
+  reservationReference = '';
+  hotelName = '';
+  checkIn = '';
+  checkOut = '';
 
-  readonly checkIn = this.route.snapshot.queryParamMap.get('checkIn') ?? '';
-
-  readonly checkOut = this.route.snapshot.queryParamMap.get('checkOut') ?? '';
+  ngOnInit(): void {
+    if (!this.reservationId || !this.codeFromUrl) {
+      this.verification = 'unverified';
+      return;
+    }
+    this.webReservationService.getConfirmation(this.reservationId, this.codeFromUrl).subscribe({
+      next: (confirmation) => {
+        this.reservationReference = confirmation.code;
+        this.hotelName = confirmation.hotel_name;
+        this.checkIn = confirmation.expected_check_in;
+        this.checkOut = confirmation.expected_check_out;
+        this.verification = 'verified';
+      },
+      error: () => {
+        this.verification = 'unverified';
+      }
+    });
+  }
 
   get hasStayDates(): boolean {
     return Boolean(this.checkIn && this.checkOut);

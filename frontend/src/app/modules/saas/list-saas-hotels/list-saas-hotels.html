@@ -583,6 +583,49 @@
                   </div>
 
                   <div class="wizard-step-body" *ngIf="createHotelStep === 3">
+                    <p class="wizard-structure-note">
+                      Cada piso numera sus habitaciones con su prefijo (101, 102...). Los tipos y tarifas
+                      se asignan despues en Habitaciones. Puedes crear el hotel sin pisos, pero quedara en
+                      observacion hasta que los configure.
+                    </p>
+
+                    <div class="wizard-floor-list" *ngIf="wizardFloors.length">
+                      <div class="wizard-floor" *ngFor="let floor of wizardFloors; let index = index">
+                        <label>
+                          <span>Piso</span>
+                          <input type="number" min="1" [name]="'floor_number_' + index" [(ngModel)]="floor.floor_number" />
+                        </label>
+                        <label>
+                          <span>Prefijo</span>
+                          <input type="text" maxlength="10" [name]="'floor_prefix_' + index" [(ngModel)]="floor.prefix" />
+                        </label>
+                        <label>
+                          <span>Habitaciones</span>
+                          <input
+                            type="number"
+                            min="1"
+                            [max]="maxWizardRoomsPerFloor"
+                            [name]="'floor_rooms_' + index"
+                            [(ngModel)]="floor.room_count" />
+                        </label>
+                        <small class="wizard-floor-range">{{ wizardFloorRange(floor) }}</small>
+                        <button
+                          type="button"
+                          class="wizard-floor-remove"
+                          (click)="removeWizardFloor(index)"
+                          [attr.aria-label]="'Quitar piso ' + floor.floor_number">
+                          <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <button type="button" class="btn btn-secondary wizard-floor-add" (click)="addWizardFloor()">
+                      <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                      Agregar piso
+                    </button>
+                  </div>
+
+                  <div class="wizard-step-body" *ngIf="createHotelStep === 4">
                     <div class="wizard-review">
                       <article>
                         <span>Hotel</span>
@@ -603,6 +646,16 @@
                         <span>Operacion</span>
                         <strong>{{ hotelForm.check_in_time || 'N/D' }} - {{ hotelForm.check_out_time || 'N/D' }}</strong>
                         <small>{{ hotelForm.currency || 'COP' }} - {{ hotelForm.tax_rate || 0 }}% impuesto</small>
+                      </article>
+                      <article>
+                        <span>Estructura</span>
+                        <strong *ngIf="wizardFloors.length; else noStructure">
+                          {{ wizardFloors.length }} piso(s) - {{ wizardRoomTotal }} habitaciones
+                        </strong>
+                        <ng-template #noStructure><strong>Sin habitaciones</strong></ng-template>
+                        <small>
+                          {{ wizardFloors.length ? 'Tipos y tarifas se asignan en Habitaciones.' : 'Quedara en observacion hasta configurarlas.' }}
+                        </small>
                       </article>
                     </div>
                   </div>

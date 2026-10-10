@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { Component, ElementRef, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
@@ -265,7 +266,8 @@ export class ListRooms implements OnInit, OnDestroy {
     private authService: AuthService,
     private motion: MotionService,
     private hostRef: ElementRef<HTMLElement>,
-    private zone: NgZone
+    private zone: NgZone,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
@@ -569,6 +571,7 @@ export class ListRooms implements OnInit, OnDestroy {
         this.buildMaps();
         this.applyFilters();
         this.syncSelectedRoom();
+        this.openRoomFromLink();
         this.scheduleReveal();
       },
       error: () => {
@@ -670,6 +673,7 @@ export class ListRooms implements OnInit, OnDestroy {
   openCreateDrawer(): void {
     if (!this.hasFloors) return;
     this.selectedRoom = null;
+    this.initialRoomTab = null;
     this.showCreateDrawer = true;
   }
 
@@ -687,14 +691,35 @@ export class ListRooms implements OnInit, OnDestroy {
     this.selectedRoom = room;
   }
 
+  /** Pestana con la que abrir el modal cuando se llega por un enlace (`?tab=`). */
+  initialRoomTab: string | null = null;
+  private deepLinkHandled = false;
+
+  /**
+   * `?room=<id>[&tab=operations]`: abre esa habitacion. Es el destino de las notificaciones
+   * de habitacion, limpieza y mantenimiento (auditoria, Bloque 12 #9).
+   */
+  private openRoomFromLink(): void {
+    if (this.deepLinkHandled) return;
+    this.deepLinkHandled = true;
+    const roomId = Number(this.route.snapshot.queryParamMap.get('room'));
+    if (!Number.isFinite(roomId) || roomId <= 0) return;
+    const room = this.rooms.find((item) => item.id === roomId);
+    if (!room) return;
+    this.initialRoomTab = this.route.snapshot.queryParamMap.get('tab');
+    this.openRoom(room);
+  }
+
   closeRoomModal(): void {
     this.selectedRoom = null;
+    this.initialRoomTab = null;
   }
 
   /** El modal archivo la habitacion: se cierra y se recarga la lista sin ella. */
   onRoomDeleted(roomId: number): void {
     this.roomOverrides.delete(roomId);
     this.selectedRoom = null;
+    this.initialRoomTab = null;
     this.refreshRooms();
   }
 

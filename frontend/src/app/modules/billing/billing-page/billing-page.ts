@@ -63,6 +63,8 @@ const CLOSED_INVOICE_CODES = ['PAGADA', 'ANULADA'];
 })
 export class BillingPage implements OnInit, OnDestroy {
   activeTab: BillingTab = 'invoices';
+  /** Factura a abrir al llegar por un enlace (`?invoice=`). */
+  focusInvoiceId: number | null = null;
 
   /** Solo la primera carga del resumen. */
   loading = true;
@@ -122,6 +124,9 @@ export class BillingPage implements OnInit, OnDestroy {
     // La pestaña viaja en la URL para que un enlace compartido abra donde corresponde.
     const requested = String(this.route.snapshot.queryParamMap.get('tab') || '');
     if (this.isTab(requested)) this.activeTab = requested;
+    // Destino de las notificaciones de factura y pago (Bloque 12 #9).
+    const invoiceId = Number(this.route.snapshot.queryParamMap.get('invoice'));
+    this.focusInvoiceId = Number.isFinite(invoiceId) && invoiceId > 0 ? invoiceId : null;
 
     this.loadRefundsPermission();
     this.loadSummary();

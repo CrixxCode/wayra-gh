@@ -1,12 +1,16 @@
 from apps.hotel_settings.test_utils import create_configured_hotel
 from datetime import datetime, time, timedelta
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
+
+from accounts.models import Resource, Role, RoleResource, UserRole
 
 from apps.clients.models import Client
 from apps.billing.models import Charge, Invoice, Payment
@@ -2047,6 +2051,87 @@ class ReservationApiFlowTestCase(APITestCase):
         self.assertIn("amount", response.data["errors"])
 
 
+class ReservationDepositVoidTests(APITestCase):
+    """Anular un abono desde la reserva (auditoria, Bloque 6 #8)."""
+
+    def setUp(self):
+        self.hotel = create_configured_hotel(hotel_name="Hotel Abonos")
+        self.admin_role, _ = Role.objects.get_or_create(
+            slug="admin", defaults={"name": "Admin", "is_active": True}
+        )
+        self.reception_role, _ = Role.objects.get_or_create(
+            slug="recepcion-abonos", defaults={"name": "Recepcion abonos", "is_active": True}
+        )
+        for key in ("reservation_deposits.read", "reservation_deposits.write"):
+            resource, _ = Resource.objects.get_or_create(
+                key=key, defaults={"name": key, "is_active": True}
+            )
+            for role in (self.admin_role, self.reception_role):
+                RoleResource.objects.get_or_create(role=role, resource=resource)
+
+        self.admin = User.objects.create_user(
+            username="admin_abonos", password="pass12345", hotel_settings=self.hotel
+        )
+        UserRole.objects.create(user=self.admin, role=self.admin_role, is_active=True)
+        self.receptionist = User.objects.create_user(
+            username="recepcion_abonos", password="pass12345", hotel_settings=self.hotel
+        )
+        UserRole.objects.create(user=self.receptionist, role=self.reception_role, is_active=True)
+
+        def md(group, code):
+            return MasterData.objects.get_or_create(
+                group=group, code=code, defaults={"name": code.title(), "is_active": True}
+            )[0]
+
+        client = Client.objects.create(
+            hotel_settings=self.hotel,
+            document_type=md(MasterData.Group.DOCUMENT_TYPE, "CC"),
+            document_number="900100",
+            first_name="Ana",
+            last_name="Abonos",
+            email="ana.abonos@test.local",
+            phone="3000000000",
+            country="CO",
+            client_type=md(MasterData.Group.CLIENT_TYPE, "REGULAR"),
+            status=md(MasterData.Group.CLIENT_STATUS, "ACTIVO"),
+        )
+        self.reservation = Reservation.objects.create(
+            client=client,
+            hotel_settings=self.hotel,
+            status=md(MasterData.Group.RESERVATION_STATUS, "CONFIRMADA"),
+            origin=md(MasterData.Group.RESERVATION_ORIGIN, "WEB"),
+            expected_check_in="2026-11-01",
+            expected_check_out="2026-11-03",
+        )
+        invoice = Invoice.objects.create(
+            reservation=self.reservation,
+            status=md(MasterData.Group.INVOICE_STATUS, "PENDIENTE"),
+            invoice_number="FAC-ABONO-1",
+            subtotal=Decimal("100.00"),
+            tax_amount=Decimal("0.00"),
+            is_active=True,
+        )
+        method = PaymentMethod.objects.filter(hotel_settings=self.hotel).first() or PaymentMethod.objects.create(
+            hotel_settings=self.hotel, code="EFECTIVO", name="Efectivo"
+        )
+        self.payment = Payment.objects.create(
+            invoice=invoice, payment_method=method, amount=Decimal("40.00"), is_active=True
+        )
+
+    def test_only_an_admin_voids_a_deposit_and_it_stays_inactive(self):
+        url = f"/api/reservation-deposits/{self.payment.id}/void/"
+
+        self.client.force_authenticate(self.receptionist)
+        self.assertEqual(self.client.post(url).status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(self.client.delete(f"/api/reservation-deposits/{self.payment.id}/").status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.payment.refresh_from_db()
+        # Queda inactivo, no borrado: el rastro del cobro se conserva.
+        self.assertFalse(self.payment.is_active)
+
 class WebReservationPublicApiTests(APITestCase):
     def _md(self, group, code, name=None, sort_order=1):
         return MasterData.objects.update_or_create(
@@ -2326,6 +2411,34 @@ class WebReservationPublicApiTests(APITestCase):
             reservation.source_metadata["submitted_contact"]["email"], "laura@example.com"
         )
 
+
+    def test_confirmation_page_data_requires_the_matching_code(self):
+        # Auditoria, Bloque 14 #10: la pantalla publica ya no repinta datos de la URL.
+        created = self.client.post("/api/web-reservations/", data=self._payload(), format="json")
+        self.assertEqual(created.status_code, 201)
+        reservation_id, code = created.data["id"], created.data["code"]
+
+        verified = self.client.post(
+            "/api/web-reservations/confirmation/",
+            {"reservation_id": reservation_id, "code": code.lower()},
+            format="json",
+        )
+        self.assertEqual(verified.status_code, 200)
+        self.assertEqual(verified.data["hotel_name"], "Hotel Web")
+        self.assertNotIn("client_full_name", verified.data)
+
+        wrong_code = self.client.post(
+            "/api/web-reservations/confirmation/",
+            {"reservation_id": reservation_id, "code": "WEB-26-XXXXXX"},
+            format="json",
+        )
+        unknown_id = self.client.post(
+            "/api/web-reservations/confirmation/",
+            {"reservation_id": 999999, "code": code},
+            format="json",
+        )
+        self.assertEqual(wrong_code.status_code, 404)
+        self.assertEqual(wrong_code.json(), unknown_id.json())
 
     def test_hotel_with_incomplete_setup_does_not_accept_public_reservations(self):
         # Auditoria, Bloque 14 #3: oculto en el directorio, pero el slug seguia reservando.

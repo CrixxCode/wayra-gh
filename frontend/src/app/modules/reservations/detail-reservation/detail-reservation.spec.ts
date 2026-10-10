@@ -4,6 +4,7 @@ import { of } from 'rxjs';
 import { DetailReservation } from './detail-reservation';
 import { ReservationService } from '../../../services/reservation';
 import { BillingService } from '../../../services/billing';
+import { ConfirmationService } from 'primeng/api';
 
 describe('DetailReservation', () => {
   let component: DetailReservation;
@@ -57,7 +58,8 @@ describe('DetailReservation', () => {
           useValue: {
             listInvoices: () => of([])
           }
-        }
+        },
+        ConfirmationService
       ]
     }).compileComponents();
 

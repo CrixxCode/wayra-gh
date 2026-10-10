@@ -1,5 +1,6 @@
 import re
 
+from django.db import transaction
 from rest_framework import serializers
 
 from accounts.tenancy import TenantSerializerMixin, is_effective_global_admin
@@ -120,8 +121,26 @@ class HotelFloorSerializer(TenantSerializerMixin, serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+# Tope por piso: el numero de habitacion es prefijo + dos digitos (101..199).
+MAX_INITIAL_ROOMS_PER_FLOOR = 99
+MAX_INITIAL_FLOORS = 60
+
+
+class InitialFloorSerializer(serializers.Serializer):
+    """Piso declarado al crear el hotel desde el wizard SaaS (auditoria, Bloque 13 #3)."""
+
+    floor_number = serializers.IntegerField(min_value=1, max_value=200)
+    name = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    prefix = serializers.CharField(max_length=10, required=False, allow_blank=True)
+    room_count = serializers.IntegerField(min_value=1, max_value=MAX_INITIAL_ROOMS_PER_FLOOR)
+
+
 class HotelSettingsSerializer(serializers.ModelSerializer):
     floors = HotelFloorSerializer(many=True, read_only=True)
+    # Solo en la creacion: pisos y cuantas habitaciones tiene cada uno. Antes el wizard SaaS
+    # creaba el hotel vacio y aparecia de inmediato en riesgo por "sin habitaciones",
+    # mientras convertir una solicitud de demo si traia la estructura (5.25).
+    initial_floors = InitialFloorSerializer(many=True, write_only=True, required=False)
     photos = HotelPhotoSerializer(many=True, read_only=True)
 
     total_floors = serializers.SerializerMethodField()
@@ -167,6 +186,7 @@ class HotelSettingsSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "floors",
+            "initial_floors",
             "photos",
             "total_floors",
             "total_rooms",
@@ -225,6 +245,50 @@ class HotelSettingsSerializer(serializers.ModelSerializer):
                 "El color debe ser hexadecimal de 6 digitos, por ejemplo #0f1f41."
             )
         return candidate.lower()
+
+    def validate_initial_floors(self, value):
+        if self.instance is not None:
+            raise serializers.ValidationError(
+                "La estructura inicial solo se declara al crear el hotel; despues se edita en Configuracion."
+            )
+        if len(value) > MAX_INITIAL_FLOORS:
+            raise serializers.ValidationError(f"Maximo {MAX_INITIAL_FLOORS} pisos.")
+
+        numbers = [floor["floor_number"] for floor in value]
+        if len(numbers) != len(set(numbers)):
+            raise serializers.ValidationError("Hay pisos con el mismo numero.")
+
+        prefixes = []
+        for floor in value:
+            floor["prefix"] = str(floor.get("prefix") or floor["floor_number"]).strip()
+            floor["name"] = str(floor.get("name") or "").strip() or f"Piso {floor['floor_number']}"
+            prefixes.append(floor["prefix"])
+        # Con el mismo prefijo, dos pisos generarian los mismos numeros de habitacion.
+        if len(prefixes) != len(set(prefixes)):
+            raise serializers.ValidationError("Hay pisos con el mismo prefijo de numeracion.")
+        return value
+
+    def create(self, validated_data):
+        initial_floors = validated_data.pop("initial_floors", None) or []
+        with transaction.atomic():
+            hotel = super().create(validated_data)
+            if initial_floors:
+                self._build_initial_floors(hotel, initial_floors)
+        return hotel
+
+    def update(self, instance, validated_data):
+        validated_data.pop("initial_floors", None)
+        return super().update(instance, validated_data)
+
+    @staticmethod
+    def _build_initial_floors(hotel, initial_floors):
+        # Misma numeracion que la conversion de una solicitud de demo: prefijo + dos digitos,
+        # habitaciones sin tipo ni tarifa (se asignan despues en /habitaciones).
+        from apps.demo_requests.views import create_initial_rooms_for_floor
+
+        for floor_data in sorted(initial_floors, key=lambda item: item["floor_number"]):
+            floor = HotelFloor.objects.create(hotel_settings=hotel, **floor_data)
+            create_initial_rooms_for_floor(floor)
 
     def validate(self, attrs):
         check_in_time = attrs.get("check_in_time")
