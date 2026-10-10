@@ -4,7 +4,7 @@ import { Observable, map, tap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
 import { CACHE_TTL, ResourceCache } from './resource-cache';
-import { MaintenanceOrderFormPayload, MaintenanceOrderI } from '../modules/maintenance-orders/maintenance-order-model';
+import { AssignableUserI, MaintenanceOrderFormPayload, MaintenanceOrderI } from '../modules/maintenance-orders/maintenance-order-model';
 
 type DRFPaginated<T> = {
   results?: T[];
@@ -131,6 +131,11 @@ export class MaintenanceOrdersService {
     return [];
   }
 
+  /** Usuarios que se pueden poner como responsables (B4 #11). */
+  listAssignableUsers(): Observable<AssignableUserI[]> {
+    return this.http.get<AssignableUserI[]>(`${this.maintenanceOrdersUrl}assignable-users/`, { withCredentials: true });
+  }
+
   private normalizeCreatePayload(payload: MaintenanceOrderFormPayload): MaintenanceOrderFormPayload {
     return {
       room: Number(payload.room),
@@ -139,7 +144,8 @@ export class MaintenanceOrdersService {
       priority: this.normalizeCodeOrId(payload.priority),
       status: this.normalizeCodeOrId(payload.status),
       estimated_completed_at: this.normalizeDateTime(payload.estimated_completed_at),
-      completed_at: this.normalizeDateTime(payload.completed_at)
+      completed_at: this.normalizeDateTime(payload.completed_at),
+      assigned_to: payload.assigned_to ?? null
     };
   }
 
@@ -172,6 +178,10 @@ export class MaintenanceOrdersService {
 
     if (payload.completed_at !== undefined) {
       normalized.completed_at = this.normalizeDateTime(payload.completed_at);
+    }
+
+    if (payload.assigned_to !== undefined) {
+      normalized.assigned_to = payload.assigned_to ?? null;
     }
 
     return normalized;

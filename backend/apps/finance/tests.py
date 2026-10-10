@@ -1109,3 +1109,32 @@ class ExpenseApiTests(TestCase):
     def test_reader_cannot_write(self):
         self.api.force_authenticate(self.reader)
         self.assertEqual(self._create().status_code, 403)
+
+
+class ExpenseExportTests(TestCase):
+    """Egresos en PDF y Excel con el periodo (auditoria, Bloque 9 #11)."""
+
+    # Mismas fixtures que la API de egresos, sin volver a correr sus tests.
+    setUp = ExpenseApiTests.setUp
+    _create = ExpenseApiTests._create
+
+    def test_exports_only_the_period(self):
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        self.api.force_authenticate(self.writer)
+        self._create(concept="Dentro", expense_date="2026-10-05")
+        self._create(concept="Fuera", expense_date="2026-09-05")
+
+        response = self.api.get(
+            "/api/expenses/export/", {"output": "xlsx", "start_date": "2026-10-01", "end_date": "2026-10-31"}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        workbook = load_workbook(BytesIO(response.content))
+        concepts = [row[1] for row in workbook["Egresos"].iter_rows(min_row=2, values_only=True)]
+        self.assertEqual(concepts, ["Dentro"])
+
+        pdf = self.api.get("/api/expenses/export/", {"output": "pdf"})
+        self.assertTrue(pdf.content.startswith(b"%PDF"))

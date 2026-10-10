@@ -359,6 +359,7 @@ export class ListMaintenanceOrders implements OnInit {
 
   closeCreateDrawer(): void {
     this.showCreateDrawer = false;
+    this.editingMaintenanceOrderI = null;
   }
 
   onMaintenanceOrderCreated(): void {
@@ -619,16 +620,25 @@ export class ListMaintenanceOrders implements OnInit {
     return diffHours >= 48;
   }
 
+  /** Tarea abierta en el formulario en modo edicion (B4 #13). */
+  editingMaintenanceOrderI: MaintenanceOrderI | null = null;
+
+  openEdit(item: MaintenanceOrderI): void {
+    this.selectedMaintenanceOrder = null;
+    this.editingMaintenanceOrderI = item;
+    this.showCreateDrawer = true;
+  }
+
   getProgressActionLabel(order: MaintenanceOrderI): string {
     const status = this.normalizeCode(order.status);
-    if (status === 'COMPLETADA' || status === 'CANCELADA') return 'Reabrir';
+    if (status === 'COMPLETADA' || status === 'CANCELADA') return 'Cerrada';
     if (status === 'ENPROCESO') return 'Completar';
     return 'Iniciar';
   }
 
   getProgressActionIcon(order: MaintenanceOrderI): string {
     const status = this.normalizeCode(order.status);
-    if (status === 'COMPLETADA' || status === 'CANCELADA') return 'fa-solid fa-rotate-left';
+    if (status === 'COMPLETADA' || status === 'CANCELADA') return 'fa-solid fa-lock';
     if (status === 'ENPROCESO') return 'fa-solid fa-check';
     return 'fa-solid fa-play';
   }
@@ -829,11 +839,12 @@ export class ListMaintenanceOrders implements OnInit {
     const current = this.normalizeCode(order.status);
 
     if (current === 'ENPROCESO') {
-      return this.findStatusCode('COMPLETADA') || this.findStatusCode('PENDIENTE') || null;
+      return this.findStatusCode('COMPLETADA') || null;
     }
 
+    // Cerrada: no se reabre (B4 #12; el backend tambien lo rechaza).
     if (current === 'COMPLETADA' || current === 'CANCELADA') {
-      return this.findStatusCode('PENDIENTE') || this.findStatusCode('ENPROCESO') || null;
+      return null;
     }
 
     return this.findStatusCode('ENPROCESO') || this.findStatusCode('PENDIENTE') || null;

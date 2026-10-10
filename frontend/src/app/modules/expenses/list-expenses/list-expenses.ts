@@ -1,3 +1,4 @@
+import { ExportOutput, saveHttpBlob } from '../../../services/file-download';
 import { CommonModule } from '@angular/common';
 import {
   Component,
@@ -417,6 +418,24 @@ export class ListExpenses implements OnInit, OnChanges, OnDestroy {
     this.expenses = [...this.expenses].sort((a, b) => b.id - a.id);
     this.applyFilters();
     this.selectedExpense = this.expenses.find((expense) => expense.id === updatedExpense.id) || null;
+  }
+
+  exporting: ExportOutput | null = null;
+
+  /** Egresos del periodo visible en PDF o Excel (auditoria, Bloque 9 #11). */
+  exportFile(output: ExportOutput): void {
+    if (this.exporting) return;
+    this.exporting = output;
+    this.expenseService.exportExpenses(output, this.periodBounds()).subscribe({
+      next: (response) => {
+        this.exporting = null;
+        saveHttpBlob(response, `egresos.${output}`);
+      },
+      error: () => {
+        this.exporting = null;
+        this.errorMessage = 'No fue posible generar el archivo. Intenta de nuevo.';
+      }
+    });
   }
 
   exportCsv(): void {

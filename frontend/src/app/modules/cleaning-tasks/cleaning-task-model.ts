@@ -1,4 +1,6 @@
 export interface CleaningTaskI {
+  assigned_to?: number | null;
+  assigned_to_name?: string;
   id: number;
   room: number | null;
   room_number?: string;
@@ -12,7 +14,14 @@ export interface CleaningTaskI {
   created_at?: string;
 }
 
+export interface AssignableUserI {
+  id: number;
+  name: string;
+}
+
 export interface CleaningTaskFormPayload {
+  /** Responsable (B4 #11): usuario del hotel con permiso sobre el modulo. */
+  assigned_to?: number | null;
   room: number;
   task_type: string | number;
   status: string | number;

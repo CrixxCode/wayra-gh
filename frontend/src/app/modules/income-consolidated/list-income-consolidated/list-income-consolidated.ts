@@ -1,3 +1,4 @@
+import { ExportOutput, saveHttpBlob } from '../../../services/file-download';
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -360,6 +361,50 @@ export class ListIncomeConsolidated implements OnInit, OnChanges, OnDestroy {
     this.viewMode = mode;
   }
 
+  /** Los filtros de la pantalla, iguales para la consulta y para el exporte. */
+  private currentQueryParams(): IncomeConsolidatedQueryParams {
+    const params: IncomeConsolidatedQueryParams = {
+      hotel_settings: this.hotelSettingsId ?? undefined,
+      period: this.periodFilter,
+      activity: this.activityFilter,
+      method: this.methodFilter === 'ALL' ? '' : this.methodFilter,
+      search: String(this.search || '').trim(),
+    };
+
+    // El backend quiere las dos puntas juntas o ninguna; con rango impuesto el `period`
+    // pasa a ser irrelevante, pero se manda igual porque el endpoint lo exige valido.
+    if (this.rangeFrom && this.rangeTo) {
+      params.start_date = this.rangeFrom;
+      params.end_date = this.rangeTo;
+    } else if (this.embedded) {
+      // Empotrado sin rango es "todo el historico", no "vuelve a tu mes".
+      params.period = 'ALL';
+    }
+    return params;
+  }
+
+  exporting: ExportOutput | null = null;
+
+  /** PDF o Excel del consolidado, con los mismos filtros (auditoria, Bloque 9 #11). */
+  exportFile(output: ExportOutput): void {
+    if (this.exporting || !this.hotelSettingsId) return;
+    this.exporting = output;
+    this.reportsService
+      .exportReport('income-consolidated', output, this.currentQueryParams() as unknown as Record<string, unknown>)
+      .subscribe({
+        next: (response) => {
+          this.exporting = null;
+          saveHttpBlob(response, `consolidado-ingresos.${output}`);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.exporting = null;
+          this.errorMessage = 'No fue posible generar el archivo. Intenta de nuevo.';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
   exportCsv(): void {
     if (this.viewMode === 'daily') {
       this.exportDailyCsv();
@@ -415,23 +460,7 @@ export class ListIncomeConsolidated implements OnInit, OnChanges, OnDestroy {
     this.errorMessage = '';
     this.infoMessage = '';
 
-    const params: IncomeConsolidatedQueryParams = {
-      hotel_settings: this.hotelSettingsId,
-      period: this.periodFilter,
-      activity: this.activityFilter,
-      method: this.methodFilter === 'ALL' ? '' : this.methodFilter,
-      search: String(this.search || '').trim(),
-    };
-
-    // El backend quiere las dos puntas juntas o ninguna; con rango impuesto el `period`
-    // pasa a ser irrelevante, pero se manda igual porque el endpoint lo exige valido.
-    if (this.rangeFrom && this.rangeTo) {
-      params.start_date = this.rangeFrom;
-      params.end_date = this.rangeTo;
-    } else if (this.embedded) {
-      // Empotrado sin rango es "todo el historico", no "vuelve a tu mes".
-      params.period = 'ALL';
-    }
+    const params = this.currentQueryParams();
 
     this.reportsService
       .getIncomeConsolidatedReport(params)

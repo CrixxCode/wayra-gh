@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.conf import settings
 from django.db import models
 
 from apps.hotel_settings.models import HotelFloor
@@ -232,6 +233,14 @@ class MaintenanceOrder(models.Model):
         related_name="maintenance_orders_by_status",
         limit_choices_to={"group": MasterData.Group.MAINTENANCE_STATUS},
     )
+    # Responsable de la tarea (auditoria, Bloque 4 #11; reglas en `apps.rooms.workflow`).
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="assigned_maintenance_orders",
+        blank=True,
+        null=True,
+    )
     reported_at = models.DateTimeField(auto_now_add=True)
     estimated_completed_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
@@ -281,6 +290,14 @@ class CleaningTask(models.Model):
         on_delete=models.PROTECT,
         related_name="cleaning_tasks_by_priority",
         limit_choices_to={"group": MasterData.Group.MAINTENANCE_PRIORITY},
+        blank=True,
+        null=True,
+    )
+    # Responsable de la tarea (auditoria, Bloque 4 #11; reglas en `apps.rooms.workflow`).
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="assigned_cleaning_tasks",
         blank=True,
         null=True,
     )

@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import HttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status, viewsets
@@ -8,6 +9,7 @@ from rest_framework.response import Response
 from accounts.permissions import HasResourcePermission
 from accounts.tenancy import is_effective_global_admin
 from apps.hotel_settings.models import HotelSettings
+from apps.reports.exporters import render as render_export
 from apps.reports.serializers import (
     ExecutiveReportSerializer,
     IncomeConsolidatedQuerySerializer,
@@ -131,31 +133,87 @@ class ReportsViewSet(viewsets.ViewSet):
     )
     def income_consolidated(self, request):
         try:
-            query_serializer = IncomeConsolidatedQuerySerializer(data=request.query_params)
-            query_serializer.is_valid(raise_exception=True)
-            validated = query_serializer.validated_data
-
-            hotel_settings_id = self._resolve_hotel_settings_id(validated)
-            start_date, end_date, period_key = resolve_income_consolidated_period(
-                period_raw=validated.get("period"),
-                year_raw=str(validated["year"]) if "year" in validated else None,
-                start_date_raw=validated.get("start_date").isoformat() if validated.get("start_date") else None,
-                end_date_raw=validated.get("end_date").isoformat() if validated.get("end_date") else None,
-            )
-
-            payload = build_income_consolidated_report(
-                hotel_settings_id=hotel_settings_id,
-                start_date=start_date,
-                end_date=end_date,
-                period=period_key,
-                activity=validated.get("activity", "ALL"),
-                method=validated.get("method", ""),
-                search=validated.get("search", ""),
-            )
-            serializer = IncomeConsolidatedReportSerializer(payload)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(self._income_consolidated_payload(request), status=status.HTTP_200_OK)
         except DjangoValidationError as exc:
             return self._validation_error_response(exc)
+
+    # Reporte -> (titulo del documento, builder, serializer). `income-consolidated` tiene sus
+    # propios filtros y se arma aparte.
+    EXPORTABLE_REPORTS = {
+        "executive": ("Resumen ejecutivo", build_executive_report, ExecutiveReportSerializer),
+        "revenue": ("Ingresos y facturacion", build_revenue_report, RevenueReportSerializer),
+        "occupancy": ("Ocupacion", build_occupancy_report, OccupancyReportSerializer),
+        "services": ("Servicios y consumos", build_services_report, ServicesReportSerializer),
+        "income-consolidated": ("Consolidado de ingresos", None, None),
+    }
+
+    @extend_schema(
+        parameters=[ReportQuerySerializer],
+        responses={(200, "application/octet-stream"): OpenApiTypes.BINARY},
+    )
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request):
+        """
+        Reporte completo en PDF o Excel: `?report=<executive|revenue|occupancy|services|
+        income-consolidated>&output=<pdf|xlsx>` mas los mismos filtros de cada reporte
+        (auditoria, Bloque 11 #6-7 y Bloque 9 #11). `output` y no `format`: DRF reserva
+        `?format=` para elegir el renderer.
+        """
+        report = str(request.query_params.get("report") or "").strip()
+        output = str(request.query_params.get("output") or "pdf").strip().lower()
+        if report not in self.EXPORTABLE_REPORTS:
+            return Response({"report": "Reporte desconocido."}, status=status.HTTP_400_BAD_REQUEST)
+        if output not in ("pdf", "xlsx"):
+            return Response({"output": "Usa pdf o xlsx."}, status=status.HTTP_400_BAD_REQUEST)
+
+        title, builder, serializer_class = self.EXPORTABLE_REPORTS[report]
+        try:
+            if report == "income-consolidated":
+                payload = self._income_consolidated_payload(request)
+            else:
+                payload = self._build_payload(
+                    request=request, builder=builder, response_serializer_class=serializer_class
+                )
+        except DjangoValidationError as exc:
+            return self._validation_error_response(exc)
+
+        filters = payload.get("filters") or {}
+        hotel_name = (
+            HotelSettings.objects.filter(pk=filters.get("hotel_settings"))
+            .values_list("hotel_name", flat=True)
+            .first()
+            or ""
+        )
+        content, content_type, extension = render_export(output, title, payload, hotel_name=hotel_name)
+        period = "-".join(str(filters.get(key) or "") for key in ("start_date", "end_date")).strip("-")
+        filename = f"reporte-{report}{'-' + period if period else ''}.{extension}"
+        response = HttpResponse(content, content_type=content_type)
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+    def _income_consolidated_payload(self, request):
+        query_serializer = IncomeConsolidatedQuerySerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        validated = query_serializer.validated_data
+
+        hotel_settings_id = self._resolve_hotel_settings_id(validated)
+        start_date, end_date, period_key = resolve_income_consolidated_period(
+            period_raw=validated.get("period"),
+            year_raw=str(validated["year"]) if "year" in validated else None,
+            start_date_raw=validated.get("start_date").isoformat() if validated.get("start_date") else None,
+            end_date_raw=validated.get("end_date").isoformat() if validated.get("end_date") else None,
+        )
+
+        payload = build_income_consolidated_report(
+            hotel_settings_id=hotel_settings_id,
+            start_date=start_date,
+            end_date=end_date,
+            period=period_key,
+            activity=validated.get("activity", "ALL"),
+            method=validated.get("method", ""),
+            search=validated.get("search", ""),
+        )
+        return IncomeConsolidatedReportSerializer(payload).data
 
     def _build_payload(self, *, request, builder, response_serializer_class):
         query_serializer = ReportQuerySerializer(data=request.query_params)

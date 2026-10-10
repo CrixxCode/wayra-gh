@@ -129,8 +129,16 @@
         </button>
 
         <button type="button" class="gh-btn gh-btn-light" (click)="exportCsv()">
-          <i class="fa-solid fa-file-export"></i>
-          Exportar
+          <i class="fa-solid fa-file-csv"></i>
+          CSV
+        </button>
+        <button type="button" class="gh-btn gh-btn-light" (click)="exportFile('pdf')" [disabled]="!!exporting">
+          <i class="fa-solid fa-file-pdf"></i>
+          {{ exporting === 'pdf' ? 'Generando...' : 'PDF' }}
+        </button>
+        <button type="button" class="gh-btn gh-btn-light" (click)="exportFile('xlsx')" [disabled]="!!exporting">
+          <i class="fa-solid fa-file-excel"></i>
+          {{ exporting === 'xlsx' ? 'Generando...' : 'Excel' }}
         </button>
       </div>
     </div>

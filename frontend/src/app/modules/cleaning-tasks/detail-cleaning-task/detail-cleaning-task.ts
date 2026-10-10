@@ -14,10 +14,21 @@ export class DetailCleaningTask {
 
   @Output() closed = new EventEmitter<void>();
   @Output() statusRequested = new EventEmitter<CleaningTaskI>();
+  @Output() editRequested = new EventEmitter<CleaningTaskI>();
   @Output() deleteRequested = new EventEmitter<CleaningTaskI>();
 
   closeDrawer(): void {
     this.closed.emit();
+  }
+
+  /** Completada o cancelada: no se reabre (B4 #12), se crea otra. */
+  get isClosed(): boolean {
+    const normalized = this.normalizeCode(this.cleaningTaskData?.status);
+    return normalized === 'COMPLETADA' || normalized === 'CANCELADA';
+  }
+
+  requestEdit(): void {
+    if (this.cleaningTaskData) this.editRequested.emit(this.cleaningTaskData);
   }
 
   requestStatusAdvance(): void {
@@ -69,7 +80,7 @@ export class DetailCleaningTask {
 
   getProgressActionLabel(): string {
     const normalized = this.normalizeCode(this.cleaningTaskData?.status);
-    if (normalized === 'COMPLETADA' || normalized === 'CANCELADA') return 'Reabrir tarea';
+    if (normalized === 'COMPLETADA' || normalized === 'CANCELADA') return 'Cerrada';
     if (normalized === 'ENPROCESO') return 'Marcar completada';
     return 'Iniciar tarea';
   }

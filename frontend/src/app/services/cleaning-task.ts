@@ -4,7 +4,7 @@ import { Observable, map, tap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
 import { CACHE_TTL, ResourceCache } from './resource-cache';
-import { CleaningTaskFormPayload, CleaningTaskI } from '../modules/cleaning-tasks/cleaning-task-model';
+import { AssignableUserI, CleaningTaskFormPayload, CleaningTaskI } from '../modules/cleaning-tasks/cleaning-task-model';
 
 type DRFPaginated<T> = {
   results?: T[];
@@ -131,6 +131,11 @@ export class CleaningTasksService {
     return [];
   }
 
+  /** Usuarios que se pueden poner como responsables (B4 #11). */
+  listAssignableUsers(): Observable<AssignableUserI[]> {
+    return this.http.get<AssignableUserI[]>(`${this.cleaningTasksUrl}assignable-users/`, { withCredentials: true });
+  }
+
   private normalizeCreatePayload(payload: CleaningTaskFormPayload): CleaningTaskFormPayload {
     return {
       room: Number(payload.room),
@@ -138,7 +143,8 @@ export class CleaningTasksService {
       status: this.normalizeCodeOrId(payload.status),
       scheduled_for: this.normalizeDate(payload.scheduled_for),
       completed_at: this.normalizeDateTime(payload.completed_at),
-      notes: (payload.notes || '').trim()
+      notes: (payload.notes || '').trim(),
+      assigned_to: payload.assigned_to ?? null
     };
   }
 
@@ -167,6 +173,10 @@ export class CleaningTasksService {
 
     if (typeof payload.notes === 'string') {
       normalized.notes = payload.notes.trim();
+    }
+
+    if (payload.assigned_to !== undefined) {
+      normalized.assigned_to = payload.assigned_to ?? null;
     }
 
     return normalized;

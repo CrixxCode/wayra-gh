@@ -1,5 +1,6 @@
+import { ExportOutput } from './file-download';
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import {HttpClient, HttpParams, HttpResponse} from '@angular/common/http';
 import { Observable, map, tap } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
@@ -250,5 +251,18 @@ export class ExpenseService {
     const normalized = String(value || '').trim().toUpperCase();
     if (normalized === 'VARIABLE') return 'VARIABLE';
     return 'FIXED';
+  }
+
+  /** Egresos del periodo en PDF o Excel (auditoria, Bloque 9 #11). */
+  exportExpenses(output: ExportOutput, range: { from: string; to: string }): Observable<HttpResponse<Blob>> {
+    let params = new HttpParams().set('output', output);
+    if (range.from) params = params.set('start_date', range.from);
+    if (range.to) params = params.set('end_date', range.to);
+    return this.http.get(`${this.expensesUrl}export/`, {
+      withCredentials: true,
+      params,
+      responseType: 'blob',
+      observe: 'response'
+    });
   }
 }

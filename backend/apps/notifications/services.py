@@ -651,6 +651,35 @@ def notify_room_out_of_service(room) -> list[Notification]:
     )
 
 
+def notify_work_assigned(task, *, kind: str) -> list[Notification]:
+    """Aviso al responsable de una tarea de limpieza u orden de mantenimiento (B4 #11)."""
+    assignee = getattr(task, "assigned_to", None)
+    room = getattr(task, "room", None)
+    if assignee is None:
+        return []
+    is_cleaning = kind == "cleaning"
+    room_number = getattr(room, "number", "--")
+    if is_cleaning:
+        task_label = getattr(getattr(task, "task_type", None), "name", "") or "limpieza"
+        title = "Te asignaron una tarea de limpieza"
+        message = f"Habitacion {room_number}: {task_label}."
+    else:
+        title = "Te asignaron una orden de mantenimiento"
+        message = f"Habitacion {room_number}: {getattr(task, 'title', '')}."
+    return notify_users(
+        [assignee],
+        title=title,
+        message=message,
+        notification_type=(
+            Notification.NotificationType.CLEANING if is_cleaning else Notification.NotificationType.MAINTENANCE
+        ),
+        priority=Notification.Priority.MEDIUM,
+        hotel_settings=getattr(getattr(room, "floor", None), "hotel_settings", None),
+        action_url=room_detail_url(room, tab="operations"),
+        related_object=task,
+    )
+
+
 def notify_payment_registered(payment) -> list[Notification]:
     if payment is None:
         return []

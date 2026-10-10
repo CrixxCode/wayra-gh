@@ -1874,6 +1874,10 @@ class CleaningAndMaintenanceApiTests(APITestCase):
         md(MasterData.Group.CLEANING_STATUS, "PENDIENTE")
         md(MasterData.Group.MAINTENANCE_PRIORITY, "BAJA")
         md(MasterData.Group.MAINTENANCE_STATUS, "PENDIENTE")
+        for code in ("EN_PROCESO", "COMPLETADA"):
+            md(MasterData.Group.CLEANING_STATUS, code)
+        for code in ("EN_PROCESO", "COMPLETADA", "CANCELADA"):
+            md(MasterData.Group.MAINTENANCE_STATUS, code)
 
         self.hotel = create_configured_hotel(hotel_name="Hotel Operaciones A")
         self.other_hotel = create_configured_hotel(hotel_name="Hotel Operaciones B")
@@ -1935,3 +1939,73 @@ class CleaningAndMaintenanceApiTests(APITestCase):
 
         self.assertEqual(restored.status_code, 200, restored.data)
         self.assertEqual(self.client.get(f"/api/maintenance-orders/{order['id']}/").status_code, 200)
+
+    # ------------------------------------------------ responsables y estados (B4 #11-12)
+
+    def test_status_flow_allows_direct_completion_but_not_reopening(self):
+        self.client.force_authenticate(self.writer)
+        task_id = self._cleaning(self.room).data["id"]
+        url = f"/api/cleaning-tasks/{task_id}/"
+
+        self.assertEqual(self.client.patch(url, {"status": "COMPLETADA"}, format="json").status_code, 200)
+        reopen = self.client.patch(url, {"status": "PENDIENTE"}, format="json")
+        self.assertEqual(reopen.status_code, 400)
+        self.assertIn("no se reabre", str(reopen.data))
+
+    def test_maintenance_can_be_cancelled_and_not_born_cancelled(self):
+        self.client.force_authenticate(self.writer)
+        order_id = self._maintenance(self.room).data["id"]
+        url = f"/api/maintenance-orders/{order_id}/"
+        self.assertEqual(self.client.patch(url, {"status": "CANCELADA"}, format="json").status_code, 200)
+        self.assertEqual(self.client.patch(url, {"status": "EN_PROCESO"}, format="json").status_code, 400)
+
+        born_cancelled = self.client.post(
+            "/api/maintenance-orders/",
+            {"room": self.room.id, "title": "X", "priority": "BAJA", "status": "CANCELADA"},
+            format="json",
+        )
+        self.assertEqual(born_cancelled.status_code, 400)
+
+    def test_only_users_with_the_module_permission_are_assignable(self):
+        from accounts.test_helpers import make_hotel_user
+
+        housekeeper = make_hotel_user(self.hotel, "cleaning_tasks.read", "cleaning_tasks.write")
+        self.client.force_authenticate(self.writer)
+
+        listed = {row["id"] for row in self.client.get("/api/cleaning-tasks/assignable-users/").data}
+        self.assertIn(housekeeper.id, listed)
+        self.assertNotIn(self.reader.id, listed)
+
+        task_id = self._cleaning(self.room).data["id"]
+        url = f"/api/cleaning-tasks/{task_id}/"
+        self.assertEqual(self.client.patch(url, {"assigned_to": self.reader.id}, format="json").status_code, 400)
+        assigned = self.client.patch(url, {"assigned_to": housekeeper.id}, format="json")
+        self.assertEqual(assigned.status_code, 200, assigned.data)
+        self.assertEqual(assigned.data["assigned_to"], housekeeper.id)
+
+    def test_the_assignee_gets_a_notification(self):
+        from accounts.test_helpers import make_hotel_user
+        from apps.notifications.models import Notification
+
+        technician = make_hotel_user(self.hotel, "maintenance_orders.read", "maintenance_orders.write")
+        self.client.force_authenticate(self.writer)
+        Notification.objects.all().delete()
+
+        created = self.client.post(
+            "/api/maintenance-orders/",
+            {
+                "room": self.room.id,
+                "title": "Fuga",
+                "priority": "BAJA",
+                "status": "PENDIENTE",
+                "assigned_to": technician.id,
+            },
+            format="json",
+        )
+
+        self.assertEqual(created.status_code, 201, created.data)
+        notification = Notification.objects.get(
+            user=technician, title="Te asignaron una orden de mantenimiento"
+        )
+        self.assertIn("tab=operations", notification.action_url)
+

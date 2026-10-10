@@ -1,10 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MasterDataI } from '../../../components/pages/master-data/master-data-model';
 import { CleaningTasksService } from '../../../services/cleaning-task';
 import { RoomI } from '../../rooms/room-model';
-import { CleaningTaskFormPayload } from '../cleaning-task-model';
+import { AssignableUserI, CleaningTaskI, CleaningTaskFormPayload } from '../cleaning-task-model';
 
 @Component({
   selector: 'app-create-cleaning-task',
@@ -13,13 +13,18 @@ import { CleaningTaskFormPayload } from '../cleaning-task-model';
   templateUrl: './create-cleaning-task.html',
   styleUrls: ['./create-cleaning-task.css']
 })
-export class CreateCleaningTask implements OnChanges {
+export class CreateCleaningTask implements OnChanges, OnInit {
   @Input() rooms: RoomI[] = [];
   @Input() taskTypes: MasterDataI[] = [];
   @Input() statuses: MasterDataI[] = [];
 
   @Output() closed = new EventEmitter<void>();
+  /** Si llega, el formulario edita esa tarea en vez de crear una (B4 #13). */
+  @Input() editing: CleaningTaskI | null = null;
+
   @Output() created = new EventEmitter<void>();
+
+  assignableUsers: AssignableUserI[] = [];
 
   saving = false;
   errorMessage = '';
@@ -31,6 +36,7 @@ export class CreateCleaningTask implements OnChanges {
     private cleaningTasksService: CleaningTasksService
   ) {
     this.cleaningTaskForm = this.fb.group({
+      assigned_to: [null as number | null],
       room: [null as number | null, [Validators.required]],
       task_type: ['', [Validators.required]],
       status: ['', [Validators.required]],
@@ -40,7 +46,26 @@ export class CreateCleaningTask implements OnChanges {
     });
   }
 
+  ngOnInit(): void {
+    this.cleaningTasksService.listAssignableUsers().subscribe({
+      next: (users) => (this.assignableUsers = users),
+      error: () => (this.assignableUsers = [])
+    });
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['editing'] && this.editing) {
+      const task = this.editing;
+      this.cleaningTaskForm.patchValue({
+        room: task.room,
+        task_type: task.task_type,
+        status: task.status,
+        scheduled_for: task.scheduled_for || '',
+        completed_at: task.completed_at ? String(task.completed_at).slice(0, 16) : '',
+        notes: task.notes || '',
+        assigned_to: task.assigned_to ?? null
+      });
+    }
     if (changes['statuses']) {
       this.ensureDefaultStatus();
     }
@@ -117,6 +142,7 @@ export class CreateCleaningTask implements OnChanges {
       : null;
 
     const payload: CleaningTaskFormPayload = {
+      assigned_to: raw.assigned_to ? Number(raw.assigned_to) : null,
       room: Number(raw.room),
       task_type: taskTypeCode,
       status: statusCode,
@@ -126,7 +152,10 @@ export class CreateCleaningTask implements OnChanges {
     };
 
     this.saving = true;
-    this.cleaningTasksService.createCleaningTask(payload).subscribe({
+    const request$ = this.editing
+      ? this.cleaningTasksService.updateCleaningTask(this.editing.id, payload)
+      : this.cleaningTasksService.createCleaningTask(payload);
+    request$.subscribe({
       next: () => {
         this.saving = false;
         this.created.emit();

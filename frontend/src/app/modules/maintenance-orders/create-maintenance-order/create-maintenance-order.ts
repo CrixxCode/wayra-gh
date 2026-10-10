@@ -1,10 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MasterDataI } from '../../../components/pages/master-data/master-data-model';
 import { MaintenanceOrdersService } from '../../../services/maintenance-order';
 import { RoomI } from '../../rooms/room-model';
-import { MaintenanceOrderFormPayload } from '../maintenance-order-model';
+import { AssignableUserI, MaintenanceOrderI, MaintenanceOrderFormPayload } from '../maintenance-order-model';
 
 @Component({
   selector: 'app-create-maintenance-order',
@@ -13,13 +13,18 @@ import { MaintenanceOrderFormPayload } from '../maintenance-order-model';
   templateUrl: './create-maintenance-order.html',
   styleUrls: ['./create-maintenance-order.css']
 })
-export class CreateMaintenanceOrder implements OnChanges {
+export class CreateMaintenanceOrder implements OnChanges, OnInit {
   @Input() rooms: RoomI[] = [];
   @Input() priorities: MasterDataI[] = [];
   @Input() statuses: MasterDataI[] = [];
 
   @Output() closed = new EventEmitter<void>();
+  /** Si llega, el formulario edita esa tarea en vez de crear una (B4 #13). */
+  @Input() editing: MaintenanceOrderI | null = null;
+
   @Output() created = new EventEmitter<void>();
+
+  assignableUsers: AssignableUserI[] = [];
 
   saving = false;
   errorMessage = '';
@@ -31,6 +36,7 @@ export class CreateMaintenanceOrder implements OnChanges {
     private maintenanceOrdersService: MaintenanceOrdersService
   ) {
     this.maintenanceOrderForm = this.fb.group({
+      assigned_to: [null as number | null],
       room: [null as number | null, [Validators.required]],
       title: ['', [Validators.required, Validators.maxLength(150)]],
       description: ['', [Validators.maxLength(3000)]],
@@ -41,7 +47,27 @@ export class CreateMaintenanceOrder implements OnChanges {
     });
   }
 
+  ngOnInit(): void {
+    this.maintenanceOrdersService.listAssignableUsers().subscribe({
+      next: (users) => (this.assignableUsers = users),
+      error: () => (this.assignableUsers = [])
+    });
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['editing'] && this.editing) {
+      const task = this.editing;
+      this.maintenanceOrderForm.patchValue({
+        room: task.room,
+        title: task.title || '',
+        description: task.description || '',
+        priority: task.priority,
+        status: task.status,
+        estimated_completed_at: task.estimated_completed_at ? String(task.estimated_completed_at).slice(0, 16) : '',
+        completed_at: task.completed_at ? String(task.completed_at).slice(0, 16) : '',
+        assigned_to: task.assigned_to ?? null
+      });
+    }
     if (changes['statuses'] || changes['priorities']) {
       this.ensureDefaultValues();
     }
@@ -118,6 +144,7 @@ export class CreateMaintenanceOrder implements OnChanges {
     const isCompleted = this.normalizeCode(statusCode) === 'COMPLETADA';
 
     const payload: MaintenanceOrderFormPayload = {
+      assigned_to: raw.assigned_to ? Number(raw.assigned_to) : null,
       room: Number(raw.room),
       title: String(raw.title || '').trim(),
       description: String(raw.description || '').trim(),
@@ -128,7 +155,10 @@ export class CreateMaintenanceOrder implements OnChanges {
     };
 
     this.saving = true;
-    this.maintenanceOrdersService.createMaintenanceOrder(payload).subscribe({
+    const request$ = this.editing
+      ? this.maintenanceOrdersService.updateMaintenanceOrder(this.editing.id, payload)
+      : this.maintenanceOrdersService.createMaintenanceOrder(payload);
+    request$.subscribe({
       next: () => {
         this.saving = false;
         this.created.emit();

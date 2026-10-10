@@ -4,6 +4,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import CharField
 from django.db.models.functions import Cast
 
+from django.contrib.auth import get_user_model
+
 from accounts.models import SoftDeleteMarker
 from accounts.permissions import user_has_scopes
 from accounts.tenancy import TenantSerializerMixin, is_effective_global_admin
@@ -25,6 +27,13 @@ from .models import (
     RoomType,
 )
 from .operations import EMPTY_SIGNALS, build_room_operations_map, open_maintenance_orders
+from .workflow import (
+    CLEANING,
+    MAINTENANCE,
+    assignable_users,
+    status_transition_error,
+    user_display_name,
+)
 from .recurrence import first_run_on
 
 AMENITY_ICON_CATALOG = {
@@ -624,8 +633,41 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
         }
 
 
-class MaintenanceOrderSerializer(TenantSerializerMixin, serializers.ModelSerializer):
+
+class WorkAssignmentMixin:
+    """
+    Responsable y estados de limpieza/mantenimiento (auditoria, Bloque 4 #11-12). Las reglas
+    viven en `apps.rooms.workflow`; aqui solo se aplican al validar.
+    """
+
+    work_kind = None
+
+    def get_assigned_to_name(self, obj):
+        return user_display_name(getattr(obj, "assigned_to", None))
+
+    def validate_work_rules(self, attrs, hotel):
+        if "status" in attrs:
+            current = getattr(getattr(self.instance, "status", None), "code", None) if self.instance else None
+            target = getattr(attrs["status"], "code", attrs["status"])
+            error = status_transition_error(self.work_kind, current, target)
+            if error:
+                raise serializers.ValidationError({"status": error})
+
+        if attrs.get("assigned_to") is not None:
+            assignee = attrs["assigned_to"]
+            if not assignable_users(hotel.id, self.work_kind).filter(pk=assignee.pk).exists():
+                raise serializers.ValidationError(
+                    {"assigned_to": "El responsable debe ser un usuario activo del hotel con permiso sobre este modulo."}
+                )
+
+
+class MaintenanceOrderSerializer(WorkAssignmentMixin, TenantSerializerMixin, serializers.ModelSerializer):
     tenant_field_name = "hotel_settings"
+    work_kind = MAINTENANCE
+    assigned_to = serializers.PrimaryKeyRelatedField(
+        queryset=get_user_model().objects.all(), required=False, allow_null=True
+    )
+    assigned_to_name = serializers.SerializerMethodField()
 
     hotel_settings = serializers.PrimaryKeyRelatedField(
         queryset=HotelSettings.objects.all(),
@@ -655,6 +697,8 @@ class MaintenanceOrderSerializer(TenantSerializerMixin, serializers.ModelSeriali
             "reported_at",
             "estimated_completed_at",
             "completed_at",
+            "assigned_to",
+            "assigned_to_name",
         )
         read_only_fields = ("id", "reported_at")
 
@@ -719,6 +763,7 @@ class MaintenanceOrderSerializer(TenantSerializerMixin, serializers.ModelSeriali
                 "completed_at": "La fecha de finalizacion no puede ser menor que la fecha estimada."
             })
 
+        self.validate_work_rules(attrs, hotel)
         return attrs
 
     def create(self, validated_data):
@@ -731,8 +776,13 @@ class MaintenanceOrderSerializer(TenantSerializerMixin, serializers.ModelSeriali
         validated_data.pop("hotel_settings", None)
         return super().update(instance, validated_data)
 
-class CleaningTaskSerializer(TenantSerializerMixin, serializers.ModelSerializer):
+class CleaningTaskSerializer(WorkAssignmentMixin, TenantSerializerMixin, serializers.ModelSerializer):
     tenant_field_name = "hotel_settings"
+    work_kind = CLEANING
+    assigned_to = serializers.PrimaryKeyRelatedField(
+        queryset=get_user_model().objects.all(), required=False, allow_null=True
+    )
+    assigned_to_name = serializers.SerializerMethodField()
 
     hotel_settings = serializers.PrimaryKeyRelatedField(
         queryset=HotelSettings.objects.all(),
@@ -768,6 +818,8 @@ class CleaningTaskSerializer(TenantSerializerMixin, serializers.ModelSerializer)
             "scheduled_for",
             "completed_at",
             "notes",
+            "assigned_to",
+            "assigned_to_name",
             "created_at",
         )
         read_only_fields = ("id", "created_at")
@@ -827,6 +879,7 @@ class CleaningTaskSerializer(TenantSerializerMixin, serializers.ModelSerializer)
                 "completed_at": "La fecha de finalizacion no puede ser menor que la fecha programada."
             })
 
+        self.validate_work_rules(attrs, hotel)
         return attrs
 
     def create(self, validated_data):

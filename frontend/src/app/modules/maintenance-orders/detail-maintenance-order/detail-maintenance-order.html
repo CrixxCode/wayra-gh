@@ -60,6 +60,10 @@
             <strong>{{ getOrderCode() }}</strong>
           </div>
           <div>
+            <span>Responsable</span>
+            <strong>{{ maintenanceOrderData?.assigned_to_name || 'Sin asignar' }}</strong>
+          </div>
+          <div>
             <span>Prioridad</span>
             <strong>{{ getPriorityLabel() }}</strong>
           </div>
@@ -95,7 +99,8 @@
     </div>
 
     <footer class="drawer-footer">
-      <button type="button" class="btn btn-light" (click)="requestStatusAdvance()">{{ getProgressActionLabel() }}</button>
+      <button type="button" class="btn btn-light" (click)="requestEdit()">Editar</button>
+      <button type="button" class="btn btn-light" *ngIf="!isClosed" (click)="requestStatusAdvance()">{{ getProgressActionLabel() }}</button>
       <button type="button" class="btn btn-danger" (click)="requestDelete()">Eliminar</button>
     </footer>
   </aside>

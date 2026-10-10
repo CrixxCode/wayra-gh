@@ -1,6 +1,8 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import HttpResponse
+from django.utils.dateparse import parse_date
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from django_filters.rest_framework import DjangoFilterBackend
@@ -89,6 +91,64 @@ class ExpenseViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.Model
     def get_permissions(self):
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
+
+    @extend_schema(responses={(200, "application/octet-stream"): OpenApiTypes.BINARY})
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request):
+        """
+        Egresos del periodo en PDF o Excel: `?output=pdf|xlsx&start_date=&end_date=` (auditoria,
+        Bloque 9 #11). Antes solo habia CSV armado en el navegador.
+        """
+        from apps.reports.exporters import render as render_export
+
+        output = str(request.query_params.get("output") or "pdf").strip().lower()
+        if output not in ("pdf", "xlsx"):
+            return Response({"output": "Usa pdf o xlsx."}, status=status.HTTP_400_BAD_REQUEST)
+        start = parse_date(str(request.query_params.get("start_date") or ""))
+        end = parse_date(str(request.query_params.get("end_date") or ""))
+
+        queryset = self.filter_queryset(self.get_queryset()).order_by("expense_date", "id")
+        if start:
+            queryset = queryset.filter(expense_date__gte=start)
+        if end:
+            queryset = queryset.filter(expense_date__lte=end)
+        expenses = list(queryset)
+
+        by_category: dict[str, float] = {}
+        for expense in expenses:
+            name = getattr(expense.expense_category, "name", "") or "Sin categoria"
+            by_category[name] = by_category.get(name, 0.0) + float(expense.amount or 0)
+        total = sum(float(expense.amount or 0) for expense in expenses)
+        payload = {
+            "filters": {"start_date": start, "end_date": end},
+            "summary": {"count": len(expenses), "total_amount": total},
+            "by_category": [
+                {"category": name, "amount": amount}
+                for name, amount in sorted(by_category.items(), key=lambda item: -item[1])
+            ],
+            "expenses": [
+                {
+                    "expense_date": expense.expense_date,
+                    "concept": expense.concept,
+                    "category": getattr(expense.expense_category, "name", ""),
+                    "supplier_name": expense.supplier_name or "",
+                    "reference": expense.reference or "",
+                    "payment_method": getattr(expense.payment_method, "name", "") or "",
+                    "amount": float(expense.amount or 0),
+                }
+                for expense in expenses
+            ],
+        }
+        hotel = getattr(request.user, "hotel_settings", None)
+        content, content_type, extension = render_export(
+            output, "Egresos", payload, hotel_name=getattr(hotel, "hotel_name", "") or ""
+        )
+        period = "-".join(str(value) for value in (start, end) if value)
+        response = HttpResponse(content, content_type=content_type)
+        response["Content-Disposition"] = (
+            f'attachment; filename="egresos{"-" + period if period else ""}.{extension}"'
+        )
+        return response
 
 
 class FinancialControlConfigViewSet(LogicalDeleteViewSetMixin, TenantScopeMixin, viewsets.ModelViewSet):

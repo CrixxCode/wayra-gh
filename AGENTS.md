@@ -920,6 +920,23 @@ Tres decisiones del motor que no son obvias:
 La aritmética de calendario vive en `apps/rooms/recurrence.py`, aparte del modelo y del comando: es
 la única parte con lógica de fechas y la que hay que poder probar sin base de datos ni reloj.
 
+**Responsable y estados** (decisiones del 2026-10-10, Bloque 4 #11-13). Las reglas viven en
+`apps/rooms/workflow.py` y las aplican los serializers (`WorkAssignmentMixin`), así que también
+valen para un `PATCH` directo:
+
+- **Estados.** Pendiente → En proceso → Completada, y Pendiente → Completada directo para las
+  tareas rápidas. Mantenimiento además se cancela desde Pendiente o En proceso. Una tarea
+  **Completada o Cancelada no se reabre**: se crea otra. Al crearla, el estado puede ser
+  Pendiente, En proceso o Completada (registrar trabajo ya hecho), no Cancelada. Un estado que el
+  catálogo agregue por su cuenta no tiene regla y no se bloquea.
+- **Responsable (`assigned_to`).** Opcional, y solo usuarios activos del mismo hotel con el
+  permiso de escritura del módulo (`cleaning_tasks.write` o `maintenance_orders.write`, o su
+  comodín). `GET .../assignable-users/` da la lista para el selector.
+- **Aviso.** Al asignar (o reasignar) a alguien distinto de quien guarda, le llega una
+  notificación a la campana con enlace a la pestaña de operaciones de la habitación.
+- **Edición.** El formulario de alta sirve para editar (`@Input() editing`), y el detalle tiene
+  "Editar". Una tarea cerrada ya no ofrece "Reabrir".
+
 ---
 
 ### 5.22 Finanzas: el libro del periodo, separado del análisis
@@ -967,6 +984,23 @@ las cuatro claves: los umbrales alimentan el semáforo y los impuestos el estado
 Finanzas, y "Ver este periodo en Finanzas" hace el camino inverso. Cada pantalla lee esos dos
 parámetros al abrir (solo fechas `YYYY-MM-DD`). Así no hay que fijar la fecha dos veces para
 comparar el mismo mes.
+
+**Exportes completos en el servidor, no en el navegador** (desde el 2026-10-10, B11 #6-7 y B9 #11).
+`GET /api/reports/export/?report=<executive|revenue|occupancy|services|income-consolidated>&output=<pdf|xlsx>`
+y `GET /api/expenses/export/?output=&start_date=&end_date=` devuelven el archivo armado por
+`apps/reports/exporters.py`:
+
+- **PDF:** con `reportlab`, incluye indicadores, y por sección su gráfico de barras y su tabla.
+- **Excel:** con `openpyxl` (dependencia nueva), trae una hoja "Resumen" con los indicadores y
+  una hoja por sección con su gráfico nativo.
+
+El exportador es **genérico**: recorre el payload que ya pinta la pantalla (`filters` +
+`kpis`/`summary` + listas de filas). Un reporte nuevo se exporta sin código extra; basta con
+agregar sus claves a `LABELS` para que salgan en español. El parámetro es `output` y no `format`,
+porque DRF reserva `?format=` para elegir el renderer. Por qué en el servidor: antes "Exportar PDF"
+abría un popup con cuatro KPIs (y fallaba en silencio si el navegador lo bloqueaba), y una
+librería de Excel en el frontend habría engordado un bundle que ya pasa su presupuesto. El CSV
+de cada pantalla se mantiene. Control financiero sigue solo con CSV.
 
 ### 5.23 Auditoría: una tabla propia, inmutable, escrita por señales
 
@@ -1400,6 +1434,50 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-10-10 — Exportes completos de reportes y finanzas (PDF y Excel)
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** incluido en este commit
+- **Tipo:** funcional
+- **Qué se hizo:**
+  - Exportador genérico `apps/reports/exporters.py`: el PDF lleva indicadores, gráfico y tabla
+    por sección; el Excel, una hoja de resumen y una por sección, con gráficos nativos.
+  - Endpoints `GET /api/reports/export/` (los cuatro reportes y el consolidado de ingresos) y
+    `GET /api/expenses/export/` (egresos del periodo).
+  - En el frontend, botones PDF y Excel en Reportes (reemplazan el popup de cuatro KPIs),
+    Ingresos y Egresos (junto al CSV), con la descarga en `services/file-download.ts`.
+- **Por qué:** auditoría B11 #6-7 y B9 #11 (5.22).
+- **Archivos/áreas afectadas:** `backend/requirements.txt` (+`openpyxl`),
+  `backend/apps/reports/{exporters.py (nuevo),views,tests}.py`, `backend/apps/finance/{views,tests}.py`;
+  frontend: `services/{file-download (nuevo),reports,expense}.ts`, `modules/reports/list-reports/*`,
+  `modules/income-consolidated/list-income-consolidated/*`, `modules/expenses/list-expenses/*`;
+  `AGENTS.md` (5.22).
+- **Impacto:** **dependencia nueva** `openpyxl>=3.1` (la instala el build de Railway desde
+  `requirements.txt`). Sin migraciones. Endpoints nuevos de solo lectura con los mismos scopes de
+  cada reporte (`reports.read`, `expenses.read`).
+
+### 2026-10-10 — Limpieza y mantenimiento: responsable, estados y edición
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez (decisiones de producto tomadas por él).
+- **Commit(s):** incluido en este commit
+- **Tipo:** funcional
+- **Qué se hizo:** la primera funcionalidad nueva pendiente de la auditoría (Bloque 4 #11-13).
+  - Campo `assigned_to` en `CleaningTask` y `MaintenanceOrder` (migración `rooms.0016`).
+  - Flujo de estados validado en el backend: no hay saltos inválidos ni reapertura de cerradas.
+  - Acción `assignable-users`, y aviso en la campana al responsable asignado.
+  - En el frontend: selector de responsable en el alta y la edición, el responsable en el
+    detalle, el botón "Editar", y se quita "Reabrir" (5.21).
+- **Por qué:** no había forma de asignar el trabajo a alguien. Un `PATCH` podía saltar de
+  Pendiente a Completada o reabrir sin control, y un error al crear obligaba a borrar y recrear.
+- **Archivos/áreas afectadas:** `backend/apps/rooms/{workflow.py (nuevo),models,serializers,views,tests}.py`,
+  `backend/apps/rooms/migrations/0016_work_assigned_to.py`, `backend/apps/notifications/services.py`;
+  frontend: `modules/cleaning-tasks/*`, `modules/maintenance-orders/*`,
+  `services/{cleaning-task,maintenance-order}.ts`; `AGENTS.md` (5.21).
+- **Impacto:** **migración de esquema** (`rooms.0016`, dos columnas nulas). Endpoints nuevos:
+  `GET /api/cleaning-tasks/assignable-users/` y `GET /api/maintenance-orders/assignable-users/`.
+  Cambios de comportamiento: un `PATCH` que reabra una tarea cerrada o salte estados responde 400,
+  y no se puede crear una orden ya cancelada.
 
 ### 2026-10-10 — Auditoría, tanda 12: cobertura de tests
 

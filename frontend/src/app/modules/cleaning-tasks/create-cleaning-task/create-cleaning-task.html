@@ -3,7 +3,7 @@
     <header class="drawer-head">
       <div>
         <p class="drawer-kind"><i class="fa-solid fa-broom"></i> Limpieza</p>
-        <h1>Nueva tarea</h1>
+        <h1>{{ editing ? 'Editar tarea' : 'Nueva tarea' }}</h1>
       </div>
       <button type="button" class="drawer-close" (click)="closeDrawer()" title="Cerrar">
         <i class="fa-solid fa-xmark"></i>
@@ -60,6 +60,15 @@
           </label>
 
           <label class="full">
+            <span>Responsable</span>
+            <select formControlName="assigned_to">
+              <option [ngValue]="null">Sin asignar</option>
+              <option *ngFor="let user of assignableUsers; trackBy: trackById" [ngValue]="user.id">{{ user.name }}</option>
+            </select>
+            <small class="field-help">Solo usuarios con permiso sobre este modulo. Se le avisa en la campana.</small>
+          </label>
+
+          <label class="full">
             <span>Notas</span>
             <textarea
               rows="4"
@@ -90,7 +99,7 @@
           type="submit"
           class="btn btn-dark"
           [disabled]="saving || !availableRooms.length || !availableTaskTypes.length || !availableStatuses.length">
-          {{ saving ? 'Guardando...' : 'Guardar tarea' }}
+          {{ saving ? 'Guardando...' : (editing ? 'Guardar cambios' : 'Guardar tarea') }}
         </button>
       </footer>
     </form>

@@ -343,7 +343,7 @@
                     <button type="button" class="row-btn" title="Ver detalle" (click)="openDetail(task)">
                       <i class="fa-regular fa-eye"></i>
                     </button>
-                    <button type="button" class="row-btn" [title]="getProgressActionLabel(task)" (click)="advanceTaskStatus(task)">
+                    <button type="button" class="row-btn" [disabled]="isCompleted(task)" [title]="getProgressActionLabel(task)" (click)="advanceTaskStatus(task)">
                       <i [class]="getProgressActionIcon(task)"></i>
                     </button>
                     <button type="button" class="row-btn danger" title="Eliminar" (click)="confirmDelete(task)">
@@ -364,6 +364,7 @@
     [rooms]="rooms"
     [taskTypes]="taskTypes"
     [statuses]="statuses"
+    [editing]="editingCleaningTaskI"
     (closed)="closeCreateDrawer()"
     (created)="onCleaningTaskCreated()">
   </app-create-cleaning-task>
@@ -373,6 +374,7 @@
     [cleaningTaskData]="selectedCleaningTask"
     (closed)="closeDetail()"
     (statusRequested)="advanceTaskStatus($event)"
+    (editRequested)="openEdit($event)"
     (deleteRequested)="confirmDelete($event)">
   </app-detail-cleaning-task>
 

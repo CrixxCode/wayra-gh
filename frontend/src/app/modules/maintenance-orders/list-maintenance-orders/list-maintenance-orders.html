@@ -356,6 +356,7 @@
                     <button
                       type="button"
                       class="row-btn"
+                      [disabled]="isClosed(order)"
                       [title]="getProgressActionLabel(order)"
                       (click)="advanceOrderStatus(order)">
                       <i [class]="getProgressActionIcon(order)"></i>
@@ -378,6 +379,7 @@
     [rooms]="rooms"
     [priorities]="priorities"
     [statuses]="statuses"
+    [editing]="editingMaintenanceOrderI"
     (closed)="closeCreateDrawer()"
     (created)="onMaintenanceOrderCreated()">
   </app-create-maintenance-order>
@@ -387,6 +389,7 @@
     [maintenanceOrderData]="selectedMaintenanceOrder"
     (closed)="closeDetail()"
     (statusRequested)="advanceOrderStatus($event)"
+    (editRequested)="openEdit($event)"
     (deleteRequested)="confirmDelete($event)">
   </app-detail-maintenance-order>
 

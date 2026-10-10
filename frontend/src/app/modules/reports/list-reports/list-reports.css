@@ -676,3 +676,9 @@ td.neutral {
   color: var(--gh-text-muted, #64748b);
   font-variant-numeric: tabular-nums;
 }
+
+.export-error {
+  margin: 0 0 12px;
+  color: var(--gh-status-danger-text);
+  font-size: 0.85rem;
+}

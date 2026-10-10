@@ -573,3 +573,58 @@ class OccupancyAggregationRealDataTests(APITestCase):
 
         # Una habitacion, 3 de 30 noches ocupadas: 10 %.
         self.assertAlmostEqual(report["kpis"]["average_occupancy"]["value"], 10.0, places=1)
+
+
+class ReportExportTests(APITestCase):
+    """PDF y Excel completos (auditoria, Bloque 11 #6-7 y Bloque 9 #11)."""
+
+    def setUp(self):
+        # Mismos datos reales que la prueba de ocupacion, sin volver a correr sus tests.
+        OccupancyAggregationRealDataTests.setUp(self)
+        from accounts.test_helpers import make_hotel_user
+
+        self.client.force_authenticate(make_hotel_user(self.hotel, "reports.read"))
+
+    def _export(self, report, output, **extra):
+        params = {"report": report, "output": output, "start_date": "2026-11-01", "end_date": "2026-11-30"}
+        params.update(extra)
+        return self.client.get("/api/reports/export/", params)
+
+    def test_every_report_exports_to_pdf_and_excel(self):
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        for report in ("executive", "revenue", "occupancy", "services"):
+            pdf = self._export(report, "pdf")
+            self.assertEqual(pdf.status_code, 200, report)
+            self.assertEqual(pdf["Content-Type"], "application/pdf")
+            self.assertTrue(pdf.content.startswith(b"%PDF"), report)
+
+            xlsx = self._export(report, "xlsx")
+            self.assertEqual(xlsx.status_code, 200, report)
+            self.assertIn("attachment;", xlsx["Content-Disposition"])
+            workbook = load_workbook(BytesIO(xlsx.content))
+            self.assertEqual(workbook.sheetnames[0], "Resumen")
+            if report != "services":  # sin consumos en los datos de prueba: solo el resumen
+                self.assertGreater(len(workbook.sheetnames), 1, report)
+
+    def test_occupancy_excel_carries_the_real_numbers(self):
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        workbook = load_workbook(BytesIO(self._export("occupancy", "xlsx").content))
+        summary = {row[0]: row[1] for row in workbook["Resumen"].iter_rows(values_only=True) if row and row[0]}
+        self.assertAlmostEqual(summary["Ocupacion promedio (%)"], 10.0, places=1)
+
+    def test_income_consolidated_exports_with_its_own_filters(self):
+        response = self.client.get(
+            "/api/reports/export/",
+            {"report": "income-consolidated", "output": "xlsx", "period": "ALL"},
+        )
+        self.assertEqual(response.status_code, 200, getattr(response, "data", None))
+
+    def test_rejects_unknown_report_or_output(self):
+        self.assertEqual(self._export("nada", "pdf").status_code, 400)
+        self.assertEqual(self._export("executive", "docx").status_code, 400)

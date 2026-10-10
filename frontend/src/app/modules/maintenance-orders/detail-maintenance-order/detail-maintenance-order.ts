@@ -14,10 +14,21 @@ export class DetailMaintenanceOrder {
 
   @Output() closed = new EventEmitter<void>();
   @Output() statusRequested = new EventEmitter<MaintenanceOrderI>();
+  @Output() editRequested = new EventEmitter<MaintenanceOrderI>();
   @Output() deleteRequested = new EventEmitter<MaintenanceOrderI>();
 
   closeDrawer(): void {
     this.closed.emit();
+  }
+
+  /** Completada o cancelada: no se reabre (B4 #12), se crea otra. */
+  get isClosed(): boolean {
+    const normalized = this.normalizeCode(this.maintenanceOrderData?.status);
+    return normalized === 'COMPLETADA' || normalized === 'CANCELADA';
+  }
+
+  requestEdit(): void {
+    if (this.maintenanceOrderData) this.editRequested.emit(this.maintenanceOrderData);
   }
 
   requestStatusAdvance(): void {
@@ -77,7 +88,7 @@ export class DetailMaintenanceOrder {
 
   getProgressActionLabel(): string {
     const normalized = this.normalizeCode(this.maintenanceOrderData?.status);
-    if (normalized === 'COMPLETADA' || normalized === 'CANCELADA') return 'Reabrir orden';
+    if (normalized === 'COMPLETADA' || normalized === 'CANCELADA') return 'Cerrada';
     if (normalized === 'ENPROCESO') return 'Marcar completada';
     return 'Iniciar orden';
   }

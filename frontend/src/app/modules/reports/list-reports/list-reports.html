@@ -11,12 +11,18 @@
         Actualizar
       </button>
 
-      <button type="button" class="gh-btn gh-btn-light" (click)="exportCurrentReportPdf()">
-        <i class="fa-solid fa-download"></i>
-        Exportar PDF
+      <button type="button" class="gh-btn gh-btn-light" (click)="exportCurrentReport('pdf')" [disabled]="!!exporting">
+        <i class="fa-solid fa-file-pdf"></i>
+        {{ exporting === 'pdf' ? 'Generando...' : 'PDF' }}
+      </button>
+      <button type="button" class="gh-btn gh-btn-light" (click)="exportCurrentReport('xlsx')" [disabled]="!!exporting">
+        <i class="fa-solid fa-file-excel"></i>
+        {{ exporting === 'xlsx' ? 'Generando...' : 'Excel' }}
       </button>
     </div>
   </header>
+
+  <p class="export-error" *ngIf="exportError" role="alert">{{ exportError }}</p>
 
   <section class="filters-card">
     <div class="mode-switch">

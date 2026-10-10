@@ -1,4 +1,5 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpResponse } from '@angular/common/http';
+import { ExportOutput } from './file-download';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../enviorements/environment';
@@ -105,6 +106,24 @@ export class ReportsService {
         }),
       CACHE_TTL.OPERATIONAL
     );
+  }
+
+  /**
+   * Reporte completo en PDF o Excel, armado por el backend con los mismos filtros de la
+   * pantalla (auditoria, Bloque 11 #6-7 y Bloque 9 #11).
+   */
+  exportReport(
+    report: 'executive' | 'revenue' | 'occupancy' | 'services' | 'income-consolidated',
+    output: ExportOutput,
+    params?: Record<string, unknown>
+  ): Observable<HttpResponse<Blob>> {
+    const query = this.buildParams(params as ReportQueryParams).set('report', report).set('output', output);
+    return this.http.get(`${this.reportsUrl}export/`, {
+      withCredentials: true,
+      params: query,
+      responseType: 'blob',
+      observe: 'response'
+    });
   }
 
   private buildParams(values?: ReportQueryParams): HttpParams {

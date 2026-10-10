@@ -31,6 +31,7 @@ from .models import (
 )
 from .operations import build_room_operations_map
 from .recurring import has_due_rules, materialize_due_recurring_work
+from .workflow import CLEANING, MAINTENANCE, assignable_users, user_display_name
 from .serializers import (
     RoomTypeSerializer,
     RateSerializer,
@@ -498,7 +499,36 @@ class MaterializeRecurringWorkMixin:
         return super().list(request, *args, **kwargs)
 
 
+
+class WorkAssignmentViewMixin:
+    """Responsables de limpieza/mantenimiento: a quien se puede asignar y aviso al asignar."""
+
+    work_kind = None
+
+    @extend_schema(responses={200: OpenApiTypes.OBJECT})
+    @action(detail=False, methods=["get"], url_path="assignable-users")
+    def assignable_users(self, request):
+        """Usuarios que se pueden poner como responsables (B4 #11; reglas en `workflow`)."""
+        hotel_id = self.get_tenant_id()
+        if hotel_id is None and is_effective_global_admin(request.user):
+            raw = str(request.query_params.get("hotel_settings") or "").strip()
+            hotel_id = int(raw) if raw.isdigit() else None
+        users = assignable_users(hotel_id, self.work_kind)
+        return Response([{"id": user.id, "name": user_display_name(user)} for user in users])
+
+    def notify_if_reassigned(self, task, previous_assignee_id):
+        assignee_id = getattr(task, "assigned_to_id", None)
+        if not assignee_id or assignee_id == previous_assignee_id:
+            return
+        if assignee_id == getattr(self.request.user, "id", None):
+            return
+        from apps.notifications.services import notify_work_assigned
+
+        notify_work_assigned(task, kind=self.work_kind)
+
+
 class MaintenanceOrderViewSet(
+    WorkAssignmentViewMixin,
     MaterializeRecurringWorkMixin,
     LogicalDeleteViewSetMixin,
     TenantScopeMixin,
@@ -510,8 +540,10 @@ class MaintenanceOrderViewSet(
         "room__floor__hotel_settings",
         "priority",
         "status",
+        "assigned_to",
     ).all()
     serializer_class = MaintenanceOrderSerializer
+    work_kind = MAINTENANCE
     pagination_class = OptionalPageNumberPagination
     permission_classes = [HasResourcePermission]
     required_scopes = ["maintenance_orders.read"]
@@ -539,8 +571,18 @@ class MaintenanceOrderViewSet(
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
 
+    def perform_create(self, serializer):
+        order = serializer.save()
+        self.notify_if_reassigned(order, None)
+
+    def perform_update(self, serializer):
+        previous_assignee_id = serializer.instance.assigned_to_id
+        order = serializer.save()
+        self.notify_if_reassigned(order, previous_assignee_id)
+
 
 class CleaningTaskViewSet(
+    WorkAssignmentViewMixin,
     MaterializeRecurringWorkMixin,
     LogicalDeleteViewSetMixin,
     TenantScopeMixin,
@@ -553,8 +595,10 @@ class CleaningTaskViewSet(
         "task_type",
         "status",
         "priority",
+        "assigned_to",
     ).all()
     serializer_class = CleaningTaskSerializer
+    work_kind = CLEANING
     pagination_class = OptionalPageNumberPagination
     permission_classes = [HasResourcePermission]
     required_scopes = ["cleaning_tasks.read"]
@@ -593,12 +637,15 @@ class CleaningTaskViewSet(
     def perform_create(self, serializer):
         task = serializer.save()
         sync_room_status_for_room_ids([task.room_id])
+        self.notify_if_reassigned(task, None)
 
     def perform_update(self, serializer):
         instance = self.get_object()
         previous_room_id = instance.room_id
+        previous_assignee_id = instance.assigned_to_id
         task = serializer.save()
         sync_room_status_for_room_ids([previous_room_id, task.room_id])
+        self.notify_if_reassigned(task, previous_assignee_id)
 
     def perform_destroy(self, instance):
         room_id = instance.room_id

@@ -1,3 +1,4 @@
+import { ExportOutput, saveHttpBlob } from '../../../services/file-download';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, NgZone, OnDestroy, OnInit } from '@angular/core';
@@ -306,53 +307,30 @@ export class ListReports implements OnInit, OnDestroy {
     this.loadReports('all', true);
   }
 
-  exportCurrentReportPdf(): void {
-    const summaryLines = this.buildSummaryLinesForPdf();
-    if (!summaryLines.length) return;
+  exporting: ExportOutput | null = null;
+  exportError = '';
 
-    const title = `Reporte ${this.resolveTabLabel(this.activeTab)}`;
-    const period = this.getPeriodBadgeLabel();
-    const updated = this.lastUpdatedLabel || 'Sin registro';
-    const rows = summaryLines
-      .map(
-        (line) =>
-          `<tr><th>${this.escapeHtml(line.label)}</th><td>${this.escapeHtml(line.value)}</td></tr>`
-      )
-      .join('');
-
-    const popup = window.open('', '_blank', 'noopener,noreferrer,width=900,height=720');
-    if (!popup) return;
-
-    popup.document.open();
-    popup.document.write(`
-      <!doctype html>
-      <html lang="es">
-      <head>
-        <meta charset="utf-8" />
-        <title>${this.escapeHtml(title)}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 28px; color: #1f2937; }
-          h1 { margin: 0 0 8px; font-size: 26px; }
-          p { margin: 0 0 6px; color: #475569; }
-          table { margin-top: 18px; width: 100%; border-collapse: collapse; }
-          th, td { border: 1px solid #d7deea; padding: 10px 12px; text-align: left; }
-          th { width: 42%; background: #f8fbff; color: #334155; }
-          td { color: #0f172a; }
-        </style>
-      </head>
-      <body>
-        <h1>${this.escapeHtml(title)}</h1>
-        <p><strong>Periodo:</strong> ${this.escapeHtml(period)}</p>
-        <p><strong>Actualizado:</strong> ${this.escapeHtml(updated)}</p>
-        <table>
-          <tbody>${rows}</tbody>
-        </table>
-      </body>
-      </html>
-    `);
-    popup.document.close();
-    popup.focus();
-    popup.print();
+  /**
+   * Reporte completo (indicadores, graficos y tablas) en PDF o Excel, armado por el backend.
+   * Antes "Exportar PDF" abria un popup con cuatro KPIs y, si el navegador lo bloqueaba,
+   * fallaba en silencio (auditoria, Bloque 11 #6-7).
+   */
+  exportCurrentReport(output: ExportOutput): void {
+    if (this.exporting) return;
+    this.exporting = output;
+    this.exportError = '';
+    this.reportsService
+      .exportReport(this.activeTab, output, this.reportQuery as unknown as Record<string, unknown>)
+      .subscribe({
+        next: (response) => {
+          this.exporting = null;
+          saveHttpBlob(response, `reporte-${this.activeTab}.${output}`);
+        },
+        error: () => {
+          this.exporting = null;
+          this.exportError = 'No fue posible generar el archivo. Intenta de nuevo.';
+        }
+      });
   }
 
   openPaymentMethodDetail(item: PaymentMethodSummary): void {
@@ -885,50 +863,6 @@ export class ListReports implements OnInit, OnDestroy {
     ];
   }
 
-  private buildSummaryLinesForPdf(): Array<{ label: string; value: string }> {
-    if (this.activeTab === 'executive') {
-      const report = this.executiveReport;
-      if (!report) return [];
-      return [
-        { label: 'Ingresos anuales', value: this.formatCurrency(report.kpis.annual_income.value) },
-        { label: 'Utilidad neta', value: this.formatCurrency(report.kpis.net_profit.value) },
-        { label: 'Ocupacion media', value: this.formatPercent(report.kpis.average_occupancy.value) },
-        { label: 'RevPAR', value: this.formatCurrency(report.kpis.revpar.value) },
-      ];
-    }
-
-    if (this.activeTab === 'revenue') {
-      const report = this.revenueReport;
-      if (!report) return [];
-      return [
-        { label: 'Ingresos brutos', value: this.formatCurrency(report.kpis.gross_income.value) },
-        { label: 'Gastos totales', value: this.formatCurrency(report.kpis.total_expenses.value) },
-        { label: 'Utilidad neta', value: this.formatCurrency(report.kpis.net_profit.value) },
-        { label: 'Margen neto', value: this.formatPercent(report.kpis.net_margin.value) },
-      ];
-    }
-
-    if (this.activeTab === 'occupancy') {
-      const report = this.occupancyReport;
-      if (!report) return [];
-      return [
-        { label: 'Ocupacion media', value: this.formatPercent(report.kpis.average_occupancy.value) },
-        { label: 'Pico ocupacion', value: this.formatPercent(report.kpis.occupancy_peak.value) },
-        { label: 'Estancia promedio', value: `${this.formatNumber(report.kpis.average_stay.value, 1)} noches` },
-        { label: 'Huespedes totales', value: this.formatInteger(report.kpis.total_guests.value) },
-      ];
-    }
-
-    const report = this.servicesReport;
-    if (!report) return [];
-    return [
-      { label: 'Ingresos por servicios', value: this.formatCurrency(report.kpis.service_income.value) },
-      { label: 'Transacciones', value: this.formatInteger(report.kpis.transactions.value) },
-      { label: 'Ticket promedio', value: this.formatCurrency(report.kpis.average_ticket.value, 1) },
-      { label: 'Top categoria', value: report.kpis.top_category.name || 'Sin datos' },
-    ];
-  }
-
   private resolveTabLabel(tab: ReportTab): string {
     const match = this.tabs.find((item) => item.key === tab);
     return match?.label || tab;
@@ -1029,15 +963,6 @@ export class ListReports implements OnInit, OnDestroy {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return 0;
     return parsed;
-  }
-
-  private escapeHtml(value: string): string {
-    return String(value || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
   }
 
   // ------------------------------------------------------------------ graficos

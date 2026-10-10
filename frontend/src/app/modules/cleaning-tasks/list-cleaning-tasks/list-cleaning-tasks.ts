@@ -345,6 +345,7 @@ export class ListCleaningTasks implements OnInit {
 
   closeCreateDrawer(): void {
     this.showCreateDrawer = false;
+    this.editingCleaningTaskI = null;
   }
 
   onCleaningTaskCreated(): void {
@@ -598,16 +599,25 @@ export class ListCleaningTasks implements OnInit {
     return scheduled.getTime() < today.getTime();
   }
 
+  /** Tarea abierta en el formulario en modo edicion (B4 #13). */
+  editingCleaningTaskI: CleaningTaskI | null = null;
+
+  openEdit(item: CleaningTaskI): void {
+    this.selectedCleaningTask = null;
+    this.editingCleaningTaskI = item;
+    this.showCreateDrawer = true;
+  }
+
   getProgressActionLabel(task: CleaningTaskI): string {
     const status = this.normalizeCode(task.status);
-    if (status === 'COMPLETADA' || status === 'CANCELADA') return 'Reabrir';
+    if (status === 'COMPLETADA' || status === 'CANCELADA') return 'Cerrada';
     if (status === 'ENPROCESO') return 'Completar';
     return 'Iniciar';
   }
 
   getProgressActionIcon(task: CleaningTaskI): string {
     const status = this.normalizeCode(task.status);
-    if (status === 'COMPLETADA' || status === 'CANCELADA') return 'fa-solid fa-rotate-left';
+    if (status === 'COMPLETADA' || status === 'CANCELADA') return 'fa-solid fa-lock';
     if (status === 'ENPROCESO') return 'fa-solid fa-check';
     return 'fa-solid fa-play';
   }
@@ -814,11 +824,12 @@ export class ListCleaningTasks implements OnInit {
     const current = this.normalizeCode(task.status);
 
     if (current === 'ENPROCESO') {
-      return this.findStatusCode('COMPLETADA') || this.findStatusCode('PENDIENTE') || null;
+      return this.findStatusCode('COMPLETADA') || null;
     }
 
+    // Cerrada: no se reabre (B4 #12; el backend tambien lo rechaza).
     if (current === 'COMPLETADA' || current === 'CANCELADA') {
-      return this.findStatusCode('PENDIENTE') || this.findStatusCode('ENPROCESO') || null;
+      return null;
     }
 
     return this.findStatusCode('ENPROCESO') || this.findStatusCode('PENDIENTE') || null;

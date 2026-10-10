@@ -113,6 +113,12 @@ Estos no son de seguridad ni de dinero directamente, pero impiden operar el día
 > `AGENTS.md`. Al probar B1 #3 apareció un bug nuevo: el borrado lógico con PK UUID no excluía nada
 > en SQLite (corregido). Quedan los "corregir pronto" y "mejorable" de cada bloque.
 
+## Funcionalidad nueva (una por una)
+
+> **2026-10-10:** ✅ B4 #11-13: responsable, estados validados en el servidor y edición de
+> limpieza y mantenimiento. ✅ B11 #6-7 y B9 #11: exportes completos en PDF y Excel. Pendientes:
+> reordenar Master Data (B3 #8) y retención de notificaciones (B12 #7).
+
 ## Tanda 12 — cobertura de tests
 
 > **Estado 2026-10-10:** ✅ B3 #5, B4 #14, B5 #8, B7 #8, B9 #13, B11 #11, B12 #12, B13 #11 y B15 #10
