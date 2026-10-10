@@ -914,12 +914,16 @@ export class OnlineCheckInPage {
     return index;
   }
 
+  /** Hay acompanantes ya registrados cuyos datos no se muestran por privacidad. */
+  hasMaskedCompanions = false;
+
   private buildGuestLines(
     response: OnlineCheckInLookupResponse,
     titularDocumentNumber: string
   ): void {
 
     this.guestLines.clear();
+    this.hasMaskedCompanions = response.existing_guests.some((guest) => guest.document_masked);
 
     const totalGuests =
       Math.max(response.total_guests, 1);
@@ -1021,7 +1025,8 @@ export class OnlineCheckInPage {
       firstName: guest.first_name,
       lastName: guest.last_name,
       documentType: guest.document_type,
-      documentNumber: guest.document_number,
+      // Enmascarado (Bloque 14 #4): el titular lo vuelve a escribir.
+      documentNumber: guest.document_masked ? '' : guest.document_number,
       birthDate: guest.birth_date ?? '',
       nationality: guest.nationality ?? '',
     };

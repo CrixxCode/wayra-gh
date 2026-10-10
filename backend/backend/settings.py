@@ -189,6 +189,10 @@ AUTH_PASSWORD_VALIDATORS = [
 # Intentos de login en /admin/ por IP y minuto (`AdminLoginThrottleMiddleware`). El admin de
 # Django usa su propia vista, fuera de los throttles de DRF (Bloque 15 #6).
 ADMIN_LOGIN_ATTEMPTS_PER_MINUTE = env_int("ADMIN_LOGIN_ATTEMPTS_PER_MINUTE", 10)
+# Intentos fallidos por cuenta (no por IP) antes de frenar el login de esa cuenta durante
+# `LOGIN_ACCOUNT_LOCK_SECONDS` (5.11).
+LOGIN_FAILURES_PER_ACCOUNT = env_int("LOGIN_FAILURES_PER_ACCOUNT", 10)
+LOGIN_ACCOUNT_LOCK_SECONDS = env_int("LOGIN_ACCOUNT_LOCK_SECONDS", 900)
 
 ROOT_URLCONF = "backend.urls"
 WSGI_APPLICATION = "backend.wsgi.application"

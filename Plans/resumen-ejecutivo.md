@@ -113,6 +113,11 @@ Estos no son de seguridad ni de dinero directamente, pero impiden operar el día
 > `AGENTS.md`. Al probar B1 #3 apareció un bug nuevo: el borrado lógico con PK UUID no excluía nada
 > en SQLite (corregido). Quedan los "corregir pronto" y "mejorable" de cada bloque.
 
+## Tanda 8 — privacidad y seguridad (parte de "mejorable sin bloquear")
+
+> **Estado 2026-10-09:** ✅ B14 #4 (acompañantes enmascarados, decidido), B14 #5, B13 #9, B13 #10,
+> B15 #7, B15 #8 y B1 #15. Ver la entrada "Auditoría, tanda 8" en la sección 12 de `AGENTS.md`.
+
 ## Tanda 7 — mejoras visibles (parte de "mejorable sin bloquear")
 
 > **Estado 2026-10-09:** ✅ B6 #10 (no-show, decidido: abonos retenidos), B6 #11, B6 #13, B13 #5,

@@ -393,6 +393,10 @@
                 <div>
                   <h2>Huespedes acompanantes</h2>
                   <p>La reserva admite {{ guestLines.length }} huespedes. Registra a quienes se alojan contigo.</p>
+                  <p *ngIf="hasMaskedCompanions" class="upload-note">
+                    Por privacidad no mostramos los datos de los acompanantes ya registrados: vuelve a
+                    escribir su documento, fecha de nacimiento y nacionalidad para enviar de nuevo.
+                  </p>
                 </div>
               </div>
 

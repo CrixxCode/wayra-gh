@@ -1797,8 +1797,46 @@ class OnlineCheckInLookupResponseSerializer(serializers.Serializer):
         return obj["eligibility"]["reason"]
 
     def get_existing_guests(self, obj):
-        return [
-            {
+        """
+        El titular ve sus datos completos; de cada acompanante, solo el nombre y el documento
+        enmascarado (auditoria, Bloque 14 #4; decision del 2026-10-09). Antes bastaba con el
+        codigo y el documento del titular para leer documento, nacimiento y contactos de todo
+        el grupo. Para corregir un acompanante, el titular vuelve a escribir sus datos.
+        """
+        from apps.reservations.online_check_in import _normalize_document_number
+
+        holder_document = obj.get("holder_document") or ""
+        guests = []
+        for guest in obj["existing_guests"]:
+            if _normalize_document_number(guest.document_number) == holder_document:
+                guests.append(self._full_guest(guest))
+            else:
+                guests.append(self._masked_guest(guest))
+        return guests
+
+    @staticmethod
+    def _masked_guest(guest):
+        document = str(guest.document_number or "")
+        return {
+            "first_name": guest.first_name,
+            "last_name": guest.last_name,
+            "document_type": guest.document_type_code,
+            "document_number": f"***{document[-4:]}" if len(document) > 4 else "***",
+            "document_masked": True,
+            "birth_date": None,
+            "nationality": None,
+            "email": None,
+            "phone": None,
+            "arrival_time_window": None,
+            "emergency_contact_name": None,
+            "emergency_contact_phone": None,
+            "notes": None,
+            "accepts_data_policy": False,
+        }
+
+    @staticmethod
+    def _full_guest(guest):
+        return {
                 "first_name": guest.first_name,
                 "last_name": guest.last_name,
                 "document_type": guest.document_type_code,
@@ -1812,9 +1850,8 @@ class OnlineCheckInLookupResponseSerializer(serializers.Serializer):
                 "emergency_contact_phone": guest.emergency_contact_phone,
                 "notes": guest.notes,
                 "accepts_data_policy": guest.accepts_data_policy,
+                "document_masked": False,
             }
-            for guest in obj["existing_guests"]
-        ]
 
 
 class OnlineCheckInGuestSerializer(serializers.Serializer):

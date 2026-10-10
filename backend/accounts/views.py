@@ -8,6 +8,7 @@ from django.contrib.auth import (
     update_session_auth_hash,
 )
 from django.conf import settings
+from django.core.cache import cache
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import OuterRef, Subquery
 from django.shortcuts import get_object_or_404
@@ -40,7 +41,7 @@ from .serializers import (
     UserMiniSerializer, PasswordChangeSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
     NotificationKeysSerializer, ProfileUpdateSerializer, UserDirectEmailSerializer
 )
-from django.db import models
+from django.db import connection, models
 
 User = get_user_model()
 
@@ -95,9 +96,21 @@ class SessionLoginRequestSerializer(drf_serializers.Serializer):
 class HealthCheckView(APIView):
     permission_classes = [AllowAny]
 
-    @extend_schema(responses={200: OpenApiTypes.OBJECT})
+    @extend_schema(responses={200: OpenApiTypes.OBJECT, 503: OpenApiTypes.OBJECT})
     def get(self, request):
-        return Response({"status": "ok"}, status=status.HTTP_200_OK)
+        # Railway usa esta ruta como healthcheck (`railway.json`). Sin tocar la base de datos,
+        # un proceso vivo con la BD caida se daba por sano (auditoria, Bloque 15 #8).
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+        except Exception:
+            logger.exception("Healthcheck: la base de datos no responde.")
+            return Response(
+                {"status": "error", "database": "unavailable"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response({"status": "ok", "database": "ok"}, status=status.HTTP_200_OK)
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -140,11 +153,32 @@ class SessionLoginView(APIView):
         if not username or not password:
             return Response({"detail": "Faltan credenciales."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Ademas del throttle por IP: muchos fallos contra la misma cuenta la frenan un rato,
+        # aunque vengan de IPs distintas (credential stuffing; auditoria, Bloque 15 #7). La
+        # llave es el nombre escrito, exista o no la cuenta, para no revelar cuales existen.
+        failures_key = f"login-failures:{username.lower()}"
+        failure_limit = int(getattr(settings, "LOGIN_FAILURES_PER_ACCOUNT", 10) or 10)
+        if int(cache.get(failures_key, 0)) >= failure_limit:
+            return Response(
+                {
+                    "detail": "Demasiados intentos fallidos para esta cuenta. Espera unos minutos.",
+                    "code": "account_throttled",
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
         user = authenticate(request, username=username, password=password)
         # Un usuario eliminado (borrado logico, 5.5) responde igual que unas credenciales
         # malas: ni entra ni revela que la cuenta existio.
         if not user or is_soft_deleted(user):
+            lock_seconds = int(getattr(settings, "LOGIN_ACCOUNT_LOCK_SECONDS", 900) or 900)
+            if cache.add(failures_key, 1, timeout=lock_seconds) is False:
+                try:
+                    cache.incr(failures_key)
+                except ValueError:
+                    cache.set(failures_key, 1, timeout=lock_seconds)
             return Response({"detail": "Credenciales inválidas."}, status=status.HTTP_401_UNAUTHORIZED)
+        cache.delete(failures_key)
         # No hay rama para `is_active=False`: `ModelBackend.authenticate()` ya rechaza a esos
         # usuarios, que caen arriba como credenciales invalidas (Bloque 15 #3).
         hotel = getattr(user, "hotel_settings", None)

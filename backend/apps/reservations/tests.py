@@ -3029,8 +3029,15 @@ class OnlineCheckInPublicApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["existing_guests"]), 2)
-        documents = {guest["document_number"] for guest in response.data["existing_guests"]}
-        self.assertEqual(documents, {"1234567890", "1234567891"})
+        # El titular se ve completo; el acompanante, solo nombre y documento enmascarado
+        # (Bloque 14 #4).
+        by_document = {guest["document_number"]: guest for guest in response.data["existing_guests"]}
+        self.assertEqual(set(by_document), {"1234567890", "***7891"})
+        companion = by_document["***7891"]
+        self.assertTrue(companion["document_masked"])
+        self.assertIsNone(companion["birth_date"])
+        self.assertIsNone(companion["nationality"])
+        self.assertFalse(by_document["1234567890"]["document_masked"])
 
 
     def test_lookup_errors_do_not_reveal_whether_the_code_exists(self):

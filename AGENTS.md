@@ -200,6 +200,14 @@ Esta es la sección más importante del documento. **No cambiar nada de aquí si
 **Implicaciones al programar:** toda petición mutante desde el frontend debe llevar el header
 `X-CSRFToken`. Antes del login hay que llamar a `/api/auth/csrf/` para inicializar la cookie.
 
+**Sesión vencida** (desde el 2026-10-09). Con autenticación solo por sesión, DRF responde **403**,
+no 401, cuando la sesión venció. El handler global (`accounts.exceptions`) le da un código propio,
+`not_authenticated`, distinto de `permission_denied`. En el frontend,
+`interceptors/session-expired.interceptor.ts` lo detecta en cualquier petición (salvo login,
+logout, me y csrf, que ya tienen quien las maneje). Si el usuario se creía conectado, marca la
+sesión como cerrada, avisa y lo manda a `/login?returnUrl=<pantalla actual>`. El login vuelve a ese
+`returnUrl` si es una ruta interna (empieza por `/` y no por `//`); si no, va al dashboard.
+
 **Nota:** `djangorestframework-simplejwt` está en `INSTALLED_APPS` pero no se usa como autenticación
 por defecto (ver [deuda técnica](#13-deuda-técnica-y-pendientes-conocidos)).
 
@@ -407,6 +415,12 @@ El check-in online público valida esa misma ventana en backend: solo es elegibl
 antes de la fecha/hora de llegada (`expected_check_in` + `HotelSettings.check_in_time`, o 00:00 si
 el hotel no configuró hora) y deja de ser elegible después de la fecha de llegada.
 
+**La consulta del check-in online no expone a los acompañantes** (decisión del 2026-10-09, Bloque 14
+#4). Quien consulta prueba conocer el código y el documento **del titular**: ve completos solo sus
+propios datos. De cada acompañante ya registrado recibe el nombre y el documento enmascarado
+(`***4321`, `document_masked: true`), sin nacimiento, nacionalidad ni contactos. Para reenviar, el
+titular vuelve a escribir los datos de sus acompañantes; la pantalla lo avisa.
+
 ### 5.11 Throttling diferenciado por endpoint sensible
 
 **Decisión:** tasas configuradas en `REST_FRAMEWORK.DEFAULT_THROTTLE_RATES`:
@@ -419,7 +433,18 @@ confirmación** del reset (`PasswordResetConfirmView`) usa también `password_re
 **`/admin/login/` va aparte**: el admin de Django usa su propia vista, fuera de DRF.
 `accounts.middleware.AdminLoginThrottleMiddleware` cuenta los intentos **fallidos** por IP en el
 cache y responde 429 al pasar `ADMIN_LOGIN_ATTEMPTS_PER_MINUTE` (10 por defecto, variable de
-entorno). La fortaleza de las contraseñas la validan los `AUTH_PASSWORD_VALIDATORS` estándar de
+entorno).
+
+**Bloqueo por cuenta** (desde el 2026-10-09). El throttle por IP no frena un ataque distribuido
+contra una misma cuenta (credential stuffing). `SessionLoginView` cuenta en el cache los fallos por
+nombre de usuario escrito, exista o no la cuenta, para no revelar cuáles existen. Al llegar a
+`LOGIN_FAILURES_PER_ACCOUNT` (10), esa cuenta responde 429 `account_throttled` durante
+`LOGIN_ACCOUNT_LOCK_SECONDS` (900 s), aun con la contraseña correcta. Un login correcto reinicia el
+contador. Como no hay `CACHES` configurado, el cache es `LocMemCache` **por proceso**: con
+`WEB_CONCURRENCY` workers, el límite efectivo puede multiplicarse por ese número. Pasa lo mismo con
+los demás throttles. Un cache compartido (Redis) lo haría exacto.
+
+La fortaleza de las contraseñas la validan los `AUTH_PASSWORD_VALIDATORS` estándar de
 Django (similitud, longitud 8, comunes, numéricas) en cambio, reset y alta de usuarios.
 
 ### 5.12 Notificaciones internas por eventos + tareas programadas
@@ -1307,7 +1332,8 @@ Equivale a: tests backend → validación OpenAPI → lint frontend → tests fr
 ## 10. Despliegue
 
 **Plataforma:** Railway, con builder `DOCKERFILE`, healthcheck en `/health/` (timeout 300s), política
-de reinicio `ON_FAILURE` con máximo 3 reintentos.
+de reinicio `ON_FAILURE` con máximo 3 reintentos. `/health/` ejecuta un `SELECT 1`: con la base de
+datos caída responde **503** (desde el 2026-10-09), así que Railway no da por sano un proceso sin BD.
 
 **Proceso de arranque** (`backend/entrypoint.sh`):
 ```sh
@@ -1351,6 +1377,41 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-10-09 — Auditoría, tanda 8: privacidad y seguridad
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez (decisión de B14 #4 tomada por él).
+- **Commit(s):** incluido en este commit
+- **Tipo:** seguridad
+- **Qué se hizo:**
+  - **B14 #4:** la consulta del check-in online ya no devuelve los datos personales de los
+    acompañantes, solo su nombre y el documento enmascarado (decisión; 5.10).
+  - **B14 #5:** la reserva pública ya no bloquea con `FOR UPDATE` todo el inventario del tipo de
+    habitación. Bloquea solo cada habitación que toma, con `skip_locked`, y vuelve a comprobar el
+    cruce de fechas ya bloqueada. No se agregó CAPTCHA.
+  - **B13 #9:** el `base_url` del enlace de acceso y del reenvío de correo de las solicitudes de
+    demo pasa por `safe_frontend_base_url`, el mismo filtro del reset de contraseña.
+  - **B13 #10:** el código de verificación de correo se consume en la misma transacción que crea
+    la solicitud de demo; si la creación falla, el código sigue sirviendo. El `update`
+    condicional impide usarlo dos veces a la vez.
+  - **B15 #7:** bloqueo temporal por cuenta tras 10 fallos de login, venga de la IP que venga
+    (5.11). La pantalla de login muestra un mensaje para el 429.
+  - **B15 #8:** `/health/` comprueba la base de datos y responde 503 si no contesta (sección 10).
+  - **B1 #15:** sesión vencida con código propio (`not_authenticated`), interceptor que lleva a
+    login con `returnUrl`, y el login ahora respeta ese `returnUrl` (5.1).
+- **Por qué:** eran los ítems de privacidad y seguridad del grupo "mejorable sin bloquear".
+- **Archivos/áreas afectadas:** `backend/accounts/{views,exceptions,tests}.py`,
+  `backend/backend/settings.py`, `backend/apps/reservations/{online_check_in,public_booking,serializers,tests}.py`,
+  `backend/apps/demo_requests/{views,tests}.py`; frontend: `interceptors/session-expired.interceptor.ts`
+  (nuevo), `app.config.ts`, `components/auth/login/login.ts`,
+  `components/pages/online-check-in/*`, `services/online-check-in.ts`; `AGENTS.md` (5.1, 5.10,
+  5.11, 10).
+- **Impacto:** sin migraciones. Variables nuevas opcionales: `LOGIN_FAILURES_PER_ACCOUNT` (10) y
+  `LOGIN_ACCOUNT_LOCK_SECONDS` (900). Cambios de comportamiento: (a) la consulta del check-in
+  online enmascara a los acompañantes; (b) 10 fallos de login contra una cuenta la frenan 15
+  minutos (429), aun con la contraseña correcta; (c) un 403 por sesión vencida trae
+  `code: "not_authenticated"`; (d) `/health/` puede responder 503; (e) un `base_url` de un origen
+  no confiable se ignora en los enlaces de las solicitudes de demo.
 
 ### 2026-10-09 — Auditoría, tanda 7: mejoras visibles en reservas, SaaS e inventario
 

@@ -27,6 +27,7 @@ from accounts.email_utils import (
     email_backend_delivers_to_inbox,
 )
 from accounts.models import Role, UserRole
+from accounts.url_safety import safe_frontend_base_url
 from apps.hotel_settings.models import HotelFloor, HotelSettings
 from apps.master_data.models import MasterData
 from apps.rooms.models import Rate, Room, RoomType
@@ -85,7 +86,10 @@ def generate_demo_email_verification_code(length: int = DEMO_EMAIL_VERIFICATION_
 
 
 def build_demo_access_login_url(request=None, base_url=None) -> str:
-    clean_base_url = str(base_url or "").strip()
+    # Mismo filtro que el reset de contrasena (5.8): un `base_url` que no sea de un origen de
+    # confianza se ignora y el enlace se arma sobre el host de la peticion. Antes se usaba tal
+    # cual y el correo legitimo de Wayra podia llevar a otro dominio (auditoria, Bloque 13 #9).
+    clean_base_url = safe_frontend_base_url(base_url)
     if clean_base_url:
         return clean_base_url
 
@@ -488,7 +492,19 @@ class DemoRequestViewSet(
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.validate_email_verification(serializer.validated_data)
-        self.perform_create(serializer)
+        # El codigo se quema en la misma transaccion que crea la solicitud: antes se marcaba
+        # usado aparte y, si la creacion fallaba despues, habia que pedir otro (Bloque 13 #10).
+        # El `update` condicional tambien impide usar el mismo codigo dos veces a la vez.
+        with transaction.atomic():
+            consumed = DemoRequestEmailVerification.objects.filter(
+                token=serializer.validated_data.get("email_verification_token"),
+                used_at__isnull=True,
+            ).update(used_at=timezone.now(), updated_at=timezone.now())
+            if not consumed:
+                raise ValidationError(
+                    {"email_verification_code": "Este codigo ya fue usado. Solicita uno nuevo."}
+                )
+            self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -630,9 +646,7 @@ class DemoRequestViewSet(
                 verification.attempts += 1
                 verification.save(update_fields=["attempts", "updated_at"])
                 error_detail = {"email_verification_code": "El codigo ingresado no coincide."}
-            else:
-                verification.used_at = timezone.now()
-                verification.save(update_fields=["used_at", "updated_at"])
+            # Si coincide no se marca aqui: lo hace `create`, junto con la solicitud.
 
         if error_detail:
             raise ValidationError(error_detail)

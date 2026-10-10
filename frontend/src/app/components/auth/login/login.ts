@@ -72,6 +72,16 @@ export class LoginComponent {
     });
   }
 
+  /**
+   * Vuelve a la pantalla donde estaba (sesion vencida o guard), no siempre al dashboard
+   * (auditoria, Bloque 1 #15). Solo rutas internas: `//otro.dominio` no es un `returnUrl`.
+   */
+  private resolveReturnUrl(): string {
+    const returnUrl = String(this.router.routerState.snapshot.root.queryParams['returnUrl'] || '');
+    const isInternal = returnUrl.startsWith('/') && !returnUrl.startsWith('//') && !returnUrl.startsWith('/login');
+    return isInternal ? returnUrl : '/dashboard';
+  }
+
   onSubmit() {
     if (this.loginForm.invalid) {
       this.errorMessage = 'Por favor completa todos los campos.';
@@ -111,7 +121,7 @@ export class LoginComponent {
             return;
           }
 
-          this.router.navigate(['/dashboard']).then(() => {
+          this.router.navigateByUrl(this.resolveReturnUrl()).then(() => {
             if (isFirstLogin) {
               this.showWelcomeToast();
             }
@@ -121,7 +131,14 @@ export class LoginComponent {
       error: (err) => {
         const msg = err.error?.detail || '';
 
-        if (msg.includes('Faltan credenciales')) {
+        if (err.status === 429) {
+          // Throttle por IP o, tras varios fallos, por cuenta (Bloque 15 #7).
+          this.errorMessage =
+            err.error?.code === 'account_throttled'
+              ? 'Demasiados intentos fallidos para esta cuenta. Espera unos minutos.'
+              : 'Demasiados intentos. Espera un momento antes de volver a intentar.';
+          this.errorType = 'warn';
+        } else if (msg.includes('Faltan credenciales')) {
           this.errorMessage = 'Por favor ingresa tu usuario y contrasena.';
           this.errorType = 'warn';
         } else if (msg.includes('Credenciales')) {

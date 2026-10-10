@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
 
 from rest_framework import status
+from rest_framework.exceptions import NotAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_exception_handler
 
@@ -94,6 +95,11 @@ def exception_handler(exc, context):
         payload["code"] = "bad_request"
     elif status_code == 401:
         payload["code"] = "unauthorized"
+    elif status_code == 403 and isinstance(exc, NotAuthenticated):
+        # Con autenticacion solo por sesion, DRF responde 403 tambien cuando la sesion vencio.
+        # Un codigo propio deja al frontend distinguirlo de "no tienes permiso" y mandar a
+        # login (auditoria, Bloque 1 #15).
+        payload["code"] = "not_authenticated"
     elif status_code == 403:
         payload["code"] = "permission_denied"
     elif status_code == 404:

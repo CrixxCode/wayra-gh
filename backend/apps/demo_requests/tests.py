@@ -375,6 +375,16 @@ class DemoRequestFlowTests(APITestCase):
         self.assertIn("access_url", link_response.data)
         self.assertEqual(link_response.data["access_url"], "http://localhost:4200/login")
 
+        # Un `base_url` de otro dominio se ignora: el enlace no sale de Wayra (Bloque 13 #9).
+        foreign_response = self.client.post(
+            f"/api/demo-requests/{demo_request.id}/access-link/",
+            {"base_url": "https://evil.example/login"},
+            format="json",
+            HTTP_HOST="localhost",
+        )
+        self.assertEqual(foreign_response.status_code, 200)
+        self.assertNotIn("evil.example", foreign_response.data["access_url"])
+
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
     @patch("apps.demo_requests.views.generate_temporary_access_password", return_value="DemoTemp123!AA")
     @patch("apps.demo_requests.views.EmailMultiAlternatives.send", return_value=1)

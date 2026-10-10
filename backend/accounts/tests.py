@@ -1763,3 +1763,67 @@ class RoleLogicalDeleteListingTests(APITestCase):
         self.assertIn("temporal-b1", with_deleted)
         self.assertEqual(self.client.post(f"/api/roles/{role.pk}/restore/").status_code, 200)
         self.assertIn("temporal-b1", {row["slug"] for row in self.client.get("/api/roles/").data})
+
+
+@override_settings(LOGIN_FAILURES_PER_ACCOUNT=3)
+class LoginAccountThrottleTests(APITestCase):
+    """Fallos repetidos contra una cuenta la frenan aunque cambie la IP (Bloque 15 #7)."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.hotel = create_configured_hotel(hotel_name="Hotel Fuerza Bruta")
+        User.objects.create_user(
+            username="objetivo_login",
+            password="Pass12345!",
+            hotel_settings=self.hotel,
+        )
+
+    def _login(self, password, ip):
+        return self.client.post(
+            "/api/auth/login/",
+            {"username": "objetivo_login", "password": password},
+            format="json",
+            REMOTE_ADDR=ip,
+        )
+
+    def test_failures_from_many_ips_lock_the_account_for_a_while(self):
+        for index in range(3):
+            self.assertEqual(self._login("mala", f"10.0.0.{index}").status_code, 401)
+
+        # Ni con la contrasena correcta, ni desde otra IP, mientras dure la ventana.
+        locked = self._login("Pass12345!", "10.0.0.99")
+        self.assertEqual(locked.status_code, 429)
+        self.assertEqual(locked.data["code"], "account_throttled")
+
+    def test_a_successful_login_resets_the_counter(self):
+        self.assertEqual(self._login("mala", "10.0.1.1").status_code, 401)
+        self.assertEqual(self._login("mala", "10.0.1.2").status_code, 401)
+        self.assertEqual(self._login("Pass12345!", "10.0.1.3").status_code, 200)
+        self.client.logout()
+        self.assertEqual(self._login("mala", "10.0.1.4").status_code, 401)
+        self.assertEqual(self._login("mala", "10.0.1.5").status_code, 401)
+        self.assertEqual(self._login("Pass12345!", "10.0.1.6").status_code, 200)
+
+
+class HealthAndSessionCodeTests(APITestCase):
+    def test_health_reports_the_database(self):
+        response = self.client.get("/health/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["database"], "ok")
+
+    def test_health_fails_when_the_database_does_not_answer(self):
+        # Bloque 15 #8: un proceso sin base de datos no es un proceso sano.
+        from unittest.mock import patch
+
+        with patch("accounts.views.connection.cursor", side_effect=RuntimeError("db down")):
+            response = self.client.get("/health/")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.data["database"], "unavailable")
+
+    def test_expired_session_has_its_own_code(self):
+        # Bloque 1 #15: el frontend distingue "sesion vencida" de "sin permiso".
+        response = self.client.get("/api/auth/me/")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data["code"], "not_authenticated")

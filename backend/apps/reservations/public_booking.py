@@ -161,25 +161,39 @@ def _select_available_rooms(
             }
         )
 
-    candidates = (
-        Room.objects.select_for_update(of=("self",))
-        .select_related("floor", "status", "room_type")
-        .filter(
+    # Antes se bloqueaba con FOR UPDATE todo el inventario de ese tipo hasta el commit: cada
+    # reserva publica en curso frenaba a todas las demas del hotel (auditoria, Bloque 14 #5).
+    # Ahora se leen los candidatos sin bloqueo y se bloquea solo la habitacion que se toma;
+    # `skip_locked` hace que una reserva simultanea pase a la siguiente en vez de esperar, y el
+    # cruce de fechas se vuelve a mirar ya con el bloqueo puesto.
+    candidate_ids = list(
+        Room.objects.filter(
             floor__hotel_settings=hotel,
             room_type=room_type,
             status__code=ROOM_STATUS_AVAILABLE,
         )
         .order_by("number", "id")
+        .values_list("id", flat=True)
     )
 
-    selected_rooms = []
-    for room in candidates:
-        conflict = find_overlapping_reservation_room(
-            room_id=room.id,
+    def is_free(room_id: int) -> bool:
+        return not find_overlapping_reservation_room(
+            room_id=room_id,
             expected_check_in=expected_check_in,
             expected_check_out=expected_check_out,
         )
-        if conflict:
+
+    selected_rooms = []
+    for room_id in candidate_ids:
+        if not is_free(room_id):
+            continue
+        room = (
+            Room.objects.select_for_update(of=("self",), skip_locked=True)
+            .select_related("floor", "status", "room_type")
+            .filter(pk=room_id, status__code=ROOM_STATUS_AVAILABLE)
+            .first()
+        )
+        if room is None or not is_free(room.id):
             continue
         selected_rooms.append(room)
         if len(selected_rooms) == room_count:

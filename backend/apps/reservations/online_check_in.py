@@ -246,6 +246,9 @@ def lookup_online_check_in(*, data: dict[str, Any]) -> dict[str, Any]:
         "reservation": reservation,
         "eligibility": eligibility,
         "existing_guests": existing_guests,
+        # Quien consulta probo conocer el documento del titular: ve completos solo sus datos
+        # (auditoria, Bloque 14 #4; decision del 2026-10-09).
+        "holder_document": _normalize_document_number(data["guest_document_number"]),
     }
 
 

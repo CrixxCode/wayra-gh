@@ -24,6 +24,8 @@ export interface OnlineCheckInExistingGuest {
   emergency_contact_phone: string | null;
   notes: string | null;
   accepts_data_policy: boolean;
+  /** Acompanante ya registrado: el documento llega enmascarado y sin datos personales. */
+  document_masked?: boolean;
 }
 
 export interface OnlineCheckInHolder {
