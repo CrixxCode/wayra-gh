@@ -1415,6 +1415,25 @@ Guías: [docs/RAILWAY_DEPLOYMENT.md](docs/RAILWAY_DEPLOYMENT.md) y
 [docs/production-runbook.md](docs/production-runbook.md) (variables obligatorias, backups, rollback,
 rotación de secretos).
 
+**Hotel de demostración** (desde el 2026-10-10). `python manage.py seed_demo_hotel` crea "Hotel
+Wayra Demo", un hotel boutique en Medellín con:
+
+- la configuración completa, 3 pisos y 18 habitaciones (una fuera de servicio);
+- tipos y tarifas, servicios, paquetes, promociones, métodos de pago, políticas e inventario;
+- 70 clientes y cuatro usuarios (`demo.admin`, `demo.recepcion`, `demo.limpieza`,
+  `demo.mantenimiento`), cada uno con su rol;
+- seis meses de operación: reservas finalizadas con factura y pago, estadías en curso, llegadas
+  futuras, cancelaciones y no-shows, más egresos, limpieza, mantenimiento y trabajo periódico.
+
+Usa los servicios reales del sistema y fecha los pagos y facturas en el día en que ocurrieron,
+para que Reportes y Finanzas tengan historia. Corre en una transacción y **no borra nada**: si el
+hotel o los usuarios ya existen, se detiene. Opciones: `--months`, `--hotel-name`,
+`--username-prefix`. Las contraseñas se generan y se muestran una sola vez.
+
+Necesita los roles de `seed_rbac` y `seed_extra_roles`, que **no** llama por su cuenta:
+`seed_rbac` crea un superusuario `admin / admin12345` si no hay ninguno, y eso no debe pasar en
+producción como efecto lateral.
+
 ---
 
 ## 11. Cómo registrar un cambio
@@ -1441,6 +1460,21 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-10-10 — Comando `seed_demo_hotel`: hotel de demostración completo
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez (tipo de hotel, historia y usuarios
+  elegidos por él).
+- **Commit(s):** incluido en este commit
+- **Tipo:** funcional
+- **Qué se hizo:** comando para sembrar un hotel de demo con catálogos e información completa,
+  para mostrar la aplicación desplegada (sección 10).
+- **Por qué:** hacía falta una demo real con datos coherentes entre todas las pantallas.
+- **Archivos/áreas afectadas:** `backend/apps/hotel_settings/management/commands/seed_demo_hotel.py`
+  (nuevo), `backend/apps/hotel_settings/tests.py`; `AGENTS.md` (10).
+- **Impacto:** sin migraciones. Solo crea datos al ejecutarse a mano. Puede agregar valores de
+  Master Data que falten en grupos sin semilla (tipos de servicio, de ítem, unidades, categorías de
+  egreso, tipos de política y de descuento), sin tocar los existentes.
 
 ### 2026-10-10 — Retención de notificaciones
 

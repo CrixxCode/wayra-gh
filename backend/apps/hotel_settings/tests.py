@@ -1138,3 +1138,37 @@ class SaasWizardInitialStructureTests(APITestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertFalse(HotelSettings.objects.filter(hotel_name="Hotel Prefijo").exists())
+
+
+class SeedDemoHotelCommandTests(TestCase):
+    """El hotel de demostracion se siembra completo y coherente."""
+
+    def test_seed_creates_a_consistent_demo_hotel(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        from apps.billing.models import Invoice, Payment
+        from apps.reservations.services import get_reservation_financials
+
+        call_command("seed_rbac", stdout=StringIO())
+        call_command("seed_extra_roles", stdout=StringIO())
+        out = StringIO()
+        call_command("seed_demo_hotel", months=1, stdout=out)
+
+        hotel = HotelSettings.objects.get(hotel_name="Hotel Wayra Demo")
+        self.assertEqual(Room.objects.filter(floor__hotel_settings=hotel).count(), 18)
+        reservations = Reservation.objects.filter(hotel_settings=hotel)
+        self.assertGreater(reservations.count(), 10)
+        # Toda reserva finalizada quedo pagada por completo.
+        for reservation in reservations.filter(status__code="FINALIZADA")[:15]:
+            self.assertEqual(get_reservation_financials(reservation)["pending_amount"], 0, reservation.code)
+        self.assertTrue(Payment.objects.filter(invoice__reservation__hotel_settings=hotel).exists())
+        self.assertTrue(Invoice.objects.filter(reservation__hotel_settings=hotel, status__code="PAGADA").exists())
+        self.assertIn("demo.admin", out.getvalue())
+
+        # Una segunda corrida no duplica nada.
+        from django.core.management.base import CommandError
+
+        with self.assertRaises(CommandError):
+            call_command("seed_demo_hotel", months=1, stdout=StringIO())
