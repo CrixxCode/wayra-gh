@@ -5,7 +5,7 @@ import { AbstractControl, ReactiveFormsModule, UntypedFormArray, UntypedFormBuil
 import { forkJoin } from 'rxjs';
 import { MasterDataI } from '../../../components/pages/master-data/master-data-model';
 import { ClientI } from '../../clients/client-model';
-import { RateI, RoomI } from '../../rooms/room-model';
+import { RateI, RoomBookedRangeI, RoomI } from '../../rooms/room-model';
 import { ReservationService } from '../../../services/reservation';
 import { PackageI } from '../../packages/package-model';
 import { CreateClient } from '../../clients/create-client/create-client';
@@ -1222,9 +1222,10 @@ export class CreateReservation implements OnChanges, OnInit {
       }
       usedRooms.add(room);
 
-      if (checkIn && checkOut && this.hasRoomActiveReservationOverlap(selectedRoom, checkIn, checkOut)) {
-        const start = this.formatDateLabel(selectedRoom.active_reservation?.expected_check_in);
-        const end = this.formatDateLabel(selectedRoom.active_reservation?.expected_check_out);
+      const conflict = checkIn && checkOut ? this.findRoomBookingConflict(selectedRoom, checkIn, checkOut) : null;
+      if (conflict) {
+        const start = this.formatDateLabel(conflict.expected_check_in);
+        const end = this.formatDateLabel(conflict.expected_check_out);
         return {
           payloads: [],
           error: `La habitacion ${selectedRoom.number} tiene una reserva activa que se cruza con las fechas seleccionadas (${start} a ${end}).`
@@ -1530,15 +1531,39 @@ export class CreateReservation implements OnChanges, OnInit {
     return this.availableRooms.find((room) => room.id === id);
   }
 
-  private hasRoomActiveReservationOverlap(room: RoomI, checkIn: Date, checkOut: Date): boolean {
-    const activeReservation = room.active_reservation;
-    if (!activeReservation) return false;
+  /**
+   * Reserva abierta de la habitacion que se cruza con las fechas. Revisa todas
+   * (`booked_ranges`), no solo la activa: antes una 2a reserva futura pasaba sin aviso hasta
+   * que el backend la rechazaba (auditoria, Bloque 6 #13).
+   */
+  private findRoomBookingConflict(
+    room: RoomI,
+    checkIn: Date,
+    checkOut: Date,
+    isOwnBooking: (range: RoomBookedRangeI) => boolean = () => false
+  ): RoomBookedRangeI | null {
+    const active = room.active_reservation;
+    const ranges: RoomBookedRangeI[] =
+      room.booked_ranges ??
+      (active
+        ? [
+            {
+              reservation_id: active.id,
+              reservation_room_id: Number(active.reservation_room_id || 0),
+              expected_check_in: active.expected_check_in || '',
+              expected_check_out: active.expected_check_out || ''
+            }
+          ]
+        : []);
 
-    const activeCheckIn = this.parseDate(activeReservation.expected_check_in || null);
-    const activeCheckOut = this.parseDate(activeReservation.expected_check_out || null);
-    if (!activeCheckIn || !activeCheckOut) return true;
-
-    return checkIn < activeCheckOut && checkOut > activeCheckIn;
+    for (const range of ranges) {
+      if (isOwnBooking(range)) continue;
+      const rangeCheckIn = this.parseDate(range.expected_check_in || null);
+      const rangeCheckOut = this.parseDate(range.expected_check_out || null);
+      if (!rangeCheckIn || !rangeCheckOut) return range;
+      if (checkIn < rangeCheckOut && checkOut > rangeCheckIn) return range;
+    }
+    return null;
   }
 
   private hasActiveRatesForRoomType(roomTypeId: number): boolean {

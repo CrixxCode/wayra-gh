@@ -112,6 +112,7 @@
             <a
               *ngFor="let hotel of hotels"
               routerLink="/saas-hoteles"
+              [queryParams]="{ hotel: hotel.id }"
               class="attention-row"
             >
               <span class="attention-main">

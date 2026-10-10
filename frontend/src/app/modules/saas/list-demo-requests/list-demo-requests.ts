@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { catchError, forkJoin, of, switchMap } from 'rxjs';
@@ -293,6 +293,23 @@ export class ListDemoRequests implements OnInit {
 
   closeActionMenu(): void {
     this.openActionMenuRequestId = null;
+  }
+
+  /**
+   * El menu de acciones se cierra al hacer clic fuera o con Escape; antes se quedaba abierto
+   * hasta volver a pulsar el boton (auditoria, Bloque 13 #6).
+   */
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (this.openActionMenuRequestId === null) return;
+    const target = event.target as Element | null;
+    if (target?.closest('.action-menu-shell, .action-menu, .dots-btn')) return;
+    this.closeActionMenu();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.openActionMenuRequestId !== null) this.closeActionMenu();
   }
 
   // La solicitud trae la estructura que se creara al aprobarla, asi que el admin de

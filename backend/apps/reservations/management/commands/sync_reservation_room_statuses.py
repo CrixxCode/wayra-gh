@@ -20,7 +20,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 "Sync completed. "
-                f"Auto-cancelled reservations: {auto_cancelled}. "
+                f"Overdue reservations closed (no-show): {auto_cancelled}. "
                 f"Rooms processed: {processed}. Rooms updated: {changed}."
             )
         )

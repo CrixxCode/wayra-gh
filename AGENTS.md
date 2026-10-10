@@ -462,7 +462,7 @@ dos reglas distintas (`<=` y `<`) que podían contradecirse. El aviso de stock a
 | `notify_upcoming_checkins` | Avisa de check-ins próximos (también lo hace la campana) |
 | `notify_upcoming_checkouts` | Avisa de check-outs próximos (también lo hace la campana) |
 | `notify_daily_reports` | Envía el resumen diario (también lo hace la campana) |
-| `sync_reservation_room_statuses` | Sincroniza estados de habitaciones según reservas |
+| `sync_reservation_room_statuses` | Sincroniza estados de habitaciones según reservas y marca como no-show (5.19) las reservas vencidas sin check-in |
 | `sync_operational_alerts` | Recalcula alertas operativas financieras |
 
 **Estado de lectura:** `NotificationReadState` guarda por usuario qué notificaciones ha leído
@@ -723,6 +723,20 @@ crea otra. **Cancelar una reserva** (decisión del 2026-10-09) desactiva sus con
 factura; si hay abonos, la cancelación procede pero la factura queda abierta y la respuesta trae
 `billing_warning` pidiendo registrar el reembolso —nunca se devuelve dinero automáticamente—, y
 una reserva cancelada no vuelve a facturarse. `InvoiceCharge` es de solo lectura (ver sección 13).
+
+**Un huésped que no llega es un no-show, no una cancelación** (decisión del 2026-10-09, Bloque 6
+#10). Existe el estado `NO_SHOW` ("No se presentó", migración `master_data.0021`). Una reserva
+pendiente o confirmada, sin check-in, se marca así desde el día de llegada con
+`POST /api/reservations/{id}/no-show/` (flag `can_mark_no_show`). También la marca
+`auto_cancel_overdue_unchecked_reservations` cuando el check-out pasó sin check-in; si el catálogo
+no tiene `NO_SHOW`, la cancela como antes. **La estadía no se cobra, pero lo abonado se retiene
+como penalidad:** `get_reservation_financials` toma como total de un no-show exactamente lo
+abonado neto, así que no queda saldo. `settle_billing_for_no_show_reservation` desactiva los
+consumos, anula la factura si no hay dinero y, si lo hay, la deja pagada por el monto retenido.
+Para todo lo operativo (pagos, confirmar, check-in, promociones, cargos automáticos, check-in
+online), un no-show cuenta como cerrado igual que una cancelada:
+`is_reservation_status_closed_without_stay`. Antes la auto-cancelación usaba un `bulk_update` que
+no tocaba la factura ni los consumos.
 
 **Un abono de reserva se corrige o se anula, no se borra** (desde el 2026-10-09). Un abono es un
 `Payment`, así que sigue la regla de los pagos: `POST /api/reservation-deposits/{id}/void/` —y
@@ -1337,6 +1351,43 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-10-09 — Auditoría, tanda 7: mejoras visibles en reservas, SaaS e inventario
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez (decisión del no-show tomada por él).
+- **Commit(s):** incluido en este commit
+- **Tipo:** funcional
+- **Qué se hizo:**
+  - **B6 #10 — no-show.** Nuevo estado `NO_SHOW` (migración de datos), acción
+    `POST /api/reservations/{id}/no-show/` y botón "No se presentó" en el detalle de la reserva,
+    con filtro propio en la lista. La estadía no se cobra y los abonos se retienen como penalidad.
+    Las reservas vencidas sin check-in pasan a no-show y su facturación se liquida (5.19).
+  - **B6 #11 — mínimo de huéspedes.** Una reserva con check-in no puede quedarse sin huéspedes:
+    borrar el último responde 400. No se modeló un huésped "principal".
+  - **B6 #13 — solapamientos.** Los mensajes de validación de reservas que seguían en inglés pasan
+    a español. Las habitaciones exponen `booked_ranges` (todas sus reservas abiertas) y los
+    formularios de crear y editar validan contra todas, no solo contra la activa.
+  - **B13 #5:** "Hoteles que requieren atención" abre el detalle del hotel
+    (`/saas-hoteles?hotel=ID`). **B13 #6:** los menús ⋮ de Hoteles SaaS y Solicitudes de demo se
+    cierran al hacer clic fuera o con Escape.
+  - **B10 #4:** en Inventario, las tablas de habitaciones y movimientos permiten seguir el ítem de
+    una fila hacia su ficha o la otra pestaña. Antes solo se podía empezar desde "Ítems".
+- **Por qué:** eran los pendientes de impacto visible del grupo "mejorable sin bloquear".
+- **Archivos/áreas afectadas:** `backend/apps/master_data/migrations/0021_seed_no_show_reservation_status.py`
+  (nuevo), `backend/apps/reservations/{services,views,serializers,models,online_check_in,tests}.py`,
+  `backend/apps/reservations/management/commands/sync_reservation_room_statuses.py`,
+  `backend/apps/billing/services.py`, `backend/apps/promotions/services.py`,
+  `backend/apps/rooms/serializers.py`; frontend: `modules/reservations/*`,
+  `modules/rooms/room-model.ts`, `modules/saas/{list-saas-hotels,list-demo-requests,list-saas-dashboard}/*`,
+  `modules/inventory/inventory-page/*`, `modules/room-inventory/list-room-inventory/*`,
+  `modules/inventory-movements/list-inventory-movements/*`, `services/{reservation,action-confirmations}.ts`;
+  `AGENTS.md` (5.12, 5.19).
+- **Impacto:** **migración de datos** (`master_data.0021`: siembra `RESERVATION_STATUS:NO_SHOW`).
+  Endpoint nuevo `POST /api/reservations/{id}/no-show/`. Campos nuevos de solo lectura:
+  `can_mark_no_show` (reservas) y `booked_ranges` (habitaciones). Cambios de comportamiento:
+  (a) el comando `sync_reservation_room_statuses` marca las vencidas sin check-in como `NO_SHOW`
+  en vez de `CANCELADA` y liquida su facturación; (b) borrar el último huésped de una reserva con
+  check-in responde 400; (c) un no-show no admite pagos, confirmación ni check-in.
 
 ### 2026-10-09 — Auditoría, tanda 6: los pendientes que eran funcionalidad nueva
 

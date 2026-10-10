@@ -342,6 +342,9 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
     status = MasterDataCodeField(group=MasterData.Group.ROOM_STATUS)
     status_label = serializers.CharField(source="status.name", read_only=True)
     active_reservation = serializers.SerializerMethodField()
+    # Todas las reservas abiertas de la habitacion, no solo la "activa": los formularios de
+    # reserva validan contra la 2a y 3a futura tambien (auditoria, Bloque 6 #13).
+    booked_ranges = serializers.SerializerMethodField()
     operations = serializers.SerializerMethodField()
 
     amenities = AmenitySerializer(many=True, read_only=True)
@@ -373,6 +376,7 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             "status",
             "status_label",
             "active_reservation",
+            "booked_ranges",
             "operations",
             "notes",
             "amenities",
@@ -526,18 +530,37 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
         validated_data.pop("hotel_settings", None)
         return super().update(instance, validated_data)
 
-    def get_active_reservation(self, obj):
-        reservation_details = list(
-            obj.reservation_details.select_related(
-                "reservation",
-                "reservation__status",
-                "reservation__client",
-                "reservation__hotel_settings",
+    def _open_reservation_details(self, obj):
+        # Una sola consulta por habitacion para `active_reservation` y `booked_ranges`.
+        cache = self.__dict__.setdefault("_open_reservation_details_cache", {})
+        if obj.pk not in cache:
+            cache[obj.pk] = list(
+                obj.reservation_details.select_related(
+                    "reservation",
+                    "reservation__status",
+                    "reservation__client",
+                    "reservation__hotel_settings",
+                )
+                .filter(reservation__real_check_out__isnull=True)
+                .exclude(reservation__status__code__in=INACTIVE_RESERVATION_STATUS_CODES)
+                .order_by("reservation__expected_check_in", "reservation__id")
             )
-            .filter(reservation__real_check_out__isnull=True)
-            .exclude(reservation__status__code__in=INACTIVE_RESERVATION_STATUS_CODES)
-            .order_by("reservation__expected_check_in", "reservation__id")
-        )
+        return cache[obj.pk]
+
+    def get_booked_ranges(self, obj):
+        return [
+            {
+                "reservation_id": detail.reservation_id,
+                "reservation_room_id": detail.id,
+                "code": detail.reservation.code,
+                "expected_check_in": detail.reservation.expected_check_in,
+                "expected_check_out": detail.reservation.expected_check_out,
+            }
+            for detail in self._open_reservation_details(obj)
+        ]
+
+    def get_active_reservation(self, obj):
+        reservation_details = self._open_reservation_details(obj)
 
         if not reservation_details:
             return None

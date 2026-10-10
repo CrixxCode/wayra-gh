@@ -85,12 +85,12 @@ def _stack(promotions: list[Promotion], base: Decimal, units: int = 1) -> dict[i
 
 
 def is_reservation_frozen(reservation) -> bool:
-    """Cerrada o cancelada: sus descuentos ya no se recalculan."""
-    from apps.reservations.services import is_reservation_status_cancelled
+    """Cerrada, cancelada o no-show: sus descuentos ya no se recalculan."""
+    from apps.reservations.services import is_reservation_status_closed_without_stay
 
     if getattr(reservation, "real_check_out", None) is not None:
         return True
-    return is_reservation_status_cancelled(getattr(reservation, "status_code", None))
+    return is_reservation_status_closed_without_stay(getattr(reservation, "status_code", None))
 
 
 def sync_reservation_promotions(reservation) -> None:

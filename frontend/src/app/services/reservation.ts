@@ -258,6 +258,15 @@ export class ReservationService {
     );
   }
 
+  /** El huesped no llego: la estadia no se cobra y los abonos se retienen. */
+  markReservationNoShow(id: number): Observable<ReservationDetailI> {
+    return this.http.post<ReservationDetailI>(
+      `${this.reservationsUrl}${id}/no-show/`,
+      {},
+      this.auth.buildCsrfRequestOptions()
+    );
+  }
+
   cancelReservation(id: number): Observable<ReservationDetailI> {
     return this.http.post<ReservationDetailI>(
       `${this.reservationsUrl}${id}/cancel/`,

@@ -6,7 +6,8 @@ export type ReservationStatusFilter =
   | 'PENDIENTE'
   | 'EN_CURSO'
   | 'POR_SALIR_HOY'
-  | 'CANCELADA';
+  | 'CANCELADA'
+  | 'NO_SHOW';
 
 export type ReservationVisualStatus =
   | 'CONFIRMADA'
@@ -14,6 +15,7 @@ export type ReservationVisualStatus =
   | 'EN_CURSO'
   | 'POR_SALIR_HOY'
   | 'CANCELADA'
+  | 'NO_SHOW'
   | 'FINALIZADA'
   | 'OTRA';
 
@@ -80,6 +82,8 @@ export interface ReservationI {
   promotion_discount_total?: string | number;
   /** Solo en la respuesta de cancelar: hay abonos que reembolsar a mano. */
   billing_warning?: string;
+  /** Solo en la respuesta de no-show: abonos retenidos como penalidad. */
+  billing_notice?: string;
   pending_amount?: string | number;
   payment_status_code?: string;
   payment_status_label?: string;
@@ -88,6 +92,8 @@ export interface ReservationI {
   can_check_in?: boolean;
   can_check_out?: boolean;
   can_cancel?: boolean;
+  /** Pendiente o confirmada, sin check-in, desde el dia de llegada (5.19). */
+  can_mark_no_show?: boolean;
   created_by?: string | null;
   created_at?: string;
 }

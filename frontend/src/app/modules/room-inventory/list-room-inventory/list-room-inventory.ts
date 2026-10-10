@@ -94,6 +94,21 @@ export class ListRoomInventory implements OnInit {
   @Output() changed = new EventEmitter<void>();
 
   /**
+   * Sigue el item de esta fila en las otras pestañas. Antes solo se podia empezar a seguir un
+   * item desde "Items"; aqui no habia forma de volver a el (auditoria, Bloque 10 #4).
+   */
+  @Output() followItem = new EventEmitter<{
+    item: { id: number; name: string };
+    tab: 'items' | 'rooms' | 'movements';
+  }>();
+
+  followRowItem(record: RoomInventoryI, tab: 'items' | 'rooms' | 'movements' = 'items'): void {
+    const itemId = Number(record.item || 0);
+    if (!itemId) return;
+    this.followItem.emit({ item: { id: itemId, name: this.getItemLabel(record) }, tab });
+  }
+
+  /**
    * Item que se viene siguiendo desde otra pestaña.
    *
    * Llega del contenedor y acota la lista sin tocar los filtros propios, que el

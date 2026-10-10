@@ -351,6 +351,24 @@
                     <button
                       type="button"
                       class="row-btn"
+                      *ngIf="embedded && record.item"
+                      title="Seguir este item: ver su ficha"
+                      [attr.aria-label]="'Seguir ' + getItemLabel(record)"
+                      (click)="followRowItem(record, 'items')">
+                      <i class="fa-solid fa-crosshairs"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="row-btn"
+                      *ngIf="embedded && record.item"
+                      title="Ver sus movimientos"
+                      [attr.aria-label]="'Ver sus movimientos de ' + getItemLabel(record)"
+                      (click)="followRowItem(record, 'movements')">
+                      <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="row-btn"
                       [title]="record.is_active ? 'Desactivar' : 'Activar'"
                       (click)="toggleRoomInventoryStatus(record)">
                       <i [class]="record.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>

@@ -17,7 +17,7 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from accounts.pagination import OptionalPageNumberPagination
 from accounts.permissions import HasResourcePermission
-from accounts.soft_delete import LogicalDeleteViewSetMixin
+from accounts.soft_delete import LogicalDeleteViewSetMixin, exclude_soft_deleted
 from accounts.tenancy import is_effective_global_admin, scope_queryset_to_hotel
 from apps.billing.models import Payment
 from apps.inventory.services import apply_checkout_consumption_inventory
@@ -53,6 +53,8 @@ from apps.reservations.services import (
     ROOM_STATUS_RESERVED,
     RESERVATION_STATUS_CANCELLED_CODES,
     RESERVATION_STATUS_CANCELLED,
+    RESERVATION_STATUS_NO_SHOW,
+    RESERVATION_STATUS_NO_SHOW_CODES,
     RESERVATION_STATUS_CONFIRMED_CODES,
     RESERVATION_STATUS_CONFIRMED,
     RESERVATION_STATUS_FINISHED_CODES,
@@ -71,12 +73,15 @@ from apps.reservations.services import (
     get_reservation_check_in_start_datetime,
     get_cancelled_reservation_status,
     get_confirmed_reservation_status,
+    get_no_show_reservation_status,
+    get_reservation_flow_permissions,
     get_finished_reservation_status,
     get_in_progress_reservation_status,
     get_pending_reservation_status,
     get_reservation_financials,
     get_reservation_status_by_code,
     is_reservation_status_cancelled,
+    is_reservation_status_no_show,
     is_reservation_status_confirmed,
     is_reservation_status_finished,
     is_reservation_status_pending,
@@ -392,6 +397,10 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
                 get_cancelled_reservation_status,
                 RESERVATION_STATUS_CANCELLED_CODES,
             ),
+            RESERVATION_STATUS_NO_SHOW: (
+                get_no_show_reservation_status,
+                RESERVATION_STATUS_NO_SHOW_CODES,
+            ),
         }
 
         resolver, aliases = resolver_map.get(code, (None, None))
@@ -494,6 +503,9 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
             if is_reservation_status_cancelled(code):
                 return self._error("No puedes confirmar una reserva cancelada.")
 
+            if is_reservation_status_no_show(code):
+                return self._error("No puedes confirmar una reserva marcada como no presentada.")
+
             if is_reservation_status_finished(code):
                 return self._error("No puedes confirmar una reserva finalizada.")
 
@@ -529,6 +541,9 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
 
             if is_reservation_status_cancelled(code):
                 return self._error("No puedes hacer check-in en una reserva cancelada.")
+
+            if is_reservation_status_no_show(code):
+                return self._error("No puedes hacer check-in en una reserva marcada como no presentada.")
 
             if not is_reservation_status_confirmed(code):
                 return self._error("Debes confirmar la reserva antes de hacer check-in.")
@@ -691,6 +706,9 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
             if is_reservation_status_cancelled(code):
                 return self._error("No puedes hacer check-out en una reserva cancelada.")
 
+            if is_reservation_status_no_show(code):
+                return self._error("No puedes hacer check-out en una reserva marcada como no presentada.")
+
             inventory_review_payload = request.data.get(
                 "inventory_review",
                 request.data.get("inventory"),
@@ -772,6 +790,9 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
                 serializer = ReservationDetailSerializer(reservation, context=self.get_serializer_context())
                 return Response(serializer.data, status=status.HTTP_200_OK)
 
+            if is_reservation_status_no_show(code):
+                return self._error("La reserva ya esta marcada como no presentada.")
+
             if is_reservation_status_finished(code):
                 return self._error("No puedes cancelar una reserva finalizada.")
 
@@ -788,6 +809,35 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
         response_data = dict(serializer.data)
         if billing_warning:
             response_data["billing_warning"] = billing_warning
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+    @action(detail=True, methods=["post"], url_path="no-show")
+    def no_show(self, request, pk=None):
+        """
+        El huesped no llego (auditoria, Bloque 6 #10). Desde el dia de llegada y sin check-in.
+        La estadia no se cobra y los abonos se retienen como penalidad (5.19).
+        """
+        with transaction.atomic():
+            reservation = self._get_locked_reservation(pk)
+            if not get_reservation_flow_permissions(reservation)["can_mark_no_show"]:
+                return self._error(
+                    "Solo se marca como no presentada una reserva pendiente o confirmada, sin "
+                    "check-in, desde el dia de llegada."
+                )
+            try:
+                reservation = self._set_status(reservation, status_code=RESERVATION_STATUS_NO_SHOW)
+            except ValueError as exc:
+                return self._error(str(exc))
+
+            from apps.billing.services import settle_billing_for_no_show_reservation
+
+            billing_notice = settle_billing_for_no_show_reservation(reservation)
+
+        serializer = ReservationDetailSerializer(reservation, context=self.get_serializer_context())
+        response_data = dict(serializer.data)
+        if billing_notice:
+            response_data["billing_notice"] = billing_notice
         return Response(response_data, status=status.HTTP_200_OK)
 
 
@@ -908,6 +958,20 @@ class ReservationGuestViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
     def get_permissions(self):
         self.required_scopes = self.get_required_scopes()
         return super().get_permissions()
+
+    def perform_destroy(self, instance):
+        # Una estadia que ya empezo necesita al menos un huesped registrado: antes se podian
+        # borrar todos, aun con check-in o finalizada (auditoria, Bloque 6 #11).
+        reservation = instance.reservation
+        if reservation.real_check_in or reservation.real_check_out:
+            others = exclude_soft_deleted(
+                ReservationGuest.objects.filter(reservation=reservation).exclude(pk=instance.pk)
+            )
+            if not others.exists():
+                raise DRFValidationError(
+                    {"reservation": "Una reserva con check-in debe conservar al menos un huesped."}
+                )
+        super().perform_destroy(instance)
 
 
 class ReservationDepositViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):

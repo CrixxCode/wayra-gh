@@ -350,9 +350,10 @@ def sync_automatic_charges_for_reservation(reservation_id: int | None):
 
     # Cancelada, la estadia y el paquete dejan de cobrarse: sin esto el siguiente guardado de
     # la reserva volvia a activar los cargos automaticos (Bloque 6 #9).
-    from apps.reservations.services import is_reservation_status_cancelled
+    from apps.reservations.services import is_reservation_status_closed_without_stay
 
-    if is_reservation_status_cancelled(reservation.status_code):
+    # Igual para un no-show: la estadia no se cobra (5.19).
+    if is_reservation_status_closed_without_stay(reservation.status_code):
         Charge.objects.filter(reservation=reservation, is_automatic=True, is_active=True).update(
             is_active=False
         )
@@ -452,8 +453,13 @@ def ensure_default_invoice_for_reservation(
         reservation = reservation_queryset.select_for_update().first()
         if not reservation:
             return None
-        # Una reserva cancelada no vuelve a facturarse (su factura se anula al cancelar).
-        if is_reservation_status_cancelled(reservation.status_code):
+        # Una reserva cancelada o no-show no vuelve a facturarse (su factura se anula o se
+        # liquida al cerrarla).
+        from apps.reservations.services import is_reservation_status_no_show
+
+        if is_reservation_status_cancelled(reservation.status_code) or is_reservation_status_no_show(
+            reservation.status_code
+        ):
             return None
 
         existing_invoice = _get_existing_default_invoice(
@@ -696,6 +702,38 @@ def void_invoice(invoice: Invoice) -> Invoice:
     invoice.status = void_status
     invoice.save(update_fields=["status"])
     return invoice
+
+
+def settle_billing_for_no_show_reservation(reservation) -> str | None:
+    """
+    No-show (decision del 2026-10-09, Bloque 6 #10): la estadia no se cobra y los abonos se
+    retienen como penalidad. Los consumos se desactivan como al cancelar; una factura sin dinero
+    se anula, y una con abonos se queda con su total igual a lo retenido
+    (`get_reservation_financials` lo calcula asi para `NO_SHOW`), es decir, pagada.
+    """
+    Charge.objects.filter(reservation=reservation, is_active=True, is_automatic=False).update(
+        is_active=False
+    )
+    sync_automatic_charges_for_reservation(reservation.id)
+
+    retained = MONEY_ZERO
+    for invoice in Invoice.objects.filter(reservation=reservation, is_active=True).exclude(
+        status__code=INVOICE_VOID_STATUS_CODE
+    ):
+        net_paid = _to_decimal(get_invoice_reconciliation(invoice).get("net_paid"))
+        if net_paid <= MONEY_ZERO:
+            void_invoice(invoice)
+            continue
+        retained += net_paid
+        financials = get_reservation_financials(invoice.reservation)
+        invoice.subtotal = _to_decimal(financials.get("total_amount"))
+        invoice.tax_amount = MONEY_ZERO
+        invoice.save(update_fields=["subtotal", "tax_amount", "total_amount"])
+        sync_invoice_status(invoice)
+
+    if retained > MONEY_ZERO:
+        return f"Se retienen {retained:.2f} en abonos como penalidad por no presentarse."
+    return None
 
 
 def settle_billing_for_cancelled_reservation(reservation) -> str | None:

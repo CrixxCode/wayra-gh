@@ -348,7 +348,10 @@
 
     <footer class="drawer-footer" *ngIf="!loading && reservation">
       <ng-container *ngIf="showCancelInfoMessage; else flowActions">
-        <div class="cancelled-note">Reserva cancelada. No hay acciones operativas disponibles.</div>
+        <div class="cancelled-note">
+          {{ visualStatus === 'NO_SHOW' ? 'El huesped no se presento' : 'Reserva cancelada' }}. No hay acciones
+          operativas disponibles.
+        </div>
       </ng-container>
 
       <ng-template #flowActions>
@@ -367,6 +370,15 @@
           (click)="requestEdit()"
           [disabled]="actionLoading">
           Editar reserva
+        </button>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          *ngIf="showNoShowAction"
+          (click)="markNoShow()"
+          [disabled]="actionLoading"
+          title="El huesped no llego: la estadia no se cobra y los abonos se retienen">
+          No se presento
         </button>
         <button
           type="button"

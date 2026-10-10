@@ -133,7 +133,17 @@ export interface RoomI {
   floor_name?: string;
   florr_number?: number;
   active_reservation?: RoomActiveReservationI | null;
+  /** Todas las reservas abiertas de la habitacion (para validar cruces de fechas). */
+  booked_ranges?: RoomBookedRangeI[];
   operations?: RoomOperationsI | null;
+}
+
+export interface RoomBookedRangeI {
+  reservation_id: number;
+  reservation_room_id: number;
+  code?: string | null;
+  expected_check_in: string;
+  expected_check_out: string;
 }
 
 export interface RoomRateMiniI {

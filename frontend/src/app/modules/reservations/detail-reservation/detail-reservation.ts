@@ -145,6 +145,7 @@ export class DetailReservation implements OnChanges {
       case 'POR_SALIR_HOY':
         return 'status-por-salir-hoy';
       case 'CANCELADA':
+      case 'NO_SHOW':
         return 'status-cancelada';
       case 'FINALIZADA':
         return 'status-finalizada';
@@ -278,13 +279,18 @@ export class DetailReservation implements OnChanges {
   }
 
   get showCancelInfoMessage(): boolean {
-    return this.visualStatus === 'CANCELADA';
+    return this.visualStatus === 'CANCELADA' || this.visualStatus === 'NO_SHOW';
+  }
+
+  /** El backend decide (pendiente o confirmada, sin check-in, desde el dia de llegada). */
+  get showNoShowAction(): boolean {
+    return !!this.reservation?.can_mark_no_show;
   }
 
   get showEditAction(): boolean {
     if (!this.reservation) return false;
     if (this.reservation.real_check_in) return false;
-    return !['EN_CURSO', 'POR_SALIR_HOY', 'CANCELADA', 'FINALIZADA'].includes(this.visualStatus);
+    return !['EN_CURSO', 'POR_SALIR_HOY', 'CANCELADA', 'NO_SHOW', 'FINALIZADA'].includes(this.visualStatus);
   }
 
   get showCancelAction(): boolean {
@@ -779,6 +785,25 @@ export class DetailReservation implements OnChanges {
     });
   }
 
+  /**
+   * El huesped no llego (auditoria, Bloque 6 #10). La estadia no se cobra; lo abonado se
+   * retiene como penalidad (decision del 2026-10-09).
+   */
+  markNoShow(): void {
+    const reservation = this.reservation;
+    if (!reservation || this.actionLoading || !this.showNoShowAction) return;
+    openActionConfirmation(this.confirmationService, {
+      action: 'no_show',
+      target: `la reserva ${this.reservationCodeLabel}`,
+      onAccept: () => {
+        this.billingWarning = '';
+        this.runFlowAction(this.reservationService.markReservationNoShow(reservation.id), (detail) => {
+          this.billingWarning = detail.billing_notice || '';
+        });
+      }
+    });
+  }
+
   runPrimaryAction(): void {
     if (this.actionLoading || !this.canRunPrimaryAction) return;
 
@@ -1181,6 +1206,7 @@ export class DetailReservation implements OnChanges {
     const statusCode = this.normalizeCode(reservation.status_code);
 
     if (statusCode === 'CANCELADA') return 'CANCELADA';
+    if (statusCode === 'NO_SHOW') return 'NO_SHOW';
     if (statusCode === 'FINALIZADA') return 'FINALIZADA';
 
     if (this.isCheckoutToday(reservation) && (statusCode === 'CONFIRMADA' || statusCode === 'EN_CURSO' || statusCode === 'PENDIENTE')) {
@@ -1261,6 +1287,8 @@ export class DetailReservation implements OnChanges {
           actionBg: '#ea580c',
           actionColor: '#ffffff'
         };
+      case 'NO_SHOW':
+        return { ...this.resolveStatusStyle('CANCELADA'), label: 'No se presento' };
       case 'CANCELADA':
         return {
           label: 'Cancelada',

@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, of, switchMap } from 'rxjs';
 import { HotelSettings as HotelSettingsModel } from '../../../components/pages/hotel-settings/hotel-setting-model';
 import { AuthService, isEffectivePlatformAdmin } from '../../../services/auth/auth';
@@ -148,8 +148,41 @@ export class ListSaasHotels implements OnInit {
   constructor(
     private authService: AuthService,
     private hotelSettingsService: HotelSettingsService,
-    private saasDashboardService: SaasDashboardService
+    private saasDashboardService: SaasDashboardService,
+    private route: ActivatedRoute
   ) {}
+
+  private hotelLinkHandled = false;
+
+  /**
+   * `?hotel=<id>`: abre el detalle de ese hotel. Es el destino de "Hoteles que requieren
+   * atencion" del panel SaaS, que antes llevaba al listado completo (Bloque 13 #5).
+   */
+  private openHotelFromLink(): void {
+    if (this.hotelLinkHandled) return;
+    this.hotelLinkHandled = true;
+    const hotelId = Number(this.route.snapshot.queryParamMap.get('hotel'));
+    if (!Number.isFinite(hotelId) || hotelId <= 0) return;
+    const hotel = this.hotels.find((item) => item.id === hotelId);
+    if (hotel) this.openHotelDetails(hotel);
+  }
+
+  /**
+   * El menu de acciones se cierra al hacer clic fuera o con Escape; antes se quedaba abierto
+   * hasta volver a pulsar el boton (auditoria, Bloque 13 #6).
+   */
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (this.openActionMenuHotelId === null) return;
+    const target = event.target as Element | null;
+    if (target?.closest('.action-menu-shell, .action-menu, .dots-btn')) return;
+    this.closeActionMenu();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.openActionMenuHotelId !== null) this.closeActionMenu();
+  }
 
   ngOnInit(): void {
     this.loadHotels();
@@ -182,6 +215,7 @@ export class ListSaasHotels implements OnInit {
           this.countryOptions = this.buildCountryOptions(rows);
           this.updateStats();
           this.applyFilters();
+          this.openHotelFromLink();
         } else {
           this.hotels = [];
           this.filteredHotels = [];

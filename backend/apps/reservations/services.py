@@ -5,8 +5,10 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable
 
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from apps.clients.models import Client
 from apps.inventory.models import Item, RoomInventory
@@ -78,6 +80,8 @@ RESERVATION_STATUS_CONFIRMED = "CONFIRMADA"
 RESERVATION_STATUS_IN_PROGRESS = "EN_CURSO"
 RESERVATION_STATUS_FINISHED = "FINALIZADA"
 RESERVATION_STATUS_CANCELLED = "CANCELADA"
+# El huesped no llego: la estadia no se cobra y los abonos se retienen (5.19).
+RESERVATION_STATUS_NO_SHOW = "NO_SHOW"
 
 
 def calculate_rate_night_price(rate, *, adults: int = 1, children: int = 0) -> Decimal:
@@ -120,6 +124,7 @@ RESERVATION_STATUS_CANCELLED_CODES = (
     "ANULADO",
     "CANCELLED",
 )
+RESERVATION_STATUS_NO_SHOW_CODES = (RESERVATION_STATUS_NO_SHOW,)
 
 RESERVATION_STATUS_CANONICAL_ALIASES = {
     RESERVATION_STATUS_PENDING: RESERVATION_STATUS_PENDING_CODES,
@@ -127,22 +132,26 @@ RESERVATION_STATUS_CANONICAL_ALIASES = {
     RESERVATION_STATUS_IN_PROGRESS: RESERVATION_STATUS_IN_PROGRESS_CODES,
     RESERVATION_STATUS_FINISHED: RESERVATION_STATUS_FINISHED_CODES,
     RESERVATION_STATUS_CANCELLED: RESERVATION_STATUS_CANCELLED_CODES,
+    RESERVATION_STATUS_NO_SHOW: RESERVATION_STATUS_NO_SHOW_CODES,
 }
 
 RESERVATION_ALLOWED_STATUS_TRANSITIONS = {
     RESERVATION_STATUS_PENDING: {
         RESERVATION_STATUS_CONFIRMED,
         RESERVATION_STATUS_CANCELLED,
+        RESERVATION_STATUS_NO_SHOW,
     },
     RESERVATION_STATUS_CONFIRMED: {
         RESERVATION_STATUS_IN_PROGRESS,
         RESERVATION_STATUS_CANCELLED,
+        RESERVATION_STATUS_NO_SHOW,
     },
     RESERVATION_STATUS_IN_PROGRESS: {
         RESERVATION_STATUS_FINISHED,
     },
     RESERVATION_STATUS_FINISHED: set(),
     RESERVATION_STATUS_CANCELLED: set(),
+    RESERVATION_STATUS_NO_SHOW: set(),
 }
 
 CLIENT_STATUS_ACTIVE = "ACTIVO"
@@ -267,6 +276,19 @@ def is_reservation_status_cancelled(code) -> bool:
     return _code_in_aliases(code, RESERVATION_STATUS_CANCELLED_CODES)
 
 
+def is_reservation_status_no_show(code) -> bool:
+    return _code_in_aliases(code, RESERVATION_STATUS_NO_SHOW_CODES)
+
+
+def is_reservation_status_closed_without_stay(code) -> bool:
+    """Cancelada o no-show: la estadia no ocurrio y la reserva ya no admite operacion."""
+    return is_reservation_status_cancelled(code) or is_reservation_status_no_show(code)
+
+
+def get_no_show_reservation_status():
+    return get_reservation_status_by_codes(RESERVATION_STATUS_NO_SHOW_CODES)
+
+
 def get_pending_reservation_status():
     return get_reservation_status_by_codes(RESERVATION_STATUS_PENDING_CODES)
 
@@ -288,9 +310,21 @@ def get_cancelled_reservation_status():
 
 
 def auto_cancel_overdue_unchecked_reservations() -> int:
-    cancelled_status = get_cancelled_reservation_status()
-    if not cancelled_status:
+    """
+    Cierra las reservas cuyo check-out paso sin check-in. Es un no-show (decision del
+    2026-10-09): se marcan `NO_SHOW` y se liquida su facturacion. Antes se pasaban a
+    `CANCELADA` con un `bulk_update` que no tocaba la factura ni los consumos. Si el catalogo
+    no tiene `NO_SHOW` (instalaciones viejas sin la migracion), se cancelan como antes.
+    """
+    from apps.billing.services import (
+        settle_billing_for_cancelled_reservation,
+        settle_billing_for_no_show_reservation,
+    )
+
+    target_status = get_no_show_reservation_status() or get_cancelled_reservation_status()
+    if not target_status:
         return 0
+    is_no_show = is_reservation_status_no_show(target_status.code)
 
     today = timezone.localdate()
     target_codes = tuple(
@@ -313,17 +347,22 @@ def auto_cancel_overdue_unchecked_reservations() -> int:
         return 0
 
     marker = f"AUTOCANCEL_OVERDUE:{timezone.now().isoformat()}"
+    outcome = "marcada como no-show" if is_no_show else "cancelada"
     note_line = (
-        f"[{marker}] Reserva cancelada automaticamente por check-out vencido "
+        f"[{marker}] Reserva {outcome} automaticamente por check-out vencido "
         "sin check-in registrado."
     )
 
     for reservation in reservations_to_cancel:
-        reservation.status = cancelled_status
-        existing_notes = (reservation.notes or "").strip()
-        reservation.notes = f"{existing_notes}\n{note_line}" if existing_notes else note_line
-
-    Reservation.objects.bulk_update(reservations_to_cancel, ["status", "notes"])
+        with transaction.atomic():
+            reservation.status = target_status
+            existing_notes = (reservation.notes or "").strip()
+            reservation.notes = f"{existing_notes}\n{note_line}" if existing_notes else note_line
+            reservation.save(update_fields=["status", "notes"])
+            if is_no_show:
+                settle_billing_for_no_show_reservation(reservation)
+            else:
+                settle_billing_for_cancelled_reservation(reservation)
     return len(reservations_to_cancel)
 
 
@@ -801,6 +840,11 @@ def get_reservation_financials(
     if total_deposits < MONEY_ZERO:
         total_deposits = MONEY_ZERO
 
+    # No-show (5.19): la estadia no se cobra, pero lo abonado queda como penalidad. Lo facturado
+    # es exactamente lo retenido y no queda saldo pendiente.
+    if is_reservation_status_no_show(getattr(reservation, "status_code", None)):
+        total_amount = total_deposits
+
     # `total_amount` sigue siendo lo facturado (alimenta el subtotal de la factura, y los
     # reportes ya restan las notas por su cuenta); la nota de credito solo baja lo pendiente.
     pending_amount = total_amount - total_credit_notes - total_deposits
@@ -883,11 +927,22 @@ def get_reservation_flow_permissions(
         and not has_check_out
     )
 
+    # No-show: solo desde el dia de llegada; antes de eso lo que corresponde es cancelar.
+    expected_check_in = getattr(reservation, "expected_check_in", None)
+    if isinstance(expected_check_in, str):
+        expected_check_in = parse_date(expected_check_in)
+    can_mark_no_show = (
+        can_cancel
+        and expected_check_in is not None
+        and timezone.localdate() >= expected_check_in
+    )
+
     return {
         "can_confirm": can_confirm,
         "can_check_in": can_check_in,
         "can_check_out": can_check_out,
         "can_cancel": can_cancel,
+        "can_mark_no_show": can_mark_no_show,
     }
 
 
@@ -913,7 +968,7 @@ def can_add_payment_to_reservation(
     financials: dict[str, Decimal] | None = None,
 ) -> bool:
     status_code = _normalize_code(getattr(reservation, "status_code", None))
-    if is_reservation_status_cancelled(status_code):
+    if is_reservation_status_closed_without_stay(status_code):
         return False
 
     values = financials or get_reservation_financials(reservation)
@@ -933,12 +988,12 @@ def validate_reservation_deposit_rules(
     errors: dict[str, str] = {}
 
     if reservation is None:
-        errors["reservation"] = "Reservation is required."
+        errors["reservation"] = "La reserva es obligatoria."
         return errors
 
     status_code = _normalize_code(getattr(reservation, "status_code", None))
-    if is_reservation_status_cancelled(status_code):
-        errors["reservation"] = "No puedes registrar pagos en una reserva cancelada."
+    if is_reservation_status_closed_without_stay(status_code):
+        errors["reservation"] = "No puedes registrar pagos en una reserva cancelada o no presentada."
         return errors
 
     amount_decimal = _to_decimal(amount)

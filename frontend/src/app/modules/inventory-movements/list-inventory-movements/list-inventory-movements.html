@@ -395,6 +395,24 @@
                     <button
                       type="button"
                       class="row-btn"
+                      *ngIf="embedded && movement.item"
+                      title="Seguir este item: ver su ficha"
+                      [attr.aria-label]="'Seguir ' + getItemLabel(movement)"
+                      (click)="followRowItem(movement, 'items')">
+                      <i class="fa-solid fa-crosshairs"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="row-btn"
+                      *ngIf="embedded && movement.item"
+                      title="Ver en que habitaciones esta"
+                      [attr.aria-label]="'Ver en que habitaciones esta de ' + getItemLabel(movement)"
+                      (click)="followRowItem(movement, 'rooms')">
+                      <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="row-btn"
                       [title]="movement.is_active ? 'Desactivar' : 'Activar'"
                       (click)="toggleMovementStatus(movement)">
                       <i [class]="movement.is_active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>

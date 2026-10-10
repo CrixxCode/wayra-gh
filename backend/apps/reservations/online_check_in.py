@@ -20,6 +20,7 @@ from apps.reservations.services import (
     get_reservation_check_in_start_datetime,
     get_master_data_code,
     is_reservation_status_cancelled,
+    is_reservation_status_no_show,
     is_reservation_status_confirmed,
     is_reservation_status_finished,
     is_reservation_status_pending,
@@ -169,6 +170,9 @@ def get_online_check_in_eligibility(reservation: Reservation) -> dict[str, Any]:
 
     if is_reservation_status_cancelled(code):
         return {"eligible": False, "reason": "Esta reserva fue cancelada."}
+
+    if is_reservation_status_no_show(code):
+        return {"eligible": False, "reason": "Esta reserva se cerro porque no se registro la llegada."}
 
     if is_reservation_status_finished(code):
         return {"eligible": False, "reason": "La estadia de esta reserva ya finalizo."}

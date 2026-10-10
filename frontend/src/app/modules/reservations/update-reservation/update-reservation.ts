@@ -6,7 +6,7 @@ import { MasterDataI } from '../../../components/pages/master-data/master-data-m
 import { ReservationService } from '../../../services/reservation';
 import { ClientI } from '../../clients/client-model';
 import { PackageI } from '../../packages/package-model';
-import { RateI, RoomI } from '../../rooms/room-model';
+import { RateI, RoomBookedRangeI, RoomI } from '../../rooms/room-model';
 import { ReservationDetailI, ReservationPolicyI, ReservationRoomPayloadI, ReservationWritePayloadI } from '../reservation-model';
 
 @Component({
@@ -495,9 +495,13 @@ export class UpdateReservation implements OnChanges {
       }
       usedRooms.add(room);
 
-      if (checkIn && checkOut && this.hasRoomActiveReservationOverlap(selectedRoom, checkIn, checkOut, lineId)) {
-        const start = this.formatDateLabel(selectedRoom.active_reservation?.expected_check_in);
-        const end = this.formatDateLabel(selectedRoom.active_reservation?.expected_check_out);
+      const conflict =
+        checkIn && checkOut
+          ? this.findRoomBookingConflict(selectedRoom, checkIn, checkOut, (range) => this.isOwnBooking(range, lineId))
+          : null;
+      if (conflict) {
+        const start = this.formatDateLabel(conflict.expected_check_in);
+        const end = this.formatDateLabel(conflict.expected_check_out);
         return {
           createRequests: [],
           updateRequests: [],
@@ -662,26 +666,45 @@ export class UpdateReservation implements OnChanges {
     return this.availableRooms.find((room) => room.id === id);
   }
 
-  private hasRoomActiveReservationOverlap(
+  /** La propia reserva (o su linea de habitacion) no choca consigo misma. */
+  private isOwnBooking(range: RoomBookedRangeI, currentReservationRoomId: number): boolean {
+    if (Number(range.reservation_id || 0) === Number(this.reservation?.id || 0)) return true;
+    return currentReservationRoomId > 0 && Number(range.reservation_room_id || 0) === currentReservationRoomId;
+  }
+
+  /**
+   * Reserva abierta de la habitacion que se cruza con las fechas. Revisa todas
+   * (`booked_ranges`), no solo la activa: antes una 2a reserva futura pasaba sin aviso hasta
+   * que el backend la rechazaba (auditoria, Bloque 6 #13).
+   */
+  private findRoomBookingConflict(
     room: RoomI,
     checkIn: Date,
     checkOut: Date,
-    currentReservationRoomId: number
-  ): boolean {
-    const activeReservation = room.active_reservation;
-    if (!activeReservation) return false;
-    if (Number(activeReservation.id || 0) === Number(this.reservation?.id || 0)) {
-      return false;
-    }
-    if (currentReservationRoomId > 0 && Number(activeReservation.reservation_room_id || 0) === currentReservationRoomId) {
-      return false;
-    }
+    isOwnBooking: (range: RoomBookedRangeI) => boolean = () => false
+  ): RoomBookedRangeI | null {
+    const active = room.active_reservation;
+    const ranges: RoomBookedRangeI[] =
+      room.booked_ranges ??
+      (active
+        ? [
+            {
+              reservation_id: active.id,
+              reservation_room_id: Number(active.reservation_room_id || 0),
+              expected_check_in: active.expected_check_in || '',
+              expected_check_out: active.expected_check_out || ''
+            }
+          ]
+        : []);
 
-    const activeCheckIn = this.parseDate(activeReservation.expected_check_in || null);
-    const activeCheckOut = this.parseDate(activeReservation.expected_check_out || null);
-    if (!activeCheckIn || !activeCheckOut) return true;
-
-    return checkIn < activeCheckOut && checkOut > activeCheckIn;
+    for (const range of ranges) {
+      if (isOwnBooking(range)) continue;
+      const rangeCheckIn = this.parseDate(range.expected_check_in || null);
+      const rangeCheckOut = this.parseDate(range.expected_check_out || null);
+      if (!rangeCheckIn || !rangeCheckOut) return range;
+      if (checkIn < rangeCheckOut && checkOut > rangeCheckIn) return range;
+    }
+    return null;
   }
 
   private hasActiveRatesForRoomType(roomTypeId: number): boolean {

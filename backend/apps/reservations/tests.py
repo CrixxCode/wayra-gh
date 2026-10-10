@@ -962,7 +962,7 @@ class ReservationAutoCancelCommandTestCase(TestCase):
             expected_check_out=expected_check_out,
         )
 
-    def test_command_auto_cancels_overdue_pending_without_check_in(self):
+    def test_command_marks_overdue_pending_without_check_in_as_no_show(self):
         today = timezone.localdate()
         reservation = self._create_reservation(
             expected_check_in=today - timedelta(days=3),
@@ -973,10 +973,26 @@ class ReservationAutoCancelCommandTestCase(TestCase):
         call_command("sync_reservation_room_statuses")
         reservation.refresh_from_db()
 
-        self.assertEqual(reservation.status.code, "CANCELADA")
+        self.assertEqual(reservation.status.code, "NO_SHOW")
         self.assertIn("AUTOCANCEL_OVERDUE:", reservation.notes or "")
 
-    def test_command_auto_cancels_overdue_confirmed_without_check_in(self):
+    def test_command_marks_overdue_confirmed_without_check_in_as_no_show(self):
+        today = timezone.localdate()
+        reservation = self._create_reservation(
+            expected_check_in=today - timedelta(days=2),
+            expected_check_out=today - timedelta(days=1),
+            status=self.reservation_status_confirmed,
+        )
+
+        call_command("sync_reservation_room_statuses")
+        reservation.refresh_from_db()
+
+        self.assertEqual(reservation.status.code, "NO_SHOW")
+        self.assertIn("AUTOCANCEL_OVERDUE:", reservation.notes or "")
+
+    def test_command_falls_back_to_cancel_without_the_no_show_status(self):
+        # Instalaciones sin el catalogo NO_SHOW: se cancela como antes.
+        MasterData.objects.filter(group=MasterData.Group.RESERVATION_STATUS, code="NO_SHOW").delete()
         today = timezone.localdate()
         reservation = self._create_reservation(
             expected_check_in=today - timedelta(days=2),
@@ -988,7 +1004,6 @@ class ReservationAutoCancelCommandTestCase(TestCase):
         reservation.refresh_from_db()
 
         self.assertEqual(reservation.status.code, "CANCELADA")
-        self.assertIn("AUTOCANCEL_OVERDUE:", reservation.notes or "")
 
     def test_command_does_not_cancel_when_real_check_in_exists(self):
         today = timezone.localdate()
@@ -2021,6 +2036,87 @@ class ReservationApiFlowTestCase(APITestCase):
         )
         self.assertEqual(confirm_after_cancel.status_code, 400)
         self.assertIn("detail", confirm_after_cancel.data)
+
+    def test_last_guest_of_a_checked_in_reservation_cannot_be_deleted(self):
+        reservation = self._create_reservation(status=self.reservation_status_confirmed)
+        self._mark_reservation_as_checked_in(reservation)
+        guests = [
+            ReservationGuest.objects.create(
+                reservation=reservation,
+                document_type=self.document_type,
+                document_number=number,
+                first_name="Huesped",
+                last_name=number,
+            )
+            for number in ("G-1", "G-2")
+        ]
+
+        first = self.client.delete(f"/api/reservation-guests/{guests[0].id}/")
+        self.assertEqual(first.status_code, 204)
+        last = self.client.delete(f"/api/reservation-guests/{guests[1].id}/")
+        self.assertEqual(last.status_code, 400)
+        self.assertIn("al menos un huesped", str(last.data))
+
+    def test_room_exposes_every_open_booking_not_only_the_active_one(self):
+        # Los formularios validan cruces contra todas (Bloque 6 #13).
+        from apps.rooms.serializers import RoomSerializer
+
+        first = self._create_reservation(check_in_offset=3, check_out_offset=5, status=self.reservation_status_confirmed)
+        second = self._create_reservation(check_in_offset=8, check_out_offset=10, status=self.reservation_status_confirmed)
+        self._create_room_line(reservation=first)
+        self._create_room_line(reservation=second)
+
+        ranges = RoomSerializer(self.room).data["booked_ranges"]
+
+        self.assertEqual([item["reservation_id"] for item in ranges], [first.id, second.id])
+
+    def test_no_show_retains_deposits_and_closes_the_balance(self):
+        # Decision del 2026-10-09 (Bloque 6 #10): la estadia no se cobra y lo abonado se retiene.
+        self._md(MasterData.Group.RESERVATION_STATUS, "NO_SHOW", "No se presento", 6)
+        reservation = self._create_reservation(
+            check_in_offset=-1, check_out_offset=2, status=self.reservation_status_confirmed
+        )
+        self._create_room_line(reservation=reservation, night_rate=100000)
+        invoice = ensure_default_invoice_for_reservation(reservation.id)
+        Payment.objects.create(invoice=invoice, amount=50000, payment_method=self.payment_method_cash)
+
+        response = self.client.post(f"/api/reservations/{reservation.id}/no-show/", data={}, format="json")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["status_code"], "NO_SHOW")
+        self.assertIn("penalidad", response.data["billing_notice"])
+        self.assertEqual(Decimal(str(response.data["total_amount"])), Decimal("50000"))
+        self.assertEqual(Decimal(str(response.data["pending_amount"])), Decimal("0"))
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status.code, "PAGADA")
+        self.assertEqual(invoice.total_amount, Decimal("50000"))
+
+    def test_no_show_without_deposits_voids_the_invoice(self):
+        self._md(MasterData.Group.RESERVATION_STATUS, "NO_SHOW", "No se presento", 6)
+        reservation = self._create_reservation(check_in_offset=-1, status=self.reservation_status_pending)
+        self._create_room_line(reservation=reservation, night_rate=100000)
+        invoice = ensure_default_invoice_for_reservation(reservation.id)
+
+        response = self.client.post(f"/api/reservations/{reservation.id}/no-show/", data={}, format="json")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status.code, "ANULADA")
+        # No vuelve a facturarse.
+        self.assertIsNone(ensure_default_invoice_for_reservation(reservation.id))
+
+    def test_no_show_before_arrival_day_is_rejected(self):
+        self._md(MasterData.Group.RESERVATION_STATUS, "NO_SHOW", "No se presento", 6)
+        reservation = self._create_reservation(
+            check_in_offset=2, check_out_offset=4, status=self.reservation_status_confirmed
+        )
+
+        response = self.client.post(f"/api/reservations/{reservation.id}/no-show/", data={}, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.data.get("can_mark_no_show", False))
+        reservation.refresh_from_db()
+        self.assertEqual(reservation.status.code, "CONFIRMADA")
 
     def test_reservation_deposit_endpoint_validates_pending_amount(self):
         reservation = self._create_reservation(status=self.reservation_status_confirmed)

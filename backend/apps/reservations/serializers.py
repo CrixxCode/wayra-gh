@@ -132,17 +132,17 @@ class ReservationRoomSerializer(serializers.ModelSerializer):
 
     def validate_night_rate(self, value):
         if value < 0:
-            raise serializers.ValidationError("Night rate cannot be negative.")
+            raise serializers.ValidationError("La tarifa por noche no puede ser negativa.")
         return value
 
     def validate_adults(self, value):
         if value < 1:
-            raise serializers.ValidationError("There must be at least one adult assigned to the room.")
+            raise serializers.ValidationError("La habitacion debe tener al menos un adulto.")
         return value
 
     def validate_children(self, value):
         if value < 0:
-            raise serializers.ValidationError("Children cannot be negative.")
+            raise serializers.ValidationError("La cantidad de ninos no puede ser negativa.")
         return value
 
     def validate(self, attrs):
@@ -251,12 +251,12 @@ class ReservationRoomSerializer(serializers.ModelSerializer):
 
             if room_hotel_id and package.hotel_settings_id != room_hotel_id:
                 raise serializers.ValidationError(
-                    {"room": "The room is not compatible with the package hotel."}
+                    {"room": "La habitacion no pertenece al hotel del paquete."}
                 )
 
             if package.room_type_id and room.room_type_id != package.room_type_id:
                 raise serializers.ValidationError(
-                    {"room": "The room type is not compatible with the selected package."}
+                    {"room": "El tipo de habitacion no es compatible con el paquete elegido."}
                 )
 
         if reservation and room:
@@ -505,7 +505,7 @@ class ReservationDepositSerializer(serializers.Serializer):
 
     def validate_amount(self, value):
         if value <= 0:
-            raise serializers.ValidationError("Deposit amount must be greater than zero.")
+            raise serializers.ValidationError("El monto del abono debe ser mayor a cero.")
         return value
 
     def validate(self, attrs):
@@ -520,7 +520,7 @@ class ReservationDepositSerializer(serializers.Serializer):
 
         if reservation is None:
             raise serializers.ValidationError({
-                "reservation": "Reservation is required."
+                "reservation": "La reserva es obligatoria."
             })
 
         if user and user.is_authenticated and not is_effective_global_admin(user):
@@ -721,7 +721,7 @@ class ReservationDepositSerializer(serializers.Serializer):
         validated_data.pop("status", None)
 
         if reservation is None:
-            raise serializers.ValidationError({"reservation": "Reservation is required."})
+            raise serializers.ValidationError({"reservation": "La reserva es obligatoria."})
 
         with transaction.atomic():
             locked_reservation = self._lock_reservation(
@@ -833,6 +833,9 @@ class ReservationBusinessRulesMixin:
     def get_can_cancel(self, obj):
         return self._get_business_rules(obj)["can_cancel"]
 
+    def get_can_mark_no_show(self, obj):
+        return self._get_business_rules(obj)["can_mark_no_show"]
+
 
 class ReservationListSerializer(ReservationBusinessRulesMixin, serializers.ModelSerializer):
     client_full_name = serializers.CharField(source="client.full_name", read_only=True)
@@ -861,6 +864,7 @@ class ReservationListSerializer(ReservationBusinessRulesMixin, serializers.Model
     can_check_in = serializers.SerializerMethodField()
     can_check_out = serializers.SerializerMethodField()
     can_cancel = serializers.SerializerMethodField()
+    can_mark_no_show = serializers.SerializerMethodField()
 
     class Meta:
         model = Reservation
@@ -911,6 +915,7 @@ class ReservationListSerializer(ReservationBusinessRulesMixin, serializers.Model
             "can_check_in",
             "can_check_out",
             "can_cancel",
+            "can_mark_no_show",
             "created_by",
             "created_at",
         ]
@@ -944,6 +949,7 @@ class ReservationListSerializer(ReservationBusinessRulesMixin, serializers.Model
             "can_check_in",
             "can_check_out",
             "can_cancel",
+            "can_mark_no_show",
             "created_at",
         )
 
@@ -983,6 +989,7 @@ class ReservationDetailSerializer(ReservationBusinessRulesMixin, serializers.Mod
     can_check_in = serializers.SerializerMethodField()
     can_check_out = serializers.SerializerMethodField()
     can_cancel = serializers.SerializerMethodField()
+    can_mark_no_show = serializers.SerializerMethodField()
 
     class Meta:
         model = Reservation
@@ -1035,6 +1042,7 @@ class ReservationDetailSerializer(ReservationBusinessRulesMixin, serializers.Mod
             "can_check_in",
             "can_check_out",
             "can_cancel",
+            "can_mark_no_show",
             "rooms_detail",
             "guests",
             "deposits",
@@ -1073,6 +1081,7 @@ class ReservationDetailSerializer(ReservationBusinessRulesMixin, serializers.Mod
             "can_check_in",
             "can_check_out",
             "can_cancel",
+            "can_mark_no_show",
             "policies",
             "rooms_detail",
             "guests",
@@ -1186,7 +1195,7 @@ class ReservationWriteSerializer(TenantSerializerMixin, serializers.ModelSeriali
 
     def validate_package(self, value):
         if value and not value.is_active:
-            raise serializers.ValidationError("The selected package is inactive.")
+            raise serializers.ValidationError("El paquete elegido esta inactivo.")
         return value
 
     @staticmethod
@@ -1195,10 +1204,10 @@ class ReservationWriteSerializer(TenantSerializerMixin, serializers.ModelSeriali
             return None
 
         if package.start_date and check_in and check_in < package.start_date:
-            return "The selected package is not available for the expected check-in date."
+            return "El paquete elegido no esta disponible para la fecha de llegada."
 
         if package.end_date and check_out and check_out > package.end_date:
-            return "The selected package is not available for the expected check-out date."
+            return "El paquete elegido no esta disponible para la fecha de salida."
 
         return None
 
@@ -1267,13 +1276,13 @@ class ReservationWriteSerializer(TenantSerializerMixin, serializers.ModelSeriali
 
         if expected_check_in and expected_check_out:
             if expected_check_out <= expected_check_in:
-                errors["expected_check_out"] = "Expected check-out must be later than expected check-in."
+                errors["expected_check_out"] = "La fecha de salida debe ser posterior a la de llegada."
 
         if real_check_out and not real_check_in:
-            errors["real_check_out"] = "Real check-out cannot be registered without a real check-in."
+            errors["real_check_out"] = "No se puede registrar la salida sin un check-in."
 
         if real_check_in and real_check_out and real_check_out < real_check_in:
-            errors["real_check_out"] = "Real check-out cannot be earlier than real check-in."
+            errors["real_check_out"] = "La salida no puede ser anterior al check-in."
 
         package_date_error = self._validate_package_dates(
             package,
@@ -1301,9 +1310,9 @@ class ReservationWriteSerializer(TenantSerializerMixin, serializers.ModelSeriali
                     conflict_reservation = conflict.reservation
                     room_conflicts.append(
                         (
-                            f"Room {reservation_room.room.number} conflicts with reservation "
-                            f"#{conflict_reservation.id} "
-                            f"({conflict_reservation.expected_check_in} to "
+                            f"La habitacion {reservation_room.room.number} ya tiene la reserva "
+                            f"{conflict_reservation.code} "
+                            f"(del {conflict_reservation.expected_check_in} al "
                             f"{conflict_reservation.expected_check_out})."
                         )
                     )
@@ -1319,19 +1328,19 @@ class ReservationWriteSerializer(TenantSerializerMixin, serializers.ModelSeriali
 
                     if room_hotel_id and room_hotel_id != hotel.id:
                         package_conflicts.append(
-                            f"Room {room.number} belongs to a different hotel than the reservation."
+                            f"La habitacion {room.number} es de otro hotel que la reserva."
                         )
                         continue
 
                     if room_hotel_id and package.hotel_settings_id != room_hotel_id:
                         package_conflicts.append(
-                            f"Room {room.number} belongs to a different hotel than the selected package."
+                            f"La habitacion {room.number} es de otro hotel que el paquete elegido."
                         )
                         continue
 
                     if package.room_type_id and room.room_type_id != package.room_type_id:
                         package_conflicts.append(
-                            f"Room {room.number} is not compatible with package room type '{package.room_type.name}'."
+                            f"La habitacion {room.number} no es del tipo '{package.room_type.name}' que exige el paquete."
                         )
 
                 if package_conflicts:

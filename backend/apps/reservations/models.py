@@ -176,20 +176,20 @@ class Reservation(models.Model):
 
         if self.expected_check_in and self.expected_check_out:
             if self.expected_check_out <= self.expected_check_in:
-                errors["expected_check_out"] = "Expected check-out must be later than expected check-in."
+                errors["expected_check_out"] = "La fecha de salida debe ser posterior a la de llegada."
 
         if self.real_check_out and not self.real_check_in:
-            errors["real_check_out"] = "Real check-out cannot be registered without a real check-in."
+            errors["real_check_out"] = "No se puede registrar la salida sin un check-in."
 
         if self.real_check_in and self.real_check_out:
             if self.real_check_out < self.real_check_in:
-                errors["real_check_out"] = "Real check-out cannot be earlier than real check-in."
+                errors["real_check_out"] = "La salida no puede ser anterior al check-in."
 
         if self.total_discount is not None and self.total_discount < 0:
-            errors["total_discount"] = "Total discount cannot be negative."
+            errors["total_discount"] = "El descuento no puede ser negativo."
 
         if self.package_price is not None and self.package_price < 0:
-            errors["package_price"] = "Package price cannot be negative."
+            errors["package_price"] = "El precio del paquete no puede ser negativo."
 
         if errors:
             raise ValidationError(errors)
@@ -252,13 +252,13 @@ class ReservationRoom(models.Model):
                 errors["room"] = "La habitacion no pertenece al mismo hotel de la reserva."
 
         if self.night_rate is not None and self.night_rate < 0:
-            errors["night_rate"] = "Night rate cannot be negative."
+            errors["night_rate"] = "La tarifa por noche no puede ser negativa."
 
         if self.adults < 1:
-            errors["adults"] = "There must be at least one adult assigned to the room."
+            errors["adults"] = "La habitacion debe tener al menos un adulto."
 
         if self.children < 0:
-            errors["children"] = "Children cannot be negative."
+            errors["children"] = "La cantidad de ninos no puede ser negativa."
 
         if self.reservation_id and self.room_id and self.reservation.package_id:
             package = self.reservation.package
@@ -273,10 +273,10 @@ class ReservationRoom(models.Model):
 
             room_hotel_id = getattr(getattr(self.room, "floor", None), "hotel_settings_id", None)
             if room_hotel_id and package.hotel_settings_id != room_hotel_id:
-                errors["room"] = "The room is not compatible with the package hotel."
+                errors["room"] = "La habitacion no pertenece al hotel del paquete."
 
             if package.room_type_id and self.room.room_type_id != package.room_type_id:
-                errors["room"] = "The room type is not compatible with the selected package."
+                errors["room"] = "El tipo de habitacion no es compatible con el paquete elegido."
 
         if self.room_id and self.reservation_id:
             from apps.reservations.services import find_overlapping_reservation_room
@@ -388,7 +388,7 @@ class ReservationDeposit(models.Model):
         errors = {}
 
         if self.amount is not None and self.amount <= 0:
-            errors["amount"] = "Deposit amount must be greater than zero."
+            errors["amount"] = "El monto del abono debe ser mayor a cero."
 
         if errors:
             raise ValidationError(errors)

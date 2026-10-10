@@ -113,14 +113,16 @@
       *ngIf="activeTab === 'rooms'"
       [embedded]="true"
       [focusItemId]="focus?.id ?? null"
-      (changed)="onInventoryChanged()">
+      (changed)="onInventoryChanged()"
+      (followItem)="followItem($event.item, $event.tab)">
     </app-list-room-inventory>
 
     <app-list-inventory-movements
       *ngIf="activeTab === 'movements'"
       [embedded]="true"
       [focusItemId]="focus?.id ?? null"
-      (changed)="onInventoryChanged()">
+      (changed)="onInventoryChanged()"
+      (followItem)="followItem($event.item, $event.tab)">
     </app-list-inventory-movements>
 
     <app-shopping-list

@@ -129,7 +129,8 @@ export class ListReservations implements OnInit {
     { key: 'PENDIENTE', label: 'Pendiente' },
     { key: 'EN_CURSO', label: 'En curso' },
     { key: 'POR_SALIR_HOY', label: 'Por salir hoy' },
-    { key: 'CANCELADA', label: 'Cancelada' }
+    { key: 'CANCELADA', label: 'Cancelada' },
+    { key: 'NO_SHOW', label: 'No se presento' }
   ];
 
   constructor(
@@ -171,7 +172,7 @@ export class ListReservations implements OnInit {
     return this.reservations.filter((reservation) => {
       if (!this.isToday(reservation.expected_check_in)) return false;
       const status = this.getVisualStatus(reservation);
-      return status !== 'CANCELADA' && status !== 'FINALIZADA';
+      return status !== 'CANCELADA' && status !== 'NO_SHOW' && status !== 'FINALIZADA';
     }).length;
   }
 
@@ -179,7 +180,7 @@ export class ListReservations implements OnInit {
     return this.reservations.filter((reservation) => {
       if (!this.isCheckoutToday(reservation)) return false;
       const status = this.getVisualStatus(reservation);
-      return status !== 'CANCELADA' && status !== 'FINALIZADA';
+      return status !== 'CANCELADA' && status !== 'NO_SHOW' && status !== 'FINALIZADA';
     }).length;
   }
 
@@ -703,6 +704,7 @@ export class ListReservations implements OnInit {
       case 'POR_SALIR_HOY':
         return 'status-por-salir-hoy';
       case 'CANCELADA':
+      case 'NO_SHOW':
         return 'status-cancelada';
       case 'FINALIZADA':
         return 'status-finalizada';
@@ -860,7 +862,7 @@ export class ListReservations implements OnInit {
     if (reservation.real_check_in) return false;
 
     const visual = this.getVisualStatus(reservation as ReservationI);
-    return !['EN_CURSO', 'POR_SALIR_HOY', 'CANCELADA', 'FINALIZADA'].includes(visual);
+    return !['EN_CURSO', 'POR_SALIR_HOY', 'CANCELADA', 'NO_SHOW', 'FINALIZADA'].includes(visual);
   }
 
   trackByReservation(_: number, reservation: ReservationI): number {
@@ -1246,6 +1248,7 @@ export class ListReservations implements OnInit {
     const statusCode = this.normalizeCode(reservation.status_code);
 
     if (statusCode === 'CANCELADA') return 'CANCELADA';
+    if (statusCode === 'NO_SHOW') return 'NO_SHOW';
     if (statusCode === 'FINALIZADA') return 'FINALIZADA';
 
     if (this.isCheckoutToday(reservation) && ['CONFIRMADA', 'EN_CURSO', 'PENDIENTE'].includes(statusCode)) {
@@ -1313,6 +1316,8 @@ export class ListReservations implements OnInit {
           actionBg: 'var(--gh-status-orange-strong)',
           actionColor: 'var(--gh-on-brand)'
         };
+      case 'NO_SHOW':
+        return { ...this.resolveStatusStyle('CANCELADA'), label: 'No se presento' };
       case 'CANCELADA':
         return {
           label: 'Cancelada',
