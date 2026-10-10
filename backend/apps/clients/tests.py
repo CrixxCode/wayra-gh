@@ -240,3 +240,92 @@ class OnlyDeletedScopeTests(TestCase):
 
         self.assertEqual(api.get("/api/clients/").status_code, 200)
         self.assertEqual(api.get("/api/clients/", {"only_deleted": "true"}).status_code, 403)
+
+
+class ClientApiTests(TestCase):
+    """ViewSet de clientes: scopes, unicidad por hotel, aislamiento y restauracion (B5 #8)."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        from accounts.test_helpers import make_hotel_user
+        from apps.hotel_settings.test_utils import create_configured_hotel
+
+        def md(group, code):
+            return MasterData.objects.update_or_create(
+                group=group, code=code, defaults={"name": code.title(), "is_active": True}
+            )[0]
+
+        md(MasterData.Group.DOCUMENT_TYPE, "CC")
+        md(MasterData.Group.CLIENT_STATUS, "ACTIVO")
+        for code in ("REGULAR", "FRECUENTE", "VIP"):
+            md(MasterData.Group.CLIENT_TYPE, code)
+
+        self.hotel = create_configured_hotel(hotel_name="Hotel Clientes A")
+        self.other_hotel = create_configured_hotel(hotel_name="Hotel Clientes B")
+        self.writer = make_hotel_user(self.hotel, "clients.read", "clients.write")
+        self.reader = make_hotel_user(self.hotel, "clients.read")
+        self.other_writer = make_hotel_user(self.other_hotel, "clients.read", "clients.write")
+        self.api = APIClient()
+
+    def _create(self, document="1001", email="ana@example.com"):
+        return self.api.post(
+            "/api/clients/",
+            {
+                "document_type": "CC",
+                "document_number": document,
+                "first_name": "Ana",
+                "last_name": "Perez",
+                "email": email,
+                "phone": "3000000000",
+                "country": "CO",
+            },
+            format="json",
+        )
+
+    def _rows(self, response):
+        return response.data["results"] if isinstance(response.data, dict) else response.data
+
+    def test_reader_cannot_create(self):
+        self.api.force_authenticate(self.reader)
+        self.assertEqual(self._create().status_code, 403)
+
+    def test_document_is_unique_per_hotel_not_globally(self):
+        self.api.force_authenticate(self.writer)
+        self.assertEqual(self._create().status_code, 201)
+        self.assertEqual(self._create(email="otra@example.com").status_code, 400)
+
+        # El mismo documento en otro hotel es otro cliente.
+        self.api.force_authenticate(self.other_writer)
+        self.assertEqual(self._create().status_code, 201)
+
+    def test_listing_is_isolated_by_hotel(self):
+        self.api.force_authenticate(self.other_writer)
+        self._create(document="2002", email="b@example.com")
+        self.api.force_authenticate(self.writer)
+        self._create()
+
+        documents = {row["document_number"] for row in self._rows(self.api.get("/api/clients/"))}
+
+        self.assertEqual(documents, {"1001"})
+
+    def test_delete_is_logical_and_can_be_restored(self):
+        self.api.force_authenticate(self.writer)
+        client_id = self._create().data["id"]
+        self.assertEqual(self.api.delete(f"/api/clients/{client_id}/").status_code, 204)
+        self.assertEqual(self.api.get(f"/api/clients/{client_id}/").status_code, 404)
+
+        self.assertEqual(self.api.post(f"/api/clients/{client_id}/restore/").status_code, 200)
+        self.assertEqual(self.api.get(f"/api/clients/{client_id}/").status_code, 200)
+
+    def test_public_register_is_closed_by_default(self):
+        response = self._create_anonymous()
+        self.assertIn(response.status_code, (401, 403))
+
+    def _create_anonymous(self):
+        self.api.force_authenticate(None)
+        return self.api.post(
+            "/api/clients/register/",
+            {"document_type": "CC", "document_number": "3003", "first_name": "X", "last_name": "Y"},
+            format="json",
+        )

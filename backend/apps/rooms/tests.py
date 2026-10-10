@@ -12,7 +12,7 @@ from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
+from rest_framework.test import APIClient, APIRequestFactory, APITestCase, force_authenticate
 
 from accounts.models import Resource, Role, SoftDeleteMarker
 from apps.billing.models import Charge, Invoice, Payment
@@ -1856,3 +1856,82 @@ class RecurringWorkMaterializesOnReadTests(TestCase):
         self.assertTrue(
             RecurringWork.objects.filter(hotel_settings=otro, next_run_on=timezone.localdate()).exists()
         )
+
+
+class CleaningAndMaintenanceApiTests(APITestCase):
+    """CRUD, scopes, aislamiento por hotel y restauracion (auditoria, Bloque 4 #14)."""
+
+    def setUp(self):
+        from accounts.test_helpers import make_hotel_user
+        from apps.hotel_settings.test_utils import create_configured_hotel
+
+        def md(group, code):
+            return MasterData.objects.update_or_create(
+                group=group, code=code, defaults={"name": code.title(), "is_active": True}
+            )[0]
+
+        md(MasterData.Group.CLEANING_TASK_TYPE, "PROFUNDA")
+        md(MasterData.Group.CLEANING_STATUS, "PENDIENTE")
+        md(MasterData.Group.MAINTENANCE_PRIORITY, "BAJA")
+        md(MasterData.Group.MAINTENANCE_STATUS, "PENDIENTE")
+
+        self.hotel = create_configured_hotel(hotel_name="Hotel Operaciones A")
+        self.other_hotel = create_configured_hotel(hotel_name="Hotel Operaciones B")
+        self.room = Room.objects.get(floor__hotel_settings=self.hotel)
+        self.other_room = Room.objects.get(floor__hotel_settings=self.other_hotel)
+        self.writer = make_hotel_user(
+            self.hotel,
+            "cleaning_tasks.read",
+            "cleaning_tasks.write",
+            "maintenance_orders.read",
+            "maintenance_orders.write",
+        )
+        self.reader = make_hotel_user(self.hotel, "cleaning_tasks.read", "maintenance_orders.read")
+
+    def _cleaning(self, room):
+        return self.client.post(
+            "/api/cleaning-tasks/",
+            {"room": room.id, "task_type": "PROFUNDA", "status": "PENDIENTE"},
+            format="json",
+        )
+
+    def _maintenance(self, room):
+        return self.client.post(
+            "/api/maintenance-orders/",
+            {"room": room.id, "title": "Fuga", "priority": "BAJA", "status": "PENDIENTE"},
+            format="json",
+        )
+
+    def test_create_and_list_only_the_own_hotel(self):
+        self.client.force_authenticate(self.writer)
+        self.assertEqual(self._cleaning(self.room).status_code, 201)
+        CleaningTask.objects.create(
+            room=self.other_room,
+            task_type=MasterData.objects.get(group=MasterData.Group.CLEANING_TASK_TYPE, code="PROFUNDA"),
+            status=MasterData.objects.get(group=MasterData.Group.CLEANING_STATUS, code="PENDIENTE"),
+        )
+
+        response = self.client.get("/api/cleaning-tasks/")
+        rows = response.data["results"] if isinstance(response.data, dict) else response.data
+        self.assertEqual({row["room"] for row in rows}, {self.room.id})
+
+    def test_cannot_create_work_on_another_hotels_room(self):
+        self.client.force_authenticate(self.writer)
+        self.assertEqual(self._cleaning(self.other_room).status_code, 400)
+        self.assertEqual(self._maintenance(self.other_room).status_code, 400)
+
+    def test_writing_requires_the_write_scope(self):
+        self.client.force_authenticate(self.reader)
+        self.assertEqual(self._cleaning(self.room).status_code, 403)
+        self.assertEqual(self._maintenance(self.room).status_code, 403)
+
+    def test_deleted_maintenance_order_can_be_restored(self):
+        self.client.force_authenticate(self.writer)
+        order = self._maintenance(self.room).data
+        self.assertEqual(self.client.delete(f"/api/maintenance-orders/{order['id']}/").status_code, 204)
+        self.assertEqual(self.client.get(f"/api/maintenance-orders/{order['id']}/").status_code, 404)
+
+        restored = self.client.post(f"/api/maintenance-orders/{order['id']}/restore/")
+
+        self.assertEqual(restored.status_code, 200, restored.data)
+        self.assertEqual(self.client.get(f"/api/maintenance-orders/{order['id']}/").status_code, 200)

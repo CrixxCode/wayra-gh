@@ -61,3 +61,61 @@ class RetiredMasterDataGroupsTests(APITestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("group", response.json().get("errors", {}))
+
+
+class MasterDataApiTests(APITestCase):
+    """Cobertura basica del catalogo que consumen ~12 pantallas (auditoria, Bloque 3 #5)."""
+
+    def setUp(self):
+        from accounts.test_helpers import make_hotel_user
+        from apps.hotel_settings.test_utils import create_configured_hotel
+
+        hotel = create_configured_hotel(hotel_name="Hotel Catalogo")
+        self.reader = make_hotel_user(hotel, "master_data.read")
+        self.writer = make_hotel_user(hotel, "master_data.read", "master_data.write")
+
+    def _create(self, code, group="DOCUMENT_TYPE", name="Valor"):
+        return self.client.post(
+            "/api/master-data/", {"group": group, "code": code, "name": name}, format="json"
+        )
+
+    def test_code_is_normalized_to_uppercase(self):
+        self.client.force_authenticate(self.writer)
+        response = self._create("  doc_prueba_zz ")
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["code"], "DOC_PRUEBA_ZZ")
+
+    def test_group_and_code_are_unique(self):
+        self.client.force_authenticate(self.writer)
+        self.assertEqual(self._create("NIT_ZZ").status_code, 201)
+        duplicated = self._create("nit_zz")
+        self.assertEqual(duplicated.status_code, 400)
+
+    def test_unknown_group_is_rejected(self):
+        self.client.force_authenticate(self.writer)
+        self.assertEqual(self._create("X", group="PAYMENT_METHODS").status_code, 400)
+
+    def test_writing_requires_the_write_scope(self):
+        self.client.force_authenticate(self.reader)
+        self.assertEqual(self._create("CE_ZZ").status_code, 403)
+        self.assertEqual(self.client.get("/api/master-data/").status_code, 200)
+
+    def test_filters_by_group(self):
+        self.client.force_authenticate(self.writer)
+        self._create("TI_ZZ")
+        self._create("PRUEBA_ORIGEN", group="RESERVATION_ORIGIN")
+        response = self.client.get("/api/master-data/", {"group": "reservation_origin"})
+        rows = response.data["results"] if isinstance(response.data, dict) else response.data
+        self.assertTrue(rows)
+        self.assertTrue(all(row["group"] == "RESERVATION_ORIGIN" for row in rows))
+
+    def test_delete_is_logical_and_can_be_restored(self):
+        self.client.force_authenticate(self.writer)
+        created = self._create("RC_ZZ").data
+        self.assertEqual(self.client.delete(f"/api/master-data/{created['id']}/").status_code, 204)
+        self.assertEqual(self.client.get(f"/api/master-data/{created['id']}/").status_code, 404)
+        # La fila sigue en la base (borrado logico, 5.5).
+        self.assertTrue(MasterData.objects.filter(pk=created["id"]).exists())
+        restored = self.client.post(f"/api/master-data/{created['id']}/restore/")
+        self.assertEqual(restored.status_code, 200, restored.data)
+        self.assertEqual(self.client.get(f"/api/master-data/{created['id']}/").status_code, 200)

@@ -343,3 +343,83 @@ class PromotionBillingTests(TestCase):
         promotion.save()
 
         self.assertEqual(self._financials()["promotion_discount_total"], self.Decimal("3000.00"))
+
+
+class CatalogValidationApiTests(TestCase):
+    """Reglas de `clean()`/`validate()` del catalogo comercial por API (auditoria, Bloque 7 #8)."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        from accounts.test_helpers import make_hotel_user
+        from apps.hotel_settings.test_utils import create_configured_hotel
+        from apps.master_data.models import MasterData
+
+        def md(group, code):
+            return MasterData.objects.update_or_create(
+                group=group, code=code, defaults={"name": code.title(), "is_active": True}
+            )[0]
+
+        self.service_type = md(MasterData.Group.SERVICE_TYPE, "SPA")
+        self.percentage = md(MasterData.Group.PROMOTION_DISCOUNT_TYPE, "PERCENTAGE")
+        self.hotel = create_configured_hotel(hotel_name="Hotel Catalogo Comercial")
+        self.user = make_hotel_user(
+            self.hotel,
+            "services.read",
+            "services.write",
+            "packages.read",
+            "packages.write",
+            "promotions.read",
+            "promotions.write",
+        )
+        self.reader = make_hotel_user(self.hotel, "services.read", "promotions.read")
+        self.api = APIClient()
+        self.api.force_authenticate(self.user)
+
+    def _service(self, **overrides):
+        payload = {"service_type": self.service_type.id, "name": "Masaje", "base_price": "50000"}
+        payload.update(overrides)
+        return self.api.post("/api/services/", payload, format="json")
+
+    def _promotion(self, **overrides):
+        payload = {
+            "discount_type": self.percentage.id,
+            "name": "Temporada",
+            "discount_value": "10",
+            "start_date": "2026-11-01",
+            "end_date": "2026-11-30",
+        }
+        payload.update(overrides)
+        return self.api.post("/api/promotions/", payload, format="json")
+
+    def test_service_rejects_negative_price_and_duplicate_name(self):
+        self.assertEqual(self._service(base_price="-1").status_code, 400)
+        self.assertEqual(self._service().status_code, 201)
+        self.assertEqual(self._service().status_code, 400)
+
+    def test_promotion_rules(self):
+        self.assertEqual(self._promotion(discount_value="101").status_code, 400)
+        self.assertEqual(self._promotion(discount_value="0").status_code, 400)
+        self.assertEqual(self._promotion(start_date="2026-12-01").status_code, 400)
+        self.assertEqual(self._promotion().status_code, 201)
+        self.assertEqual(self._promotion(code=None).status_code, 400)  # nombre repetido
+
+    def test_package_needs_services_and_a_valid_date_range(self):
+        service_id = self._service().data["id"]
+        base = {"name": "Romance", "base_price": "200000"}
+        self.assertEqual(self.api.post("/api/packages/", base, format="json").status_code, 400)
+        bad_range = dict(base, service_ids=[service_id], start_date="2026-12-10", end_date="2026-12-01")
+        self.assertEqual(self.api.post("/api/packages/", bad_range, format="json").status_code, 400)
+        ok = dict(base, service_ids=[service_id])
+        self.assertEqual(self.api.post("/api/packages/", ok, format="json").status_code, 201)
+
+    def test_writing_requires_the_write_scope(self):
+        self.api.force_authenticate(self.reader)
+        self.assertEqual(self._service().status_code, 403)
+        self.assertEqual(self._promotion().status_code, 403)
+
+    def test_deleted_service_can_be_restored(self):
+        service_id = self._service().data["id"]
+        self.assertEqual(self.api.delete(f"/api/services/{service_id}/").status_code, 204)
+        self.assertEqual(self.api.post(f"/api/services/{service_id}/restore/").status_code, 200)
+        self.assertEqual(self.api.get(f"/api/services/{service_id}/").status_code, 200)

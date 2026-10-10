@@ -1827,3 +1827,43 @@ class HealthAndSessionCodeTests(APITestCase):
         response = self.client.get("/api/auth/me/")
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data["code"], "not_authenticated")
+
+
+class MustChangePasswordWithInactiveHotelTests(APITestCase):
+    """Bloque 15 #10: `must_change_password` combinado con un hotel inactivo."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.hotel = create_configured_hotel(hotel_name="Hotel Apagado", is_active=False)
+        self.user = User.objects.create_user(
+            username="primer_ingreso_apagado",
+            password="Pass12345!",
+            hotel_settings=self.hotel,
+            must_change_password=True,
+        )
+
+    def test_login_is_refused_with_the_hotel_inactive_code(self):
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": "primer_ingreso_apagado", "password": "Pass12345!"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data["code"], "hotel_inactive")
+
+    def test_the_forced_password_change_is_still_reachable(self):
+        # La correccion de B15 #2: con el hotel inactivo, el usuario puede al menos salir del
+        # estado "debe cambiar la contrasena"; no queda atrapado entre los dos middlewares.
+        # El resto de la API le sigue cerrada.
+        self.client.force_login(self.user)
+        response = self.client.post(
+            "/api/auth/password/change/",
+            {"old_password": "Pass12345!", "new_password": "OtraClave987!"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.must_change_password)
+        self.assertEqual(self.client.get("/api/rooms/").json().get("code"), "hotel_inactive")

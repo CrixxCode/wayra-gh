@@ -1401,6 +1401,43 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ## 12. Registro de cambios
 
+### 2026-10-10 — Auditoría, tanda 12: cobertura de tests
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** incluido en este commit
+- **Tipo:** tests
+- **Qué se hizo:**
+  - **Helper nuevo `accounts/test_helpers.make_hotel_user(hotel, *scopes)`:** crea un usuario de
+    hotel con un rol que tiene exactamente esos scopes. Con un superusuario, el test pasaría
+    justo el RBAC que quiere probar.
+  - **B3 #5 Master Data:** código en mayúsculas, unicidad `(group, code)`, grupo desconocido,
+    scope de escritura, filtro por grupo, y borrado lógico con restauración.
+  - **B4 #14 Limpieza y mantenimiento:** alta y listado aislados por hotel, rechazo de trabajos
+    sobre habitaciones de otro hotel, scope de escritura y restauración de una orden.
+  - **B5 #8 Clientes:** scopes, documento único por hotel (no global), aislamiento, borrado y
+    restauración, y registro público cerrado por defecto.
+  - **B7 #8 Catálogo:** precio negativo, nombre duplicado, descuento > 100 % o cero, rango de
+    fechas, paquete sin servicios, scopes y restauración.
+  - **B9 #13 Egresos:** un egreso borrado no reaparece (el bug #1 del bloque), validaciones y
+    scopes.
+  - **B12 #12 Notificaciones:** `mark-all-as-read` solo toca las propias, y `scope=hotel` solo
+    para quien tiene `notifications.write`.
+  - **B13 #11 SaaS:** un usuario de hotel no ve ni convierte solicitudes de demo, convertir dos
+    veces no crea un segundo hotel, y la plataforma ve los hoteles inactivos.
+  - **B15 #10:** `must_change_password` con el hotel inactivo. El login responde
+    `hotel_inactive`, y con sesión abierta el cambio de contraseña sigue disponible mientras el
+    resto de la API queda cerrada (protege la corrección de B15 #2).
+  - **B11 #11 Reportes:** ocupación con datos reales, sin simular los builders. Una estadía que
+    cruza el fin de mes cuenta solo sus noches del periodo; las canceladas y los no-show no
+    ocupan.
+  - Ya estaban cubiertos por tandas anteriores: **B2 #12** (pisos, `clear`, restauraciones),
+    **B6 #19** (check-out sin revisión, ítem sin precio) y **B8 #13** (pago sobre factura
+    anulada, notas de crédito).
+- **Por qué:** los planes de cada bloque señalaban que esos huecos dejaron pasar varios bugs.
+- **Archivos/áreas afectadas:** `backend/accounts/{test_helpers,tests}.py`,
+  `backend/apps/{master_data,rooms,clients,promotions,finance,notifications,demo_requests,reports}/tests.py`.
+- **Impacto:** solo tests; ningún cambio de comportamiento.
+
 ### 2026-10-09 — Auditoría, tanda 11: limpieza de código muerto
 
 - **Autor:** Claude Code, a solicitud de Cristian Ramirez.

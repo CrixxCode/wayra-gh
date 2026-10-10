@@ -501,3 +501,75 @@ class CoerceToDateLocalDayTests(SimpleTestCase):
     def test_nothing_in_nothing_out(self):
         self.assertIsNone(_coerce_to_date(None))
         self.assertIsNone(_coerce_to_date("2026-08-12"))
+
+
+class OccupancyAggregationRealDataTests(APITestCase):
+    """
+    Agregacion de ocupacion con datos reales, sin simular los builders (auditoria, Bloque 11
+    #11): noches que cruzan el borde del periodo y estados que no deben contar.
+    """
+
+    def setUp(self):
+        from apps.clients.models import Client
+        from apps.master_data.models import MasterData
+        from apps.reservations.models import Reservation, ReservationRoom
+        from apps.rooms.models import Room
+
+        def md(group, code):
+            return MasterData.objects.update_or_create(
+                group=group, code=code, defaults={"name": code.title(), "is_active": True}
+            )[0]
+
+        self.hotel = create_configured_hotel(hotel_name="Hotel Ocupacion Real")
+        room = Room.objects.get(floor__hotel_settings=self.hotel)
+        client = Client.objects.create(
+            hotel_settings=self.hotel,
+            document_type=md(MasterData.Group.DOCUMENT_TYPE, "CC"),
+            document_number="7007",
+            first_name="Rita",
+            last_name="Real",
+            email="rita@example.com",
+            client_type=md(MasterData.Group.CLIENT_TYPE, "REGULAR"),
+            status=md(MasterData.Group.CLIENT_STATUS, "ACTIVO"),
+        )
+
+        def reservation(status_code, check_in, check_out):
+            created = Reservation.objects.create(
+                client=client,
+                hotel_settings=self.hotel,
+                status=md(MasterData.Group.RESERVATION_STATUS, status_code),
+                origin=md(MasterData.Group.RESERVATION_ORIGIN, "WEB"),
+                expected_check_in=check_in,
+                expected_check_out=check_out,
+            )
+            ReservationRoom.objects.create(reservation=created, room=room, night_rate=100000)
+            return created
+
+        # Cruza el fin de mes: del 28 al 3, tres noches caen en noviembre (28, 29 y 30).
+        self.crossing = reservation("CONFIRMADA", date(2026, 11, 28), date(2026, 12, 3))
+        # Ni la cancelada ni el no-show ocupan la habitacion.
+        reservation("CANCELADA", date(2026, 11, 10), date(2026, 11, 12))
+        reservation("NO_SHOW", date(2026, 11, 15), date(2026, 11, 17))
+
+    def test_overlap_counts_only_the_nights_inside_the_period(self):
+        from apps.reports.services import _get_overlapping_reservation_rows
+
+        rows = _get_overlapping_reservation_rows(
+            hotel_settings_id=self.hotel.id,
+            start_date=date(2026, 11, 1),
+            end_date=date(2026, 11, 30),
+        )
+
+        self.assertEqual([(row.reservation_id, nights) for row, nights in rows], [(self.crossing.id, 3)])
+
+    def test_occupancy_report_runs_on_real_data(self):
+        from apps.reports.services import build_occupancy_report
+
+        report = build_occupancy_report(
+            hotel_settings_id=self.hotel.id,
+            start_date=date(2026, 11, 1),
+            end_date=date(2026, 11, 30),
+        )
+
+        # Una habitacion, 3 de 30 noches ocupadas: 10 %.
+        self.assertAlmostEqual(report["kpis"]["average_occupancy"]["value"], 10.0, places=1)

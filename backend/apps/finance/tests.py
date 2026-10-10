@@ -1052,3 +1052,60 @@ class WhatIfCreditNoteDistortionTests(TestCase):
         # Ocupacion x2 y tarifa +10% sobre los 100.000 netos. Con "otros ingresos" negativos
         # daba 300.000 x 2 x 1,1 - 200.000 x 2 = 260.000.
         self.assertEqual(captured["net_revenue"], Decimal("220000.00"))
+
+
+class ExpenseApiTests(TestCase):
+    """CRUD de egresos por API: scopes, borrado logico y aislamiento (auditoria, Bloque 9 #13)."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        from accounts.test_helpers import make_hotel_user
+        from apps.hotel_settings.models import PaymentMethod
+        from apps.hotel_settings.test_utils import create_configured_hotel
+        from apps.master_data.models import MasterData
+
+        self.category = MasterData.objects.update_or_create(
+            group=MasterData.Group.EXPENSE_CATEGORY,
+            code="SERVICIOS_PUBLICOS",
+            defaults={"name": "Servicios publicos", "is_active": True},
+        )[0]
+        self.hotel = create_configured_hotel(hotel_name="Hotel Egresos A")
+        self.other_hotel = create_configured_hotel(hotel_name="Hotel Egresos B")
+        self.foreign_method = PaymentMethod.objects.create(
+            hotel_settings=self.other_hotel, name="Efectivo B"
+        )
+        self.writer = make_hotel_user(self.hotel, "expenses.read", "expenses.write")
+        self.reader = make_hotel_user(self.hotel, "expenses.read")
+        self.api = APIClient()
+
+    def _create(self, **overrides):
+        payload = {
+            "expense_category": self.category.id,
+            "concept": "Energia",
+            "amount": "120000",
+            "expense_date": "2026-10-01",
+        }
+        payload.update(overrides)
+        return self.api.post("/api/expenses/", payload, format="json")
+
+    def test_delete_then_get_does_not_return_it(self):
+        # Exactamente el bug #1 del bloque: borrado que seguia apareciendo.
+        self.api.force_authenticate(self.writer)
+        expense_id = self._create().data["id"]
+        self.assertEqual(self.api.delete(f"/api/expenses/{expense_id}/").status_code, 204)
+
+        listing = self.api.get("/api/expenses/")
+        rows = listing.data["results"] if isinstance(listing.data, dict) else listing.data
+        self.assertNotIn(expense_id, [row["id"] for row in rows])
+        self.assertEqual(self.api.get(f"/api/expenses/{expense_id}/").status_code, 404)
+
+    def test_validations(self):
+        self.api.force_authenticate(self.writer)
+        self.assertEqual(self._create(amount="0").status_code, 400)
+        self.assertEqual(self._create(concept="   ").status_code, 400)
+        self.assertEqual(self._create(payment_method=self.foreign_method.id).status_code, 400)
+
+    def test_reader_cannot_write(self):
+        self.api.force_authenticate(self.reader)
+        self.assertEqual(self._create().status_code, 403)

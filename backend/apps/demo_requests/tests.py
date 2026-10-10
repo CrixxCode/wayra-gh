@@ -479,6 +479,64 @@ class DemoRequestFlowTests(APITestCase):
         )
         self.assertEqual(codes, ["SENCILLA", "SENCILLA_2"])
 
+    def test_hotel_user_cannot_touch_demo_requests(self):
+        # Bloque 13 #11: la consola de demos es solo de la plataforma, aun con scopes amplios.
+        from accounts.test_helpers import make_hotel_user
+        from apps.hotel_settings.test_utils import create_configured_hotel
+
+        demo_request = DemoRequest.objects.create(**self.payload)
+        hotel_user = make_hotel_user(
+            create_configured_hotel(hotel_name="Hotel Curioso"),
+            "demo_requests.read",
+            "demo_requests.write",
+            "hotel_settings.read",
+            "hotel_settings.write",
+        )
+        self.client.force_authenticate(user=hotel_user)
+
+        self.assertEqual(self.client.get("/api/demo-requests/").status_code, 403)
+        converted = self.client.patch(
+            f"/api/demo-requests/{demo_request.id}/", {"status": "CONVERTED"}, format="json"
+        )
+        self.assertEqual(converted.status_code, 403)
+        demo_request.refresh_from_db()
+        self.assertNotEqual(demo_request.status, DemoRequest.Status.CONVERTED)
+
+    @patch("apps.demo_requests.views.EmailMultiAlternatives.send", return_value=1)
+    def test_converting_twice_does_not_create_a_second_hotel(self, send_mock):
+        Role.objects.get_or_create(slug="admin", defaults={"name": "Administrador"})
+        admin = get_user_model().objects.create_superuser(
+            username="platform-twice", email="twice@example.com", password="TempPass123!"
+        )
+        demo_request = DemoRequest.objects.create(**self.payload)
+        self.client.force_authenticate(user=admin)
+        url = f"/api/demo-requests/{demo_request.id}/"
+
+        first = self.client.patch(url, {"status": "CONVERTED"}, format="json", HTTP_HOST="localhost")
+        self.assertEqual(first.status_code, 200, first.data)
+        hotels_after_first = HotelSettings.objects.count()
+        users_after_first = get_user_model().objects.count()
+
+        self.client.patch(url, {"status": "CONVERTED"}, format="json", HTTP_HOST="localhost")
+
+        self.assertEqual(HotelSettings.objects.count(), hotels_after_first)
+        self.assertEqual(get_user_model().objects.count(), users_after_first)
+
+    def test_platform_admin_sees_inactive_hotels(self):
+        from apps.hotel_settings.test_utils import create_configured_hotel
+
+        admin = get_user_model().objects.create_superuser(
+            username="platform-inactive", email="inactive@example.com", password="TempPass123!"
+        )
+        create_configured_hotel(hotel_name="Hotel Suspendido", is_active=False)
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.get("/api/hotel-settings/", {"include_inactive": "true"})
+
+        self.assertEqual(response.status_code, 200)
+        rows = response.data["results"] if isinstance(response.data, dict) else response.data
+        self.assertIn("Hotel Suspendido", [row["hotel_name"] for row in rows])
+
     def test_converted_request_cannot_return_to_followup_status(self):
         User = get_user_model()
         admin = User.objects.create_superuser(

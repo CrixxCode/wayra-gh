@@ -476,3 +476,53 @@ class OperationalAlertReachesTheBellTests(TestCase):
         notification = Notification.objects.get(user=manager, related_object_id=str(alert.id))
         self.assertEqual(notification.action_url, "/control-financiero")
         self.assertEqual(notification.priority, Notification.Priority.CRITICAL)
+
+
+class NotificationScopesAndBulkReadTests(APITestCase):
+    """`mark-all-as-read` y la vista de gerentes `scope=hotel` (auditoria, Bloque 12 #12)."""
+
+    def setUp(self):
+        from django.utils import timezone
+
+        from accounts.test_helpers import make_hotel_user
+        from apps.hotel_settings.test_utils import create_configured_hotel
+
+        # Las notificaciones diarias que genera la campana se dan por hechas (`scheduled.py`).
+        self.hotel = create_configured_hotel(
+            hotel_name="Hotel Campana Scopes", daily_notifications_ran_on=timezone.localdate()
+        )
+        self.receptionist = make_hotel_user(self.hotel, "notifications.read")
+        self.manager = make_hotel_user(self.hotel, "notifications.read", "notifications.write")
+        # Crear usuarios dispara sus propios avisos; el test parte de cero.
+        Notification.objects.all().delete()
+        for user, title in ((self.receptionist, "Para recepcion"), (self.receptionist, "Otra"), (self.manager, "Para gerencia")):
+            Notification.objects.create(
+                hotel_settings=self.hotel,
+                user=user,
+                title=title,
+                message="...",
+                notification_type=Notification.NotificationType.SYSTEM,
+            )
+
+    def _titles(self, response):
+        rows = response.data["results"] if isinstance(response.data, dict) else response.data
+        return {row["title"] for row in rows}
+
+    def test_mark_all_as_read_only_touches_my_notifications(self):
+        self.client.force_authenticate(self.receptionist)
+
+        response = self.client.post("/api/notifications/mark-all-as-read/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["updated"], 2)
+        self.assertFalse(Notification.objects.get(title="Para gerencia").is_read)
+
+    def test_hotel_scope_is_for_managers_only(self):
+        self.client.force_authenticate(self.receptionist)
+        own = self._titles(self.client.get("/api/notifications/", {"scope": "hotel"}))
+        # Sin `notifications.write` el scope se ignora: solo ve las suyas.
+        self.assertEqual(own, {"Para recepcion", "Otra"})
+
+        self.client.force_authenticate(self.manager)
+        everything = self._titles(self.client.get("/api/notifications/", {"scope": "hotel"}))
+        self.assertEqual(everything, {"Para recepcion", "Otra", "Para gerencia"})
