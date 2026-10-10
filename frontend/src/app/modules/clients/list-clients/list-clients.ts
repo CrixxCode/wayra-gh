@@ -118,14 +118,15 @@ export class ListClients implements OnInit {
       clients: this.clientsService
         .listClients({ include_inactive: true })
         .pipe(catchError(() => of([] as ClientI[]))),
-      allClients: this.clientsService
-        .listClients({ include_inactive: true, include_deleted: true })
+      // Solo los eliminados: antes se bajaba el listado completo una segunda vez y se restaba
+      // aqui (auditoria, Bloque 5 #7).
+      deletedClients: this.clientsService
+        .listClients({ include_inactive: true, only_deleted: true })
         .pipe(catchError(() => of([] as ClientI[])))
     }).subscribe({
-      next: ({ clients, allClients }) => {
+      next: ({ clients, deletedClients }) => {
         this.clients = clients;
-        const visibleIds = new Set(clients.map((client) => client.id));
-        this.deletedClients = allClients.filter((client) => !visibleIds.has(client.id));
+        this.deletedClients = deletedClients;
         this.updateStats();
         this.applyFilters();
         this.loading = false;

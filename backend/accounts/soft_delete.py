@@ -94,13 +94,23 @@ class LogicalDeleteViewSetMixin:
 
         return self._parse_bool(request.query_params.get("include_inactive"))
 
+    def _should_return_only_deleted(self) -> bool:
+        if getattr(self, "_resolving_restore_queryset", False):
+            return False
+        request = getattr(self, "request", None)
+        if not request or getattr(self, "action", None) != "list":
+            return False
+        return self._parse_bool(request.query_params.get("only_deleted"))
+
     def _should_include_deleted(self) -> bool:
         if getattr(self, "_resolving_restore_queryset", False):
             return True
         request = getattr(self, "request", None)
         if not request:
             return False
-        return self._parse_bool(request.query_params.get("include_deleted"))
+        # `only_deleted` tambien muestra eliminados: pasa por el mismo scope `*.read_deleted`
+        # que `HasResourcePermission` exige al ver que esto devuelve True.
+        return self._parse_bool(request.query_params.get("include_deleted")) or self._should_return_only_deleted()
 
     def _apply_tenant_scope_if_available(self, queryset):
         tenant_filter_getter = getattr(self, "get_tenant_filter", None)
@@ -154,7 +164,11 @@ class LogicalDeleteViewSetMixin:
         queryset = super().get_queryset()
         model_class = queryset.model
 
-        if not self._should_include_deleted():
+        if self._should_return_only_deleted():
+            # Solo los eliminados: para la seccion "Ver eliminados" sin bajar todo el listado
+            # dos veces y restarlo en el cliente (auditoria, Bloque 5 #7).
+            queryset = queryset.exclude(pk__in=exclude_soft_deleted(queryset).values("pk"))
+        elif not self._should_include_deleted():
             queryset = exclude_soft_deleted(queryset)
 
         if self._model_has_field(model_class, "is_active"):

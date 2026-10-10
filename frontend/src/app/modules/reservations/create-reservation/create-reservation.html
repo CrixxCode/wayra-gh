@@ -41,9 +41,18 @@
                 Agregar cliente
               </button>
             </div>
+            <input
+              type="search"
+              class="client-search"
+              placeholder="Buscar por nombre o documento"
+              aria-label="Buscar cliente por nombre o documento"
+              [value]="clientSearch"
+              (input)="onClientSearch($event)" />
             <select formControlName="client" [class.input-error]="isControlInvalid('client')">
-              <option [ngValue]="null">Selecciona cliente</option>
-              <option *ngFor="let client of availableClients; trackBy: trackById" [ngValue]="client.id">
+              <option [ngValue]="null">
+                {{ clientSearch ? filteredClients.length + ' coincidencia(s)' : 'Selecciona cliente' }}
+              </option>
+              <option *ngFor="let client of filteredClients; trackBy: trackById" [ngValue]="client.id">
                 {{ getClientOptionLabel(client) }}
               </option>
             </select>
@@ -177,6 +186,10 @@
                   </option>
                 </select>
                 <small class="field-error" *ngIf="getRoomFieldError(idx, 'room') as error">{{ error }}</small>
+                <small class="field-warning" *ngIf="getRoomMaintenanceWarning(idx) as warning">
+                  <i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i>
+                  {{ warning }}
+                </small>
               </label>
 
               <label>

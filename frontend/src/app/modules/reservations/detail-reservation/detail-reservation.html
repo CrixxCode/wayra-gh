@@ -56,6 +56,16 @@
       <p class="state-msg" *ngIf="loading">Consultando informacion de la reserva...</p>
       <p class="state-msg error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
       <p class="state-msg" *ngIf="!loading && billingWarning" role="status">{{ billingWarning }}</p>
+      <!-- Se avisa, no se bloquea (decision del 2026-10-09, Bloque 4 #8). -->
+      <div class="maintenance-alert" *ngIf="!loading && reservation?.maintenance_alerts?.length" role="status">
+        <i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i>
+        <div>
+          <strong>Mantenimiento urgente abierto</strong>
+          <span *ngFor="let alert of reservation?.maintenance_alerts">
+            Hab. {{ alert.room_number }}: {{ alert.title }} ({{ alert.priority_label }})
+          </span>
+        </div>
+      </div>
 
       <ng-container *ngIf="!loading && reservation">
         <section>

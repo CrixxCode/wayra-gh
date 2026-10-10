@@ -60,6 +60,13 @@
               La reserva no tiene huespedes registrados. Registralos antes de dar el ingreso.
             </p>
 
+            <!-- Se avisa, no se bloquea (decision del 2026-10-09, Bloque 4 #8). -->
+            <p class="check-alert is-warning" *ngIf="urgentMaintenanceCount > 0">
+              <i class="fa-solid fa-screwdriver-wrench"></i>
+              La habitacion tiene {{ urgentMaintenanceCount }} orden(es) de mantenimiento urgente
+              abierta(s). Revisala antes de entregarla.
+            </p>
+
             <p class="check-alert is-warning" *ngIf="guestsWithoutDocument > 0">
               <i class="fa-solid fa-id-card"></i>
               {{ guestsWithoutDocument }} huesped(es) sin documento registrado. Completa el dato en la

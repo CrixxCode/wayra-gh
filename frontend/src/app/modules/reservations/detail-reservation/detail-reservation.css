@@ -1177,3 +1177,20 @@ h3 {
   white-space: nowrap;
 }
 
+.maintenance-alert {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--gh-status-orange-strong);
+  border-radius: 10px;
+  background: var(--gh-status-orange-bg);
+  color: var(--gh-status-orange-text);
+  font-size: 0.82rem;
+}
+
+.maintenance-alert div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

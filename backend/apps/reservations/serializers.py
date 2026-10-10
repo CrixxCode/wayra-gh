@@ -970,6 +970,9 @@ class ReservationDetailSerializer(ReservationBusinessRulesMixin, serializers.Mod
     rooms_detail = ReservationRoomSerializer(many=True, read_only=True)
     guests = ReservationGuestSerializer(many=True, read_only=True)
     deposits = serializers.SerializerMethodField()
+    # Ordenes urgentes o altas abiertas en sus habitaciones: se avisan antes del check-in,
+    # no bloquean (decision del 2026-10-09, Bloque 4 #8).
+    maintenance_alerts = serializers.SerializerMethodField()
     policies = ReservationPolicySummarySerializer(many=True, read_only=True)
 
     total_rooms = serializers.IntegerField(read_only=True)
@@ -1046,6 +1049,7 @@ class ReservationDetailSerializer(ReservationBusinessRulesMixin, serializers.Mod
             "rooms_detail",
             "guests",
             "deposits",
+            "maintenance_alerts",
             "created_by",
             "created_at",
         ]
@@ -1086,9 +1090,18 @@ class ReservationDetailSerializer(ReservationBusinessRulesMixin, serializers.Mod
             "rooms_detail",
             "guests",
             "deposits",
+            "maintenance_alerts",
             "created_at",
         )
 
+
+    def get_maintenance_alerts(self, obj):
+        from apps.rooms.operations import urgent_maintenance_alerts
+
+        if obj.real_check_in or obj.real_check_out:
+            return []
+        room_ids = [detail.room_id for detail in obj.rooms_detail.all() if detail.room_id]
+        return urgent_maintenance_alerts(room_ids) if room_ids else []
 
     def get_deposits(self, obj):
         payments = (

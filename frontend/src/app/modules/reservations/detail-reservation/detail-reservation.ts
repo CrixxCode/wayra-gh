@@ -503,6 +503,20 @@ export class DetailReservation implements OnChanges {
     });
   }
 
+  private pendingListRefresh = false;
+
+  private refreshAfterRejectedCheckout(): void {
+    const reservationId = this.reservation?.id;
+    if (!reservationId) return;
+    this.reservationService.getReservationById(reservationId).subscribe({
+      next: (detail) => {
+        this.reservation = detail;
+        this.loadInvoicePaymentStatus(detail.id);
+        this.pendingListRefresh = true;
+      }
+    });
+  }
+
   /** Relee la reserva (total, saldo y estado de pago) y avisa a la lista. */
   private reloadAfterRecordChange(done: () => void): void {
     const reservationId = this.reservation?.id;
@@ -835,6 +849,10 @@ export class DetailReservation implements OnChanges {
   closeCheckoutInventoryModal(): void {
     if (this.actionLoading) return;
     this.resetCheckoutInventoryModalState();
+    if (this.pendingListRefresh && this.reservation) {
+      this.pendingListRefresh = false;
+      this.flowChanged.emit(this.reservation);
+    }
   }
 
   submitCheckOutWithInventoryReview(): void {
@@ -853,6 +871,11 @@ export class DetailReservation implements OnChanges {
       () => this.resetCheckoutInventoryModalState(),
       (message) => {
         this.checkoutInventoryError = message;
+        // Rechazado (p. ej. por saldo): los faltantes ya generaron su cargo, asi que el saldo
+        // y el estado de pago del panel cambiaron. Antes el panel seguia con los viejos al
+        // cerrar el modal (auditoria, Bloque 6 #14). Se relee sin avisar a la lista todavia:
+        // eso reiniciaria el modal y borraria el error; se avisa al cerrarlo.
+        this.refreshAfterRejectedCheckout();
       }
     );
   }

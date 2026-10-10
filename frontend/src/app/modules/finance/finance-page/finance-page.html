@@ -66,6 +66,15 @@
 
     <p class="period-note">
       Las tres pestañas miran <b>{{ periodLabel }}</b>.
+      <!-- Control financiero tiene su propio rango (5.22); el enlace lo abre con este mismo
+           periodo para no fijar la fecha dos veces (Bloque 9 #8). -->
+      <button
+        type="button"
+        *ngIf="range.from && range.to"
+        class="period-link"
+        (click)="openFinancialControlForPeriod()">
+        Analizar este periodo en Control financiero
+      </button>
     </p>
   </section>
 

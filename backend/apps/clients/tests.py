@@ -139,6 +139,28 @@ class ManualClientTypeTests(TestCase):
         self.assertEqual(response.data["client_type"], "FRECUENTE")
         self.assertFalse(response.data["client_type_is_manual"])
 
+    def test_only_deleted_lists_just_the_soft_deleted_clients(self):
+        # Bloque 5 #7: "Ver eliminados" ya no baja el listado completo dos veces.
+        from apps.clients.models import Client
+
+        deleted = Client.objects.create(
+            hotel_settings=self.customer.hotel_settings,
+            document_type=self.customer.document_type,
+            document_number="6060",
+            first_name="Borrada",
+            last_name="Prueba",
+            email="borrada@example.com",
+            client_type=self.customer.client_type,
+            status=self.customer.status,
+        )
+        self.assertEqual(self.api.delete(f"/api/clients/{deleted.id}/").status_code, 204)
+
+        response = self.api.get("/api/clients/", {"include_inactive": "true", "only_deleted": "true"})
+
+        self.assertEqual(response.status_code, 200)
+        rows = response.data["results"] if isinstance(response.data, dict) else response.data
+        self.assertEqual([row["id"] for row in rows], [deleted.id])
+
     def test_generic_update_cannot_change_the_type(self):
         response = self.api.patch(
             f"/api/clients/{self.customer.id}/", {"client_type": "VIP"}, format="json"
@@ -194,3 +216,27 @@ class ClientDocumentAndAdminTests(TestCase):
         self.assertTrue(self.Client.objects.filter(pk=customer.pk).exists())
         self.assertTrue(is_soft_deleted(customer))
         self.assertFalse(model_admin.get_queryset(type("R", (), {"user": None})()).filter(pk=customer.pk).exists())
+
+
+class OnlyDeletedScopeTests(TestCase):
+    """`only_deleted` muestra eliminados: exige `clients.read_deleted` como `include_deleted`."""
+
+    def test_only_deleted_requires_the_read_deleted_scope(self):
+        from rest_framework.test import APIClient
+
+        from accounts.models import Resource, Role, RoleResource, UserRole
+        from apps.hotel_settings.test_utils import create_configured_hotel
+
+        hotel = create_configured_hotel(hotel_name="Hotel Scope Eliminados")
+        role = Role.objects.create(name="Lectura clientes", slug="lectura-clientes", is_active=True)
+        resource, _ = Resource.objects.get_or_create(
+            key="clients.read", defaults={"name": "clients.read", "is_active": True}
+        )
+        RoleResource.objects.create(role=role, resource=resource)
+        user = User.objects.create_user(username="lector_clientes", password="Pass12345!", hotel_settings=hotel)
+        UserRole.objects.create(user=user, role=role, is_active=True)
+        api = APIClient()
+        api.force_authenticate(user)
+
+        self.assertEqual(api.get("/api/clients/").status_code, 200)
+        self.assertEqual(api.get("/api/clients/", {"only_deleted": "true"}).status_code, 403)

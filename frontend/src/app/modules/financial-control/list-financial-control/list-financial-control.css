@@ -1414,3 +1414,16 @@ tbody tr:last-child td {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.period-link {
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--gh-brand);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  align-self: center;
+}

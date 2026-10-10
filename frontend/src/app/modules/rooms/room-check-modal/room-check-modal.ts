@@ -79,6 +79,10 @@ export class RoomCheckModal implements OnInit {
   @Input({ required: true }) room!: RoomI;
   @Input({ required: true }) mode!: RoomCheckMode;
 
+  get urgentMaintenanceCount(): number {
+    return Number(this.room?.operations?.urgent_maintenance || 0);
+  }
+
   @Output() closed = new EventEmitter<void>();
   @Output() confirmed = new EventEmitter<void>();
 

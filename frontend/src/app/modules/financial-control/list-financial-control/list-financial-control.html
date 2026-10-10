@@ -62,6 +62,14 @@
           <span>Hasta</span>
           <input class="gh-filter-input" type="date" [(ngModel)]="endDate" />
         </label>
+
+        <button
+          type="button"
+          *ngIf="startDate && endDate"
+          class="period-link"
+          (click)="openFinanceForPeriod()">
+          Ver este periodo en Finanzas
+        </button>
       </ng-container>
 
       <ng-container *ngIf="showsStatementPeriod">

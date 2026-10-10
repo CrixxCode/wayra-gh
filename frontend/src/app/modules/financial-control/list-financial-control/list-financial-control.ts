@@ -356,6 +356,13 @@ export class ListFinancialControl implements OnInit, OnDestroy {
     const now = new Date();
     this.startDate = this.toIsoDate(new Date(now.getFullYear(), now.getMonth(), 1));
     this.endDate = this.toIsoDate(now);
+    // Periodo que trae el enlace desde Finanzas (Bloque 9 #8).
+    const from = String(this.route.snapshot.queryParamMap.get('from') || '');
+    const to = String(this.route.snapshot.queryParamMap.get('to') || '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      this.startDate = from <= to ? from : to;
+      this.endDate = from <= to ? to : from;
+    }
     this.statementYear = now.getFullYear();
     this.statementMonth = now.getMonth() + 1;
 
@@ -363,6 +370,12 @@ export class ListFinancialControl implements OnInit, OnDestroy {
     if (this.isTab(requested)) this.activeTab = requested;
 
     this.loadConfigsAndBootstrap();
+  }
+
+  /** Abre Finanzas con este mismo rango (Bloque 9 #8). */
+  openFinanceForPeriod(): void {
+    if (!this.startDate || !this.endDate) return;
+    void this.router.navigate(['/finanzas'], { queryParams: { from: this.startDate, to: this.endDate } });
   }
 
   ngOnDestroy(): void {

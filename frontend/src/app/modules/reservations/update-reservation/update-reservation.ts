@@ -660,6 +660,17 @@ export class UpdateReservation implements OnChanges {
     return this.findPackageById(packageId) || null;
   }
 
+  /**
+   * Orden de mantenimiento urgente o alta abierta en la habitacion elegida: se avisa, no se
+   * bloquea (decision del 2026-10-09, Bloque 4 #8).
+   */
+  getRoomMaintenanceWarning(index: number): string {
+    const room = this.findRoomById(this.roomLines.at(index)?.get('room')?.value);
+    const urgent = Number(room?.operations?.urgent_maintenance || 0);
+    if (urgent <= 0) return '';
+    return `Tiene ${urgent} orden(es) de mantenimiento urgente abierta(s). Puedes reservarla, pero revisala antes de la llegada.`;
+  }
+
   private findRoomById(roomId: unknown): RoomI | undefined {
     const id = Number(roomId || 0);
     if (!id || Number.isNaN(id)) return undefined;

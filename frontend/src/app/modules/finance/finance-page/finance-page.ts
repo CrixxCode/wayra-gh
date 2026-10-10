@@ -14,6 +14,9 @@ import { IncomeConsolidatedReportResponse } from '../../reports/report-model';
 
 export type FinanceTab = 'result' | 'income' | 'expenses';
 
+/** `YYYY-MM-DD`: lo unico que se acepta como fecha en el enlace entre pantallas. */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 export type FinancePeriod = 'THIS_MONTH' | 'LAST_MONTH' | 'LAST_30' | 'THIS_YEAR' | 'ALL' | 'CUSTOM';
 
 /**
@@ -133,7 +136,23 @@ export class FinancePage implements OnInit, OnDestroy {
     const requested = String(this.route.snapshot.queryParamMap.get('tab') || '');
     if (this.isTab(requested)) this.activeTab = requested;
 
+    // Periodo que trae el enlace desde Control financiero (Bloque 9 #8).
+    const from = String(this.route.snapshot.queryParamMap.get('from') || '');
+    const to = String(this.route.snapshot.queryParamMap.get('to') || '');
+    if (ISO_DATE.test(from) && ISO_DATE.test(to)) {
+      this.period = 'CUSTOM';
+      this.customFrom = from;
+      this.customTo = to;
+    }
+
     this.loadSummary();
+  }
+
+  /** Abre Control financiero con este mismo rango (Bloque 9 #8). */
+  openFinancialControlForPeriod(): void {
+    const { from, to } = this.range;
+    if (!from || !to) return;
+    void this.router.navigate(['/control-financiero'], { queryParams: { from, to } });
   }
 
   ngOnDestroy(): void {

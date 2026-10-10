@@ -915,15 +915,7 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
     if (this.saving || !this.room?.floor) return;
 
     this.confirmingOutOfService = false;
-    this.persist({
-      number: this.room.number,
-      floor: Number(this.room.floor),
-      room_type: this.form.room_type ? Number(this.form.room_type) : null,
-      rate: this.form.rate ? Number(this.form.rate) : null,
-      status: 'FUERA_DE_SERVICIO',
-      notes: this.form.notes.trim(),
-      amenity_ids: this.selectedAmenityIds
-    });
+    this.persistStatusOnly('FUERA_DE_SERVICIO');
   }
 
   get isOutOfService(): boolean {
@@ -1380,13 +1372,22 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
 
   markAvailable(): void {
     if (!this.room?.floor || !this.canMarkAvailable) return;
+    this.persistStatusOnly('DISPONIBLE');
+  }
 
+  /**
+   * Cambia solo el estado, con los datos ya guardados de la habitacion. Antes "Fuera de
+   * servicio" mezclaba las ediciones sin guardar del formulario y "Disponible" no: el mismo
+   * gesto guardaba cosas distintas segun el boton (auditoria, Bloque 4 #15).
+   */
+  private persistStatusOnly(status: RoomStatus): void {
+    if (!this.room?.floor) return;
     this.persist({
       number: this.room.number,
-      floor: this.room.floor,
+      floor: Number(this.room.floor),
       room_type: this.room.room_type ?? null,
-      rate: this.room.rate ?? null,
-      status: 'DISPONIBLE',
+      rate: this.getRoomRateId(this.room) ?? null,
+      status,
       notes: this.room.notes || '',
       amenity_ids: (this.room.amenities || []).map((item) => item.id)
     });

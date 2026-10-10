@@ -2070,6 +2070,34 @@ class ReservationApiFlowTestCase(APITestCase):
 
         self.assertEqual([item["reservation_id"] for item in ranges], [first.id, second.id])
 
+    def test_detail_warns_about_urgent_maintenance_before_check_in(self):
+        # Decision del 2026-10-09 (Bloque 4 #8): se avisa, no se bloquea.
+        from apps.rooms.models import MaintenanceOrder
+
+        reservation = self._create_reservation(status=self.reservation_status_confirmed)
+        self._create_room_line(reservation=reservation)
+        open_status = self._md(MasterData.Group.MAINTENANCE_STATUS, "PENDIENTE", "Pendiente", 1)
+        MaintenanceOrder.objects.create(
+            room=self.room,
+            title="Fuga en el bano",
+            description="Gotea la llave",
+            priority=self.cleaning_priority_urgent,
+            status=open_status,
+        )
+        MaintenanceOrder.objects.create(
+            room=self.room,
+            title="Pintura",
+            description="Retoque",
+            priority=self.cleaning_priority_low,
+            status=open_status,
+        )
+
+        response = self.client.get(f"/api/reservations/{reservation.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        alerts = response.data["maintenance_alerts"]
+        self.assertEqual([alert["title"] for alert in alerts], ["Fuga en el bano"])
+
     def test_no_show_retains_deposits_and_closes_the_balance(self):
         # Decision del 2026-10-09 (Bloque 6 #10): la estadia no se cobra y lo abonado se retiene.
         self._md(MasterData.Group.RESERVATION_STATUS, "NO_SHOW", "No se presento", 6)

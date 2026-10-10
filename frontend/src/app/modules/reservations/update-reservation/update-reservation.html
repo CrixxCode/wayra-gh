@@ -101,6 +101,10 @@
                   </option>
                 </select>
                 <small class="field-error" *ngIf="getRoomFieldError(idx, 'room') as error">{{ error }}</small>
+                <small class="field-warning" *ngIf="getRoomMaintenanceWarning(idx) as warning">
+                  <i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i>
+                  {{ warning }}
+                </small>
               </label>
 
               <label>

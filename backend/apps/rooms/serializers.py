@@ -24,7 +24,7 @@ from .models import (
     RecurringWork,
     RoomType,
 )
-from .operations import EMPTY_SIGNALS, build_room_operations_map
+from .operations import EMPTY_SIGNALS, build_room_operations_map, open_maintenance_orders
 from .recurrence import first_run_on
 
 AMENITY_ICON_CATALOG = {
@@ -895,9 +895,9 @@ class RoomPanelSerializer(serializers.ModelSerializer):
         )
 
     def get_active_maintenance(self, obj):
-        maintenance = obj.maintenance_orders.filter(
-            status__code__in=["PENDIENTE", "EN_PROCESO"]
-        ).order_by("-reported_at").first()
+        maintenance = (
+            open_maintenance_orders(obj.maintenance_orders.all()).order_by("-reported_at").first()
+        )
 
         if not maintenance:
             return None

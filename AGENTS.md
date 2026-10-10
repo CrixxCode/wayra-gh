@@ -315,7 +315,9 @@ campos a decenas de modelos, y centraliza la lógica en un solo mixin.
 trata distinto.
 
 **Query params soportados:** `?include_inactive=true` (incluye inactivos) y `?include_deleted=true`
-(incluye eliminados, requiere scope `*.read_deleted`).
+(incluye eliminados, requiere scope `*.read_deleted`). Desde el 2026-10-09 también
+`?only_deleted=true`: solo los eliminados, en el listado y con el mismo scope `*.read_deleted`.
+Sirve para "Ver eliminados" sin bajar el listado completo dos veces y restarlo en el cliente.
 
 **Detalle técnico:** el filtrado vive en `accounts.soft_delete.exclude_soft_deleted()` y castea la
 PK a texto. Con **PK UUID** compara además ambas formas sin guiones: PostgreSQL castea un uuid con
@@ -953,6 +955,12 @@ las cuatro claves: los umbrales alimentan el semáforo y los impuestos el estado
 
 ---
 
+**Las dos pantallas siguen con su propio rango, pero se enlazan** (desde el 2026-10-09, Bloque 9 #8).
+"Analizar este periodo en Control financiero" abre `/control-financiero?from=&to=` con el periodo de
+Finanzas, y "Ver este periodo en Finanzas" hace el camino inverso. Cada pantalla lee esos dos
+parámetros al abrir (solo fechas `YYYY-MM-DD`). Así no hay que fijar la fecha dos veces para
+comparar el mismo mes.
+
 ### 5.23 Auditoría: una tabla propia, inmutable, escrita por señales
 
 **Decisión:** el rastro de auditoría vive en `accounts.AuditLog`, una tabla **append-only** que se
@@ -1120,6 +1128,14 @@ solicitud de demo (ver el registro del 2026-09-14). Corre en seco por defecto, y
 habitación que tenga reservas, chequeos de inventario, órdenes de mantenimiento, tareas de limpieza,
 trabajos periódicos, inventario asignado o fotos: cinco de esas relaciones son `CASCADE` y un borrado
 físico se las llevaría sin avisar.
+
+**Una orden de mantenimiento urgente avisa, no bloquea** (decisión del 2026-10-09, Bloque 4 #8). Una
+orden abierta de prioridad alta o urgente no cambia `Room.status` ni impide reservar o hacer
+check-in: recepción decide. Se avisa en el formulario de reserva (por habitación elegida), en el
+modal de check-in del tablero y en el detalle de la reserva antes del check-in
+(`maintenance_alerts`, de `apps.rooms.operations.urgent_maintenance_alerts`). "Orden abierta" tiene
+una sola definición, `open_maintenance_orders()`: no cerrada (`CLOSED_MAINTENANCE_STATUS_CODES`) y no
+eliminada. Antes el panel y el tablero usaban listas distintas.
 
 ### 5.27 Promociones: cómo llegan a la factura
 
@@ -1377,6 +1393,40 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-10-09 — Auditoría, tanda 9: errores operativos y de UX
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez (decisión de B4 #8 tomada por él).
+- **Commit(s):** incluido en este commit
+- **Tipo:** fix
+- **Qué se hizo:**
+  - **B4 #8 (decisión: avisar sin bloquear):** las órdenes de mantenimiento urgentes o altas
+    abiertas se avisan al reservar, al hacer check-in desde el tablero y en el detalle de la
+    reserva (`maintenance_alerts`) (5.26).
+  - **B4 #9:** una sola definición de "orden de mantenimiento abierta",
+    `open_maintenance_orders()`, para el panel y el tablero.
+  - **B4 #15:** "Fuera de servicio" y "Disponible" cambian solo el estado, con los datos ya
+    guardados; antes uno mezclaba ediciones sin guardar.
+  - **B6 #14:** tras un check-out rechazado, el detalle relee la reserva (saldo y estado de pago) y
+    avisa a la lista al cerrar el modal. **B6 #15** ya estaba resuelto: el modal muestra el mensaje
+    del backend.
+  - **B6 #17:** buscador por nombre o documento sobre el selector de cliente al crear una reserva.
+  - **B2 #11:** el falso botón "Vista previa" de colores pasa a ser una muestra no interactiva.
+  - **B3 #7:** si fallan los grupos de Master Data, se avisa.
+  - **B5 #7:** nuevo filtro genérico `?only_deleted=true` en `LogicalDeleteViewSetMixin` (exige
+    `*.read_deleted`); Clientes ya no baja el listado completo dos veces (5.5).
+  - **B9 #8:** Finanzas y Control financiero se enlazan con el mismo periodo (5.22).
+- **Por qué:** eran los errores operativos y de UX del grupo "mejorable sin bloquear".
+- **Archivos/áreas afectadas:** `backend/accounts/soft_delete.py`, `backend/apps/rooms/{operations,serializers}.py`,
+  `backend/apps/reservations/{serializers,tests}.py`, `backend/apps/clients/tests.py`; frontend:
+  `modules/reservations/{create-reservation,update-reservation,detail-reservation}/*`,
+  `modules/reservations/reservation-model.ts`, `modules/rooms/{room-modal,room-check-modal}/*`,
+  `modules/clients/list-clients/list-clients.ts`, `services/client.ts`,
+  `modules/finance/finance-page/*`, `modules/financial-control/list-financial-control/*`,
+  `components/pages/{hotel-settings,master-data}/*`; `AGENTS.md` (5.5, 5.22, 5.26).
+- **Impacto:** sin migraciones. Campo nuevo de solo lectura `maintenance_alerts` en el detalle de
+  reserva; query param nuevo `only_deleted`. Sin cambios de comportamiento bloqueantes: los avisos
+  de mantenimiento no impiden ninguna operación.
 
 ### 2026-10-09 — Auditoría, tanda 8: privacidad y seguridad
 

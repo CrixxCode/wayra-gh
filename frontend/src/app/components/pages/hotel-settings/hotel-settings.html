@@ -356,17 +356,18 @@
               </div>
 
               <div class="mt-4 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  class="rounded-xl px-4 py-2.5 text-sm font-semibold border"
+                <!-- Muestra, no un boton: antes parecia interactivo y no hacia nada
+                     (auditoria, Bloque 2 #11). Los colores se aplican al guardar. -->
+                <span
+                  class="inline-flex items-center rounded-xl px-4 py-2.5 text-sm font-semibold border"
                   [ngStyle]="{
                     'background-color': form.primary_color,
                     'border-color': form.secondary_color,
                     'color': themeOnPrimaryColor
                   }"
                 >
-                  Vista previa
-                </button>
+                  Muestra de colores
+                </span>
 
                 <button
                   type="button"

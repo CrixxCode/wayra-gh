@@ -149,6 +149,37 @@ export class CreateReservation implements OnChanges, OnInit {
     return [...this.rooms].sort((a, b) => String(a.number).localeCompare(String(b.number), 'es-CO'));
   }
 
+  /** Filtro del selector de cliente (auditoria, Bloque 6 #17). */
+  clientSearch = '';
+
+  onClientSearch(event: Event): void {
+    this.clientSearch = String((event.target as HTMLInputElement | null)?.value || '');
+  }
+
+  /**
+   * Clientes que coinciden con la busqueda por nombre o documento. Antes era un `<select>` con
+   * todos los clientes del hotel, inviable con cientos. El elegido se conserva aunque no
+   * coincida, para que el select no pierda su valor.
+   */
+  get filteredClients(): ClientI[] {
+    const term = this.normalizeSearch(this.clientSearch);
+    const all = this.availableClients;
+    if (!term) return all;
+    const selectedId = Number(this.reservationForm.get('client')?.value || 0);
+    return all.filter(
+      (client) =>
+        client.id === selectedId || this.normalizeSearch(this.getClientOptionLabel(client)).includes(term)
+    );
+  }
+
+  private normalizeSearch(value: string): string {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[.\s-]/g, '')
+      .toLowerCase();
+  }
+
   get availableClients(): ClientI[] {
     return [...this.clientOptions].sort((a, b) =>
       this.buildClientSortLabel(a).localeCompare(this.buildClientSortLabel(b), 'es-CO')
@@ -1523,6 +1554,17 @@ export class CreateReservation implements OnChanges, OnInit {
     const packageId = Number(packageRaw || 0);
     if (!packageId || Number.isNaN(packageId)) return null;
     return this.findPackageById(packageId) || null;
+  }
+
+  /**
+   * Orden de mantenimiento urgente o alta abierta en la habitacion elegida: se avisa, no se
+   * bloquea (decision del 2026-10-09, Bloque 4 #8).
+   */
+  getRoomMaintenanceWarning(index: number): string {
+    const room = this.findRoomById(this.roomLines.at(index)?.get('room')?.value);
+    const urgent = Number(room?.operations?.urgent_maintenance || 0);
+    if (urgent <= 0) return '';
+    return `Tiene ${urgent} orden(es) de mantenimiento urgente abierta(s). Puedes reservarla, pero revisala antes de la llegada.`;
   }
 
   private findRoomById(roomId: unknown): RoomI | undefined {

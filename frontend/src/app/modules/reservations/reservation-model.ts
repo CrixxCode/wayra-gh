@@ -262,7 +262,18 @@ export interface ReservationInventoryComparisonI {
   lines: ReservationInventoryComparisonLineI[];
 }
 
+export interface ReservationMaintenanceAlertI {
+  room_id: number;
+  room_number: string;
+  order_id: number;
+  title: string;
+  priority: string;
+  priority_label: string;
+}
+
 export interface ReservationDetailI extends ReservationI {
+  /** Ordenes urgentes o altas abiertas en sus habitaciones (solo antes del check-in). */
+  maintenance_alerts?: ReservationMaintenanceAlertI[];
   client_email?: string;
   client_phone?: string;
   rooms_detail: ReservationRoomI[];

@@ -92,6 +92,9 @@ export class MasterDataComponent implements OnInit {
       },
       error: () => {
         this.groups = [];
+        // Antes se tragaba en silencio y el filtro de grupos quedaba vacio sin explicacion
+        // (auditoria, Bloque 3 #7).
+        this.toast('No se pudieron cargar los grupos del catalogo. Recarga la pagina.', 'danger');
         this.loadMasterData();
       }
     });

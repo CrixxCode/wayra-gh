@@ -565,3 +565,17 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 }
+
+.field-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--gh-status-orange-text);
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+
+.client-search {
+  margin-bottom: 6px;
+}

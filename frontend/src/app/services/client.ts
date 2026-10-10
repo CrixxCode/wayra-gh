@@ -29,11 +29,17 @@ export class ClientsService {
   listClients(filters?: {
     include_inactive?: boolean;
     include_deleted?: boolean;
+    /** Solo los eliminados logicamente (para "Ver eliminados"). */
+    only_deleted?: boolean;
   }): Observable<ClientI[]> {
     let params = new HttpParams();
 
     if (typeof filters?.include_inactive === 'boolean') {
       params = params.set('include_inactive', String(filters.include_inactive));
+    }
+
+    if (filters?.only_deleted) {
+      params = params.set('only_deleted', 'true');
     }
 
     if (typeof filters?.include_deleted === 'boolean') {

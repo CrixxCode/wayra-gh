@@ -60,6 +60,38 @@ EMPTY_SIGNALS = {
 }
 
 
+def open_maintenance_orders(queryset):
+    """
+    La unica definicion de "orden de mantenimiento abierta": no cerrada y no eliminada.
+
+    Antes el panel de la habitacion usaba una lista fija de estados abiertos
+    (`PENDIENTE`, `EN_PROCESO`) y el tablero una de estados cerrados: un estado nuevo en
+    Master Data contaba en una vista y no en la otra (auditoria, Bloque 4 #9).
+    """
+    return _exclude_soft_deleted(queryset.exclude(status__code__in=CLOSED_MAINTENANCE_STATUS_CODES))
+
+
+def urgent_maintenance_alerts(room_ids) -> list[dict]:
+    """Ordenes abiertas de prioridad alta o urgente: se avisan, no bloquean (5.26)."""
+    orders = (
+        open_maintenance_orders(MaintenanceOrder.objects.filter(room_id__in=list(room_ids)))
+        .filter(priority__code__in=URGENT_MAINTENANCE_PRIORITY_CODES)
+        .select_related("room", "priority")
+        .order_by("room__number", "-reported_at")
+    )
+    return [
+        {
+            "room_id": order.room_id,
+            "room_number": order.room.number,
+            "order_id": order.id,
+            "title": order.title,
+            "priority": order.priority_code,
+            "priority_label": order.get_priority_display(),
+        }
+        for order in orders
+    ]
+
+
 def _exclude_soft_deleted(queryset):
     """Descarta lo eliminado lógicamente.
 
@@ -137,11 +169,7 @@ def build_room_operations_map(rooms) -> dict[int, dict]:
         )
     )
 
-    open_maintenance = _exclude_soft_deleted(
-        MaintenanceOrder.objects.filter(room_id__in=room_ids).exclude(
-            status__code__in=CLOSED_MAINTENANCE_STATUS_CODES
-        )
-    )
+    open_maintenance = open_maintenance_orders(MaintenanceOrder.objects.filter(room_id__in=room_ids))
     maintenance_counts = _count_by_room(open_maintenance)
     urgent_maintenance_counts = _count_by_room(
         open_maintenance.filter(priority__code__in=URGENT_MAINTENANCE_PRIORITY_CODES)
