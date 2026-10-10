@@ -26,6 +26,8 @@ describe('ListReservations', () => {
         {
           provide: ReservationService,
           useValue: {
+            getReservationsSummary: () =>
+              of({ total: 0, in_house: 0, check_ins_today: 0, check_outs_today: 0, pending: 0, month_revenue: '0' }),
             listReservationsPage: () =>
               of({
                 count: 0,

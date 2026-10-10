@@ -13,7 +13,7 @@ import { MasterDataService } from '../../../services/master-data.service';
 import { PaymentMethodI, PaymentMethodService } from '../../../services/payment-method';
 import { ClientsService } from '../../../services/client';
 import { RoomService } from '../../../services/room';
-import { PaginatedResponseI, ReservationService } from '../../../services/reservation';
+import { PaginatedResponseI, ReservationService, ReservationsSummaryI } from '../../../services/reservation';
 import { PackagesService } from '../../../services/package';
 import { PackageI } from '../../packages/package-model';
 import {
@@ -165,10 +165,12 @@ export class ListReservations implements OnInit {
   }
 
   get inProgressCount(): number {
+    if (this.summary) return this.summary.in_house;
     return this.reservations.filter((reservation) => this.getVisualStatus(reservation) === 'EN_CURSO').length;
   }
 
   get checkInsTodayCount(): number {
+    if (this.summary) return this.summary.check_ins_today;
     return this.reservations.filter((reservation) => {
       if (!this.isToday(reservation.expected_check_in)) return false;
       const status = this.getVisualStatus(reservation);
@@ -177,6 +179,7 @@ export class ListReservations implements OnInit {
   }
 
   get checkOutsTodayCount(): number {
+    if (this.summary) return this.summary.check_outs_today;
     return this.reservations.filter((reservation) => {
       if (!this.isCheckoutToday(reservation)) return false;
       const status = this.getVisualStatus(reservation);
@@ -185,10 +188,12 @@ export class ListReservations implements OnInit {
   }
 
   get pendingCount(): number {
+    if (this.summary) return this.summary.pending;
     return this.reservations.filter((reservation) => this.getVisualStatus(reservation) === 'PENDIENTE').length;
   }
 
   get monthlyRevenueLabel(): string {
+    if (this.summary) return this.formatCurrency(Number(this.summary.month_revenue) || 0);
     const now = new Date();
 
     const monthReservations = this.reservations.filter((reservation) => {
@@ -210,6 +215,7 @@ export class ListReservations implements OnInit {
     this.loading = true;
     this.errorMessage = '';
     this.detailsCache.clear();
+    this.loadSummary();
 
     forkJoin({
       reservationsPage: this.reservationService
@@ -307,6 +313,20 @@ export class ListReservations implements OnInit {
 
   refreshReservations(): void {
     this.loadReservationsPage();
+    this.loadSummary();
+  }
+
+  /**
+   * Los indicadores salen del backend sobre todas las reservas del hotel. Antes se contaban
+   * en la pagina visible (las 20 mas nuevas) y "En curso" marcaba 0 con huespedes alojados.
+   */
+  summary: ReservationsSummaryI | null = null;
+
+  private loadSummary(): void {
+    this.reservationService.getReservationsSummary().subscribe({
+      next: (summary) => (this.summary = summary),
+      error: () => (this.summary = null)
+    });
   }
 
   onSearchInput(): void {

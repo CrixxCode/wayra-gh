@@ -1461,6 +1461,30 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ## 12. Registro de cambios
 
+### 2026-10-10 — KPIs de reservas sobre todo el hotel; "Reservada" solo desde el día de llegada
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez (reportado al probar el hotel de demo).
+- **Commit(s):** incluido en este commit
+- **Tipo:** fix
+- **Qué se hizo:**
+  - **KPIs de Reservas.** "En curso", "Check-ins hoy", "Check-outs hoy", "Pendientes" e
+    "Ingresos del mes" se calculaban en el navegador con la página visible (las 20 reservas más
+    nuevas), así que con más reservas marcaban 0. Nuevo `GET /api/reservations/summary/`, que los
+    cuenta sobre todas las reservas del hotel. "Ingresos del mes" es el total de las llegadas del
+    mes sin canceladas ni no-shows.
+  - **"Reservada" en Habitaciones.** El tablero y el modal marcaban una habitación como reservada
+    con cualquier reserva futura, aunque faltaran semanas. Ahora, como el estado que calcula el
+    backend, solo desde el día de llegada. Si la reserva todavía no llega, el modal vuelve a
+    ofrecer "Crear reserva" y "Check-In directo" para las noches libres. El cruce de fechas lo
+    valida el formulario contra todas las reservas de la habitación.
+- **Por qué:** con datos reales (hotel de demo) los indicadores no coincidían con la operación, y
+  no se podían vender las noches previas a una llegada.
+- **Archivos/áreas afectadas:** `backend/apps/reservations/{views,tests}.py`; frontend:
+  `services/reservation.ts`, `modules/reservations/list-reservations/*`,
+  `modules/rooms/{list-rooms,room-modal}/*`.
+- **Impacto:** sin migraciones. Endpoint nuevo de solo lectura `GET /api/reservations/summary/`
+  (scope de lectura de reservas).
+
 ### 2026-10-10 — Comando `seed_demo_hotel`: hotel de demostración completo
 
 - **Autor:** Claude Code, a solicitud de Cristian Ramirez (tipo de hotel, historia y usuarios

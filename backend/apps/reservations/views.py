@@ -1,11 +1,14 @@
 import re
 from datetime import timedelta
+from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -811,6 +814,57 @@ class ReservationViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
             response_data["billing_warning"] = billing_warning
         return Response(response_data, status=status.HTTP_200_OK)
 
+
+    @extend_schema(responses={200: OpenApiTypes.OBJECT})
+    @action(detail=False, methods=["get"], url_path="summary")
+    def summary(self, request):
+        """
+        Indicadores de la pantalla de reservas sobre **todas** las reservas del hotel. Antes se
+        calculaban en el navegador con la pagina visible (20 reservas, las mas nuevas): "En
+        curso" podia marcar 0 con huespedes alojados.
+        """
+        today = timezone.localdate()
+        closed_codes = [
+            *RESERVATION_STATUS_CANCELLED_CODES,
+            *RESERVATION_STATUS_NO_SHOW_CODES,
+            *RESERVATION_STATUS_FINISHED_CODES,
+        ]
+        queryset = self.get_queryset()
+        open_reservations = queryset.exclude(status__code__in=closed_codes)
+
+        month_start = today.replace(day=1)
+        next_month = (month_start + timedelta(days=32)).replace(day=1)
+        month_reservations = (
+            queryset.filter(expected_check_in__gte=month_start, expected_check_in__lt=next_month)
+            .exclude(status__code__in=[*RESERVATION_STATUS_CANCELLED_CODES, *RESERVATION_STATUS_NO_SHOW_CODES])
+            .prefetch_related(
+                "rooms_detail",
+                "charges",
+                "invoices__payments__refunds__status",
+                "invoices__credit_notes",
+                "promotion_applications",
+            )
+        )
+        month_total = sum(
+            (get_reservation_financials(reservation)["total_amount"] for reservation in month_reservations),
+            Decimal("0"),
+        )
+
+        return Response(
+            {
+                "total": queryset.count(),
+                "in_house": queryset.filter(real_check_in__isnull=False, real_check_out__isnull=True).count(),
+                "check_ins_today": open_reservations.filter(
+                    expected_check_in=today, real_check_in__isnull=True
+                ).count(),
+                "check_outs_today": open_reservations.filter(
+                    expected_check_out=today, real_check_out__isnull=True
+                ).count(),
+                "pending": queryset.filter(status__code__in=RESERVATION_STATUS_PENDING_CODES).count(),
+                "month_revenue": str(month_total),
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=True, methods=["post"], url_path="no-show")
     def no_show(self, request, pk=None):

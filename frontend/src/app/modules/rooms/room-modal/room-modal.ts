@@ -353,7 +353,8 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
       if (
         ['PENDIENTE', 'CONFIRMADA', 'CONFIRMADO', 'CONFIRMED', 'PENDING'].includes(
           reservationStatus
-        )
+        ) &&
+        !this.isUpcomingReservation
       ) {
         return 'RESERVADA';
       }
@@ -365,6 +366,22 @@ export class RoomModal implements OnChanges, OnDestroy, OnInit {
 
   get activeReservation(): RoomActiveReservationI | null {
     return this.panel?.active_reservation || this.room?.active_reservation || null;
+  }
+
+  /**
+   * La reserva de la habitacion todavia no llega (su dia de entrada es posterior a hoy). Las
+   * noches de antes siguen libres: antes el modal escondia "Crear reserva" y no habia forma de
+   * venderlas. Los cruces de fechas los valida el formulario de reserva.
+   */
+  get isUpcomingReservation(): boolean {
+    const reservation = this.activeReservation;
+    if (!reservation || reservation.real_check_in) return false;
+    const arrival = this.parseDate(reservation.expected_check_in);
+    if (!arrival) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    arrival.setHours(0, 0, 0, 0);
+    return arrival.getTime() > today.getTime();
   }
 
   get selectedRoomType(): RoomTypeI | null {

@@ -1297,10 +1297,14 @@ export class ListRooms implements OnInit, OnDestroy {
         return 'OCUPADA';
       }
 
+      // "Reservada" solo desde el dia de llegada, como el estado que calcula el backend. Antes
+      // cualquier reserva futura la marcaba, aunque faltaran semanas y la habitacion estuviera
+      // libre para vender esas noches.
       if (
         ['PENDIENTE', 'CONFIRMADA', 'PENDING', 'CONFIRMADO', 'CONFIRMED'].includes(
           reservationStatus
-        )
+        ) &&
+        this.hasArrivalDayCome(room.active_reservation?.expected_check_in)
       ) {
         return 'RESERVADA';
       }
@@ -1506,6 +1510,15 @@ export class ListRooms implements OnInit, OnDestroy {
 
     const hours = Math.floor(totalMinutes / 60);
     return `Sale en ${hours} h`;
+  }
+
+  private hasArrivalDayCome(value: string | null | undefined): boolean {
+    const arrival = this.parseDate(value);
+    if (!arrival) return true;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    arrival.setHours(0, 0, 0, 0);
+    return arrival.getTime() <= today.getTime();
   }
 
   private withCount(label: string, count: number): string {

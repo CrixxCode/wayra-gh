@@ -534,9 +534,13 @@
             </section>
           </div>
 
-          <div class="gh-panel" *ngIf="!activeReservation">
-            <p class="gh-panel-title">Sin reserva activa</p>
-            <p class="panel-text">Esta habitacion no tiene ninguna reserva en curso.</p>
+          <div class="gh-panel" *ngIf="!activeReservation || isUpcomingReservation">
+            <p class="gh-panel-title">{{ activeReservation ? 'Libre hasta la proxima llegada' : 'Sin reserva activa' }}</p>
+            <p class="panel-text" *ngIf="!activeReservation">Esta habitacion no tiene ninguna reserva en curso.</p>
+            <p class="panel-text" *ngIf="activeReservation">
+              La proxima reserva llega el {{ formatDate(activeReservation.expected_check_in) }}. Puedes reservar o
+              hacer check-in de noches anteriores; el sistema valida que las fechas no se crucen.
+            </p>
 
             <div class="tab-actions">
               <button type="button" class="gh-mbtn gh-mbtn-dark" (click)="openReservationCreator('reserve')">

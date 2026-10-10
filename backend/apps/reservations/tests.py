@@ -2098,6 +2098,22 @@ class ReservationApiFlowTestCase(APITestCase):
         alerts = response.data["maintenance_alerts"]
         self.assertEqual([alert["title"] for alert in alerts], ["Fuga en el bano"])
 
+    def test_summary_counts_every_reservation_not_only_the_visible_page(self):
+        # Los KPI se calculaban con la pagina visible: "En curso" podia marcar 0.
+        in_house = self._create_reservation(status=self.reservation_status_confirmed)
+        self._create_room_line(reservation=in_house)
+        self._mark_reservation_as_checked_in(in_house)
+        for offset in range(25):  # mas nuevas que la alojada: la empujan fuera de la pagina 1
+            self._create_reservation(
+                check_in_offset=10 + offset, check_out_offset=11 + offset, status=self.reservation_status_confirmed
+            )
+
+        response = self.client.get("/api/reservations/summary/")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["in_house"], 1)
+        self.assertEqual(response.data["total"], 26)
+
     def test_no_show_retains_deposits_and_closes_the_balance(self):
         # Decision del 2026-10-09 (Bloque 6 #10): la estadia no se cobra y lo abonado se retiene.
         self._md(MasterData.Group.RESERVATION_STATUS, "NO_SHOW", "No se presento", 6)

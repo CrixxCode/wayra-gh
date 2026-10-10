@@ -35,6 +35,15 @@ export type PaginatedResponseI<T> = {
   results: T[];
 };
 
+export interface ReservationsSummaryI {
+  total: number;
+  in_house: number;
+  check_ins_today: number;
+  check_outs_today: number;
+  pending: number;
+  month_revenue: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -50,6 +59,11 @@ export class ReservationService {
     private http: HttpClient,
     private auth: AuthService
   ) {}
+
+  /** Indicadores de la pantalla sobre todas las reservas del hotel, no solo la pagina. */
+  getReservationsSummary(): Observable<ReservationsSummaryI> {
+    return this.http.get<ReservationsSummaryI>(`${this.reservationsUrl}summary/`, { withCredentials: true });
+  }
 
   listReservations(filters?: {
     search?: string;
