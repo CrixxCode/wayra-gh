@@ -735,14 +735,8 @@
   border-color: var(--gh-border-strong) !important;
 }
 
-:is(.my-app-dark, .dark) app-detail-bill .bill-modal,
-:is(.my-app-dark, .dark) app-detail-bill .category-bar,
-:is(.my-app-dark, .dark) app-detail-bill .bill-footer,
-:is(.my-app-dark, .dark) app-detail-bill .state-card,
-:is(.my-app-dark, .dark) app-detail-bill .charge-group,
-:is(.my-app-dark, .dark) app-detail-bill .payments-panel,
-:is(.my-app-dark, .dark) app-detail-bill .payment-line,
-:is(.my-app-dark, .dark) app-detail-bill .btn-light,
+/* app-detail-bill y app-credit-note-form ya usan tokens (auditoria, Bloque 8 #9): no
+   necesitan override. */
 :is(.my-app-dark, .dark) app-pos-bar .pos-card,
 :is(.my-app-dark, .dark) app-pos-bar .products-panel,
 :is(.my-app-dark, .dark) app-pos-bar .product-card,
@@ -782,12 +776,7 @@
 :is(.my-app-dark, .dark) app-credit-note-list .empty-state,
 :is(.my-app-dark, .dark) app-credit-note-list .row-btn,
 :is(.my-app-dark, .dark) app-credit-note-list .btn-light,
-:is(.my-app-dark, .dark) app-credit-note-list .form-modal,
-:is(.my-app-dark, .dark) app-credit-note-form .credit-note-form-card,
-:is(.my-app-dark, .dark) app-credit-note-form input,
-:is(.my-app-dark, .dark) app-credit-note-form select,
-:is(.my-app-dark, .dark) app-credit-note-form textarea,
-:is(.my-app-dark, .dark) app-credit-note-form .btn-light {
+:is(.my-app-dark, .dark) app-credit-note-list .form-modal {
   background: var(--gh-surface) !important;
   color: var(--gh-text-strong) !important;
   border-color: var(--gh-border-strong) !important;

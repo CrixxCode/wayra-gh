@@ -129,9 +129,30 @@ export class ListReports implements OnInit, OnDestroy {
     expenses: '#e34948',
     fill: 'rgba(42, 120, 214, 0.1)',
     profitFill: 'rgba(27, 175, 122, 0.12)',
+    // Ejes y cuadricula salen de los tokens del tema: fijos en gris claro perdian contraste
+    // sobre las tarjetas oscuras (auditoria, Bloque 11 #10). Se releen al cambiar de tema.
     tick: '#64748b',
     grid: '#e8edf6',
   };
+
+  private themeObserver: MutationObserver | null = null;
+
+  private syncChartThemeColors(): void {
+    if (typeof document === 'undefined') return;
+    const styles = getComputedStyle(document.documentElement);
+    this.viz.tick = styles.getPropertyValue('--gh-text-muted').trim() || '#64748b';
+    this.viz.grid = styles.getPropertyValue('--gh-border').trim() || '#e8edf6';
+  }
+
+  private watchThemeChanges(): void {
+    if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') return;
+    this.themeObserver = new MutationObserver(() => {
+      const before = `${this.viz.tick}|${this.viz.grid}`;
+      this.syncChartThemeColors();
+      if (`${this.viz.tick}|${this.viz.grid}` !== before) this.buildReportCharts();
+    });
+    this.themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  }
 
   readonly tabs: TabOption[] = [
     { key: 'executive', label: 'Resumen Ejecutivo', icon: 'fa-solid fa-house' },
@@ -167,10 +188,13 @@ export class ListReports implements OnInit, OnDestroy {
     this.selectedYear = this.yearOptions[0] || new Date().getFullYear();
     this.syncRangeDatesFromYear(this.selectedYear);
     this.reportQuery = { year: this.selectedYear };
+    this.syncChartThemeColors();
+    this.watchThemeChanges();
     this.bootstrapReports();
   }
 
   ngOnDestroy(): void {
+    this.themeObserver?.disconnect();
     if (this.revealFrame !== null) cancelAnimationFrame(this.revealFrame);
     this.motion.killWithin(this.hostRef.nativeElement);
   }

@@ -570,6 +570,13 @@ después compensarlos con reglas `:is(.my-app-dark, .dark) app-mi-componente .bt
 oscuro redefine los tokens `--gh-*` en un solo lugar, un componente que solo usa tokens funciona en
 ambos temas sin una línea extra.
 
+**Migrados a tokens el 2026-10-09** (auditoría, B3 #6 y B8 #9): `master-data.css`, `detail-bill.css` y
+`credit-note-form.css`. Sus variables locales (`--md-*`, `--drawer-*`, `--credit-form-*`) ahora
+apuntan a tokens `--gh-*`, y sus overrides heredados en `styles.css` se quitaron. La única excepción
+deliberada es el texto claro sobre la franja de marca (`#bfdbfe`, `#dbeafe`, `#cbd5e1`), que sigue
+oscura en ambos temas. Los gráficos de Reportes leen `--gh-text-muted` y `--gh-border` para ejes y
+cuadrícula, y se redibujan al cambiar de tema (B11 #10).
+
 **Regla al programar:** en CSS nuevo, **no escribir colores literales**. Usar los tokens. Si falta
 un token para un caso legítimo, agregarlo a `:root` y a su bloque de modo oscuro, no improvisar un
 override por componente.
@@ -1393,6 +1400,26 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-10-09 — Auditoría, tanda 10: modo oscuro
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** incluido en este commit
+- **Tipo:** fix
+- **Qué se hizo:**
+  - **B3 #6 (Master Data), B8 #9 (detalle de factura y formulario de nota de crédito):** colores
+    literales reemplazados por tokens `--gh-*` (5.15). Los overrides heredados de
+    `app-detail-bill` y `app-credit-note-form` en `styles.css` se quitaron.
+  - **B11 #10:** los ejes y la cuadrícula de los gráficos de Reportes siguen el tema y se
+    redibujan al cambiarlo.
+- **Por qué:** esas pantallas eran "islas claras" dentro del shell oscuro.
+- **Archivos/áreas afectadas:** `frontend/src/styles.css`,
+  `components/pages/master-data/master-data.css`, `modules/billing/detail-bill/detail-bill.css`,
+  `modules/billing/credit-note/credit-note-form/credit-note-form.css`,
+  `modules/reports/list-reports/list-reports.ts`; `AGENTS.md` (5.15).
+- **Impacto:** solo estilos; sin cambios de backend. En modo claro los colores quedan iguales o
+  casi iguales (mapeo al token más cercano); conviene una revisión visual de las tres pantallas en
+  ambos temas.
 
 ### 2026-10-09 — Auditoría, tanda 9: errores operativos y de UX
 

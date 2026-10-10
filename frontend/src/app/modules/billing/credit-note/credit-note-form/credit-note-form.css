@@ -1,19 +1,19 @@
 :host {
   display: block;
-  --credit-form-navy: #111827;
-  --credit-form-blue: #0b5ed7;
-  --credit-form-soft: #f8fbff;
-  --credit-form-border: #d8e1f0;
-  --credit-form-muted: #64748b;
-  --credit-form-danger: #dc2626;
-  --credit-form-success: #16a34a;
+  --credit-form-navy: var(--gh-brand);
+  --credit-form-blue: var(--gh-status-info-strong);
+  --credit-form-soft: var(--gh-surface-soft);
+  --credit-form-border: var(--gh-border-strong);
+  --credit-form-muted: var(--gh-text-muted);
+  --credit-form-danger: var(--gh-status-danger-text);
+  --credit-form-success: var(--gh-status-success-strong-alt);
 }
 
 .credit-note-form-card {
   overflow: hidden;
   border: 1px solid rgba(15, 23, 42, 0.14);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--gh-surface);
 }
 
 .form-head {
@@ -22,13 +22,13 @@
   justify-content: space-between;
   gap: 16px;
   padding: 20px 24px;
-  color: #f8fafc;
+  color: var(--gh-on-brand);
   background: var(--credit-form-navy);
 }
 
 .form-head h3 {
   margin: 0;
-  color: #ffffff;
+  color: var(--gh-on-brand);
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.25;
@@ -36,7 +36,7 @@
 
 .form-head p {
   margin: 6px 0 0;
-  color: #94a3b8;
+  color: var(--gh-text-soft);
   font-size: 0.8rem;
   line-height: 1.35;
 }
@@ -85,7 +85,7 @@ label {
 }
 
 label span {
-  color: #334155;
+  color: var(--gh-text);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -97,10 +97,10 @@ input,
 textarea {
   width: 100%;
   min-width: 0;
-  border: 1px solid #b8c2d4;
+  border: 1px solid var(--gh-border-strong);
   border-radius: 7px;
-  color: #0f172a;
-  background: #ffffff;
+  color: var(--gh-text-strong);
+  background: var(--gh-surface);
   outline: 0;
   font-family: inherit;
   font-size: 0.84rem;
@@ -127,8 +127,8 @@ textarea:focus {
 }
 
 .input-error {
-  border-color: #fca5a5;
-  background: #fff7f7;
+  border-color: var(--gh-status-danger-border);
+  background: var(--gh-status-danger-bg);
 }
 
 .field-error {
@@ -174,15 +174,15 @@ textarea:focus {
 }
 
 .btn-dark {
-  color: #ffffff;
+  color: var(--gh-on-brand);
   background: var(--credit-form-navy);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
 }
 
 .btn-light {
-  color: #334155;
-  background: #ffffff;
-  border-color: #cbd5e1;
+  color: var(--gh-text);
+  background: var(--gh-surface);
+  border-color: var(--gh-border-strong);
 }
 
 .feedback {
@@ -194,14 +194,14 @@ textarea:focus {
 }
 
 .feedback.error {
-  color: #991b1b;
-  background: #fee2e2;
-  border: 1px solid #fecaca;
+  color: var(--gh-status-danger-text);
+  background: var(--gh-status-danger-bg);
+  border: 1px solid var(--gh-status-danger-border);
 }
 
 .feedback.hint {
-  color: #075985;
-  background: #eef4ff;
+  color: var(--gh-status-info-text);
+  background: var(--gh-status-neutral-bg);
   border: 1px solid var(--credit-form-border);
 }
 
