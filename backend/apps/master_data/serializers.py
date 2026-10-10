@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from accounts.soft_delete import exclude_soft_deleted
+
 from .models import MasterData, RETIRED_GROUPS
 
 
@@ -70,6 +72,20 @@ class MasterDataSerializer(serializers.ModelSerializer):
             if queryset.exists():
                 raise serializers.ValidationError(
                     {"code": "Ya existe un valor con ese código en el grupo seleccionado."}
+                )
+
+        # Dos valores con el mismo nombre en un grupo se ven iguales en todos los selectores
+        # (auditoria, Bloque 3 #8). Solo se revisa al crear o al cambiar el nombre, para no
+        # bloquear la edicion de duplicados que ya existian.
+        name = str(attrs.get("name", getattr(self.instance, "name", "")) or "").strip()
+        name_changed = self.instance is None or name.lower() != str(self.instance.name or "").strip().lower()
+        if group and name and name_changed:
+            same_name = exclude_soft_deleted(MasterData.objects.filter(group=group, name__iexact=name))
+            if self.instance:
+                same_name = same_name.exclude(pk=self.instance.pk)
+            if same_name.exists():
+                raise serializers.ValidationError(
+                    {"name": "Ya existe un valor con ese nombre en el grupo seleccionado."}
                 )
 
         return attrs

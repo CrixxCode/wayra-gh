@@ -45,7 +45,7 @@ class RetiredMasterDataGroupsTests(APITestCase):
     def test_active_groups_still_accept_values(self):
         response = self.client.post(
             "/api/master-data/",
-            {"group": "DOCUMENT_TYPE", "code": "PAS", "name": "Pasaporte"},
+            {"group": "DOCUMENT_TYPE", "code": "PAS", "name": "Permiso especial de prueba"},
             format="json",
         )
 
@@ -119,3 +119,42 @@ class MasterDataApiTests(APITestCase):
         restored = self.client.post(f"/api/master-data/{created['id']}/restore/")
         self.assertEqual(restored.status_code, 200, restored.data)
         self.assertEqual(self.client.get(f"/api/master-data/{created['id']}/").status_code, 200)
+
+    # ------------------------------------------------ reordenar y nombres (Bloque 3 #8)
+
+    def test_reorder_sets_the_new_order_for_the_whole_group(self):
+        self.client.force_authenticate(self.writer)
+        first = self._create("ORD_A", name="Alfa").data["id"]
+        second = self._create("ORD_B", name="Beta").data["id"]
+        third = self._create("ORD_C", name="Gamma").data["id"]
+
+        response = self.client.post(
+            "/api/master-data/reorder/",
+            {"group": "DOCUMENT_TYPE", "ids": [third, first, second]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        orders = dict(MasterData.objects.filter(pk__in=[first, second, third]).values_list("pk", "sort_order"))
+        self.assertEqual((orders[third], orders[first], orders[second]), (1, 2, 3))
+
+    def test_reorder_rejects_values_from_another_group(self):
+        self.client.force_authenticate(self.writer)
+        own = self._create("ORD_D", name="Delta").data["id"]
+        foreign = self._create("ORD_ORIGEN", group="RESERVATION_ORIGIN", name="Otro").data["id"]
+        response = self.client.post(
+            "/api/master-data/reorder/", {"group": "DOCUMENT_TYPE", "ids": [own, foreign]}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_reorder_requires_the_write_scope(self):
+        self.client.force_authenticate(self.reader)
+        response = self.client.post("/api/master-data/reorder/", {"group": "DOCUMENT_TYPE", "ids": [1]}, format="json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_name_is_unique_within_a_group(self):
+        self.client.force_authenticate(self.writer)
+        self.assertEqual(self._create("NOM_A", name="Carnet").status_code, 201)
+        self.assertEqual(self._create("NOM_B", name="carnet ").status_code, 400)
+        # En otro grupo el mismo nombre si vale.
+        self.assertEqual(self._create("NOM_C", group="RESERVATION_ORIGIN", name="Carnet").status_code, 201)

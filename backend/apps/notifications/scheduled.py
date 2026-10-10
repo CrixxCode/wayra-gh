@@ -24,6 +24,7 @@ from apps.notifications.services import (
     notify_reservation_upcoming_checkin,
     notify_reservation_upcoming_checkout,
 )
+from apps.notifications.retention import purge_expired_notifications
 from apps.reservations.models import Reservation
 
 logger = logging.getLogger(__name__)
@@ -124,6 +125,8 @@ def ensure_daily_notifications(hotel_settings_id: int | None) -> bool:
             notify_upcoming_checkins(hotel_settings_id=hotel.id, today=today)
             notify_upcoming_checkouts(hotel_settings_id=hotel.id, today=today)
             notify_daily_reports(hotel_settings_id=hotel.id, report_date=today)
+            # Una vez al dia por hotel tambien se borra lo vencido (Bloque 12 #7).
+            purge_expired_notifications(hotel_settings_id=hotel.id)
 
             HotelSettings.objects.filter(pk=hotel.id).update(daily_notifications_ran_on=today)
         return True

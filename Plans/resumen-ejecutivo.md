@@ -116,8 +116,9 @@ Estos no son de seguridad ni de dinero directamente, pero impiden operar el día
 ## Funcionalidad nueva (una por una)
 
 > **2026-10-10:** ✅ B4 #11-13: responsable, estados validados en el servidor y edición de
-> limpieza y mantenimiento. ✅ B11 #6-7 y B9 #11: exportes completos en PDF y Excel. Pendientes:
-> reordenar Master Data (B3 #8) y retención de notificaciones (B12 #7).
+> limpieza y mantenimiento. ✅ B11 #6-7 y B9 #11: exportes completos en PDF y Excel. ✅ B3 #8:
+> reordenar Master Data y nombres únicos por grupo. ✅ B12 #7: retención de notificaciones (90/180 días).
+> **Con esto quedan atendidos todos los hallazgos de la auditoría.**
 
 ## Tanda 12 — cobertura de tests
 

@@ -68,6 +68,7 @@ export class MasterDataService {
     ordering?: string;
     include_inactive?: boolean;
     include_deleted?: boolean;
+    only_deleted?: boolean;
   }): HttpParams {
     let params = new HttpParams();
     if (filters?.group) params = params.set('group', filters.group);
@@ -80,6 +81,7 @@ export class MasterDataService {
     if (typeof filters?.include_deleted === 'boolean') {
       params = params.set('include_deleted', String(filters.include_deleted));
     }
+    if (filters?.only_deleted) params = params.set('only_deleted', 'true');
     return params;
   }
 
@@ -130,6 +132,7 @@ export class MasterDataService {
     ordering?: string;
     include_inactive?: boolean;
     include_deleted?: boolean;
+    only_deleted?: boolean;
   }): Observable<MasterDataI[]> {
     const params = this.buildListParams(filters);
 
@@ -157,7 +160,17 @@ export class MasterDataService {
   }
 
   deleteMasterData(id: number): Observable<unknown> {
-    return this.http.delete(`${this.masterDataUrl}${id}/`, this.auth.buildCsrfRequestOptions());
+    // Sin invalidar, los selectores seguian ofreciendo el valor borrado hasta que vencia el cache.
+    return this.http
+      .delete(`${this.masterDataUrl}${id}/`, this.auth.buildCsrfRequestOptions())
+      .pipe(tap(() => this.invalidateMasterData()));
+  }
+
+  /** Orden nuevo de un grupo completo: `sort_order` 1, 2, 3... (auditoria, Bloque 3 #8). */
+  reorderMasterData(group: string, ids: number[]): Observable<MasterDataI[]> {
+    return this.http
+      .post<MasterDataI[]>(`${this.masterDataUrl}reorder/`, { group, ids }, this.auth.buildCsrfRequestOptions())
+      .pipe(tap(() => this.invalidateMasterData()));
   }
 
   restoreMasterData(id: number): Observable<MasterDataI> {

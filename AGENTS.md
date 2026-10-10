@@ -470,6 +470,13 @@ dice si ya corrió hoy —una lectura barata, que no depende de la caché por pr
 corre bajo `select_for_update` del hotel y un fallo se registra sin tumbar la lectura, que lo
 reintenta. Antes los comandos existían, pero nada los programaba y nunca le llegaban a nadie.
 
+**Retención** (decisión del 2026-10-10, Bloque 12 #7). Las leídas se borran a los
+`NOTIFICATION_READ_RETENTION_DAYS` (90) y las no leídas a los `NOTIFICATION_UNREAD_RETENTION_DAYS`
+(180). Es un borrado físico: son avisos, no auditoría (5.23). Corre en la misma pasada diaria de
+`ensure_daily_notifications`, una vez por hotel, sin cron (`apps/notifications/retention.py`).
+`python manage.py purge_notifications [--dry-run]` hace lo mismo a mano o desde un programador. La
+deduplicación es por día, así que borrar avisos viejos no hace que se vuelvan a generar.
+
 **El enlace de una notificación abre el registro, no el listado** (desde el 2026-10-09).
 `reservation_detail_url`, `room_detail_url` e `invoice_detail_url` arman `action_url`:
 `/reservas?action=detail&reservationId=ID`, `/habitaciones?room=ID` (con `&tab=operations` para
@@ -1434,6 +1441,46 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-10-10 — Retención de notificaciones
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez (plazos decididos por él).
+- **Commit(s):** incluido en este commit
+- **Tipo:** funcional
+- **Qué se hizo:** auditoría B12 #7.
+  - Purga de notificaciones vencidas: leídas, a los 90 días; no leídas, a los 180.
+  - Corre una vez al día por hotel dentro de la pasada diaria de la campana, y también está el
+    comando `purge_notifications` con `--dry-run` (5.12).
+- **Por qué:** la tabla `notification` crecía sin límite, con una fila por usuario y por día en
+  los recordatorios.
+- **Archivos/áreas afectadas:** `backend/apps/notifications/{retention.py (nuevo),scheduled,tests}.py`,
+  `backend/apps/notifications/management/commands/purge_notifications.py` (nuevo),
+  `backend/backend/settings.py`; `AGENTS.md` (5.12).
+- **Impacto:** sin migraciones. Variables opcionales nuevas: `NOTIFICATION_READ_RETENTION_DAYS`
+  (90) y `NOTIFICATION_UNREAD_RETENTION_DAYS` (180). **Borra datos:** en el primer día tras
+  desplegar, cada hotel elimina sus notificaciones fuera de plazo. Para ver cuántas son antes,
+  `purge_notifications --dry-run`.
+
+### 2026-10-10 — Master Data: reordenar en lote y nombres únicos por grupo
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** incluido en este commit
+- **Tipo:** funcional
+- **Qué se hizo:** auditoría B3 #8.
+  - `POST /api/master-data/reorder/ {group, ids}` deja `sort_order` en 1, 2, 3... en el orden
+    recibido. Usa `master_data.write` y rechaza ids de otro grupo, repetidos o eliminados.
+  - En la pantalla, flechas de subir y bajar en la columna "Orden" cuando se filtra un grupo sin
+    búsqueda ni filtro de estado; si no, una nota explica cómo activarlas.
+  - El nombre es único dentro de un grupo, sin distinguir mayúsculas. Solo se valida al crear o
+    al renombrar, para no bloquear la edición de duplicados que ya existían.
+  - De paso: borrar un valor ahora invalida la caché de catálogos, y "Ver eliminados" usa
+    `only_deleted` en vez de bajar el catálogo dos veces.
+- **Por qué:** el orden se cambiaba valor por valor, y dos valores con el mismo nombre se veían
+  idénticos en todos los selectores.
+- **Archivos/áreas afectadas:** `backend/apps/master_data/{views,serializers,tests}.py`;
+  frontend: `components/pages/master-data/*`, `services/master-data.service.ts`.
+- **Impacto:** sin migraciones. Endpoint nuevo `POST /api/master-data/reorder/`. Crear o renombrar
+  un valor con un nombre que ya existe en su grupo responde 400.
 
 ### 2026-10-10 — Exportes completos de reportes y finanzas (PDF y Excel)
 

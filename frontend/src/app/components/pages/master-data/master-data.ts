@@ -1,6 +1,5 @@
 import { Component, OnInit } from '@angular/core';
 import { DeletedRecordRow, DeletedRecords } from '../../shared/deleted-records/deleted-records';
-import { forkJoin } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService } from 'primeng/api';
@@ -30,6 +29,7 @@ export class MasterDataComponent implements OnInit {
 
   search = '';
   selectedGroup = 'ALL';
+  reordering = false;
   selectedStatus: StatusFilter = 'ALL';
 
   showDrawer = false;
@@ -110,18 +110,16 @@ export class MasterDataComponent implements OnInit {
     if (this.showDeleted) this.loadDeleted();
   }
 
-  /** Eliminados = lo que aparece con `include_deleted` y no en el listado normal. */
+  /** Solo los eliminados (`only_deleted`): antes se bajaba el catalogo dos veces y se restaba. */
   loadDeleted(): void {
     this.loadingDeleted = true;
-    forkJoin({
-      visible: this.masterDataService.listMasterDataAll({ include_inactive: true }),
-      all: this.masterDataService.listMasterDataAll({ include_inactive: true, include_deleted: true })
-    }).subscribe({
-      next: ({ visible, all }) => {
-        const visibleIds = new Set((visible || []).map((row: { id: unknown }) => String(row.id)));
-        this.deletedRows = (all || [])
-          .filter((row: { id: unknown }) => !visibleIds.has(String(row.id)))
-          .map((row: any) => ({ id: row.id, label: `${row.group} · ${row.code}`, detail: row.name }));
+    this.masterDataService.listMasterDataAll({ include_inactive: true, only_deleted: true }).subscribe({
+      next: (deleted) => {
+        this.deletedRows = (deleted || []).map((row: MasterDataI) => ({
+          id: row.id,
+          label: `${row.group} · ${row.code}`,
+          detail: row.name
+        }));
         this.loadingDeleted = false;
       },
       error: () => {
@@ -380,6 +378,58 @@ export class MasterDataComponent implements OnInit {
       maxLength: 80,
       style: 'code',
     });
+  }
+
+  /**
+   * Reordenar tiene sentido dentro de un grupo y viendo todos sus valores: con busqueda, el
+   * vecino de arriba podia no ser el real (auditoria, Bloque 3 #8).
+   */
+  get canReorder(): boolean {
+    return this.selectedGroup !== 'ALL' && !this.search.trim() && this.selectedStatus === 'ALL';
+  }
+
+  canMove(item: MasterDataI, direction: -1 | 1): boolean {
+    const items = this.groupItemsInOrder();
+    const index = items.findIndex((candidate) => candidate.id === item.id);
+    const target = index + direction;
+    return index >= 0 && target >= 0 && target < items.length;
+  }
+
+  moveItem(item: MasterDataI, direction: -1 | 1): void {
+    if (!this.canReorder || this.reordering || !this.canMove(item, direction)) return;
+    const items = this.groupItemsInOrder();
+    const index = items.findIndex((candidate) => candidate.id === item.id);
+    [items[index], items[index + direction]] = [items[index + direction], items[index]];
+
+    this.reordering = true;
+    this.masterDataService.reorderMasterData(this.selectedGroup, items.map((candidate) => candidate.id)).subscribe({
+      next: (updated) => {
+        this.reordering = false;
+        const orderById = new Map(updated.map((row) => [row.id, row.sort_order]));
+        for (const row of this.allItems) {
+          if (orderById.has(row.id)) row.sort_order = Number(orderById.get(row.id));
+        }
+        this.allItems.sort(
+          (a, b) =>
+            a.group.localeCompare(b.group) ||
+            Number(a.sort_order || 0) - Number(b.sort_order || 0) ||
+            (a.name || '').localeCompare(b.name || '')
+        );
+        this.applyFilters();
+      },
+      error: (error) => {
+        this.reordering = false;
+        this.toast(this.extractErrorMessage(error, 'No se pudo cambiar el orden.'), 'danger');
+      }
+    });
+  }
+
+  private groupItemsInOrder(): MasterDataI[] {
+    return this.allItems
+      .filter((candidate) => candidate.group === this.selectedGroup)
+      .sort(
+        (a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0) || (a.name || '').localeCompare(b.name || '')
+      );
   }
 
   private toast(message: string, kind: ToastKind = 'info'): void {

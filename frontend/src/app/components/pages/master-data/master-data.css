@@ -808,3 +808,18 @@ tbody tr:last-child td {
     width: 100%;
   }
 }
+
+/* Reordenar dentro de un grupo (Bloque 3 #8). */
+.order-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.order-cell span {
+  min-width: 22px;
+}
+
+.order-hint {
+  color: var(--gh-text-soft);
+}

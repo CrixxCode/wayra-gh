@@ -526,3 +526,66 @@ class NotificationScopesAndBulkReadTests(APITestCase):
         self.client.force_authenticate(self.manager)
         everything = self._titles(self.client.get("/api/notifications/", {"scope": "hotel"}))
         self.assertEqual(everything, {"Para recepcion", "Otra", "Para gerencia"})
+
+
+class NotificationRetentionTests(TestCase):
+    """Leidas a los 90 dias, no leidas a los 180 (auditoria, Bloque 12 #7)."""
+
+    def setUp(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        self.hotel = HotelSettings.objects.create(hotel_name="Hotel Retencion")
+        self.other_hotel = HotelSettings.objects.create(hotel_name="Hotel Retencion B")
+        self.user = User.objects.create_user(username="retencion", password="pass12345", hotel_settings=self.hotel)
+        Notification.objects.all().delete()
+        now = timezone.now()
+
+        def make(title, days_ago, is_read, hotel=None):
+            notification = Notification.objects.create(
+                hotel_settings=hotel or self.hotel,
+                user=self.user,
+                title=title,
+                message="...",
+                is_read=is_read,
+            )
+            Notification.objects.filter(pk=notification.pk).update(created_at=now - timedelta(days=days_ago))
+
+        make("leida reciente", 30, True)
+        make("leida vieja", 100, True)
+        make("no leida de 100 dias", 100, False)
+        make("no leida vieja", 200, False)
+        make("leida vieja de otro hotel", 100, True, hotel=self.other_hotel)
+
+    def _titles(self):
+        return set(Notification.objects.values_list("title", flat=True))
+
+    def test_purge_respects_both_windows_and_the_hotel(self):
+        from apps.notifications.retention import purge_expired_notifications
+
+        deleted = purge_expired_notifications(hotel_settings_id=self.hotel.id)
+
+        self.assertEqual(deleted, 2)
+        self.assertEqual(
+            self._titles(),
+            {"leida reciente", "no leida de 100 dias", "leida vieja de otro hotel"},
+        )
+
+    def test_the_daily_bell_run_purges_its_hotel(self):
+        from apps.notifications.scheduled import ensure_daily_notifications
+
+        self.assertTrue(ensure_daily_notifications(self.hotel.id))
+
+        self.assertNotIn("leida vieja", self._titles())
+        self.assertIn("leida vieja de otro hotel", self._titles())
+
+    def test_command_dry_run_does_not_delete(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command("purge_notifications", "--dry-run", stdout=out)
+        self.assertIn("Se borrarian 3", out.getvalue())
+        self.assertEqual(len(self._titles()), 5)

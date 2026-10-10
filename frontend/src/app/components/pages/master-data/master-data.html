@@ -113,7 +113,12 @@
   <div class="card table-card">
     <div class="table-toolbar">
       <div class="table-title">Listado maestro</div>
-      <div class="table-meta">{{ filteredItems.length }} resultados</div>
+      <div class="table-meta">
+        {{ filteredItems.length }} resultados
+        @if (!canReorder) {
+          <span class="order-hint">· Elige un grupo, sin busqueda ni filtro de estado, para reordenar sus valores.</span>
+        }
+      </div>
     </div>
 
     @if (loading) {
@@ -149,7 +154,29 @@
                 </td>
                 <td>{{ item.name }}</td>
                 <td class="desc">{{ item.description || '-' }}</td>
-                <td>{{ item.sort_order }}</td>
+                <td>
+                  <div class="order-cell">
+                    <span>{{ item.sort_order }}</span>
+                    @if (canReorder) {
+                      <button
+                        type="button"
+                        class="row-btn"
+                        title="Subir"
+                        [disabled]="reordering || !canMove(item, -1)"
+                        (click)="moveItem(item, -1)">
+                        <i class="fa-solid fa-arrow-up"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="row-btn"
+                        title="Bajar"
+                        [disabled]="reordering || !canMove(item, 1)"
+                        (click)="moveItem(item, 1)">
+                        <i class="fa-solid fa-arrow-down"></i>
+                      </button>
+                    }
+                  </div>
+                </td>
                 <td>
                   <span class="status" [class.ok]="item.is_active" [class.off]="!item.is_active">
                     {{ getStatusLabel(item) }}
