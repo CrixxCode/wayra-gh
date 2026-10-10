@@ -22,12 +22,6 @@ class ReservationGuestInline(admin.TabularInline):
     autocomplete_fields = ("document_type",)
 
 
-class ReservationDepositInline(admin.TabularInline):
-    model = ReservationDeposit
-    extra = 0
-    autocomplete_fields = ("payment_method", "status")
-
-
 class ReservationInventoryCheckLineInline(admin.TabularInline):
     model = ReservationInventoryCheckLine
     extra = 0
@@ -90,7 +84,6 @@ class ReservationAdmin(admin.ModelAdmin):
     inlines = [
         ReservationRoomInline,
         ReservationGuestInline,
-        ReservationDepositInline,
     ]
 
     fieldsets = (
@@ -192,6 +185,20 @@ class ReservationGuestAdmin(admin.ModelAdmin):
 
 @admin.register(ReservationDeposit)
 class ReservationDepositAdmin(admin.ModelAdmin):
+    """
+    Tabla heredada, solo consulta (auditoria, Bloque 6 #12). Los abonos reales son
+    `billing.Payment` (5.19); crear uno aqui no tenia ningun efecto en la factura ni el saldo.
+    """
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     list_display = (
         "id",
         "reservation",

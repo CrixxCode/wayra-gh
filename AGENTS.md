@@ -1201,7 +1201,7 @@ Mapa backend ↔ frontend ↔ rutas. Los recursos RBAC siguen el patrón `<clave
 | `apps.master_data` | `MasterData`, `RoomType` | `pages/master-data` | `/master-data` |
 | `apps.clients` | `Client` | `modules/clients` | `/clientes` |
 | `apps.rooms` | `RoomType`, `Rate`, `Amenity`, `Room`, `MaintenanceOrder`, `CleaningTask` | `modules/rooms`, `modules/saas`, `modules/cleaning-tasks`, `modules/maintenance-orders` | `/habitaciones` (tipos y tarifas como modales; amenidades se asignan por habitación), `/saas-amenidades` (catálogo global), `/tareas-limpieza`, `/ordenes-mantenimiento` |
-| `apps.reservations` | `Reservation`, `ReservationRoom`, `ReservationGuest`, `ReservationDeposit`, `ReservationInventoryCheck`, `ReservationInventoryCheckLine` | `modules/reservations` | `/reservas` |
+| `apps.reservations` | `Reservation`, `ReservationRoom`, `ReservationGuest`, `ReservationDeposit` (legado, ver sección 13), `ReservationInventoryCheck`, `ReservationInventoryCheckLine` | `modules/reservations` | `/reservas` |
 | `apps.services` | `Service` | `modules/services` | `/catalogo-servicios` |
 | `apps.packages` | `Package`, `PackageService` | `modules/packages` | `/catalogo-paquetes` |
 | `apps.promotions` | `Promotion` | `modules/promotions` | `/promociones` |
@@ -1400,6 +1400,46 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 ---
 
 ## 12. Registro de cambios
+
+### 2026-10-09 — Auditoría, tanda 11: limpieza de código muerto
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez.
+- **Commit(s):** incluido en este commit
+- **Tipo:** refactor
+- **Qué se hizo:**
+  - **B1 #12:** `RolesService` delega en `ResourcesService` los cuatro métodos de recursos que
+    tenía copiados.
+  - **B1 #14:** fuera la rama inalcanzable de `RoleViewSet.get_required_scopes`.
+  - **B4 #17:** fuera el campo duplicado con typo `florr_number` de `RoomSerializer`; el
+    dashboard usa `floor_number`.
+  - **B5 #6:** fuera `ClientsService.setStatus()`, sin uso. `setClientType()` se queda: lo usa la
+    acción de tipo manual desde la tanda 3.
+  - **B6 #12:** `ReservationDeposit` documentado como legado y su admin de solo consulta. No se
+    borra la tabla (sección 13, punto 16).
+  - **B8 #10, #11 y #12:** fuera los bloques `!embedded` que nunca se pintaban en
+    pagos, facturas y reembolsos; fuera `getSuggestedRefundAmount` de `detail-payment`; y fuera
+    la asignación duplicada de `refreshing` en reembolsos.
+  - **B9 #7:** fuera `saveConfig()` de Control financiero; la pantalla usa `saveConfiguration()`.
+  - **B13 #8:** el panel SaaS ya no descarga todas las reservas para un `activeReservations`
+    que no se mostraba.
+  - **B15 #9:** fuera `PASSWORD_RESET_COOKIE_MAX_AGE` (settings y `.env.example`), que nadie
+    leía.
+  - **B12 #6 no aplica:** `notifications.write` no está muerto. Es el permiso que habilita
+    `?scope=hotel` (vista de gerentes); se aclaró en el código. **B10 #3** queda documentado
+    (sección 13, punto 17).
+- **Por qué:** código muerto o duplicado que daba falsos indicios de funcionalidad o podía
+  desincronizarse.
+- **Archivos/áreas afectadas:** `backend/accounts/views.py`, `backend/backend/settings.py`,
+  `backend/.env.example`, `railway.env.example`, `backend/apps/notifications/views.py`,
+  `backend/apps/reservations/{models,admin}.py`, `backend/apps/rooms/serializers.py`; frontend:
+  `services/{roles.service,client,saas-dashboard}.ts`, `modules/saas/saas-dashboard-model.ts`,
+  `modules/rooms/room-model.ts`, `components/pages/dashboard/dashboard.ts`,
+  `modules/payments/{list-payments,list-payment-refunds,detail-payment}/*`,
+  `modules/billing/list-bill/list-bill.html`,
+  `modules/financial-control/list-financial-control/list-financial-control.ts`; `AGENTS.md` (13).
+- **Impacto:** sin migraciones. Cambio de contrato menor: `GET /api/rooms/` ya no trae
+  `florr_number` (usar `floor_number`). La variable `PASSWORD_RESET_COOKIE_MAX_AGE` se puede borrar
+  del entorno.
 
 ### 2026-10-09 — Auditoría, tanda 10: modo oscuro
 
@@ -11014,6 +11054,13 @@ para que nadie los "descubra" y los cambie sin contexto.
 15. ~~**Pendientes de la auditoría que son funcionalidad nueva**~~ **RESUELTO el 2026-10-09**
     (B6 #8, B12 #8, B12 #9, B13 #3, B14 #10). Ver la entrada "Auditoría, tanda 6" del registro de
     cambios.
+16. **`reservations.ReservationDeposit` es una tabla legada** (2026-10-09, Bloque 6 #12). Nada la
+    escribe: los abonos son `billing.Payment` (5.19). Se conserva por si guarda datos anteriores a
+    ese cambio, y su admin quedó de solo consulta. Eliminarla requiere una migración destructiva:
+    hay que confirmar antes que la tabla esté vacía en producción.
+17. **`InventoryRestockAlert` no tiene endpoint** (Bloque 10 #3). Desde la tanda 6 su creación
+    notifica a la campana, pero la UI de inventario sigue calculando "bajo mínimo" por su cuenta y
+    no hay forma de atender o descartar una alerta fuera del admin de Django.
 ### 2026-08-10 - Inventario por uso de item y asignacion desde habitacion
 
 - **Autor:** Codex, a solicitud de rastor65

@@ -41,6 +41,8 @@ class NotificationViewSet(
     def get_required_scopes(self):
         if self.action in {"mark_as_read", "mark_all_as_read"}:
             return ["notifications.read"]
+        # `notifications.write` no es para escribir avisos (no hay alta por API): es el permiso
+        # que habilita `?scope=hotel`, la vista de gerentes (`NotificationAccessPolicy`).
         if self.request.method in ("POST", "PUT", "PATCH", "DELETE"):
             return ["notifications.write"]
         return self.required_scopes

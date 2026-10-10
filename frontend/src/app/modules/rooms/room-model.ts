@@ -131,7 +131,7 @@ export interface RoomI {
 
   room_type_name?: string;
   floor_name?: string;
-  florr_number?: number;
+  floor_number?: number;
   active_reservation?: RoomActiveReservationI | null;
   /** Todas las reservas abiertas de la habitacion (para validar cruces de fechas). */
   booked_ranges?: RoomBookedRangeI[];

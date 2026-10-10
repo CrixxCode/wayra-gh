@@ -349,6 +349,13 @@ class ReservationGuest(models.Model):
 
 
 class ReservationDeposit(models.Model):
+    """
+    LEGADO: ya no se escribe. Los abonos de una reserva son `billing.Payment` sobre su factura,
+    y `/api/reservation-deposits/` los expone con un serializer de compatibilidad (5.19). La
+    tabla se conserva por si guarda datos anteriores a ese cambio; borrarla exige una
+    migracion destructiva (auditoria, Bloque 6 #12). No construir nada sobre este modelo.
+    """
+
     reservation = models.ForeignKey(
         Reservation,
         on_delete=models.CASCADE,

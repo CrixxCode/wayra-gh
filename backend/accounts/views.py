@@ -530,10 +530,9 @@ class RoleViewSet(LogicalDeleteViewSetMixin, viewsets.ModelViewSet):
         return queryset.order_by("name")
 
     def get_required_scopes(self):
-        # CRUD y acciones de asignación requieren roles.write
+        # CRUD y acciones de asignacion (todas POST) requieren roles.write. La rama que listaba
+        # acciones a mano era inalcanzable y ademas olvidaba `remove_resources` (Bloque 1 #14).
         if self.request.method in ("POST", "PUT", "PATCH", "DELETE"):
-            return ["roles.write"]
-        if getattr(self, "action", "") in ("assign_users", "remove_users", "assign_resources"):
             return ["roles.write"]
         return self.required_scopes
 

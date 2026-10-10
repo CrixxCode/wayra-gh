@@ -152,7 +152,6 @@ export class ListPaymentRefunds implements OnInit {
       .subscribe({
         next: (refunds) => {
           this.loading = false;
-        this.refreshing = false;
           this.refreshing = false;
           this.refunds = [...refunds].sort((a, b) => b.id - a.id);
           this.applyFilters();
@@ -162,7 +161,6 @@ export class ListPaymentRefunds implements OnInit {
         },
         error: () => {
           this.loading = false;
-        this.refreshing = false;
           this.refreshing = false;
           this.errorMessage = 'No fue posible cargar los reembolsos.';
         }

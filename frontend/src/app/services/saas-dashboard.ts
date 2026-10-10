@@ -37,15 +37,6 @@ type UserRow = {
   is_active?: boolean;
 };
 
-type ReservationRow = {
-  id: number;
-  status_code?: string;
-  expected_check_in?: string;
-  expected_check_out?: string;
-  real_check_in?: string | null;
-  real_check_out?: string | null;
-};
-
 type InvoiceRow = {
   id: number;
   status_code?: string;
@@ -66,7 +57,6 @@ export class SaasDashboardService {
   private readonly apiBase = environment.API_URI.replace(/\/$/, '');
   private readonly hotelSettingsUrl = `${this.apiBase}/api/hotel-settings/`;
   private readonly usersUrl = `${this.apiBase}/api/users/`;
-  private readonly reservationsUrl = `${this.apiBase}/api/reservations/`;
   private readonly invoicesUrl = `${this.apiBase}/api/invoices/`;
   private readonly paymentsUrl = `${this.apiBase}/api/payments/`;
 
@@ -82,10 +72,6 @@ export class SaasDashboardService {
         this.usersUrl,
         this.withPaginationParams({ include_inactive: 'true' })
       ),
-      reservations: this.fetchAllPages<ReservationRow>(
-        this.reservationsUrl,
-        this.withPaginationParams({ include_finished: 'true' })
-      ),
       invoices: this.fetchAllPages<InvoiceRow>(
         this.invoicesUrl,
         this.withPaginationParams({ include_inactive: 'true' })
@@ -95,15 +81,12 @@ export class SaasDashboardService {
         this.withPaginationParams({ include_inactive: 'false' })
       ),
     }).pipe(
-      map(({ hotels, users, reservations, invoices, payments }) => {
+      map(({ hotels, users, invoices, payments }) => {
         const now = new Date();
         const thisMonth = now.getMonth();
         const thisYear = now.getFullYear();
 
         const activeUsers = users.filter((user) => user.is_active !== false).length;
-        const activeReservations = reservations.filter((reservation) =>
-          this.isActiveReservation(reservation)
-        ).length;
 
         const monthRevenue = payments
           .filter((payment) => payment.is_active !== false)
@@ -137,7 +120,6 @@ export class SaasDashboardService {
             hotels: hotels.length,
             users: users.length,
             activeUsers,
-            activeReservations,
             monthRevenue,
             openInvoices,
           },
@@ -344,13 +326,6 @@ export class SaasDashboardService {
       }))
       .sort((a, b) => b.hotels - a.hotels)
       .slice(0, 8);
-  }
-
-  private isActiveReservation(row: ReservationRow): boolean {
-    const status = String(row.status_code || '').toUpperCase();
-    if (status.includes('CANCEL') || status.includes('FINALIZ')) return false;
-    if (row.real_check_out) return false;
-    return true;
   }
 
   private isRecentlyUpdated(days: number | null): boolean {

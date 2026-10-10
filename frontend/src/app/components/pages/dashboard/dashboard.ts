@@ -497,7 +497,7 @@ export class Dashboard implements OnInit, OnDestroy {
         const guest =
           room.active_reservation?.client_name || room.active_reservation?.client?.full_name || '';
         const floorId = Number(room.floor);
-        const floorNumber = Number(room.florr_number);
+        const floorNumber = Number(room.floor_number);
         const floorLabel =
           String(room.floor_name || '').trim() ||
           (Number.isFinite(floorNumber) && floorNumber > 0

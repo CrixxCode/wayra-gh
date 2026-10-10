@@ -35,7 +35,6 @@ export type SaasDashboardSnapshot = {
     hotels: number;
     users: number;
     activeUsers: number;
-    activeReservations: number;
     monthRevenue: number;
     openInvoices: number;
   };

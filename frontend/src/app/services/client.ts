@@ -86,14 +86,6 @@ export class ClientsService {
     );
   }
 
-  setStatus(id: number, status: ClientI['status']): Observable<ClientI> {
-    return this.http.patch<ClientI>(
-      `${this.clientsUrl}${id}/set-status/`,
-      { status },
-      this.auth.buildCsrfRequestOptions()
-    );
-  }
-
   /** Fija el tipo a mano, o `AUTO` para volver al calculo por noches de estadia. */
   setClientType(id: number, client_type: ClientI['client_type'] | 'AUTO'): Observable<ClientI> {
     return this.http.patch<ClientI>(

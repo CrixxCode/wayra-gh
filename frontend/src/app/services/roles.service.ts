@@ -1,8 +1,9 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../enviorements/environment';
 import { AuthService } from './auth/auth';
+import { ResourcesService } from './resources.service';
 
 export interface Role {
   id: string;
@@ -56,7 +57,8 @@ type DRFPaginated<T> = {
 export class RolesService {
   private readonly apiBase = environment.API_URI.replace(/\/$/, '');
   private readonly rolesUrl = `${this.apiBase}/api/roles/`;
-  private readonly resourcesUrl = `${this.apiBase}/api/resources/`;
+
+  private readonly resourcesService = inject(ResourcesService);
 
   constructor(private http: HttpClient, private auth: AuthService) {}
 
@@ -183,40 +185,25 @@ export class RolesService {
     );
   }
 
-  listResources(q: string = '', filters?: { include_inactive?: boolean; include_deleted?: boolean }): Observable<ResourcePermission[]> {
-    let params = new HttpParams();
-    if (q) params = params.set('q', q);
-    if (typeof filters?.include_inactive === 'boolean') {
-      params = params.set('include_inactive', String(filters.include_inactive));
-    }
-    if (typeof filters?.include_deleted === 'boolean') {
-      params = params.set('include_deleted', String(filters.include_deleted));
-    }
-
-    return this.http.get<any>(this.resourcesUrl, { withCredentials: true, params }).pipe(
-      map((res) => this.unwrapArray<ResourcePermission>(res))
-    );
+  // -------- Rol <-> Recursos --------
+  // Antes estos cuatro metodos estaban copiados aqui y en `ResourcesService`, con el riesgo de
+  // corregir uno y no el otro (auditoria, Bloque 1 #12). Ahora se delega en ese servicio.
+  listResources(
+    q: string = '',
+    filters?: { include_inactive?: boolean; include_deleted?: boolean }
+  ): Observable<ResourcePermission[]> {
+    return this.resourcesService.listResources(q, filters) as Observable<ResourcePermission[]>;
   }
 
   roleResources(roleId: string): Observable<ResourcePermission[]> {
-    return this.http.get<any>(`${this.rolesUrl}${roleId}/resources/`, { withCredentials: true }).pipe(
-      map((res) => this.unwrapArray<ResourcePermission>(res))
-    );
+    return this.resourcesService.roleResources(roleId) as Observable<ResourcePermission[]>;
   }
 
   assignResources(roleId: string, resourceIds: string[]): Observable<any> {
-    return this.http.post(
-      `${this.rolesUrl}${roleId}/assign-resources/`,
-      { resource_ids: resourceIds },
-      this.auth.buildCsrfRequestOptions()
-    );
+    return this.resourcesService.assignResources(roleId, resourceIds);
   }
 
   removeResources(roleId: string, resourceIds: string[]): Observable<any> {
-    return this.http.post(
-      `${this.rolesUrl}${roleId}/remove-resources/`,
-      { resource_ids: resourceIds },
-      this.auth.buildCsrfRequestOptions()
-    );
+    return this.resourcesService.removeResources(roleId, resourceIds);
   }
 }

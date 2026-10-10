@@ -337,7 +337,6 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
     room_type_capacity = serializers.IntegerField(source="room_type.capacity", read_only=True)
     floor_name = serializers.CharField(source="floor.name", read_only=True)
     floor_number = serializers.IntegerField(source="floor.floor_number", read_only=True)
-    florr_number = serializers.IntegerField(source="floor.floor_number", read_only=True)
 
     status = MasterDataCodeField(group=MasterData.Group.ROOM_STATUS)
     status_label = serializers.CharField(source="status.name", read_only=True)
@@ -372,7 +371,6 @@ class RoomSerializer(TenantSerializerMixin, serializers.ModelSerializer):
             "floor",
             "floor_name",
             "floor_number",
-            "florr_number",
             "status",
             "status_label",
             "active_reservation",

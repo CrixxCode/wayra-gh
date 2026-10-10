@@ -343,15 +343,6 @@ export class DetailPayment implements OnInit, OnChanges {
     return code === 'RECHAZADO' || code === 'ANULADO';
   }
 
-  private getSuggestedRefundAmount(): number {
-    const refundable = this.paymentRefundableAmount;
-    if (refundable <= 0) return 0;
-
-    const pending = this.pendingBalanceAmount;
-    if (pending <= 0) return refundable;
-    return refundable < pending ? refundable : pending;
-  }
-
   private roundAmount(value: number): number {
     return Math.round(value * 100) / 100;
   }

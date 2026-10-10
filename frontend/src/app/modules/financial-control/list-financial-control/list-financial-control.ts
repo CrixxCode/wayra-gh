@@ -798,60 +798,6 @@ export class ListFinancialControl implements OnInit, OnDestroy {
     this.syncConfigFormWithSelection();
   }
 
-  saveConfig(): void {
-    this.configValidationError = '';
-    this.configSaveMessage = '';
-
-    const hotelSettingsId = this.selectedHotelSettingsId;
-    if (!hotelSettingsId || hotelSettingsId <= 0) {
-      this.configValidationError = 'Debes seleccionar un hotel para guardar la configuracion.';
-      return;
-    }
-
-    const payloadResult = this.buildConfigPayload(hotelSettingsId);
-    if (payloadResult.error) {
-      this.configValidationError = payloadResult.error;
-      return;
-    }
-
-    const existingConfig = this.selectedConfigRecord;
-    const updatePayload: Partial<FinancialControlConfigPayload> = { ...payloadResult.payload };
-    delete updatePayload.hotel_settings;
-
-    const request$ = existingConfig
-      ? this.financialControlService.updateConfig(existingConfig.id, updatePayload)
-      : this.financialControlService.createConfig(payloadResult.payload);
-
-    this.savingConfig = true;
-    request$.subscribe({
-      next: (payload) => {
-        this.savingConfig = false;
-        // Los umbrales alimentan el semaforo y los impuestos el estado de resultados:
-        // lo ya cargado quedo viejo.
-        this.loadedTabs.clear();
-        const parsed = this.parseConfigRecord(payload);
-        if (parsed) {
-          this.upsertConfigRecord(parsed);
-          this.selectedHotelSettingsId = parsed.hotelSettingsId;
-          this.syncConfigFormWithSelection();
-          this.configSaveMessage = existingConfig
-            ? 'Configuracion financiera actualizada.'
-            : 'Configuracion financiera creada.';
-        } else {
-          this.configSaveMessage = 'Configuracion guardada. Actualiza para ver los cambios.';
-          this.loadConfigsAndBootstrap();
-        }
-      },
-      error: (error) => {
-        this.savingConfig = false;
-        this.configValidationError = this.extractHttpErrorMessage(
-          error,
-          'No fue posible guardar la configuracion financiera.'
-        );
-      },
-    });
-  }
-
   /**
    * Cambiar el periodo invalida lo que dependia de el, no lo recarga todo.
    *

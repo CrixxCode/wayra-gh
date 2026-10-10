@@ -113,6 +113,12 @@ Estos no son de seguridad ni de dinero directamente, pero impiden operar el día
 > `AGENTS.md`. Al probar B1 #3 apareció un bug nuevo: el borrado lógico con PK UUID no excluía nada
 > en SQLite (corregido). Quedan los "corregir pronto" y "mejorable" de cada bloque.
 
+## Tanda 11 — limpieza de código muerto
+
+> **Estado 2026-10-09:** ✅ B1 #12, B1 #14, B4 #17, B5 #6, B6 #12 (documentado; la tabla se
+> conserva), B8 #10-12, B9 #7, B13 #8 y B15 #9. B12 #6 no aplica (el permiso sí se usa) y B10 #3
+> queda documentado. Ver la entrada "Auditoría, tanda 11" en la sección 12 de `AGENTS.md`.
+
 ## Tanda 10 — modo oscuro
 
 > **Estado 2026-10-09:** ✅ B3 #6, B8 #9 y B11 #10. Ver la entrada "Auditoría, tanda 10" en la
