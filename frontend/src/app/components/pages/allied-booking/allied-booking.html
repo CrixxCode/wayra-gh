@@ -33,6 +33,7 @@
           [formGroup]="searchForm"
           (ngSubmit)="searchAvailability()">
 
+          <ng-container *ngIf="!lockedHotel; else lockedHotelField">
           <div
             class="booking-field booking-field-destination"
             (focusout)="onDestinationFocusOut($event)">
@@ -142,6 +143,22 @@
               Escribe un país o ciudad con hoteles aliados.
             </small>
           </div>
+          </ng-container>
+
+          <!-- Entrando desde un hotel aliado: se reserva en ese hotel, no en su ciudad. -->
+          <ng-template #lockedHotelField>
+            <div class="booking-field booking-field-destination booking-locked-hotel">
+              <span class="booking-locked-label">
+                <i class="pi pi-building" aria-hidden="true"></i>
+                Reservar en
+              </span>
+              <strong>{{ lockedHotel?.name }}</strong>
+              <small>{{ lockedHotel?.city }}, {{ lockedHotel?.country }}</small>
+              <button type="button" class="booking-locked-clear" (click)="clearLockedHotel()">
+                Buscar en otros hoteles
+              </button>
+            </div>
+          </ng-template>
 
 
           <label class="booking-field booking-field-dates">
@@ -241,7 +258,7 @@
             class="booking-primary booking-search-submit"
             [disabled]="loadingHotels || searchingAvailability">
 
-            {{ searchingAvailability ? 'Buscando...' : 'Buscar' }}
+            {{ searchingAvailability ? 'Buscando...' : (lockedHotel ? 'Ver tarifas' : 'Buscar') }}
 
           </button>
 

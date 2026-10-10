@@ -1461,6 +1461,31 @@ mismo commit. La sección 5 describe el estado actual del sistema; la sección 1
 
 ## 12. Registro de cambios
 
+### 2026-10-10 — Reserva pública: entrar desde un hotel aliado fija ese hotel
+
+- **Autor:** Claude Code, a solicitud de Cristian Ramirez (flujo decidido por él).
+- **Commit(s):** incluido en este commit
+- **Tipo:** funcional
+- **Qué se hizo:**
+  - Antes, desde "Hoteles aliados" se entraba a `/reservar?hotel=<slug>` y la página convertía
+    el hotel en su ciudad como destino: al poner fechas aparecían todos los hoteles de esa
+    ciudad. Ahora, con `?hotel=`, el buscador muestra el hotel fijado (nombre y ciudad) en lugar
+    del destino, y el botón "Ver tarifas" lleva directo a `/reservar/tarifas/<slug>`, sin lista
+    intermedia.
+  - `hotel` viaja en la URL a tarifas y solicitud, así que "volver" regresa al mismo hotel.
+  - "Buscar en otros hoteles" quita el filtro. Con el hotel fijado la página no salta sola a las
+    tarifas, para que "atrás" no rebote.
+  - Entrando por `/reservar` sin hotel, el flujo es el de siempre: buscar por destino y listar
+    los hoteles.
+  - Los estilos nuevos van en `allied-booking-locked.css`, porque `allied-booking.css` está en
+    el límite del presupuesto de estilos por componente (28 kB).
+- **Por qué:** quien entra a un hotel concreto quiere reservar en ese hotel, no ver la
+  competencia de su ciudad.
+- **Archivos/áreas afectadas:** `frontend/src/app/components/pages/allied-booking/`
+  (`allied-booking.{ts,html}`, `allied-booking-locked.css` nuevo, `allied-booking-rates.ts`,
+  `allied-booking-request.ts`, `allied-booking.spec.ts` nuevo).
+- **Impacto:** solo frontend; sin cambios de API.
+
 ### 2026-10-10 — KPIs de reservas sobre todo el hotel; "Reservada" solo desde el día de llegada
 
 - **Autor:** Claude Code, a solicitud de Cristian Ramirez (reportado al probar el hotel de demo).

@@ -1,0 +1,30 @@
+/* Hotel fijado al entrar desde "Hoteles aliados". */
+.booking-locked-hotel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.booking-locked-label {
+  color: var(--gh-text-soft);
+  font-size: 0.78rem;
+}
+
+.booking-locked-hotel strong {
+  color: var(--gh-text-strong);
+}
+
+.booking-locked-hotel small {
+  color: var(--gh-text-muted);
+}
+
+.booking-locked-clear {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gh-brand);
+  font-size: 0.78rem;
+  text-decoration: underline;
+  cursor: pointer;
+}

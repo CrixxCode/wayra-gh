@@ -61,7 +61,8 @@ type BookingSortMode =
     PublicFooterComponent,
   ],
   templateUrl: './allied-booking.html',
-  styleUrl: './allied-booking.css',
+  // El modo "hotel fijado" va aparte: `allied-booking.css` ya esta en el limite de presupuesto.
+  styleUrls: ['./allied-booking.css', './allied-booking-locked.css'],
 })
 export class AlliedBookingPage implements OnInit {
 
@@ -148,10 +149,33 @@ export class AlliedBookingPage implements OnInit {
       });
   }
 
+  /**
+   * Hotel fijado al entrar desde "Hoteles aliados" (`?hotel=<slug>`). Antes ese hotel se
+   * convertia en su ciudad como destino y la busqueda mostraba todos los hoteles de esa ciudad.
+   * Fijado, las fechas llevan directo a las tarifas de ese hotel (decision del 2026-10-10).
+   */
+  lockedHotel: AlliedHotel | null = null;
+
+  clearLockedHotel(): void {
+    this.lockedHotel = null;
+    this.searchForm.controls.destination.setValue('');
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { hotel: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
   private applyInitialQueryParams(): void {
 
     const queryParams =
       this.route.snapshot.queryParamMap;
+
+    const lockedSlug = queryParams.get('hotel') || '';
+    this.lockedHotel = lockedSlug
+      ? this.hotels.find((hotel) => hotel.slug === lockedSlug) ?? null
+      : null;
 
     const hasInitialCriteria =
       [
@@ -177,7 +201,9 @@ export class AlliedBookingPage implements OnInit {
 
     this.searchForm.patchValue(criteria);
 
+    // Con hotel fijado no se busca sola: llevaria a las tarifas y "volver" rebotaria hacia ellas.
     if (
+      !this.lockedHotel &&
       criteria.destination &&
       criteria.dateRange.length === 2
     ) {
@@ -335,6 +361,15 @@ export class AlliedBookingPage implements OnInit {
     ) {
       this.searchSubmitted = false;
       this.availabilityHotels = [];
+      return;
+    }
+
+    // Hotel fijado: sin lista intermedia, directo a sus tarifas para esas fechas.
+    if (this.lockedHotel) {
+      this.router.navigate(['/reservar/tarifas', this.lockedHotel.slug], {
+        // `hotel` viaja para que "volver" regrese a este mismo hotel, no a su ciudad.
+        queryParams: { ...buildBookingQueryParams(this.criteria), hotel: this.lockedHotel.slug },
+      });
       return;
     }
 

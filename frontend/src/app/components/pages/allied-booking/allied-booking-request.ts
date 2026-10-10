@@ -148,7 +148,12 @@ export class AlliedBookingRequestPage implements OnInit {
   }
 
   get queryParams() {
-    return buildBookingQueryParams(this.criteria);
+    // Si se entro con un hotel fijado (`?hotel=`), se conserva al volver o avanzar.
+    const lockedSlug = this.route.snapshot.queryParamMap.get('hotel');
+    return {
+      ...buildBookingQueryParams(this.criteria),
+      ...(lockedSlug ? { hotel: lockedSlug } : {}),
+    };
   }
 
   get criteriaReady(): boolean {
